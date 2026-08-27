@@ -1,5 +1,11 @@
 # @toolpath/api
 
+## 0.2.4
+
+### Patch Changes
+
+- 2dc3546: Update published package repository links after the repository rename.
+
 ## 0.2.3
 
 ### Patch Changes
