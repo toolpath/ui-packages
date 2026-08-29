@@ -1,5 +1,12 @@
 # @toolpath/ui
 
+## 0.1.2
+
+### Patch Changes
+
+- 340ed33: Declare the supported Node version. Both packages now carry `engines.node: ">=20"`, matching
+  `@toolpath/api` and `@toolpath/tool-scraper` and the ES2022 output they already build.
+
 ## 0.1.1
 
 ### Patch Changes
