@@ -1,5 +1,41 @@
 # @toolpath/tool-scraper
 
+## 2.0.0
+
+### Major Changes
+
+- 220c0f0: A `tap` record may carry no flute count. `RECORD_GEOMETRY.tap` lists `NOF`
+  under `sometimes` rather than `always`, so `toolRecord` no longer refuses a tap
+  whose mapper supplies none, and a consumer cannot read `geometry.NOF` on a tap
+  without checking for it.
+
+  Kennametal's taps publish a `Z` column and still fill it; the relaxation is for
+  a vendor that publishes no tap flute count anywhere a scrape can reach.
+
+### Minor Changes
+
+- bee2487: Add an EMUGE-FRANKEN adapter covering end mills, drills and taps, published as
+  `@toolpath/tool-scraper/vendors/emuge` with an `emuge` CLI subcommand and four
+  families: `emuge_end_mills_inch.csv`, `emuge_end_mills_mm.csv`,
+  `emuge_drills.csv` and `emuge_taps.csv`.
+- 588b43b: Export the per-vendor scrape-target tables, which no subpath reached.
+  `./families` points at the merged index, and that index re-exports `FAMILIES`,
+  `HOLDER_FAMILIES` and `COLLET_FAMILIES` and nothing else — so Harvey Tool's
+  `PRODUCT_PAGES`, MariTool's `LEAVES` and EMUGE-FRANKEN's `SCRAPE_TARGETS` built
+  into `dist`, shipped in the tarball, and threw `ERR_PACKAGE_PATH_NOT_EXPORTED`
+  at any consumer that imported them. Adds `./families/harvey`,
+  `./families/maritool` and `./families/emuge`.
+- cd2a0be: Publish the readers a display-string adapter shares. `measure.asLength` and
+  `measure.asCount` turn one read cell into a length or a count — converting a
+  stated unit the family does not publish, refusing an angle in a length column —
+  and `columns.columnReaders` binds a vendor's reader to the three steps between a
+  `GeometryName` and a number. Both were duplicated verbatim in the Harvey Tool
+  and EMUGE-FRANKEN adapters, warnings and refusal wording included.
+
+  Adds `asLength`, `asCount`, `Measured`, `StatedUnit`, `columnReaders`,
+  `ColumnReaders` and `LengthReader` to the package entry point. No existing
+  signature changes.
+
 ## 1.0.0
 
 ### Major Changes

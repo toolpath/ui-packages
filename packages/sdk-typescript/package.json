@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/api",
-  "version": "0.2.5",
+  "version": "0.3.0",
   "description": "TypeScript bindings and upload helper for the Toolpath Engine API",
   "license": "MIT",
   "engines": {
