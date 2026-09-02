@@ -1,5 +1,86 @@
 # @toolpath/tool-scraper
 
+## 2.1.0
+
+### Minor Changes
+
+- 4296fb3: A `drill` record may carry no point angle. `RECORD_GEOMETRY.drill` lists `SIG`
+  under `sometimes` rather than `always`, so `toolRecord` no longer refuses a
+  drill whose mapper supplies none, and a consumer cannot read `geometry.SIG` on
+  a drill without checking for it.
+
+  EMUGE-FRANKEN states a point angle on 2,669 of its 2,670 drill variants. The
+  last, part `000000000010727800`, publishes a single classification feature and
+  no dimensional properties at all — so its row carries no `SIG` **key**, rather
+  than a key with an empty value. `SIG` is a mapped column in that adapter rather
+  than a family fact, and because `toRecords` maps a family's rows together, that
+  one part refused all 2,670 drills.
+
+  The adapter now omits the key and warns, the way it already treats an end mill's
+  sentinel flute count. A point-angle cell holding something that is not an angle
+  — a length, a range — still refuses, and so does a family that maps no
+  point-angle column at all: that is a fact about the map rather than about a row,
+  so it is asked of the map directly. Reading the two as one is what cost the
+  family, and it named a column map that was correct.
+
+  Kennametal's drills supply `SIG` from a family fact and always carry one.
+
+- b019b61: `ToolRecord` carries a `productLine` — the vendor's own name for the product
+  line a part belongs to, or `null` where the vendor names none. Three of the five
+  cutting-tool adapters fill it.
+
+  Every vendor here publishes a product line and no two published it in the same
+  place, so what a consumer could filter on was an accident of which vendor a
+  record came from. `null` is the vendor's silence rather than an empty name, the
+  same three-state rule `materialGroups` keeps with `unspecified`; `toolRecord`
+  refuses `''` outright.
+  - **EMUGE-FRANKEN** reads it from a column it already scrapes, at no request
+    cost. Each of the three categories is partitioned exactly by one of the
+    vendor's own facets — `product line` for milling, `Geometry` for drilling and
+    tapping — so the value is a read rather than a choice between the 43
+    overlapping product-family pages the vendor's marketing publishes. Milling
+    passes through verbatim (`FRANKEN TOP-Cut VAR`); a drilling or tapping
+    geometry code is mapped onto the title of the vendor's own article page for
+    it (`MULTI` → `MultiDRILL`, `Z` → `Rekord B-Z Taps`), and a code with no such
+    page keeps the code.
+  - **Kennametal and WIDIA** read it from the family page's `h1`, which the
+    variants table does not state anywhere. `scrapeFamily` takes a new
+    `familyTitle` option that fetches it; the whole title reaches the CSV under
+    the new vendor-neutral `FAMILY_TITLE_COLUMN`, and its leading `•` segment
+    becomes the product line. **Off by default** — it is a second request per
+    family, and a caller that only wants dimensions should not pay for one. The
+    `toolpath-scrape kennametal` command turns it on.
+  - **Destiny Tool** maps its `series` column, which the adapter has scraped
+    since it was written and nothing had read.
+
+  Harvey Tool records carry `null`: its product-line title is already this
+  record's `description`, and a second copy of one string is what that field's own
+  docstring refuses.
+
+- 9dbe657: `toRecords` skips a part the vendor left a required dimension blank on, rather
+  than failing the whole family. It warns naming the part, and every other
+  refusal still throws.
+
+  The rows of a family are mapped together, so until now one incomplete part
+  ended the conversion and took every good row with it. EMUGE-FRANKEN omits
+  `overall length l₁` on roughly 175 of its 7,021 end mill variants — the
+  property is absent from the response, not blank — and both end mill families
+  therefore produced no records at all.
+
+  `columns.required` now raises the new `IncompletePartError`, a subclass of
+  `VendorResponseError`, and that is the only failure `toRecords` skips past. A
+  cutting material with no mapping, a column a family stopped mapping, a response
+  that changed shape: those say the vendor's vocabulary or this package's catalog
+  has moved, and they still fail the family.
+
+  **No kind's contract is relaxed.** `RECORD_GEOMETRY.endmill` still lists `OAL`
+  under `always`, and every record returned still carries one — a part without it
+  becomes no record rather than a record with a hole. That is the difference
+  between this and a drill's `SIG`, which is `sometimes` because the vendor
+  genuinely never publishes it.
+
+  Callers that assumed one record per scraped row should read the returned length.
+
 ## 2.0.0
 
 ### Major Changes
