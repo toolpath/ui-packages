@@ -1,5 +1,100 @@
 # @toolpath/tool-scraper
 
+## 2.2.0
+
+### Minor Changes
+
+- 1bf3c43: Mint holder and collet records. `HolderRecord` and `ColletRecord` join `ToolRecord` as
+  package output, and `registry.toHolding(family, scrape)` maps one toolholding family's rows
+  onto them through the adapter its brand binds — Kennametal and WIDIA, REGO-FIX, and MariTool
+  (holders only). A brand with no mapper for a kind is unchanged: its families still bind,
+  scrape and write a receipt.
+
+  New public exports from the root entry point: `HolderRecord`, `ColletRecord`,
+  `HoldingRecord`, `HoldingIdentity`, `HolderMapper`, `ColletMapper`, `HoldingMapper`,
+  `HoldingMappers`, `ToolholdingKind`, `ClampingMode`, `CLAMPING_MODES`, `BORE_CLAMPINGS`,
+  `ContactMode`, `CONTACT_MODES`, `holderRecord`, `colletRecord`, `checkHolder`,
+  `checkCollet`, `dim`, `millimeters`, `asUnit`, `checkUnitAgreement`, `contactMode`,
+  `clampingMode`, `unitSystem`, `holdingFact`, `published`, and
+  `conventions.COLLET_DESIGNATION_COLUMN`; from `./registry`, `HOLDING_ADAPTERS`,
+  `boundHolding` and `toHolding`; from each of `./vendors/kennametal`, `./vendors/regofix` and
+  `./vendors/maritool`, that vendor's `HOLDING_MAPPERS`, plus MariTool's `parseShankSize`,
+  `SHANK_SIZE_LABEL` and `COLLET_NUT_DIAMETER_LABEL`.
+
+  `BoundToolholding` gains `kind` and an optional `records` mapper.
+
+- 1bf3c43: Measure a mirrored holder's CAD model into a gage-line profile.
+  - `profiles.ts` — `layersToProfile`, `buildProfiles`, `checkProfile` and
+    `taperDesignation`, plus `HolderProfile` and `ProfilesDocument`. Pure: the
+    layer stack the Toolpath Engine API returns becomes a `[z, r]` silhouette
+    datumed on the gage line, cross-checked against the vendor's published `L1`,
+    and keyed by the guid the holder record was minted under.
+  - `@toolpath/tool-scraper/node` gains `holder-import.ts` — `createHolderApi`,
+    `measureHolder`, `measureFamily`, `parseHolderResponse` — reading
+    `TOOLPATH_API_KEY` and `TOOLPATH_API_URL`, and `paths.profilesDir` /
+    `paths.profilesJson`.
+  - `cad-mirror.stepFileName` is exported, so the mirror and the reader resolve
+    one part to one filename.
+  - New CLI verb: `toolpath-scrape profiles HOLDERS.csv [more.csv ...]`.
+  - `cli.run` takes an optional fourth argument, a `HolderApi`.
+
+- 1bf3c43: Make the CAD steps vendor-neutral, and add a `coverage` verb that reports which rows publish
+  a model without downloading any of them.
+
+  `mirrorFamilySteps` takes the brand: its signature is now
+  `(fetcher, rows, brand, outDir, delayMs?, warn?)`. It named each file from a hardcoded
+  `ISO Catalog Number`, which is Kennametal's column pair; MariTool publishes one number per
+  part under `Material Number` and no catalog designation, so all 357 of its published STEP
+  models were skipped with a warning that the row had no catalog number to name it. The column
+  now comes from the new `conventions.catalogColumn(brand)`.
+
+  `toolpath-scrape cad` no longer exits 2 on a vendor it cannot annotate. The step is
+  dispatched per brand instead of gated on the AEM brand list, and a brand with no lookup is a
+  no-op reporting what the CSV already carries. It exited 2 on the first non-Kennametal
+  family, which made the command impossible to run across a catalog holding more than one
+  vendor's holders.
+
+  New: `toolpath-scrape coverage [HOLDERS.csv ...]` reports rows, rows with a STEP model and
+  rows with a DXF, per holder family and as a total. It reads the scraped CSVs and makes no
+  requests. Backed by `cadCoverage(rows)` and `CadCoverage`, exported from
+  `@toolpath/tool-scraper/node`, plus `conventions.catalogColumn` from the root entry point.
+
+### Patch Changes
+
+- 239d537: Fix two faults that made measuring a holder family unrepeatable.
+
+  **A rate limit ended the run.** The Engine budgets requests per key and answers
+  `429` with `Retry-After`; `createHolderApi` treated every non-2xx alike, so a
+  family large enough to spend the window died partway through — a 217-holder
+  CAT40 batch, on the poll call. A `429` is the API scheduling the client rather
+  than refusing it, so `request` now waits and retries, preferring the API's own
+  `Retry-After` and backing off where it cannot read one. `retryAfterMs` is
+  exported, `RATE_LIMIT_ATTEMPTS` bounds the retries, and `rateLimitAttempts` on
+  `HolderApiOptions` sets it. Every other non-2xx still stops the run.
+
+  **The idempotency key named the part, and the API binds it to the holder.**
+  `measureHolder` creates a fresh holder on every call, so a key derived from the
+  catalog number was the same string naming a different holder on the second run,
+  which the API refuses with `idempotency_key_reused` — the second measurement of
+  any family failed on its first part, permanently, for that organisation.
+  `idempotencyKey` now takes the `holderId` the run just created, which is the
+  scope the API actually enforces.
+
+  That narrows what the key can promise: it stops a retried `PATCH` inside one run
+  dispatching a second import, and it cannot make re-running an interrupted family
+  free, because there is no way to ask the API for the holder a previous run
+  created. The old docstring claimed the second thing and never delivered it.
+  Resuming cheaply belongs to the caller, by not re-measuring what its store
+  already holds.
+
+- 1bf3c43: Join a MariTool mini-nut holder to the collet it takes. `ER25M` in a `Collet Size` cell is
+  the mini collet nut series, and the collet a mini nut closes is a plain ER25, so
+  `colletSeries` resolves it and `CAT40-ER25-3.0MD` and `BT30-ER25-60M` now write `CST: ER25`
+  instead of joining to no collet family. The vendor's own `Collet Size` cell is untouched, so
+  the CSV still records which parts carry a mini nut. A `Collet Size` designation that is
+  neither a series nor a known nut is still written through as the vendor designated it, and
+  still warns.
+
 ## 2.1.0
 
 ### Minor Changes
