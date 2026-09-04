@@ -83,16 +83,13 @@ export const BRANDS = {
     productLink: 'https://us.rego-fix.com/en/productfinder?q={material}',
   },
   // Destiny Tool is a Next.js SPA with no product data in the HTML at all — it
-  // reads live from a Firestore database. Like REGO-FIX there is no per-part
-  // page to link to, only a client-rendered products list; unlike REGO-FIX's
-  // ProductFinder, nothing here has confirmed a search query parameter the SPA
-  // actually reads, so this is a best-effort link to the listing page rather
-  // than a verified deep link (JG 2026-08-19).
+  // reads live from a Firestore database. Its client-rendered product page is
+  // addressable by the vendor's item number in the path.
   destinytool: {
     host: 'destinytool.com',
     home: 'https://destinytool.com',
     vendor: 'Destiny Tool',
-    productLink: 'https://destinytool.com/products?search={material}',
+    productLink: 'https://destinytool.com/products/{material}',
   },
   // Harvey Tool is the first brand here whose per-part link is a real page the
   // vendor already publishes: every tool number in a product table is rendered
