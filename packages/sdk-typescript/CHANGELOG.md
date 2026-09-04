@@ -1,5 +1,42 @@
 # @toolpath/api
 
+## 0.4.1
+
+### Patch Changes
+
+- 60ceb60: Regenerate the TypeScript SDK for Engine API 1.3.2.
+
+  Neither upload endpoint was ever limited to STEP, and the `filename` query parameter on
+  `POST /v1/parts` and `POST /v1/holders` now says so: its description names the extensions they
+  take.
+  - Both endpoints accept the same formats — STEP (`.step`, `.stp`), Parasolid (`.x_t`, `.x_b`),
+    SolidWorks (`.sldprt`), CATIA V5 (`.catpart`), NX/Creo (`.prt`), and IGES (`.igs`, `.iges`).
+  - `filename` is what selects the reader — nothing inspects the bytes you upload — so its
+    extension must match the file you send. **It is optional, and omitting it stores the upload as
+    STEP**, which fails processing for any other format.
+
+  This release is documentation only. No endpoint, schema or response changes shape, and no
+  upload that worked before behaves differently.
+
+- 59ab7f7: Regenerate the TypeScript SDK for Engine API 1.3.3.
+
+  `FeatureDatasheet` gains `pinchPoints`, from tp-kernel 0.7.3: the places a feature is at its
+  tightest, one disc per stretch of it that reaches the minimum clearance `cd` reports.
+  - Each entry is a `PinchPoint` — a `center` (`Vec2`, across the part rather than along the tool)
+    and a `diameter`, which is the clearance there. A cylinder of that diameter standing at that
+    center and spanning the datasheet's `zMin`..`zMax` is the widest tool that reaches the feature
+    boundary at that spot, so the discs can be drawn directly onto a plan view.
+  - The list is ordered tightest first and capped at ten. It is empty for feature kinds whose
+    clearance is not measured off a single medial axis — holes, facing passes, and the undercut and
+    layered kinds — so empty means "nowhere to point at", never "nowhere is tight".
+  - **The field is documented optional and may be absent.** Only features enriched by this release
+    onward carry it; parts processed earlier keep the datasheets they were stored with and are not
+    re-enriched. Treat a missing `pinchPoints` the same as an empty one only if that suits you —
+    the two are not equivalent, since absent means unmeasured rather than unmeasurable.
+
+  `PinchPoint` and `Vec2` are new components. Everything else on the datasheet is unchanged, and no
+  existing field changed name, type, or requiredness.
+
 ## 0.4.0
 
 ### Minor Changes
