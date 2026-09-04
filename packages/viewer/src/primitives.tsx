@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Group } from 'three'
 import { useContentBox } from './content-box.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
-import { gridGeometry, gridSpec } from './render/grid.js'
+import { gridFor } from './render/grid.js'
 import { type ViewerTheme, resolveTheme } from './render/theme.js'
 import {
   type CubeZone,
@@ -40,19 +40,14 @@ export const Grid = ({ step, extent, color, opacity = 0.35 }: GridProps) => {
   const theme = resolveTheme()
   const box = useContentBox()
 
-  const geometry = useMemo(() => {
-    const spec = gridSpec(box)
-    const cell = step ?? spec.step
-    return gridGeometry({
-      ...spec,
-      step: cell,
-      // Snapped outwards to a whole number of cells, so the part sits inside
-      // the grid rather than ending part-way through a square.
-      extent: extent ?? Math.ceil(spec.extent / cell) * cell,
-    })
-  }, [box, extent, step])
+  // `null` until the scene has been measured: `useContentBox` hands back an
+  // empty box on the first frame, and a grid sized from one is built at
+  // infinity — three.js logs "Computed radius is NaN" for it.
+  const geometry = useMemo(() => gridFor(box, { step, extent }), [box, extent, step])
 
-  useEffect(() => () => geometry.dispose(), [geometry])
+  useEffect(() => () => geometry?.dispose(), [geometry])
+
+  if (!geometry) return null
 
   return (
     <lineSegments geometry={geometry} renderOrder={-1} raycast={() => null} userData={FURNITURE}>

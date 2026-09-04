@@ -26,6 +26,21 @@ export const at = (box: CanvasBox, point: Fraction) => ({
 })
 
 /**
+ * Everything the page writes to the console, and everything it throws.
+ *
+ * Attached before the navigation, because what this is here for is raised on the
+ * opening frame — a listener added after `goto` has already missed it.
+ */
+const recordErrors = (page: Page): string[] => {
+  const errors: string[] = []
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text())
+  })
+  page.on('pageerror', (error) => errors.push(error.message))
+  return errors
+}
+
+/**
  * Opens the example and hands back the canvas once it has been framed.
  *
  * The wait is measured after the opening frame: before it, the canvas is still
@@ -34,17 +49,34 @@ export const at = (box: CanvasBox, point: Fraction) => ({
  * `query` selects which page of the example this is — see `src/main.tsx`. The
  * default one pins a perspective camera; `projection=orthographic` is the
  * camera the package itself defaults to.
+ *
+ * **It also asserts the mount was clean**, which is why every spec here opens
+ * through it. A viewport can look completely right and still be wrong: geometry
+ * sized from a scene that has not been measured yet lands on a plane at
+ * infinity, and three.js reports that by logging "Computed radius is NaN"
+ * rather than by drawing anything a screenshot or a click point would catch.
+ * Every other assertion in this suite reads pixels or the camera readout, so
+ * without this the whole class is invisible here — on both pages, since the two
+ * cameras mount the same overlays.
+ *
+ * The bar is *any* console error, not only three.js's. This is the example, and
+ * a clean mount of it has nothing to say.
  */
 export const openViewer = async (
   page: Page,
   query = '',
 ): Promise<{ canvas: Locator; box: CanvasBox }> => {
+  const errors = recordErrors(page)
+
   await page.goto(query ? `/?${query}` : '/')
   const canvas = page.locator('canvas')
   await expect(canvas).toBeVisible()
   await page.waitForTimeout(700)
   const box = await canvas.boundingBox()
   if (!box) throw new Error('Viewer canvas has no bounding box')
+
+  expect(errors, 'the viewer mounted with console errors').toEqual([])
+
   return { canvas, box }
 }
 

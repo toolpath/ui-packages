@@ -28,6 +28,18 @@ export interface GridSpec {
  * The plane is the *bottom* of the part, not `z = 0`: parts usually sit on
  * `z = 0` and then the two agree, but one modelled about its centre would
  * otherwise be sliced in half by its own grid.
+ *
+ * **Give this a measured box.** The plane is `box.min.z`, which is `+Infinity`
+ * for an empty one. Nothing else in the spec shows it — `getSize` and
+ * `getCenter` both short-circuit to zero for an empty `Box3` — so the step and
+ * the extent come back looking ordinary and {@link gridGeometry} then builds
+ * every vertex on a plane at infinity, which three.js reports as "Computed
+ * radius is NaN" once per mount.
+ *
+ * `useContentBox` hands back an empty box until the scene has been
+ * measured, so a caller pairing the two wants `if (box.isEmpty()) return null`
+ * ahead of this. That is what the package's own `Grid` does, and it is why it
+ * draws nothing on the opening frame rather than a grid nobody asked for.
  */
 export function gridSpec(box: Box3): GridSpec {
   const size = box.getSize(new Vector3())
@@ -79,4 +91,38 @@ export function gridGeometry(spec: GridSpec): BufferGeometry {
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
 
   return geometry
+}
+
+interface GridOptions {
+  /** Cell size in part units (millimetres). Sized from the box when omitted. */
+  readonly step?: number
+  /** Half-width of the grid. Snapped out to whole cells when omitted. */
+  readonly extent?: number
+}
+
+/**
+ * The grid for a part's bounds, or `null` when there is nothing to size against.
+ *
+ * The emptiness check is here rather than in the component because it is the
+ * whole of the decision and it is pure: an unmeasured scene hands back an empty
+ * `Box3`, whose `min.z` is `+Infinity`, so {@link gridSpec} puts the plane there
+ * and {@link gridGeometry} builds every vertex on it. three.js cannot bound that
+ * geometry and reports it as "Computed radius is NaN" on every mount.
+ *
+ * `boundsFromBox` and `resolveSectionPlane` answer the same question about the
+ * same box in the same layer.
+ */
+export function gridFor(box: Box3, options: GridOptions = {}): BufferGeometry | null {
+  if (box.isEmpty()) return null
+
+  const spec = gridSpec(box)
+  const cell = options.step ?? spec.step
+
+  return gridGeometry({
+    ...spec,
+    step: cell,
+    // Snapped outwards to a whole number of cells, so the part sits inside the
+    // grid rather than ending part-way through a square.
+    extent: options.extent ?? Math.ceil(spec.extent / cell) * cell,
+  })
 }

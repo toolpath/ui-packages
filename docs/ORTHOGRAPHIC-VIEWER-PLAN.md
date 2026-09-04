@@ -405,7 +405,8 @@ somebody who does not know what they were for.
   intended and recorded in `viewer.tsx`. Reopen only if the pose should survive
   the `Canvas` remount, which is its own change.
 - **F15 — the grid's NaN geometry.** Real, pre-existing, projection-independent,
-  and owned by no phase. Out of scope here on purpose.
+  and owned by no phase. Was out of scope here on purpose; closed since, on its
+  own branch — see the F15 row below for what the cause actually was.
 
 ---
 
@@ -1008,10 +1009,10 @@ without it every finding below would have been an `instanceof` failure instead.
 
 ### Pre-existing, projection-independent — out of scope, recorded so it is not re-found
 
-| #   | Observation                                                                                                                                                                                                                                                                                                                                | Phase |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
-| F15 | Turning the scene aids on logs `THREE.BufferGeometry.computeBoundingSphere(): Computed radius is NaN` once, in **both** projections. `gridSpec` runs against an empty `Box3` on the first render, and `Box3.getCenter` of an empty box is `(∞ + −∞) / 2` = `NaN`, so `gridGeometry` builds one NaN geometry before the real bounds arrive. | out   |
-| F16 | The initial camera arrives rolled in both projections — `up` is (0.63, 0.37, 0.68) under perspective and (−0.32, 0.66, 0.68) under orthographic, never `CAD_CAMERA_UP`. Free orbit re-derives `up` from the start pose and the initial frame passes no squared `up`.                                                                       | out   |
+| #   | Observation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Phase  |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| F15 | Turning the scene aids on logs `THREE.BufferGeometry.computeBoundingSphere(): Computed radius is NaN` once, in **both** projections. `gridSpec` runs against an empty `Box3` on the first render. The cause recorded here was wrong: `Box3.getCenter` and `getSize` both short-circuit to zero for an empty box, so the centre is fine and the step and extent look ordinary. It is `z`, taken straight from `box.min.z`, which is `+Infinity` — `gridGeometry` then builds every vertex on a plane at infinity. Closed — `gridFor` draws nothing until the box is real, and `openViewer` fails any spec whose mount reaches the console. | closed |
+| F16 | The initial camera arrives rolled in both projections — `up` is (0.63, 0.37, 0.68) under perspective and (−0.32, 0.66, 0.68) under orthographic, never `CAD_CAMERA_UP`. Free orbit re-derives `up` from the start pose and the initial frame passes no squared `up`.                                                                                                                                                                                                                                                                                                                                                                      | out    |
 
 ### What this changes in the phases ahead
 

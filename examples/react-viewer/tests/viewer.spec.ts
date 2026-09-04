@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { at, on } from './canvas.js'
+import { at, on, openViewer } from './canvas.js'
 
 /**
  * The example viewer, driven the way somebody would drive it.
@@ -47,12 +47,7 @@ const ARROW = { x: 0.33, y: 0.27 }
  * This test says it in one, and it fails first because it is first in the file.
  */
 test('the click points hit the faces the rest of this file is written about', async ({ page }) => {
-  await page.goto('/')
-  const canvas = page.locator('canvas')
-  await expect(canvas).toBeVisible()
-  await page.waitForTimeout(700)
-  const box = await canvas.boundingBox()
-  if (!box) throw new Error('Viewer canvas has no bounding box')
+  const { canvas, box } = await openViewer(page)
 
   const selected = page.locator('p', { hasText: 'Selected:' })
   const direction = page.locator('p', { hasText: 'Direction:' })
@@ -80,14 +75,7 @@ test('the click points hit the faces the rest of this file is written about', as
 })
 
 test('selects a feature and responds to CAD camera navigation', async ({ page }) => {
-  await page.goto('/')
-  const canvas = page.locator('canvas')
-  await expect(canvas).toBeVisible()
-  // Measured after the opening frame: before it, the canvas is still at its
-  // default 300x150 and every coordinate below would be taken from that.
-  await page.waitForTimeout(700)
-  const box = await canvas.boundingBox()
-  if (!box) throw new Error('Viewer canvas has no bounding box')
+  const { canvas, box } = await openViewer(page)
 
   // The section. Driven through its slider rather than by dragging the handle
   // in the viewport: the handle is a dozen pixels across, its position depends
@@ -144,11 +132,7 @@ test('selects a feature and responds to CAD camera navigation', async ({ page })
 })
 
 test('pans with either pan button, from wherever the drag starts', async ({ page }) => {
-  await page.goto('/')
-  const canvas = page.locator('canvas')
-  await page.waitForTimeout(700)
-  const box = await canvas.boundingBox()
-  if (!box) throw new Error('Viewer canvas has no bounding box')
+  const { canvas, box } = await openViewer(page)
 
   // The <p>, not the <strong> inside it: `getByText('Selected:')` matches the
   // label alone, whose text never changes, so every assertion below would hold
@@ -189,11 +173,7 @@ test('pans with either pan button, from wherever the drag starts', async ({ page
 })
 
 test('finishing a drag over a face is not a request to select it', async ({ page }) => {
-  await page.goto('/')
-  const canvas = page.locator('canvas')
-  await page.waitForTimeout(700)
-  const box = await canvas.boundingBox()
-  if (!box) throw new Error('Viewer canvas has no bounding box')
+  const { canvas, box } = await openViewer(page)
 
   const selected = page.locator('p', { hasText: 'Selected:' })
   const hovered = page.locator('p', { hasText: 'Hovered:' })
@@ -238,11 +218,7 @@ test('finishing a drag over a face is not a request to select it', async ({ page
  * moment a pan began, whatever the pan did next.
  */
 test('panning over empty space keeps the selection', async ({ page }) => {
-  await page.goto('/')
-  const canvas = page.locator('canvas')
-  await page.waitForTimeout(700)
-  const box = await canvas.boundingBox()
-  if (!box) throw new Error('Viewer canvas has no bounding box')
+  const { canvas, box } = await openViewer(page)
 
   const selected = page.locator('p', { hasText: 'Selected:' })
   await canvas.click({ position: on(box, ONE) })
@@ -278,11 +254,7 @@ test('panning over empty space keeps the selection', async ({ page }) => {
  * one getting it too.
  */
 test('two middle-button pans released in the same place do not re-frame', async ({ page }) => {
-  await page.goto('/')
-  const canvas = page.locator('canvas')
-  await page.waitForTimeout(700)
-  const box = await canvas.boundingBox()
-  if (!box) throw new Error('Viewer canvas has no bounding box')
+  const { canvas, box } = await openViewer(page)
 
   const selected = page.locator('p', { hasText: 'Selected:' })
   const centre = on(box, CENTRE)

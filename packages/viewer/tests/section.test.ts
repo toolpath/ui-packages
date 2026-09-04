@@ -12,6 +12,7 @@ import {
   sectionOffset,
   sectionPlane,
 } from '../src/render/section.js'
+import { resolveSectionPlane } from '../src/section-view.js'
 
 /**
  * A section is a plane constant and a sign convention, and every bug in one is
@@ -166,5 +167,31 @@ describe('dragPlane', () => {
     // will do, and NaN will not.
     expect(Number.isFinite(plane.normal.length())).toBe(true)
     expect(plane.normal.dot(axis)).toBeCloseTo(0, 9)
+  })
+})
+
+/**
+ * The same unmeasured box the grid guards against, at the seam that reads it
+ * next. `part-mesh` calls this on its first frame, before `useContentBox` has
+ * anything to report, and an empty `Box3` sweeps between infinite bounds — a
+ * NaN plane constant clips the whole scene away, so the part does not appear
+ * at all rather than appearing uncut.
+ */
+describe('resolveSectionPlane', () => {
+  it('has no cut for an unmeasured scene', () => {
+    expect(resolveSectionPlane({ enabled: true }, new Box3())).toBeNull()
+  })
+
+  it('has no cut when sectioning is off', () => {
+    expect(resolveSectionPlane({ enabled: false }, cube())).toBeNull()
+    expect(resolveSectionPlane(undefined, cube())).toBeNull()
+  })
+
+  it('cuts a measured part on a finite plane', () => {
+    const resolved = resolveSectionPlane({ enabled: true, offset: 0.5 }, cube())
+    if (resolved === null) throw new Error('a measured part gets a cut')
+
+    expect(Number.isFinite(resolved.plane.constant)).toBe(true)
+    expect(resolved.state.enabled).toBe(true)
   })
 })
