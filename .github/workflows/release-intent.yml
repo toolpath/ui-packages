@@ -21,3 +21,13 @@ jobs:
           fetch-depth: 0
 
       - run: node scripts/check-release-intent.mjs "origin/${{ github.base_ref }}"
+
+  production-contract:
+    name: Production Engine API contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - run: node scripts/check-production-api-contract.mjs "origin/${{ github.base_ref }}"
