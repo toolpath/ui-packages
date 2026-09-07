@@ -155,7 +155,55 @@ calibration/ATC tooling and coolant tubes — 731 further parts under `c23`.
 holders. ISO30 has three ER parts and none of them publishes a spec table, so
 the family would be a receipt of nothing.
 
-### 2.3 The roster count
+### 2.3 The taps, and how they classify themselves
+
+Not scraped. Recorded here because MariTool's tree already answers the question
+`ToolRecord.threadMethod` exists for, and because the answer wants writing down
+while somebody has read the pages.
+
+Under `c78_148` (`Cutting Tools / Taps`), read 2026-09-07:
+
+| Leaf | cPath | Method |
+| --- | --- | --- |
+| Thread Forming Taps | `78_148_274` | `forming` |
+| — Plug Form Tap | `78_148_274_275` | `forming` |
+| — Bottoming Form Tap | `78_148_274_276` | `forming` |
+| Spiral Flute Taps | `78_148_149` | `cutting` |
+| — Spiral Flute Plug Taps, Spiral Flute Bottoming | | `cutting` |
+| Spiral Point Taps | `78_148_224` | `cutting` |
+| Taps for Aluminum | `78_148_271` | `cutting` |
+| — Sprial Point Plug Taps *(the vendor's typo)*, Spiral Flute Semi Bottoming | | `cutting` |
+| Taper Pipe Taps | `78_148_283` | `cutting` |
+| DIN Length HPT Taps | `78_148_284` | `cutting` |
+| — Plug Style DIN Taps, Bottoming Style DIN Taps | | `cutting` |
+
+**Only the forming branch carries the word**, in the leaf name and in every
+product title under it — `Plug Style Thread Forming Tap Bright Finish 10-24 H4`.
+So `form`/`forming` in the name is the rule, applied when the table is built and
+checked into it, never run as a filter at scrape time. §2.2 already gives the
+reason: three ER leaves are named `Collet Chucks` rather than `ER Collet Chucks`
+and a name match would drop all three silently.
+
+**What a tap family still needs decided.** A product page publishes enough for a
+record — `Shank Size` → `SFDM`, `Total Length` → `OAL`, `Thread Length` → `LCF`,
+`Size` + `Pitch Diameter` → a designation `thread.ts` already parses, and no
+`DC`, which is the Kennametal case. What it also does is state a **metric thread
+on an inch body**:
+
+```
+Size: M3            Pitch Diameter: 0.5      # millimetres
+Shank Size: 0.141   Total Length: 1 15/16    # inches
+Thread Limit: D5    Finish: TiN
+```
+
+`Pitch Diameter` is the vendor's label for what is a pitch on a metric tap and a
+thread count on an inch one (`Size: 10`, `Pitch Diameter: 24`). No family in
+this package is mixed that way and `ToolRecord.unit` is one value per record, so
+this is its own decision — and it is the hazard
+`tool-support/src/geometry.ts`'s `TP` docstring already records rather than
+resolves.
+
+### 2.4 The roster count
 
 `Displaying 1 to 30 (of 51 products)`, and `Result Pages` paging on `page=N`.
 30 products per page; the 41 leaves in scope need **47 listing pages**.

@@ -22,13 +22,13 @@ import { ScraperConfigError } from './errors.js'
 import type { BrandName } from './identity.js'
 import type { HoldingMapper, ToolholdingKind } from './holding.js'
 import type { Fact } from './provenance.js'
-import type { ColumnMap, ToolKind, ToolRecord } from './records.js'
+import type { ColumnMap, ThreadMethod, ToolKind, ToolRecord } from './records.js'
 import type { MapperOptions, ScrapedRow } from './scrape.js'
 
 /**
  * The per-family constants a fact can carry, and their types.
  *
- * Eleven keys, which is the whole vocabulary the catalog uses. Naming them rather
+ * Twelve keys, which is the whole vocabulary the catalog uses. Naming them rather
  * than accepting any string is what lets a mapper read `family.coolantThrough`
  * as a `boolean` instead of casting an `unknown` out of a bag — and what makes
  * a fact whose value is the wrong type a compile error where the family is
@@ -52,6 +52,20 @@ export interface FamilyFacts {
    */
   profile?: string
   coolantThrough?: boolean
+  /**
+   * How a tap makes its thread — `cutting` or `forming`.
+   *
+   * A fact and not a column because neither vendor publishes it per part: it is
+   * Kennametal's `newTapType` facet, which the variant table does not carry,
+   * and EMUGE's category, which partitions its taps into two. Every declaration
+   * in `families/` cites the index it was read off, and each is one value for a
+   * whole family — checked against the vendor rather than assumed, which is why
+   * they are `vendor-stated`.
+   *
+   * Every `kind: 'tap'` family must state it: `tapRecord` reads it through
+   * {@link fact}, and `records.toolRecord` refuses a tap record without one.
+   */
+  threadMethod?: ThreadMethod
   flutes?: number
   /** Degrees included. */
   pointAngle?: number

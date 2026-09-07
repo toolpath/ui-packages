@@ -49,6 +49,33 @@ describe('the family table and the target table', () => {
     }
   })
 
+  it('scrapes both halves of the vendor’s tapping catalog, as two categories', () => {
+    // EMUGE splits taps into `FG01` (`Machine taps`) and `FG02` (`Cold forming
+    // tap`). `FG02` went unscraped until 2026-09-07, which meant every tap in
+    // this package's corpus was a cutting tap and nothing recorded that it
+    // was. Two categories, so two families — unlike milling, which is one
+    // category under two facets.
+    expect(SCRAPE_TARGETS['emuge_taps.csv'].category).toBe('FG01')
+    expect(SCRAPE_TARGETS['emuge_form_taps.csv'].category).toBe('FG02')
+
+    const taps = NAMES.filter((name) => FAMILIES[name as keyof typeof FAMILIES].kind === 'tap')
+    expect(taps.sort()).toEqual(['emuge_form_taps.csv', 'emuge_taps.csv'])
+
+    // The vendor's own result counts for exactly these two queries, read on
+    // 2026-09-07 — the second number `node/receipts.checkRows` compares a
+    // scrape against.
+    expect(FAMILIES['emuge_taps.csv'].rows).toBe(11566)
+    expect(FAMILIES['emuge_form_taps.csv'].rows).toBe(1432)
+  })
+
+  it('reads both tap families through one set of column labels', () => {
+    // EMUGE labels a former's lead `length of cutting edge l₂` exactly as it
+    // labels a cut tap's flute length, so the two families share a column map
+    // and differ only in the category and what the category settles.
+    expect(FAMILIES['emuge_form_taps.csv'].columns).toEqual(FAMILIES['emuge_taps.csv'].columns)
+    expect(Object.values(FAMILIES['emuge_taps.csv'].columns)).toContain('length of cutting edge l₂')
+  })
+
   it('gives the two end mill families one category and two facets of it', () => {
     // Same `familyCode` on both, which is right — they are two facets of one
     // vendor category rather than two categories — so the facet is the only

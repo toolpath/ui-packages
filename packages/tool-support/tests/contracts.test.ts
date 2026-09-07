@@ -35,6 +35,13 @@ const tool: Tool = {
   provenance: { DC: 'vendor-stated', LBH: 'derived' },
 }
 
+const tap: Tool = {
+  form: 'tap right hand',
+  label: 'BU37Z700.5003',
+  threadMethod: 'forming',
+  geometry: { DC: 2.845, TP: 0.635, LCF: 6, OAL: 56, SFDM: 3.581 },
+}
+
 const holder: Holder = {
   noseDiameter: 27,
   noseLength: 12,
@@ -135,6 +142,15 @@ describe('a catalog record is a Tool by structure', () => {
     const asTool: Tool = record
     expect(asTool.geometry.DC).toBe(6.8)
     expect(asTool.geometry.WOC).toBeUndefined()
+  })
+
+  it('carries how a tap makes its thread, where anybody has said', () => {
+    // Optional, and absent is nobody having said rather than a claim of
+    // cutting — the rule `Clamping` keeps on a holder. An end mill carries none
+    // because the question does not apply to it, and the type does not force a
+    // caller to write that down.
+    expect(tap.threadMethod).toBe('forming')
+    expect(tool.threadMethod).toBeUndefined()
   })
 
   it('carries provenance a shop can trace, and nothing implied', () => {

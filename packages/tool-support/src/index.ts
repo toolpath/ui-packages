@@ -78,7 +78,15 @@ export {
   type ToolFormEntry,
 } from './forms.js'
 
-export { hasNeck, shankOf, type Shank, type Tool } from './tool.js'
+export {
+  THREAD_METHODS,
+  hasNeck,
+  isThreadMethod,
+  shankOf,
+  type Shank,
+  type ThreadMethod,
+  type Tool,
+} from './tool.js'
 
 export {
   PROFILES_VERSION,

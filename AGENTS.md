@@ -141,6 +141,7 @@ judgment rule starts being violated, give it a check rather than restating it he
 | A scraper vendor adapter imports no other vendor                          | `pnpm test` (`vendor-boundary`)       |
 | Only a composition root reaches into `src/vendors/`                       | `pnpm test` (`vendor-boundary`)       |
 | Every scraper vendor directory has a `scrape.ts`                          | `pnpm test` (`vendor-boundary`)       |
+| Every tap family states whether it cuts its thread or forms it            | `pnpm test` (`tap-method`)            |
 | `@toolpath/tool-support` imports nothing and declares no dependency       | `pnpm test` (`boundary`)              |
 | `@toolpath/app-support`'s root entry imports no React                     | `pnpm test` (`boundary`)              |
 | `@toolpath/app-support` never imports `@toolpath/ui`                      | `pnpm test` (`boundary`)              |

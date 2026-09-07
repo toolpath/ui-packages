@@ -229,11 +229,14 @@ describe('the catalog sources what no table states', () => {
     // differs: a tap has no `unit` — its rows carry their own `Thread System`
     // — and no `flutes` constant, because it publishes a `Z` column. It does
     // need `coolantThrough`: the tap mapper hardcoded `false` until 2026-08-29,
-    // which is the same claim with nothing standing behind it.
+    // which is the same claim with nothing standing behind it. And it needs
+    // `threadMethod`, because neither vendor publishes per part whether a tap
+    // cuts its thread or forms it — see `tests/tap-method.test.ts`, which holds
+    // that fact to more than its presence.
     const required: Record<ToolKind, string[]> = {
       drill: ['unit', 'flutes', 'pointAngle', 'coolantThrough', 'nonFerrous', 'bmc'],
       endmill: ['unit', 'coolantThrough', 'bmc'],
-      tap: ['bmc', 'coolantThrough'],
+      tap: ['bmc', 'coolantThrough', 'threadMethod'],
     }
 
     // **Unless the vendor states it per part, in which case a fact would be

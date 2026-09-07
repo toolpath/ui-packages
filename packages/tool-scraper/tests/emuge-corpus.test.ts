@@ -16,6 +16,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { checkIdentityColumns, dimensionalColumn } from '../src/conventions.js'
+import type { FamilyDefinition } from '../src/family.js'
 import { FAMILIES } from '../src/families/emuge.js'
 import { boundFamily, toRecords } from '../src/registry.js'
 import { unionHeader } from '../src/scrape.js'
@@ -45,6 +46,41 @@ describe('the scraped EMUGE-FRANKEN catalog', () => {
       for (const row of scraped) {
         expect(row[MATERIAL_NUMBER_COLUMN], JSON.stringify(row)).toBeTruthy()
         expect(row[CATALOG_NUMBER_COLUMN], row[MATERIAL_NUMBER_COLUMN]).toBeTruthy()
+      }
+    })
+  }
+
+  const TAPS: readonly (readonly [string, FamilyDefinition])[] = Object.entries(
+    FAMILIES as Record<string, FamilyDefinition>,
+  ).filter(([, cfg]) => cfg.kind === 'tap')
+
+  for (const [name, cfg] of TAPS) {
+    const forming = cfg.facts?.threadMethod?.value === 'forming'
+    const stated = forming ? 'lead taper form' : 'chamfer form'
+    const absent = forming ? 'chamfer form' : 'lead taper form'
+
+    it(`${name}: every part states a ${stated} and no ${absent}`, (ctx) => {
+      // **The sensor for a family constant nothing else can check.**
+      // `threadMethod` is a fact rather than a mapped column, so a scrape
+      // cannot contradict it the way a lost column contradicts a declared
+      // `unit` — the record would simply carry whatever the table said.
+      //
+      // But EMUGE states the same distinction a second way, per part: it grinds
+      // a chamfer onto a tap that cuts and rolls a lead taper onto one that
+      // forms, and publishes whichever applies in `technicalDetails`. Every one
+      // of `FG01`'s 414 groups states `chamfer form` and none states `lead
+      // taper form`; every one of `FG02`'s 137 states the reverse (JG
+      // 2026-09-07). Both properties reach the CSV unmapped, so this is the
+      // vendor's own second opinion on the fact, over the whole catalog rather
+      // than over a fixture.
+      //
+      // A failure here is not a broken test. It is the vendor having moved a
+      // tap between categories, or having renamed the property — and either way
+      // the family's `threadMethod` is now a claim about parts that no longer
+      // support it.
+      for (const row of rows(ctx, name)) {
+        expect(row[stated], row[MATERIAL_NUMBER_COLUMN]).toBeTruthy()
+        expect(row[absent] ?? '', row[MATERIAL_NUMBER_COLUMN]).toBe('')
       }
     })
   }

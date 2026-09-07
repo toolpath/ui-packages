@@ -155,6 +155,7 @@ so batching per variant is what a record needs.
 | `FF01` | End mill cutters | 554 | 7,021 |
 | `FB01` | Twist drills | 17 | 2,670 |
 | `FG01` | Machine taps | 414 | 11,566 |
+| `FG02` | Cold forming tap | 137 | 1,432 |
 | `FF02` | Tool holders and accessories | 80 | 625 |
 
 `FF02` is not scraped — this package takes EMUGE's cutting tools only.
@@ -164,9 +165,49 @@ Milling is split by unit system with the vendor's own facet,
 and `AMM_EINHS_M` metric (5,189). Drilling and tapping have no such facet and
 need none — every drill and every tap is published in millimetres.
 
-Roughly 1,700 requests cover the three cutting-tool categories: the group
+## 4b. Tapping is two categories, and that is the form/cut split
+
+The vendor files its taps as `FG01` — which it titles **Machine taps** — and
+`FG02`, **Cold forming tap**. A tap in the first cuts its thread away; one in the
+second displaces material into it. They are the same three calls against the
+same column labels, including `length of cutting edge l₂`, which EMUGE keeps on
+a tool that has no cutting edge.
+
+`FG02` went unscraped until 2026-09-07. Until then `emuge_taps.csv` was this
+package's whole tapping corpus and every row in it was a cutting tap, with
+nothing on the record saying so.
+
+**The parts agree with the categories, independently.** Every grouped product
+carries a flat `technicalDetails` list, and a tap's names the entry geometry —
+a chamfer where it cuts, a lead taper where it forms:
+
+| Category | Property stated | Groups | Groups stating the other |
+| --- | --- | --- | --- |
+| `FG01` | `chamfer form` | 414 of 414 | 0 |
+| `FG02` | `lead taper form` | 137 of 137 | 0 |
+
+Mutually exclusive, both directions, at full coverage (JG 2026-09-07). That is
+what `families/emuge.ts` cites for each family's `threadMethod`, and
+`tests/emuge-corpus.test.ts` re-checks it against a real scrape — a fact rather
+than a mapped column cannot otherwise be contradicted by one.
+
+**Two things that look like the discriminator and are not:**
+
+- **`Geometry` is not one.** `FG02`'s eight values — `AL`, `GAL`, `H`, `MULTI`,
+  `SPEED`, `STEEL`, `VA`, `Z` — are all `FG01` values too, and mean different
+  products: a `Z`-geometry former is InnoForm where a `Z`-geometry cutting tap
+  is Rekord B-Z. This is why `PRODUCT_LINES` has no `FG02` table and the codes
+  pass through verbatim.
+- **`flute characteristic: without` is not one.** The 189 `FG01` variants
+  carrying it are six EMUGE *Robust* groups — reinforced cutting taps — and
+  every one of them still states a `chamfer form`.
+
+## 4c. Request cost
+
+Roughly 1,900 requests cover the four cutting-tool categories: the group
 listings, one variant call per group, and `ceil(variants / 30)` detail calls.
-At the package's 400 ms pacing that is about twelve minutes.
+At the package's 400 ms pacing that is about thirteen minutes; `FG02` is about
+190 of those requests on its own.
 
 ## 4a. The product line, and the facet that partitions each category
 
@@ -178,6 +219,7 @@ checked at group level on 2026-09-01 rather than by summing counts:
 | `FF01`   | `AMM_PROG_LINIE`     | `product line` | 15     | 554 of 554     | 2             |
 | `FB01`   | `HYB_BAM_SB_GT`      | `Geometry`     | 4      | 17 of 17       | 0             |
 | `FG01`   | `HYB_BAM_SB_GT`      | `Geometry`     | 17     | 414 of 414     | 0             |
+| `FG02`   | `HYB_BAM_SB_GT`      | `Geometry`     | 8      | 137 of 137     | 0             |
 
 All three reach the CSV without a request being added: `Geometry` is on the
 grouped product's `technicalDetails` and `product line` on the per-part detail
