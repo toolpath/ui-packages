@@ -120,6 +120,9 @@ describe('product links', () => {
     expect(productLink('regofix', '2130.70610')).toBe(
       'https://us.rego-fix.com/en/productfinder?q=2130.70610',
     )
+    expect(productLink('destinytool', 'BC208031D')).toBe(
+      'https://destinytool.com/products/BC208031D',
+    )
   })
 })
 
