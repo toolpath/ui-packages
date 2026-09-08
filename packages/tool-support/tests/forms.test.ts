@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
   MILLING_FORMS,
+  TAP_FORMS,
   THREAD_METHODS,
   TOOL_FORMS,
+  isTapForm,
   isThreadMethod,
   isToolForm,
   type ToolForm,
@@ -73,6 +75,19 @@ describe('how a tap makes its thread', () => {
     expect(forms).toContain('tap left hand')
     for (const form of forms) {
       expect(form, form).not.toMatch(/form(ing)? tap/)
+    }
+  })
+
+  it('holds the two taps and nothing that merely starts with the letters', () => {
+    // The set a square-drive collet's gate reads. `tapered mill` is the trap:
+    // it is the reason the prefix carries the space, and the reason this is
+    // derived from the vocabulary rather than rostered beside it.
+    expect([...TAP_FORMS].sort()).toEqual(['tap left hand', 'tap right hand'])
+    expect(isTapForm('tapered mill')).toBe(false)
+    expect(isTapForm('drill')).toBe(false)
+    expect(isTapForm('')).toBe(false)
+    for (const form of TOOL_FORMS) {
+      expect(isTapForm(form.value), form.value).toBe(form.value.startsWith('tap '))
     }
   })
 

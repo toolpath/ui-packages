@@ -92,6 +92,32 @@ describe('whether a holder takes a tool', () => {
     expect(holderTakesTool(chuck, er16, { geometry: { DC: 6, OAL: 57 } })).toBe(false)
   })
 
+  it('puts nothing but a tap in a square-drive collet', () => {
+    // A tap collet's bore carries a square, so a shank test alone says yes to
+    // an end mill of that diameter — held by nothing. The square is the
+    // vendor's own published dimension; a collet that states none is unchanged.
+    const tapCollet: Collet = {
+      series: 'ER16',
+      clampMin: 6.477,
+      clampMax: 6.477,
+      clampLength: 18,
+      squareSize: 4.851,
+    }
+    const tap = { form: 'tap right hand', geometry: { SFDM: 6.477, OAL: 70 } }
+    const mill = { form: 'flat end mill', geometry: { SFDM: 6.477, OAL: 70 } }
+
+    expect(holderTakesTool(chuck, tapCollet, tap)).toBe(true)
+    expect(holderTakesTool(chuck, tapCollet, mill)).toBe(false)
+    // An unstated form is nobody having said, and nobody-has-said does not go
+    // in a square bore.
+    expect(holderTakesTool(chuck, tapCollet, { geometry: { SFDM: 6.477 } })).toBe(false)
+    // A tap in a plain round collet is how most shops tap. Refusing it would be
+    // this package inventing a policy no vendor stated.
+    const round: Collet = { ...tapCollet, squareSize: null }
+    expect(holderTakesTool(chuck, round, tap)).toBe(true)
+    expect(holderTakesTool(chuck, round, mill)).toBe(true)
+  })
+
   it('refuses a holder that does not say how it clamps', () => {
     // A drawing hands over nine numbers and must not have to invent a clamping
     // mode. Absent means nobody has said, and nobody-has-said refuses.

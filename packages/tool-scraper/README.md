@@ -69,6 +69,7 @@ version.
 export TOOLPATH_SCRAPE_ROOT=~/toolpath-scrapes      # default: ./scrape-out, gitignored
 
 toolpath-scrape kennametal 100003658 "$TOOLPATH_SCRAPE_ROOT/kennametal/csv/godrill_3xd_metric.csv"
+toolpath-scrape kennametal --collets                 # every ER collet family, and which CSV claims it
 toolpath-scrape materials godrill_3xd_metric.csv
 toolpath-scrape regofix holders "$TOOLPATH_SCRAPE_ROOT/regofix/csv/regofix_bt30_pg_holders.csv"
 toolpath-scrape destinytool "$TOOLPATH_SCRAPE_ROOT/destinytool/csv/destinytool_end_mills_inch.csv"

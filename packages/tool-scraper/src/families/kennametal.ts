@@ -161,6 +161,54 @@ const ER_COLLET_CHUCK = {
   cite: 'breadcrumb ".../ER Collet Chucks/ER(tm) Collet Adapter -BT30"',
 } as const satisfies Fact<string>
 
+/**
+ * The three ER collet styles, each stated once for the families that share it.
+ *
+ * `style` is the finer axis beside a holder's `clamping`, and here it is what
+ * tells a consumer which kind of collet it is holding. All three are
+ * Kennametal's own product lines, read off the collet category tree — see
+ * `vendors/kennametal/catalog.ts`, which is what enumerates them.
+ */
+const ER_STANDARD = {
+  value: 'er-standard',
+  source: 'vendor-stated',
+  cite: "the vendor's category is 'ER Collets / ER Standard Collets'; the family publishes a CCCN-CCCX capacity band and no square",
+} as const satisfies Fact<string>
+
+/**
+ * Sealed coolant-through collets. `style` separates them from the standard ones
+ * because they behave differently in a way the numbers show but a label should
+ * not hide: `CCCX == CCCN` on every row, so each clamps one exact size rather
+ * than a 1 mm band.
+ *
+ * No special case is needed anywhere — a zero-width range is still a range —
+ * but a user choosing one deserves to be told which kind it is.
+ *
+ * **The ER40 inch line is designated larger than it clamps**, and that is the
+ * vendor's own statement rather than a rounding: `40ERSS1000` is named for one
+ * inch and publishes a capacity of 0.9938 in / 25.243 mm against a `D1` of
+ * 1.0 in / 25.4 mm — both figures agree across both unit columns. Ten of its
+ * twelve rows do this, up to 0.193 mm on `40ERSS0812`. `holding.NOMINAL_SLACK`
+ * is the gate that lets a designation sit outside the size it measures, and
+ * those rows are where its bound comes from.
+ */
+const ER_SEALED = {
+  value: 'er-sealed',
+  source: 'vendor-stated',
+  cite: "the vendor's category is 'ER Collets / ER Coolant Through Collets'; CCCX == CCCN == D1 on all 139 rows of the twelve families, and Kennametal specs an H6 shank, so each clamps one exact size",
+} as const satisfies Fact<string>
+
+/**
+ * Tap collets. The square drive is the fact that matters and it is scraped
+ * rather than declared — `holding.ColletRecord.squareSize` — so this is the
+ * label and not the discriminant.
+ */
+const ER_TAP = {
+  value: 'er-tap',
+  source: 'vendor-stated',
+  cite: "the vendor's category is 'ER Collets / ER Tap Collets'; every row publishes an S10 square size and no capacity band",
+} as const satisfies Fact<string>
+
 const METRIC_CATALOG = {
   value: 'millimeters',
   source: 'vendor-stated',
@@ -703,35 +751,154 @@ export const HOLDER_FAMILIES = {
   },
 } as const satisfies Record<string, ToolholdingDefinition>
 
+/**
+ * ER collets, one entry per vendor family.
+ *
+ * **One entry per vendor family and not one per style.** Kennametal codes the
+ * coolant-through line as twelve families — one per series per unit — and their
+ * column shapes genuinely differ: the inch half publishes `LF` and `L`, the
+ * metric half publishes `L9` instead, and only `109321468` publishes both.
+ * Merging them into two CSVs would also destroy `ToolholdingDefinition.rows`,
+ * which is a per-family restatement and the only independent check that a
+ * re-scrape did not lose parts.
+ *
+ * Every `familyCode` here came out of `kennametal --collets`, which is what
+ * `vendors/kennametal/catalog.ts` exists for. The row counts are that walk's
+ * own per-family totals, and each category's parts sum to them exactly —
+ * 117 + 107 = 224 standard, 75 + 74 = 149 coolant-through, 47 + 49 = 96 tap.
+ *
+ * ## The four kit families are deliberately absent
+ *
+ * `100000428`, `100000425`, `109433662` and `109433658` — 26 parts — publish
+ * `Kit Series`, `Number-Kit Items`, `Dimension Range-Kit Items` and
+ * `Incremental Division-Kit Items`, and no `D1`, no capacity and no length. A
+ * kit is a purchasing unit whose contents are already the per-part families
+ * below, and minting one into a `holding.ColletRecord` would mean deriving a
+ * capacity band from a range string — authoring tool data, which this package
+ * does not do. `kennametal --collets` lists them every run, so they stay
+ * visible rather than forgotten.
+ *
+ * ## ER8 fits nothing in this catalog
+ *
+ * Nine of the 110 standard metric collets are ER8, and no BT30 ER8 adapter is
+ * configured. They are scraped anyway: `holding.HolderRecord.colletSeries`
+ * states the direction — a collet nothing takes costs an option, and a collet
+ * offered for a holder it does not fit costs a machinist a purchase.
+ */
 export const COLLET_FAMILIES = {
+  // ── ER standard collets (JG 2026-09-08) ──────────────────────────────────
   'er_standard_collets_metric.csv': {
     catalogName: 'Kennametal ER Standard Collets Metric',
     rows: 110,
-    facts: {
-      style: {
-        value: 'er-standard',
-        source: 'vendor-stated',
-        cite: "the family is Kennametal's plain ER collet line",
-      },
-      unit: METRIC_CATALOG,
-    },
+    familyCode: '100000478',
+    facts: { style: ER_STANDARD, unit: METRIC_CATALOG },
   },
-  // Sealed coolant-through collets. `style` separates them from the standard
-  // ones because they behave differently in a way the numbers alone show but
-  // a label should not hide: CCCX == CCCN on every row, so each clamps one
-  // exact size (Kennametal specs H6 shank tolerance) rather than a 1 mm band.
-  // No special case is needed anywhere — a zero-width range is still a range
-  // — but a user choosing one deserves to be told which kind it is.
+  'er_standard_collets_inch.csv': {
+    catalogName: 'Kennametal ER Standard Collets Inch',
+    rows: 98,
+    familyCode: '100000479',
+    facts: { style: ER_STANDARD, unit: INCH_CATALOG },
+  },
+
+  // ── ER coolant-through collets (JG 2026-09-08) ───────────────────────────
+  // Twelve families, one per series per unit. `ER8` has no coolant-through
+  // line; `ER11` upward do.
+  'er11_collets_coolant_through_metric.csv': {
+    catalogName: 'Kennametal ER11 Collets Coolant-Through Metric',
+    rows: 5,
+    familyCode: '109333979',
+    facts: { style: ER_SEALED, unit: METRIC_CATALOG },
+  },
+  'er16_collets_coolant_through_metric.csv': {
+    catalogName: 'Kennametal ER16 Collets Coolant-Through Metric',
+    rows: 8,
+    familyCode: '109333976',
+    facts: { style: ER_SEALED, unit: METRIC_CATALOG },
+  },
+  'er20_collets_coolant_through_metric.csv': {
+    catalogName: 'Kennametal ER20 Collets Coolant-Through Metric',
+    rows: 11,
+    familyCode: '109333973',
+    facts: { style: ER_SEALED, unit: METRIC_CATALOG },
+  },
+  'er25_collets_coolant_through_metric.csv': {
+    catalogName: 'Kennametal ER25 Collets Coolant-Through Metric',
+    rows: 11,
+    familyCode: '109333627',
+    facts: { style: ER_SEALED, unit: METRIC_CATALOG },
+  },
+  'er32_collets_coolant_through_metric.csv': {
+    catalogName: 'Kennametal ER32 Collets Coolant-Through Metric',
+    rows: 15,
+    familyCode: '109333626',
+    facts: { style: ER_SEALED, unit: METRIC_CATALOG },
+  },
+  'er40_collets_coolant_through_metric.csv': {
+    catalogName: 'Kennametal ER40 Collets Coolant-Through Metric',
+    rows: 19,
+    familyCode: '109321468',
+    facts: { style: ER_SEALED, unit: METRIC_CATALOG },
+  },
+  'er11_collets_coolant_through_inch.csv': {
+    catalogName: 'Kennametal ER11 Collets Coolant-Through Inch',
+    rows: 4,
+    familyCode: '109333978',
+    facts: { style: ER_SEALED, unit: INCH_CATALOG },
+  },
   'er16_collets_coolant_through_inch.csv': {
     catalogName: 'Kennametal ER16 Collets Coolant-Through Inch',
     rows: 10,
-    facts: {
-      style: {
-        value: 'er-sealed',
-        source: 'vendor-stated',
-        cite: 'CCCX == CCCN == D1 on every row; Kennametal specs an H6 shank, so it clamps one exact size',
-      },
-      unit: INCH_CATALOG,
-    },
+    familyCode: '109333975',
+    facts: { style: ER_SEALED, unit: INCH_CATALOG },
+  },
+  'er20_collets_coolant_through_inch.csv': {
+    catalogName: 'Kennametal ER20 Collets Coolant-Through Inch',
+    rows: 13,
+    familyCode: '109333974',
+    facts: { style: ER_SEALED, unit: INCH_CATALOG },
+  },
+  'er25_collets_coolant_through_inch.csv': {
+    catalogName: 'Kennametal ER25 Collets Coolant-Through Inch',
+    rows: 14,
+    familyCode: '109333628',
+    facts: { style: ER_SEALED, unit: INCH_CATALOG },
+  },
+  'er32_collets_coolant_through_inch.csv': {
+    catalogName: 'Kennametal ER32 Collets Coolant-Through Inch',
+    rows: 17,
+    familyCode: '109333625',
+    facts: { style: ER_SEALED, unit: INCH_CATALOG },
+  },
+  'er40_collets_coolant_through_inch.csv': {
+    catalogName: 'Kennametal ER40 Collets Coolant-Through Inch',
+    rows: 12,
+    familyCode: '109321469',
+    facts: { style: ER_SEALED, unit: INCH_CATALOG },
+  },
+
+  // ── ER tap collets (JG 2026-09-08) ───────────────────────────────────────
+  // Two families, split by thread system rather than by series: each holds
+  // ER16 through ER40. Neither publishes `CCCN`/`CCCX` at all — see
+  // `vendors/kennametal/holding.ts`'s `colletCapacity` for why that is a
+  // zero-width band at `D1` rather than an incomplete row.
+  //
+  // **`unit` is decided by which column carries the exact value**, the same
+  // test the TT HPV split above uses. `100000434` publishes `16ERTC10`'s `D1`
+  // as 0.194 in and 4.928 mm — 0.194 in is the ANSI shank of a #10 tap, and
+  // 4.928 is it rounded — while `100000435` publishes `16ERTC045034M`'s as
+  // 4.5 mm and 0.1772 in. So the ANSI family is inch-native and the DIN/ISO
+  // one metric-native, which also decides which of the two `Tap Range` columns
+  // a record carries: `#14 & 1/4` on one, `M6 & M6.3` on the other.
+  'er_tap_collets_ansi.csv': {
+    catalogName: 'Kennametal ER Standard Tap Collets ANSI',
+    rows: 47,
+    familyCode: '100000434',
+    facts: { style: ER_TAP, unit: INCH_CATALOG },
+  },
+  'er_tap_collets_din_iso.csv': {
+    catalogName: 'Kennametal ER Standard Tap Collets DIN and ISO',
+    rows: 49,
+    familyCode: '100000435',
+    facts: { style: ER_TAP, unit: METRIC_CATALOG },
   },
 } as const satisfies Record<string, ToolholdingDefinition>

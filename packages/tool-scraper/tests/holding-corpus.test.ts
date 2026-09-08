@@ -28,7 +28,13 @@ import { describe, expect, it } from 'vitest'
 
 import { COLLET_FAMILIES, HOLDER_FAMILIES } from '../src/families/index.js'
 import type { ColletRecord, HolderRecord, HoldingRecord } from '../src/holding.js'
-import { BORE_CLAMPINGS, CLAMPING_MODES, CONTACT_MODES, millimeters } from '../src/holding.js'
+import {
+  BORE_CLAMPINGS,
+  CLAMPING_MODES,
+  CONTACT_MODES,
+  NOMINAL_SLACK,
+  millimeters,
+} from '../src/holding.js'
 import { recordGuid } from '../src/identity.js'
 import { boundHolding, toHolding } from '../src/registry.js'
 import { rows, scrape } from './corpus.js'
@@ -168,8 +174,15 @@ describe('every scraped collet', () => {
         expect(record.clampMaxMm, where).toBe(millimeters(record.clampMax, record.unit))
 
         if (record.nominal !== null) {
-          expect(record.nominal, where).toBeGreaterThanOrEqual(record.clampMin)
-          expect(record.nominal, where).toBeLessThanOrEqual(record.clampMax)
+          // The same slack `holding.checkCollet` applies, and for the same
+          // reason: `nominal` is the size the vendor designates the collet by
+          // and the band is what it measures. `40ERSS1000` is designated 1 inch
+          // and clamps 0.9938 — in both unit columns, so it is the vendor's
+          // statement rather than a rounding of one.
+          expect(record.nominal, where).toBeGreaterThanOrEqual(
+            record.clampMin * (1 - NOMINAL_SLACK),
+          )
+          expect(record.nominal, where).toBeLessThanOrEqual(record.clampMax * (1 + NOMINAL_SLACK))
         }
       }
     })

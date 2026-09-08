@@ -65,3 +65,21 @@ export const MILLING_FORMS: ReadonlySet<ToolForm> = new Set(
 
 export const isToolForm = (value: string): value is ToolForm =>
   value === 'other' || TOOL_FORMS.some((form) => form.value === value)
+
+/**
+ * The forms that cut a thread with a square-driven tool — the taps.
+ *
+ * Derived from {@link TOOL_FORMS} by the vocabulary's own naming, the way
+ * {@link MILLING_FORMS} is derived from its `group`. A rostered pair of strings
+ * beside the list would be a second copy of the vocabulary to disagree with it.
+ * `'tapered mill'` is not matched: the prefix is `'tap '` with the space.
+ *
+ * `'Hole making'` is the wrong axis here — it holds drills, reamers and boring
+ * bars — which is why this cannot be a `group` filter.
+ */
+export const TAP_FORMS: ReadonlySet<ToolForm> = new Set(
+  TOOL_FORMS.filter((form) => form.value.startsWith('tap ')).map((form) => form.value),
+)
+
+/** Whether a form is a tap, and therefore driven by a square. */
+export const isTapForm = (form: string): boolean => TAP_FORMS.has(form as ToolForm)
