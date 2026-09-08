@@ -1,5 +1,12 @@
 # @toolpath/app-support
 
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies [15254fb]
+  - @toolpath/tool-support@0.2.0
+
 ## 0.1.1
 
 ### Patch Changes
