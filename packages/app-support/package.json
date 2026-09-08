@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/app-support",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Reusable logic for a Toolpath application: preferences, contexts and route helpers",
   "license": "MIT",
   "engines": {
