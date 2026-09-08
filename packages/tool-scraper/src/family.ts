@@ -142,6 +142,18 @@ export interface FamilyDefinition extends CommonDefinition {
 export interface ToolholdingDefinition extends CommonDefinition {
   /** What a human calls this family. Holders and collets have no `id`. */
   readonly catalogName: string
+  /**
+   * The vendor's own code for the family, where the scrape target is a family
+   * page — {@link FamilyDefinition.familyCode}'s counterpart.
+   *
+   * Absent where the vendor has no such page: REGO-FIX and MariTool families
+   * are a set of index filters and name none. It was absent on Kennametal's
+   * toolholding too until 2026-09-08, because those families were scraped by
+   * hand from a code read off the page at the time — which made a re-scrape a
+   * trip back to the browser. Recording it is what makes one re-runnable, and
+   * it is what `kennametal --collets` reconciles its walk against.
+   */
+  readonly familyCode?: string
 }
 
 /** A cutting-tool family after {@link FamilyDefinition} has been validated. */

@@ -72,7 +72,9 @@ export {
 
 export {
   MILLING_FORMS,
+  TAP_FORMS,
   TOOL_FORMS,
+  isTapForm,
   isToolForm,
   type ToolForm,
   type ToolFormEntry,

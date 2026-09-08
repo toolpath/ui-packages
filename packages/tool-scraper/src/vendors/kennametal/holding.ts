@@ -31,7 +31,12 @@
  *   something displays it, not before.
  */
 
-import { CAD_COLUMN, COLLET_DESIGNATION_COLUMN, COLLET_SERIES_COLUMN } from '../../conventions.js'
+import {
+  CAD_COLUMN,
+  COLLET_DESIGNATION_COLUMN,
+  COLLET_SERIES_COLUMN,
+  dimensionalColumn,
+} from '../../conventions.js'
 import { familyBrand, type BoundToolholding } from '../../family.js'
 import {
   checkUnitAgreement,
@@ -58,7 +63,21 @@ import { CATALOG_NUMBER, MATERIAL_NUMBER } from './records.js'
  * report rather than a gate.
  */
 const HOLDER_LABELS = ['D1', 'L1', 'L2', 'L9', 'V', 'D2', 'D11'] as const
-const COLLET_LABELS = ['CCCN', 'CCCX', 'D1', 'BDX', 'LF', 'L'] as const
+const COLLET_LABELS = ['CCCN', 'CCCX', 'D1', 'BDX', 'LF', 'L', 'L9', 'S10'] as const
+
+/**
+ * The square drive a tap collet's bore carries, across flats.
+ *
+ * Kennametal's own label, and it is what tells a tap collet from a round one —
+ * see {@link colletCapacity}. Local to this adapter rather than in
+ * `conventions.ts` for the reason that module states: a column two vendors
+ * write is neutral, and this one is published by Kennametal's tap families and
+ * by nothing else in the catalog.
+ */
+const SQUARE_LABEL = 'S10'
+
+/** The vendor's own designation of the taps a tap collet is for. */
+const TAP_RANGE_LABEL = 'Tap Range'
 
 /** How a part names itself in a warning or a refusal. */
 function subject(row: ScrapedRow): string {
@@ -107,6 +126,40 @@ function holder(
   })
 }
 
+/**
+ * A collet's clamping capacity, from whichever pair of columns the family
+ * publishes.
+ *
+ * The ER collet families state `CCCN`/`CCCX` and that is what is read. **The
+ * tap families state neither**, and they are not incomplete rows: a square-drive
+ * collet holds one exact shank, and `D1` is it — `16ERTC025` publishes 6.477 mm,
+ * which is 0.255 in, the ANSI shank of a 1/4-20 tap. So the honest capacity is a
+ * zero-width band at `D1`, the same shape a sealed coolant-through collet
+ * already carries and `holding.checkCollet` already permits.
+ *
+ * Keyed on the vendor publishing a **square size** rather than on the family's
+ * `style` string: the square is Kennametal saying this part drives a tap, and a
+ * style is this package's config. A tap family that started publishing a real
+ * band would simply be read from it, which is the right answer either way.
+ */
+function colletCapacity(
+  row: ScrapedRow,
+  what: string,
+  unit: Parameters<typeof dim>[2],
+): { clampMin: number; clampMax: number } {
+  const min = dim(row, 'CCCN', unit)
+  const max = dim(row, 'CCCX', unit)
+  if (min !== null || max !== null || dim(row, SQUARE_LABEL, unit) === null) {
+    return {
+      clampMin: published(min, what, 'CCCN clamping minimum'),
+      clampMax: published(max, what, 'CCCX clamping maximum'),
+    }
+  }
+
+  const exact = published(dim(row, 'D1', unit), what, 'D1 clamping diameter')
+  return { clampMin: exact, clampMax: exact }
+}
+
 /** One Kennametal or WIDIA collet row -> one {@link ColletRecord}. */
 function collet(
   row: ScrapedRow,
@@ -128,11 +181,17 @@ function collet(
     series: published(row[COLLET_DESIGNATION_COLUMN], what, 'collet series'),
     style: holdingFact(family, 'style', family.style),
     nominal: dim(row, 'D1', unit),
-    clampMin: published(dim(row, 'CCCN', unit), what, 'CCCN clamping minimum'),
-    clampMax: published(dim(row, 'CCCX', unit), what, 'CCCX clamping maximum'),
+    ...colletCapacity(row, what, unit),
     bodyDiameter: dim(row, 'BDX', unit),
     functionalLength: dim(row, 'LF', unit),
     overallLength: dim(row, 'L', unit),
+    clampingLength: dim(row, 'L9', unit),
+    // Verbatim, in the family's own unit, and never converted: it is two thread
+    // designations rather than a dimension. The metric families print it in the
+    // metric column and the ANSI ones in the inch column, and a row where the
+    // vendor filled neither says nothing rather than the wrong one.
+    tapRange: row[dimensionalColumn(TAP_RANGE_LABEL, unit)] || null,
+    squareSize: dim(row, SQUARE_LABEL, unit),
   })
 }
 

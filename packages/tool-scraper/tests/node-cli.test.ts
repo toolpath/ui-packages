@@ -196,6 +196,46 @@ describe('the kennametal command', () => {
       /wrote 2 rows where this family declares 259/,
     )
   })
+
+  it('walks the collet categories and says which codes are configured', async () => {
+    // The maintenance question `families/kennametal.ts` cannot answer: has the
+    // vendor added, split or retired a family? A leaf here links one family
+    // that a CSV claims and one that none does.
+    const leaf = `<div data-totalResults="117">
+      <a href="/us/en/products/fam.er-standard-collets-metric.100000478.html">x</a>
+      <a href="/us/en/products/fam.er-standard-collet-set-metric.100000428.html">x</a>
+    </div>`
+    const asked: string[] = []
+    const { io, out: printed } = recorder()
+
+    const code = await run(
+      ['kennametal', '--collets'],
+      io,
+      asFetcher({
+        text: (url: string) => {
+          asked.push(url)
+          return Promise.resolve(url.includes('_listing.0.') ? leaf : '<div></div>')
+        },
+      }),
+    )
+
+    expect(code).toBe(0)
+    expect(asked.every((url) => url.includes('product_listing.'))).toBe(true)
+    const all = printed.join('\n')
+    expect(all).toContain('100000478\ter-standard-collets-metric')
+    expect(all).toContain('er_standard_collets_metric.csv')
+    // The four collet kits are the families no CSV claims, and this is what
+    // keeps them visible rather than forgotten.
+    expect(all).toContain('100000428\ter-standard-collet-set-metric')
+    expect(all).toContain('(not configured)')
+    expect(all).toMatch(/families under 3 category trees, \d+ not configured$/m)
+  })
+
+  it('states the collet walk in its usage text', async () => {
+    const { io, err } = recorder()
+    expect(await run(['kennametal'], io)).toBe(2)
+    expect(err.join('\n')).toContain('kennametal --collets')
+  })
 })
 
 describe('receipts', () => {

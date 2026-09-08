@@ -42,6 +42,7 @@ import {
   type StickoutTool,
 } from './stickout.js'
 import { DEFAULT_CLAMPING, type ClampingRule } from './clamping.js'
+import { isTapForm } from './forms.js'
 
 /**
  * How a holder grips what it holds.
@@ -141,6 +142,19 @@ export interface Collet {
    * to be "nobody has said" rather than an invented grip rule.
    */
   readonly clampLength: number | null
+  /**
+   * The square drive this collet grips, across flats, in millimetres.
+   *
+   * A tap collet's bore is not round: it carries a square that drives the tap,
+   * so the part it takes is a tap and nothing else. `null` — and absent — is
+   * "nobody has said", which is every collet whose vendor publishes no square,
+   * and those go on taking anything their capacity band fits.
+   *
+   * Optional rather than required because {@link Collet} is a shape consumers
+   * build, and a collet crib assembled before this existed states the same
+   * thing by saying nothing.
+   */
+  readonly squareSize?: number | null
   readonly provenance?: ProvenanceMap
 }
 
@@ -197,6 +211,30 @@ export const gripsShank = (collet: Pick<Collet, 'clampMin' | 'clampMax'>, shank:
   shank >= collet.clampMin - GRIP_TOLERANCE && shank <= collet.clampMax + GRIP_TOLERANCE
 
 /**
+ * Whether the collet's drive suits the tool, which is a second question from
+ * whether it grips the shank.
+ *
+ * A tap collet's square holds one shank diameter exactly, so a shank test alone
+ * says yes to an end mill of that size — and an end mill in a square bore is
+ * held by nothing. The square is the vendor's own published dimension, so a
+ * collet that states one takes a tap and a collet that states none is unchanged.
+ *
+ * The converse is deliberately **not** enforced: a tap in a plain round collet
+ * is how most shops tap, and refusing it would be this package inventing a
+ * policy no vendor stated.
+ */
+const driveTakesTool = (
+  collet: Pick<Collet, 'squareSize'>,
+  tool: Partial<Pick<Tool, 'form'>>,
+): boolean => {
+  const square = collet.squareSize
+  if (square === null || square === undefined) return true
+  // An unstated form is nobody having said, and nobody-has-said does not go in
+  // a square bore — the same direction an unstated shank is refused in.
+  return tool.form !== undefined && isTapForm(tool.form)
+}
+
+/**
  * Whether a bore, shrink or hydraulic holder's one diameter is this shank.
  *
  * The same hair of tolerance {@link gripsShank} carries, for the same reason: a
@@ -213,11 +251,16 @@ const boreTakesShank = (bore: number, shank: number): boolean =>
  * fit.** This is the one place the domain differs from "what is not stated is
  * not checked", because here the unchecked case is a cutter falling out of a
  * spindle.
+ *
+ * `form` is read only by {@link Collet.squareSize}'s gate and is optional for
+ * that reason: a caller with no form in hand keeps the answer it had for every
+ * collet whose vendor publishes no square, which is all of them but the tap
+ * collets.
  */
 export const holderTakesTool = (
   holder: Pick<Holder, 'clamping' | 'colletSeries' | 'boreDiameter'>,
   collet: Collet | null,
-  tool: Pick<Tool, 'geometry'>,
+  tool: Pick<Tool, 'geometry'> & Partial<Pick<Tool, 'form'>>,
 ): boolean => {
   const shank = tool.geometry.SFDM
   if (shank === undefined) {
@@ -225,7 +268,12 @@ export const holderTakesTool = (
   }
 
   if (holder.clamping === 'collet') {
-    return collet !== null && colletFitsHolder(collet, holder) && gripsShank(collet, shank)
+    return (
+      collet !== null &&
+      colletFitsHolder(collet, holder) &&
+      gripsShank(collet, shank) &&
+      driveTakesTool(collet, tool)
+    )
   }
   // A holder that states no clamping mode falls here and is refused: absent
   // means nobody has said, and nobody-has-said takes no tool.

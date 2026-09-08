@@ -326,8 +326,72 @@ describe('building a collet and its gate', () => {
     )
   })
 
+  it('lets a designation sit just outside the size it measures', () => {
+    // `40ERSS1000` is designated 1 inch and clamps 0.9938 — in *both* unit
+    // columns, so it is the vendor stating an undersized sealed collet rather
+    // than one cell rounded differently from the other. A gate that refused it
+    // would end a twelve-row family over a name.
+    const sealed = colletRecord({
+      ...COLLET,
+      unit: 'inches',
+      catalogNumber: '40ERSS1000',
+      series: 'ER40',
+      style: 'er-sealed',
+      nominal: 1,
+      clampMin: 0.9938,
+      clampMax: 0.9938,
+    })
+    expect(sealed.nominal).toBe(1)
+
+    // And still refuses the error it is there for: a cell in the wrong unit
+    // system, which is what `16ERSS0312` has in its metric `D1`.
+    expect(() =>
+      colletRecord({ ...COLLET, nominal: 0.3125, clampMin: 3.175, clampMax: 3.175 }),
+    ).toThrow(VendorResponseError)
+  })
+
   it('accepts a collet whose nominal size the vendor does not publish', () => {
     expect(colletRecord({ ...COLLET, nominal: null }).nominal).toBeNull()
+  })
+
+  it('twins the clamping length, and leaves the display-only lengths alone', () => {
+    // `L9` is compared rather than only shown: it is `tool-support`'s
+    // `Collet.clampLength`, the one input to `maxStickout`.
+    const record = colletRecord({ ...COLLET, unit: 'inches', clampingLength: 0.71 })
+
+    expect(record.clampingLength).toBe(0.71)
+    expect(record.clampingLengthMm).toBe(18.034)
+    expect(colletRecord(COLLET).clampingLength).toBeNull()
+    expect(colletRecord(COLLET).clampingLengthMm).toBeNull()
+  })
+
+  it('carries the tap range as the vendor’s own words, and the square as a number', () => {
+    const record = colletRecord({
+      ...COLLET,
+      catalogNumber: '16ERTC025',
+      nominal: 6.477,
+      clampMin: 6.477,
+      clampMax: 6.477,
+      tapRange: 'M6 & M6.3',
+      squareSize: 4.851,
+    })
+
+    // Two thread designations, not a dimension: nothing parses it, and nothing
+    // converts it.
+    expect(record.tapRange).toBe('M6 & M6.3')
+    expect(record.squareSize).toBe(4.851)
+    expect(colletRecord(COLLET).tapRange).toBeNull()
+    expect(colletRecord(COLLET).squareSize).toBeNull()
+  })
+
+  it('refuses a square that is not smaller than what it clamps', () => {
+    // A tap's square across flats is inscribed in its shank. A square at or
+    // past the clamping diameter is two labels swapped or a cell in the wrong
+    // unit — the failure `dim`'s native read cannot see.
+    expect(() => colletRecord({ ...COLLET, squareSize: 1 })).toThrow(
+      /square size 1 is not smaller than the 1 it clamps/,
+    )
+    expect(() => colletRecord({ ...COLLET, squareSize: 4.851 })).toThrow(VendorResponseError)
   })
 })
 
@@ -405,6 +469,56 @@ describe('one family’s scrape, as records', () => {
     const bad = { ...ADAPTER_ROW, CAD_STEP_URL: 'https://cdn.test/a.pdf' }
 
     expect(() => toHolding(FAMILY, scrapeOf([bad]))).toThrow(VendorResponseError)
+  })
+
+  it('reads a tap collet’s capacity off D1, because it publishes no band', () => {
+    // The tap families state neither `CCCN` nor `CCCX`. Their `D1` is an exact
+    // clamping diameter — 0.255 in is the ANSI shank of a 1/4-20 tap — so the
+    // honest capacity is a zero-width band at it, the shape a sealed collet
+    // already has. Keyed on the square the vendor publishes, not on the
+    // family's style string.
+    const row: ScrapedRow = {
+      'Material Number': '1026403',
+      'ISO Catalog Number': '16ERTC025',
+      'Collet Series': 'ER16',
+      'Tap Range_mm': 'M6 & M6.3',
+      'Tap Range_in': '#14 & 1/4',
+      D1_mm: '6.477',
+      D1_in: '0.255',
+      BDX_in: '0.6693',
+      S10_mm: '4.851',
+      S10_in: '0.191',
+      L_in: '1.08',
+      L9_in: '0.71',
+    }
+
+    const [record] = toHolding('er_tap_collets_ansi.csv', scrapeOf([row])) as ColletRecord[]
+
+    expect(record?.unit).toBe('inches')
+    expect(record?.style).toBe('er-tap')
+    expect(record?.series).toBe('ER16')
+    expect(record?.clampMin).toBe(0.255)
+    expect(record?.clampMax).toBe(0.255)
+    expect(record?.squareSize).toBe(0.191)
+    expect(record?.clampingLength).toBe(0.71)
+    // The inch column, because the family is inch-native — the metric one says
+    // `M6 & M6.3` about the very same part.
+    expect(record?.tapRange).toBe('#14 & 1/4')
+  })
+
+  it('still refuses a round collet that publishes no capacity at all', () => {
+    // The fallback above is keyed on the square. Without one, a missing band is
+    // an incomplete part exactly as it was.
+    const warn = vi.fn()
+    const row: ScrapedRow = {
+      'Material Number': '1025778',
+      'ISO Catalog Number': '11ER010M',
+      'Collet Series': 'ER11',
+      D1_mm: '1',
+    }
+
+    expect(toHolding('er_standard_collets_metric.csv', scrapeOf([row]), { warn })).toHaveLength(0)
+    expect(warn.mock.calls[0]?.[0]).toContain('publishes no CCCN clamping minimum')
   })
 
   it('names the brand and what it does map when a kind has no mapper', () => {

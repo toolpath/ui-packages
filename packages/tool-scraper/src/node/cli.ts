@@ -35,7 +35,13 @@ import { basename, dirname, join } from 'node:path'
 import { ScraperConfigError, VendorResponseError } from '../errors.js'
 import { familyBrand } from '../family.js'
 import type { HolderRecord } from '../holding.js'
-import { ALL_FAMILIES, FAMILIES, HOLDER_FAMILIES, familyConfig } from '../families/index.js'
+import {
+  ALL_FAMILIES,
+  COLLET_FAMILIES,
+  FAMILIES,
+  HOLDER_FAMILIES,
+  familyConfig,
+} from '../families/index.js'
 import { createFetcher, type Fetcher } from '../fetch.js'
 import { buildProfiles, type MeasuredHolder, type ProfilesDocument } from '../profiles.js'
 import { AEM_BRANDS, type AemBrandName, type BrandName } from '../identity.js'
@@ -55,6 +61,11 @@ import { describeRoot, familyCsv, profilesDir, profilesJson, stepDir } from './p
 import * as receipts from './receipts.js'
 import { scrapeFamily } from '../vendors/kennametal/scrape.js'
 import { annotateCadUrls } from '../vendors/kennametal/cad.js'
+import {
+  COLLET_CATEGORIES,
+  describeFamily,
+  discoverFamilies,
+} from '../vendors/kennametal/catalog.js'
 import { addMaterialGroups, groupsByMaterial } from '../vendors/kennametal/materials.js'
 import { addThreadPitch } from '../vendors/kennametal/thread-column.js'
 import { scrapeEndMills, DOCUMENTS_URL } from '../vendors/destinytool/scrape.js'
@@ -112,6 +123,12 @@ const USAGE = `usage: toolpath-scrape <command> [args]
       One AEM family page -> a CSV. Trailing Name=Value args are appended to
       every row as constant columns, for facts the vendor table does not state
       (e.g. "Thread System=metric").
+
+  kennametal --collets
+      Walks the three ER collet category trees and prints every family they
+      link to today — code, slug, category, and the configured CSV that claims
+      the code or "(not configured)". For noticing a family Kennametal has
+      added, split or retired; a scrape needs none of it.
 
   regofix holders OUT.csv
   regofix collets "<PRODUCT GROUP>" OUT.csv
@@ -308,6 +325,22 @@ export async function run(
   }
 }
 
+/**
+ * The configured CSV that claims each `familyCode`, for the walk to reconcile
+ * against.
+ *
+ * Toolholding only. A cutting-tool family states a code too, but the walk this
+ * serves covers the collet categories and reporting a drill family's code
+ * against a collet listing would be an answer to a question nobody asked.
+ */
+function claimedCodes(): Map<string, string> {
+  const claimed = new Map<string, string>()
+  for (const [name, cfg] of Object.entries({ ...HOLDER_FAMILIES, ...COLLET_FAMILIES })) {
+    if (cfg.familyCode !== undefined) claimed.set(cfg.familyCode, name)
+  }
+  return claimed
+}
+
 async function kennametal(argv: string[], io: Console_, fetcher: Fetcher): Promise<number> {
   const args = [...argv]
   let brand: string = 'kennametal'
@@ -329,6 +362,30 @@ async function kennametal(argv: string[], io: Console_, fetcher: Fetcher): Promi
     io.error(`unknown brand: ${brand} (known: ${[...AEM_BRANDS].sort().join(', ')})`)
     return 2
   }
+  if (args[0] === '--collets') {
+    const claimed = claimedCodes()
+    const found = await discoverFamilies(fetcher, COLLET_CATEGORIES, {
+      warn: io.error,
+      brand: brand as AemBrandName,
+    })
+    let families = 0
+    let missing = 0
+    for (const category of found) {
+      io.log(`${category.name}: ${category.total} parts, ${category.families.length} families`)
+      for (const family of category.families) {
+        const where = claimed.get(family.code) ?? null
+        if (where === null) missing += 1
+        families += 1
+        io.log(`  ${describeFamily(category, family, where)}`)
+      }
+    }
+    io.log(
+      `${families} families under ${COLLET_CATEGORIES.length} category trees, ` +
+        `${missing} not configured`,
+    )
+    return 0
+  }
+
   if (args.length < 2) {
     io.error(USAGE)
     return 2

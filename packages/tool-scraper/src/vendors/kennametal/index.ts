@@ -16,6 +16,7 @@
  */
 
 export * from './cad.js'
+export * from './catalog.js'
 export * from './family.js'
 export * from './holding.js'
 export * from './materials.js'

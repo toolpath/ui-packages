@@ -222,6 +222,41 @@ export interface ColletRecord extends HoldingIdentity {
   readonly functionalLength: number | null
   /** `L` — overall length. */
   readonly overallLength: number | null
+  /**
+   * `L9` — how deep the clamping bore is, and therefore how much shank the
+   * collet actually holds.
+   *
+   * Twinned in millimetres because it is **compared and not only displayed**:
+   * it is `@toolpath/tool-support`'s `Collet.clampLength`, the one input to
+   * `maxStickout`, which answers `null` for every collet without it. That is
+   * the rule this module states for `bore`, `gaugeLength` and the capacity
+   * pair, and this is the fourth dimension to earn it.
+   *
+   * Not a second overall length. Kennametal's `109321468` publishes both: `L`
+   * is 46 mm down all nineteen ER40 rows while `L9` runs 22 / 28 / 46 by size.
+   */
+  readonly clampingLength: number | null
+  readonly clampingLengthMm: number | null
+  /**
+   * The vendor's own designation of the taps this collet is for, verbatim —
+   * `"M6 & M6.3"`, `"#14 & 1/4"`.
+   *
+   * **Text, and deliberately not parsed.** It names two thread designations in
+   * the vendor's own words and this package does not author tool data; what a
+   * fit rule compares is {@link ColletRecord.clampMin}/{@link ColletRecord.clampMax},
+   * which are numbers. `null` on every collet whose vendor publishes none.
+   */
+  readonly tapRange: string | null
+  /**
+   * `S10` — the square drive the bore carries, across flats.
+   *
+   * The fact that makes a tap collet a tap collet: its bore is not round, so
+   * the part it takes is a tap and nothing else. A shank test alone would say
+   * yes to an end mill of the same diameter, held by nothing —
+   * `@toolpath/tool-support`'s `holderTakesTool` reads this to refuse that.
+   * `null` where the vendor publishes no square, which is every round collet.
+   */
+  readonly squareSize: number | null
 }
 
 /** Either toolholding record. Narrow on {@link HoldingIdentity.kind}. */
@@ -371,6 +406,30 @@ function halfUlp(raw: string): number {
   const fraction = raw.includes('.') ? raw.slice(raw.indexOf('.') + 1) : ''
   return 0.5 * 10 ** -fraction.length
 }
+
+/**
+ * How far a collet's *designation* may sit from its measured capacity, as a
+ * fraction of that capacity.
+ *
+ * {@link ColletRecord.nominal} is the size the vendor **designates** the collet
+ * by; {@link ColletRecord.clampMin}/{@link ColletRecord.clampMax} is what it
+ * measures. They are not two readings of one number, and on a sealed collet
+ * they are routinely different: Kennametal's `40ERSS1000` is designated 1 inch
+ * and clamps 0.9938, `40ERSS0500` is designated 1/2 and clamps 0.4943. Both
+ * unit columns agree on both figures — 25.4 against 25.243 mm, 12.7 against
+ * 12.556 — so this is the vendor stating an undersized capacity for a collet it
+ * names by the fraction, not a cell in the wrong column.
+ *
+ * **Relative rather than absolute, because the gap scales with the collet.**
+ * Across the 443-part collet corpus fourteen rows sit outside their own band.
+ * The widest is `40ERSS0812` at 0.193 mm, which is 0.94 % of its 20.4 mm
+ * capacity; the widest by fraction is `40ERSS0500` at 1.14 %. The error this
+ * must still refuse is a cell in the wrong unit system, which is 96 % out — the
+ * shape `16ERSS0312` has, where `D1`'s metric cell holds the inch value. This
+ * sits 4.4x above the first and 19x below the second. A row that lands in
+ * between is a finding to investigate rather than a number to widen.
+ */
+export const NOMINAL_SLACK = 0.05
 
 /**
  * Report where a vendor's own millimetre and inch cells disagree.
@@ -544,14 +603,32 @@ export function checkCollet(record: ColletRecord): void {
   // In the native unit, which is the gate with teeth: these are the values a
   // consumer compares, and the contradictory cells this catalog knows about all
   // sit in the column `dim` ignores.
+  //
+  // The slack is {@link NOMINAL_SLACK}, because a designation is not a
+  // measurement — see that constant for the fourteen rows it exists for and the
+  // margin either side of it. Unit-free, so it needs no conversion.
   if (
     record.nominal !== null &&
-    (record.nominal < record.clampMin || record.nominal > record.clampMax)
+    (record.nominal < record.clampMin * (1 - NOMINAL_SLACK) ||
+      record.nominal > record.clampMax * (1 + NOMINAL_SLACK))
   ) {
     throw new VendorResponseError(
       what,
       `nominal ${record.nominal} is outside its own capacity ` +
         `${record.clampMin}-${record.clampMax}`,
+    )
+  }
+
+  // A tap's square across flats is inscribed in its shank, so it is smaller
+  // than the bore that takes it — true on all 96 rows of both Kennametal tap
+  // families. A square at or past the clamping diameter is the inch cell in the
+  // metric column or two labels swapped, which is the failure `dim`'s native
+  // read cannot see and `checkUnitAgreement` only reports.
+  if (record.squareSize !== null && record.squareSize >= record.clampMax) {
+    throw new VendorResponseError(
+      what,
+      `square size ${record.squareSize} is not smaller than the ` +
+        `${record.clampMax} it clamps — a square is inscribed in the shank`,
     )
   }
 }
@@ -621,13 +698,27 @@ export function holderRecord(fields: HolderFields): HolderRecord {
   return record
 }
 
-/** The same, for a collet. REGO-FIX publishes none of these four. */
-type OptionalColletFields = 'nominal' | 'bodyDiameter' | 'functionalLength' | 'overallLength'
+/** The same, for a collet. REGO-FIX publishes none of these seven. */
+type OptionalColletFields =
+  | 'nominal'
+  | 'bodyDiameter'
+  | 'functionalLength'
+  | 'overallLength'
+  | 'clampingLength'
+  | 'tapRange'
+  | 'squareSize'
 
 /** What a mapper supplies to build a collet. */
 type ColletFields = Omit<
   ColletRecord,
-  'kind' | 'guid' | 'vendor' | 'productLink' | 'clampMinMm' | 'clampMaxMm' | OptionalColletFields
+  | 'kind'
+  | 'guid'
+  | 'vendor'
+  | 'productLink'
+  | 'clampMinMm'
+  | 'clampMaxMm'
+  | 'clampingLengthMm'
+  | OptionalColletFields
 > &
   Partial<Pick<ColletRecord, OptionalColletFields>>
 
@@ -645,6 +736,10 @@ export function colletRecord(fields: ColletFields): ColletRecord {
     bodyDiameter: fields.bodyDiameter ?? null,
     functionalLength: fields.functionalLength ?? null,
     overallLength: fields.overallLength ?? null,
+    clampingLength: fields.clampingLength ?? null,
+    clampingLengthMm: millimeters(fields.clampingLength ?? null, fields.unit),
+    tapRange: fields.tapRange ?? null,
+    squareSize: fields.squareSize ?? null,
   })
 
   checkCollet(record)
