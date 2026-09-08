@@ -33,11 +33,53 @@ import type { ProvenanceMap } from './provenance.js'
  */
 const EPSILON = 1e-6
 
+/**
+ * How a tap makes its thread: by cutting it away, or by displacing material
+ * into it.
+ *
+ * **A second axis beside {@link Tool.form}, not two more forms.**
+ * `forms.ts`'s vocabulary is Fusion's own, so that a tool exported there lands
+ * on the type it already has, and Fusion has no form-tap type — a form tap is a
+ * `tap right hand` there like any other. Adding `form tap right hand` would buy
+ * a filter chip and cost that guarantee. It is the same call
+ * `tool-scraper`'s `families/kennametal.ts` makes for keeping a holder's
+ * `contact` off its `taper`: two facts about one part are two fields.
+ *
+ * The two are genuinely different tools. A former needs a larger hole, evacuates
+ * no chip, and runs at its own feed; a cut tap does none of that. Nothing here
+ * branches on it yet — a tap goes in on the hole's axis either way, and
+ * `tool-drawing` has no publishable shape for either one's lead — but a
+ * consumer choosing or feeding a tool cannot ask the question at all until the
+ * fact is carried.
+ */
+export type ThreadMethod = 'cutting' | 'forming'
+
+/**
+ * The methods, in the order a control offers them.
+ *
+ * A list beside the union for the reason `PROVENANCE` is one: `tool-scraper`
+ * validates a family's declared value against it rather than redeclaring the
+ * two strings, and a filter panel offers it. Cutting leads because it is what
+ * most of a catalog is.
+ */
+export const THREAD_METHODS = ['cutting', 'forming'] as const satisfies readonly ThreadMethod[]
+
+export const isThreadMethod = (value: string): value is ThreadMethod =>
+  THREAD_METHODS.some((method) => method === value)
+
 export interface Tool {
   /** The CAM-library name for what the tool is: `flat end mill`, `drill`, `slot mill`. */
   readonly form: string
   /** What a machinist calls this one tool — a catalog number, usually. */
   readonly label?: string
+  /**
+   * How this tap makes its thread, where it is a tap and somebody has said.
+   *
+   * Optional, and **absent is nobody having said** rather than a claim of
+   * cutting — the rule `holding.ts`'s `Clamping` keeps on a holder and `shankOf` keeps
+   * on a shank. A non-tap carries none, because the question does not apply.
+   */
+  readonly threadMethod?: ThreadMethod
   readonly geometry: Geometry
   readonly provenance?: ProvenanceMap
 }

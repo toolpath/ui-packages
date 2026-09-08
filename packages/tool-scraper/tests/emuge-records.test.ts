@@ -198,6 +198,67 @@ const TAP_DETAIL = {
 
 const tapRow = (): ScrapedRow => variantRow(TAP_GROUP, TAP_VARIANT, TAP_DETAIL, 'millimeters')
 
+/* ------------------------------------------------------------------ form tap */
+
+/**
+ * A cold-forming tap out of `FG02`, trimmed from the live responses on
+ * 2026-09-07.
+ *
+ * The same part number in the same thread as {@link TAP_VARIANT} would be too
+ * neat to be evidence, so this is the real `Nr.4-40 UNC-2BX` former EMUGE sells
+ * beside it — `BU37Z700.5003`, out of the `US-InnoForm 1-Z-SN-PM-TIN-80` group.
+ * Note what it shares with the cutting tap above and what it does not: an
+ * identical dimension table down to the column labels, the same `Geometry: Z`,
+ * the same `#4` at 40 TPI — and `lead taper form` where the cutting tap states
+ * `chamfer form`. Nothing but the category tells the two apart, which is the
+ * whole reason `threadMethod` exists.
+ */
+const FORM_TAP_GROUP = {
+  code: 'H102080',
+  productListInfo: 'EMUGE-Z style cold forming tap, (UNC, UNF threads).',
+  technicalDetails: [
+    { property: 'lead taper form', value: 'Form C (Semi-Bottoming)' },
+    { property: 'thread orientation', value: 'internal' },
+    { property: 'Geometry', value: 'Z' },
+  ] as Property[],
+}
+
+const FORM_TAP_VARIANT = {
+  code: '000000000010563370',
+  articleCode: 'BU37Z700.5003',
+  dimensionFeatureValue: 'Nr.4-40 UNC-2BX',
+  mainDrawing: {
+    technicalDetails: [
+      { property: 'nominal diameter d₁ [mm]', value: '2.845 mm' },
+      { property: 'Shank diameter d₂', value: '3.581 mm' },
+      { property: 'Overall length l₁', value: '56 mm' },
+      // The vendor's own label on a tool with no cutting edge. It reaches the
+      // CSV as published — see `families/emuge.ts`'s `TAP_COLUMNS`.
+      { property: 'length of cutting edge l₂', value: '6 mm' },
+      { property: 'usable length l₃', value: '18 mm' },
+      { property: 'square ◘', value: '2.79 mm' },
+    ] as Property[],
+  },
+}
+
+const FORM_TAP_DETAIL = {
+  code: FORM_TAP_VARIANT.code,
+  technicalDetails: [
+    { property: 'thread symbol', value: 'UNC' },
+    { property: 'pitch [mm]', value: '0.635 mm' },
+    { property: 'threads per inch', value: '40' },
+    { property: 'nominal size', value: '#4' },
+    { property: 'coolant supply', value: 'Without' },
+    { property: 'lead taper form', value: 'Form C (Semi-Bottoming)' },
+    { property: 'Coating', value: 'TIN-80' },
+    { property: 'Cutting material', value: 'HSSE-PM' },
+  ] as Property[],
+  applicationMaterials: [{ code: 'P' }, { code: 'K' }, { code: 'N' }],
+}
+
+const formTapRow = (): ScrapedRow =>
+  variantRow(FORM_TAP_GROUP, FORM_TAP_VARIANT, FORM_TAP_DETAIL, 'millimeters')
+
 /* --------------------------------------------------------------------- tests */
 
 describe('an end mill', () => {
@@ -390,6 +451,53 @@ describe('a tap', () => {
     expect(tapRow()['dimensionFeatureValue']).toBe('Nr.4-40 UNC-2BX')
     expect(tapRow()['thread symbol']).toBe('UNC')
     expect(tapRow()['threads per inch']).toBe('40')
+  })
+
+  it('cuts its thread, which is what category FG01 is', () => {
+    expect(record?.threadMethod).toBe('cutting')
+  })
+})
+
+describe('a cold-forming tap', () => {
+  const [record] = toRecords('emuge_form_taps.csv', scrapeOf([formTapRow()]))
+
+  it('forms its thread, which is what category FG02 is', () => {
+    expect(record?.threadMethod).toBe('forming')
+  })
+
+  it('is the same record shape as a cutting tap in every other respect', () => {
+    // The point of the fixture, and the argument for the field. This is the
+    // `Nr.4-40 UNC-2BX` former sold beside the `Nr.4-40 UNC-2BX` cutting tap
+    // above, and its geometry is that tap's geometry to the last digit. A
+    // consumer told to drill for one of these and handed the other drills the
+    // wrong hole, and nothing else on either record would have said so.
+    const [cutting] = toRecords('emuge_taps.csv', scrapeOf([tapRow()]))
+
+    expect(record?.kind).toBe('tap')
+    expect(record?.unit).toBe('millimeters')
+    expect(record?.geometry).toEqual(cutting?.geometry)
+    expect(record?.substrate).toBe(cutting?.substrate)
+    expect(record?.threadMethod).not.toBe(cutting?.threadMethod)
+  })
+
+  it('keeps the vendor’s geometry code, because FG01’s names are not FG02’s', () => {
+    // `Z` is `Rekord B-Z Taps` in the cutting catalog and InnoForm here, so
+    // `PRODUCT_LINES` has no FG02 table and the code passes through as the
+    // vendor's own — the documented answer for a code with no article page.
+    const [cutting] = toRecords('emuge_taps.csv', scrapeOf([tapRow()]))
+
+    expect(record?.productLine).toBe('Z')
+    expect(cutting?.productLine).toBe('Rekord B-Z Taps')
+  })
+
+  it('states a lead taper where a cutting tap states a chamfer', () => {
+    // The per-part evidence behind the two family facts. Both properties reach
+    // the CSV; neither is mapped, and `tests/emuge-corpus.test.ts` is what
+    // holds a real scrape to the same split.
+    expect(formTapRow()['lead taper form']).toBe('Form C (Semi-Bottoming)')
+    expect(formTapRow()['chamfer form']).toBeUndefined()
+    expect(tapRow()['chamfer form']).toBe('Form B (Plug)')
+    expect(tapRow()['lead taper form']).toBeUndefined()
   })
 })
 

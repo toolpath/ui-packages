@@ -159,7 +159,11 @@ describe('a drill', () => {
 })
 
 describe('a tap', () => {
-  const cfg = family('tap', TAP_LABELS, { bmc: 'hss', coolantThrough: false })
+  const cfg = family('tap', TAP_LABELS, {
+    bmc: 'hss',
+    coolantThrough: false,
+    threadMethod: 'cutting',
+  })
 
   const metric: ScrapedRow = {
     'Material Number': '1',
@@ -255,6 +259,20 @@ describe('a tap', () => {
     const silent = family('tap', TAP_LABELS, { bmc: 'hss' })
     expect(() => tapRecord(metric, silent, silent.columns)).toThrow(
       /must state coolantThrough as a fact/,
+    )
+  })
+
+  it('reads how the thread is made from a fact, and refuses a family without one', () => {
+    // Kennametal's variant table publishes the thread's *class* — `Thread
+    // Tolerance Class ANSI`, `Tap Pitch Diameter Limit`, `Type of Thread` — and
+    // never how it is produced. That is in the vendor's `newTapType` facet, so
+    // the family states it and the mapper reads it, exactly as it does
+    // `coolantThrough`. All three of Kennametal's tap families are cutting.
+    expect(tapRecord(metric, cfg, cfg.columns).threadMethod).toBe('cutting')
+
+    const silent = family('tap', TAP_LABELS, { bmc: 'hss', coolantThrough: false })
+    expect(() => tapRecord(metric, silent, silent.columns)).toThrow(
+      /must state threadMethod as a fact/,
     )
   })
 
@@ -408,7 +426,11 @@ describe('every mapper', () => {
     // `vendor` is what a downstream consumer displays and joins on; `widia` is
     // a key in this package's own table and not a thing the vendor calls
     // itself.
-    const cfg = family('tap', TAP_LABELS, { bmc: 'hss', coolantThrough: false })
+    const cfg = family('tap', TAP_LABELS, {
+      bmc: 'hss',
+      coolantThrough: false,
+      threadMethod: 'cutting',
+    })
     const row: ScrapedRow = {
       'Material Number': '1',
       'ISO Catalog Number': 'T100',

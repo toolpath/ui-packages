@@ -43,7 +43,11 @@
  * separately could supply a tool that claims a holder it does not have.
  */
 
-import { GEOMETRY_FIELDS as DICTIONARY, type UnitSystem } from '@toolpath/tool-support'
+import {
+  GEOMETRY_FIELDS as DICTIONARY,
+  type ThreadMethod,
+  type UnitSystem,
+} from '@toolpath/tool-support'
 
 import { dimensionalColumn } from './conventions.js'
 import { ScraperConfigError } from './errors.js'
@@ -74,6 +78,17 @@ export interface GeometryField {
    */
   iso: string | null
 }
+
+/**
+ * How a tap makes its thread.
+ *
+ * `@toolpath/tool-support`'s, re-exported under the name this package reads it
+ * by — the move `conventions.ts` makes for `UnitSystem` and `provenance.ts` for
+ * `PROVENANCE`. A scrape originates the fact and the domain owns the
+ * vocabulary, and two declarations of the same two strings is the drift that
+ * rule exists to prevent.
+ */
+export type { ThreadMethod } from '@toolpath/tool-support'
 
 /** The kinds of cutting tool this package maps. */
 export type ToolKind = 'drill' | 'tap' | 'endmill'
@@ -488,6 +503,23 @@ export interface ToolRecord {
    * a PCD tool.
    */
   readonly nonFerrous: boolean | null
+  /**
+   * Taps only, and `null` on every other kind because the question does not
+   * apply — the shape {@link ToolRecord.nonFerrous} already keeps for drills.
+   *
+   * **Not a default, and not derivable from anything else on the record.** A
+   * former and a cut tap of the same size share their `DC`, `TP`, `SFDM`,
+   * `OAL` and `LCF`; what separates them is that one displaces material and the
+   * other removes it, which changes the hole a shop drills first and the feed
+   * it runs. Guessing `cutting` because most of a catalog is would ship a
+   * former with a cut tap's drill size.
+   *
+   * It is a per-family fact rather than a column, and each of the five
+   * declarations cites the vendor's own index — see `families/kennametal.ts`
+   * and `families/emuge.ts`. The invariant below is what stops a sixth tap
+   * family arriving without one.
+   */
+  readonly threadMethod: ThreadMethod | null
 }
 
 /**
@@ -518,10 +550,18 @@ export interface ToolRecord {
 export function toolRecord(
   fields: Omit<
     ToolRecord,
-    'guid' | 'materialGroups' | 'materialGroupsSource' | 'nonFerrous' | 'productLine'
+    | 'guid'
+    | 'materialGroups'
+    | 'materialGroupsSource'
+    | 'nonFerrous'
+    | 'productLine'
+    | 'threadMethod'
   > &
     Partial<
-      Pick<ToolRecord, 'materialGroups' | 'materialGroupsSource' | 'nonFerrous' | 'productLine'>
+      Pick<
+        ToolRecord,
+        'materialGroups' | 'materialGroupsSource' | 'nonFerrous' | 'productLine' | 'threadMethod'
+      >
     >,
 ): ToolRecord {
   const groups = fields.materialGroups ?? null
@@ -553,10 +593,27 @@ export function toolRecord(
     )
   }
 
+  // A tap says how it makes its thread and nothing else does. Both halves are
+  // load-bearing: a tap record with no method is a family that never declared
+  // the fact, and a method on a drill is a mapper that copied a line from the
+  // tap one. Neither can be recovered downstream from what is left on the
+  // record, because the geometry of a former and a cut tap is the same
+  // geometry.
+  const method = fields.threadMethod ?? null
+
+  if ((fields.kind === 'tap') !== (method !== null)) {
+    throw new ScraperConfigError(
+      fields.materialNumber,
+      `a ${fields.kind} record states threadMethod ${JSON.stringify(method)} — ` +
+        `a tap says how it makes its thread and no other kind does`,
+    )
+  }
+
   checkGeometry(fields.kind, fields.materialNumber, fields.geometry)
 
   return Object.freeze({
     ...fields,
+    threadMethod: method,
     guid: recordGuid(fields.brand, fields.materialNumber),
     geometry: Object.freeze({ ...fields.geometry }),
     materialGroups: groups === null ? null : Object.freeze([...groups]),

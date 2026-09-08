@@ -189,6 +189,7 @@ export const PRODUCT_LINE_COLUMNS: Readonly<Record<string, string>> = {
   FF01: 'product line',
   FB01: 'Geometry',
   FG01: 'Geometry',
+  FG02: 'Geometry',
 }
 
 /**
@@ -212,6 +213,16 @@ export const PRODUCT_LINE_COLUMNS: Readonly<Record<string, string>> = {
  * vendor's marketing rather than a hole here: `SPEED`, `FK`, `GAL`, `GG` and
  * `TILEG` are real lines with no `/a/` page on the US storefront, so the
  * honest answer is the vendor's own code until one appears.
+ *
+ * **`FG02` has no entry at all, on purpose.** Cold-forming taps index by the
+ * same eight geometry codes `FG01` uses — `AL`, `GAL`, `H`, `MULTI`, `SPEED`,
+ * `STEEL`, `VA`, `Z` — and mean different products by them: a `Z`-geometry
+ * former is InnoForm, not the `Rekord B-Z Taps` the `FG01` table would name it.
+ * Borrowing that table would put a cutting tap's product line on a forming tap,
+ * which is the one error this category split exists to make impossible. So the
+ * codes pass through verbatim, which is what the paragraph above already says a
+ * code with no article page does, and naming them from the vendor's own
+ * cold-forming pages is the follow-up.
  */
 export const PRODUCT_LINES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   // `/us/en/multi-drill/a/MultiDRILL`, `/us/en/steeldrill/a/SteelDrill`,
@@ -618,6 +629,7 @@ export function tapRecord(
     ...common(row, family, what, warn),
     kind: 'tap',
     unit,
+    threadMethod: fact(family, 'threadMethod', family.threadMethod),
     geometry: {
       DC: required(row, columns, 'DC', unit, what, opts),
       TP: required(row, columns, 'TP', unit, what, opts),

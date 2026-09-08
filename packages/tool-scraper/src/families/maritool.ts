@@ -46,6 +46,37 @@
  *
  * ## What is not scraped
  *
+ * **The taps are not scraped, and the evidence for when they are is here.**
+ * MariTool sells taps under `c78_148`, and its tree already answers the one
+ * question a tap record needs that no vendor of ours states in a column —
+ * whether the tap cuts its thread or forms it. Only the forming branch carries
+ * the word, so the leaf name settles it (JG 2026-09-07):
+ *
+ * | Leaf                    | cPath              | Method    |
+ * | ----------------------- | ------------------ | --------- |
+ * | Thread Forming Taps     | `78_148_274`       | `forming` |
+ * | — Plug Form Tap         | `78_148_274_275`   | `forming` |
+ * | — Bottoming Form Tap    | `78_148_274_276`   | `forming` |
+ * | Spiral Flute Taps       | `78_148_149`       | `cutting` |
+ * | Spiral Point Taps       | `78_148_224`       | `cutting` |
+ * | Taps for Aluminum       | `78_148_271`       | `cutting` |
+ * | Taper Pipe Taps         | `78_148_283`       | `cutting` |
+ * | DIN Length HPT Taps     | `78_148_284`       | `cutting` |
+ *
+ * **Checked into a table when it is built, not run as a filter**, for the
+ * reason the ER leaves above already give: a rule matching a name drops
+ * silently when the vendor renames a category, and three leaves here are
+ * already named something other than what they hold. `maritool --catalog` walks
+ * the tree, which is how the rule gets re-checked rather than trusted.
+ *
+ * **What still has to be decided before a tap family lands.** A MariTool tap
+ * page publishes `Shank Size`, `Total Length`, `Thread Length` and `Size` —
+ * enough for `SFDM`, `OAL`, `LCF` and a designation `thread.ts` can already
+ * parse — but a metric tap states `Size: M3` and `Pitch Diameter: 0.5` against
+ * a body in inches (`Shank Size: 0.141`, `Total Length: 1 15/16`). No family in
+ * this package is mixed that way and `ToolRecord.unit` is one value, so that is
+ * a decision on its own merits and not a widening of this table.
+ *
  * **BT50 and ISO30 produce no CSV.** MariTool's only BT50 category is end mill
  * holders, which is out of scope; ISO30 has three ER parts and none of them
  * publishes a spec table, so the family would be a receipt of nothing.

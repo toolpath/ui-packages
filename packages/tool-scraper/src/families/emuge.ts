@@ -1,7 +1,7 @@
 /**
  * EMUGE-FRANKEN's families.
  *
- * Four, one per catalog category crossed with the unit system the category is
+ * Five, one per catalog category crossed with the unit system the category is
  * published in. That is coarser than the vendor's own marketing, which splits
  * end mills fifteen ways by product line — TOP-Cut, Hard-Cut, Alu-Cut — and it
  * is deliberate: EMUGE states the product line, the cutting material, the
@@ -12,8 +12,22 @@
  * `PRODUCT_LINE_COLUMNS` reads one per part onto `ToolRecord.productLine`, from
  * a column every scrape already writes.
  *
- * So the only fact three of these four state is `unit`, and the fourth adds the
- * two a drill record cannot be built without.
+ * So the only fact the two milling families state is `unit`; the drill family
+ * adds the two a drill record cannot be built without, and each tap family adds
+ * how its taps make a thread — see `MACHINE_TAP` and `COLD_FORMING_TAP`.
+ *
+ * ## The tapping split, which is not a unit split
+ *
+ * Tapping is the one category EMUGE publishes as **two**: `FG01`, which it
+ * titles `Machine taps`, and `FG02`, `Cold forming tap`. They are the same
+ * three calls against the same column labels and differ only in what the tools
+ * do — one cuts the thread away, the other displaces material into it — so
+ * they are two families and not two adapters, and the category is what each
+ * one's `threadMethod` fact cites.
+ *
+ * `FG02` went unscraped until 2026-09-07, which meant `emuge_taps.csv` was the
+ * whole of this package's tapping corpus and every row in it was a cutting tap
+ * with nothing recording that it was.
  *
  * ## `rows`
  *
@@ -35,7 +49,10 @@
  * system to read, because the vendor states one system for all of them.
  */
 
+import type { UnitSystem } from '../conventions.js'
 import type { FamilyDefinition } from '../family.js'
+import type { Fact } from '../provenance.js'
+import type { ThreadMethod } from '../records.js'
 
 /**
  * The facet EMUGE indexes milling variants by unit system under.
@@ -78,7 +95,79 @@ export const SCRAPE_TARGETS = {
   },
   'emuge_drills.csv': { category: 'FB01' },
   'emuge_taps.csv': { category: 'FG01' },
+  'emuge_form_taps.csv': { category: 'FG02' },
 } as const satisfies Record<string, Target>
+
+/**
+ * Tapping geometry, identical either side of the cutting/forming split.
+ *
+ * **EMUGE labels a cold-forming tap's lead `length of cutting edge l₂` too**,
+ * and it reaches the CSV under that label, because a scraped column keeps the
+ * vendor's own name — `conventions.ts` opens on the reason. A former has no
+ * cutting edge and the label is wrong about it; renaming it here would swap one
+ * vendor's inaccuracy for this package's invention, and the record's `LCF` is
+ * the canonical name either way.
+ */
+const TAP_COLUMNS = {
+  DC: 'nominal diameter d₁',
+  SFDM: 'Shank diameter d₂',
+  OAL: 'Overall length l₁',
+  LCF: 'length of cutting edge l₂',
+  TP: 'pitch',
+} as const
+
+/**
+ * Which of EMUGE's two tap categories a family scrapes, and how it is known.
+ *
+ * The vendor splits its taps into two categories and scraping either one is
+ * already the answer — but the *parts* say so as well, independently, which is
+ * what makes these `vendor-stated` rather than a claim about a URL. Every
+ * grouped product carries a flat `technicalDetails` list, and:
+ *
+ * - all 414 `FG01` groups state `chamfer form` and none states `lead taper
+ *   form`;
+ * - all 137 `FG02` groups state `lead taper form` and none states `chamfer
+ *   form`.
+ *
+ * Mutually exclusive, both directions, at full coverage (JG 2026-09-07). A
+ * chamfer is ground onto a tap that cuts and a lead taper is rolled onto one
+ * that forms, so the vendor is naming the same distinction twice.
+ * `tests/emuge-corpus.test.ts` re-checks that agreement against a real scrape,
+ * which is what keeps these two constants honest without either family reading
+ * a column.
+ *
+ * **Two things that look like this discriminator and are not**, recorded so
+ * nobody reaches for them: `Geometry` — the column `vendors/emuge/records.ts`
+ * reads as the product line — takes `AL`, `GAL`, `H`, `MULTI`, `SPEED`,
+ * `STEEL`, `VA` and `Z` in *both* categories; and the 189 `FG01` variants whose
+ * `flute characteristic` is `without` are six EMUGE *Robust* groups, reinforced
+ * cutting taps that still state a `chamfer form`.
+ */
+/**
+ * The unit both tap families are published in.
+ *
+ * Shared because the vendor's rule is about tapping and not about either
+ * category: a `#4-40 UNC` tap states millimetres whichever of the two it sits
+ * in, which is the same thing the module note says about there being no unit
+ * facet on tapping at all.
+ */
+const TAP_MILLIMETERS = {
+  value: 'millimeters',
+  source: 'vendor-stated',
+  cite: 'every tap dimension is published in millimetres whatever the thread standard — a `#4-40 UNC` tap states `nominal diameter d₁ [mm]` as `2.845 mm`, `pitch [mm]` as `0.635 mm`, and its shank and lengths in `mm` — with `thread symbol`, `nominal size` and `threads per inch` carrying the inch designation beside them',
+} as const satisfies Fact<UnitSystem>
+
+const MACHINE_TAP = {
+  value: 'cutting',
+  source: 'vendor-stated',
+  cite: "the vendor's own category `FG01`, which it titles `Machine taps`; and independently every one of its 414 grouped products states a `chamfer form` and none states a `lead taper form` (JG 2026-09-07)",
+} as const satisfies Fact<ThreadMethod>
+
+const COLD_FORMING_TAP = {
+  value: 'forming',
+  source: 'vendor-stated',
+  cite: "the vendor's own category `FG02`, which it titles `Cold forming tap`; and independently every one of its 137 grouped products states a `lead taper form` and none states a `chamfer form` (JG 2026-09-07)",
+} as const satisfies Fact<ThreadMethod>
 
 /** Milling geometry, identical either side of the unit split. */
 const MILLING_COLUMNS = {
@@ -171,20 +260,28 @@ export const FAMILIES = {
     // `records.DIMENSIONAL_COLUMNS` excluding it means: the vendor publishes
     // `pitch [mm]` and this family is millimetres, so the column is already in
     // the record's native unit.
-    columns: {
-      DC: 'nominal diameter d₁',
-      SFDM: 'Shank diameter d₂',
-      OAL: 'Overall length l₁',
-      LCF: 'length of cutting edge l₂',
-      TP: 'pitch',
-    },
+    columns: TAP_COLUMNS,
     rows: 11566,
     facts: {
-      unit: {
-        value: 'millimeters',
-        source: 'vendor-stated',
-        cite: 'every tap dimension is published in millimetres whatever the thread standard — a `#4-40 UNC` tap states `nominal diameter d₁ [mm]` as `2.845 mm`, `pitch [mm]` as `0.635 mm`, and its shank and lengths in `mm` — with `thread symbol`, `nominal size` and `threads per inch` carrying the inch designation beside them',
-      },
+      unit: TAP_MILLIMETERS,
+      threadMethod: MACHINE_TAP,
+    },
+  },
+  // The second half of the vendor's own tapping catalog, and the only forming
+  // taps this package reaches. It scrapes the same three calls as `FG01`
+  // against the same column labels — see `TAP_COLUMNS` — so it is a family
+  // rather than an adapter: what differs is the category, and what the
+  // category settles.
+  'emuge_form_taps.csv': {
+    id: 'form-taps',
+    brand: 'emuge',
+    kind: 'tap',
+    familyCode: 'FG02',
+    columns: TAP_COLUMNS,
+    rows: 1432,
+    facts: {
+      unit: TAP_MILLIMETERS,
+      threadMethod: COLD_FORMING_TAP,
     },
   },
 } as const satisfies Record<string, FamilyDefinition>

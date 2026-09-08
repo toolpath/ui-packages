@@ -385,13 +385,54 @@ describe('the record itself', () => {
     // vendor index that rates the part for nothing. The source is a label and
     // never absent, so "we do not know what this is for" is something a reader
     // sees rather than something it has to infer from a null.
-    const record = toolRecord({ ...base, kind: 'tap', coating: '', geometry: TAP })
+    const record = toolRecord({
+      ...base,
+      kind: 'tap',
+      coating: '',
+      geometry: TAP,
+      threadMethod: 'cutting',
+    })
 
     expect(record.materialGroups).toBeNull()
     expect(record.materialGroupsSource).toBe(UNSPECIFIED)
     expect(UNSPECIFIED).not.toBeNull()
     expect(ISO_MATERIAL_GROUPS).not.toContain(UNSPECIFIED)
     expect(record.nonFerrous).toBeNull()
+  })
+
+  it('carries a thread method on a tap, and none on anything else', () => {
+    // The one field that separates a form tap from a cut tap. Every other
+    // number on the two records is the same number, so a tap that reaches a
+    // consumer without it is a tap the consumer cannot drill the right hole
+    // for — and `null` is the answer on a drill or an end mill because the
+    // question does not apply, not because the answer is unknown.
+    const tap = toolRecord({ ...base, kind: 'tap', geometry: TAP, threadMethod: 'forming' })
+
+    expect(tap.threadMethod).toBe('forming')
+    expect(toolRecord(base).threadMethod).toBeNull()
+  })
+
+  it('refuses a tap that states no method, and a non-tap that states one', () => {
+    // Both halves are load-bearing. A tap with no method is a family that never
+    // declared the fact — `fact()` catches that first, and this is the second
+    // gate for a mapper that reached round it. A method on a drill is a line
+    // copied out of the tap mapper, and it would read downstream as a claim
+    // about a tool the word does not describe.
+    expect(() => toolRecord({ ...base, kind: 'tap', geometry: TAP })).toThrow(ScraperConfigError)
+    expect(() => toolRecord({ ...base, kind: 'tap', geometry: TAP })).toThrow(
+      /4151623.*a tap record states threadMethod null/,
+    )
+    expect(() => toolRecord({ ...base, threadMethod: 'cutting' })).toThrow(
+      /endmill record states threadMethod "cutting"/,
+    )
+    expect(() =>
+      toolRecord({
+        ...base,
+        kind: 'drill',
+        geometry: { DC: 6.0, SFDM: 6.0, OAL: 80, LCF: 20, NOF: 2 },
+        threadMethod: 'forming',
+      }),
+    ).toThrow(/a drill record states threadMethod "forming"/)
   })
 
   it('keeps an empty index as a real answer, distinct from no index', () => {

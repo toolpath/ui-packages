@@ -17,14 +17,14 @@ pnpm add @toolpath/tool-scraper
 
 ## Vendors
 
-| Vendor             | Transport                                               | What it publishes                    |
-| ------------------ | ------------------------------------------------------- | ------------------------------------ |
-| Kennametal / WIDIA | AEM variant-table GET, parsed with `htmlparser2`        | tools and toolholding                |
-| REGO-FIX           | Elasticsearch proxy POST + per-part DIN 4000 XML        | toolholding                          |
-| Destiny Tool       | Firestore REST, paginated                               | solid end mills                      |
-| Harvey Tool        | inline JS literal on a product page, plus its `<thead>` | miniature end mills, keyseat cutters |
-| MariTool           | osCommerce category listings, then one page per part    | toolholding                          |
-| EMUGE-FRANKEN      | SAP Commerce JSON API: grouped, variant, batched detail | end mills, twist drills, taps        |
+| Vendor             | Transport                                               | What it publishes                                 |
+| ------------------ | ------------------------------------------------------- | ------------------------------------------------- |
+| Kennametal / WIDIA | AEM variant-table GET, parsed with `htmlparser2`        | tools and toolholding                             |
+| REGO-FIX           | Elasticsearch proxy POST + per-part DIN 4000 XML        | toolholding                                       |
+| Destiny Tool       | Firestore REST, paginated                               | solid end mills                                   |
+| Harvey Tool        | inline JS literal on a product page, plus its `<thead>` | miniature end mills, keyseat cutters              |
+| MariTool           | osCommerce category listings, then one page per part    | toolholding                                       |
+| EMUGE-FRANKEN      | SAP Commerce JSON API: grouped, variant, batched detail | end mills, twist drills, taps cutting and forming |
 
 ## Two entry points
 
@@ -77,6 +77,7 @@ toolpath-scrape harvey --catalog                  # what the four category trees
 toolpath-scrape maritool maritool_cat40_holders.csv  # its leaf categories come from its config
 toolpath-scrape maritool --catalog                # what the five taper trees hold today
 toolpath-scrape emuge emuge_drills.csv            # its category and unit come from its config
+toolpath-scrape emuge emuge_form_taps.csv         # FG02, the cold-forming taps
 ```
 
 `toolpath-scrape --help` lists the rest.
@@ -98,6 +99,15 @@ never absent: it is `unspecified`, or it says whether the rating was `vendor-sta
 here. Every Harvey record is `unspecified`: Harvey's material index is published per part rather
 than in a variant table, and a scrape cannot reach it — see
 [`docs/HARVEY_PRODUCT_TABLE.md`](docs/HARVEY_PRODUCT_TABLE.md) §1.5.1.
+
+`threadMethod` is `cutting` or `forming` on a tap and `null` on everything else,
+because the question does not apply to a drill. It is the one field that
+separates a thread former from a cut tap: the two are the same `DC`, `TP`,
+`SFDM`, `OAL` and `LCF`, often the same substrate and coating, and a shop drills
+a larger hole before one than before the other. Neither vendor publishes it in a
+variant table — Kennametal states it in a `newTapType` facet and EMUGE in the
+split between its `FG01` and `FG02` categories — so it is a per-family fact, and
+each family cites the index it was read off.
 
 Every per-family constant no vendor table states carries its provenance — whether it was
 vendor-stated, derived or assumed, and by whom on what date. The types enforce it: an assumed fact

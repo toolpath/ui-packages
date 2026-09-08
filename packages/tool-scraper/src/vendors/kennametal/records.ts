@@ -285,6 +285,7 @@ export function tapRecord(row: ScrapedRow, family: BoundFamily, columns: ColumnM
     coating: row[COATING] ?? '',
     ...materialGroups(row),
     coolantThrough: fact(family, 'coolantThrough', family.coolantThrough),
+    threadMethod: fact(family, 'threadMethod', family.threadMethod),
     geometry: {
       DC: threadMajorDiameter(tdz, system),
       TP: require_(row, columns, 'TP', unit, what),

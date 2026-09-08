@@ -22,6 +22,7 @@
 import type { UnitSystem } from '../conventions.js'
 import type { FamilyDefinition, ToolholdingDefinition } from '../family.js'
 import type { Fact } from '../provenance.js'
+import type { ThreadMethod } from '../records.js'
 
 /**
  * Facts several families state identically, named once.
@@ -85,6 +86,42 @@ const NO_COOLANT_THROUGH_TAP = {
   checked: '2026-08-29',
   by: 'JG',
 } as const satisfies Fact<boolean>
+
+/**
+ * The tap-type facet, and what it settles.
+ *
+ * **The variant table does not carry it.** All three tap families publish
+ * `D1-TDZ`, `Thread Tolerance Class ANSI`, `Tap Pitch Diameter Limit` and
+ * `Type of Thread` — the thread's *class*, never how it is produced. What does
+ * carry it is the vendor's own `newTapType` Solr facet, and it narrows the same
+ * `.variants.<code>.html` endpoint `vendors/kennametal/scrape.ts` already
+ * calls: `scrape.ACTIVE_ONLY` is one facet on that query and this is a second,
+ * exactly as `vendors/kennametal/materials.ts` appends one.
+ *
+ * Its vocabulary, read off the threading category listing on 2026-09-07, is
+ * `2-Hand Tap`, `3-Forming Tap`, `8-Spiral Flute Tap`, `10-Pipe Tap`,
+ * `11-Spiral Point Tap` and `13-Straight Flute Tap`. Exactly one of the six is
+ * a forming tap; the other five cut. So a family that answers any value but
+ * `3-Forming Tap` is a cutting family, and each of the three below was probed
+ * for its own value **and** for `3-Forming Tap`, which returned the vendor's
+ * no-results notice every time.
+ *
+ * That is why these are `vendor-stated` and not `assumed`: the cite is a query
+ * anybody can re-run, and the *negative* half of it is the part that matters.
+ * A `cite` naming only the CSV's own filename would be this table reading its
+ * own name back to itself.
+ */
+const SPIRAL_POINT_TAP = {
+  value: 'cutting',
+  source: 'vendor-stated',
+  cite: "the vendor's own `newTapType` facet on the variants endpoint: every row of this family answers `:relevance:obsoleteFacet:false:newTapType:11-Spiral Point Tap`, and `3-Forming Tap` — the one forming value of the six — returns the no-results notice (JG 2026-09-07)",
+} as const satisfies Fact<ThreadMethod>
+
+const HAND_TAP = {
+  value: 'cutting',
+  source: 'vendor-stated',
+  cite: 'the same `newTapType` facet: every row of this family answers `2-Hand Tap`, and `3-Forming Tap`, `8-Spiral Flute Tap`, `10-Pipe Tap` and `11-Spiral Point Tap` each return the no-results notice (JG 2026-09-07)',
+} as const satisfies Fact<ThreadMethod>
 
 const HSS_ASSUMED = {
   value: 'hss',
@@ -332,6 +369,7 @@ export const FAMILIES = {
     facts: {
       bmc: HSS_ASSUMED,
       coolantThrough: NO_COOLANT_THROUGH_TAP,
+      threadMethod: SPIRAL_POINT_TAP,
     },
   },
   'khsst_hand_metric_plug.csv': {
@@ -343,6 +381,7 @@ export const FAMILIES = {
     facts: {
       bmc: HSS_ASSUMED,
       coolantThrough: NO_COOLANT_THROUGH_TAP,
+      threadMethod: HAND_TAP,
     },
   },
   'spiral_point_metric_plug.csv': {
@@ -354,6 +393,7 @@ export const FAMILIES = {
     facts: {
       bmc: HSS_ASSUMED,
       coolantThrough: NO_COOLANT_THROUGH_TAP,
+      threadMethod: SPIRAL_POINT_TAP,
     },
   },
   'gomill_pro_radiused_4fl_necked_metric.csv': {
