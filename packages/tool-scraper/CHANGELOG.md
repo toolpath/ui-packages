@@ -1,5 +1,11 @@
 # @toolpath/tool-scraper
 
+## 2.3.1
+
+### Patch Changes
+
+- cb1e135: Fix Destiny Tool product links to use the vendor's product page path.
+
 ## 2.3.0
 
 ### Minor Changes
