@@ -29,7 +29,11 @@ class JobDetail:
             available.
         import_id (None | UUID): Identifier of the holder result produced by a successful import, or null until
             available.
-        created_at (datetime.datetime): Time at which the job was created, in ISO 8601 format.
+        created_at (datetime.datetime): Time at which the job was created (queued), in ISO 8601 format.
+        updated_at (datetime.datetime): Time of the job’s most recent state change (progress or terminal status), in ISO
+            8601 format. Equals `createdAt` for a job that has not yet transitioned.
+        duration_ms (int): Wall-clock elapsed from creation to the most recent state change, in milliseconds — the time
+            the job has taken to reach its current state (queue wait included).
     """
 
     part_uuid: None | UUID
@@ -42,6 +46,8 @@ class JobDetail:
     report_id: None | UUID
     import_id: None | UUID
     created_at: datetime.datetime
+    updated_at: datetime.datetime
+    duration_ms: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -83,6 +89,10 @@ class JobDetail:
 
         created_at = self.created_at.isoformat()
 
+        updated_at = self.updated_at.isoformat()
+
+        duration_ms = self.duration_ms
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -97,6 +107,8 @@ class JobDetail:
                 "reportId": report_id,
                 "importId": import_id,
                 "createdAt": created_at,
+                "updatedAt": updated_at,
+                "durationMs": duration_ms,
             }
         )
 
@@ -188,6 +200,10 @@ class JobDetail:
 
         created_at = datetime.datetime.fromisoformat(d.pop("createdAt"))
 
+        updated_at = datetime.datetime.fromisoformat(d.pop("updatedAt"))
+
+        duration_ms = d.pop("durationMs")
+
         job_detail = cls(
             part_uuid=part_uuid,
             holder_uuid=holder_uuid,
@@ -199,6 +215,8 @@ class JobDetail:
             report_id=report_id,
             import_id=import_id,
             created_at=created_at,
+            updated_at=updated_at,
+            duration_ms=duration_ms,
         )
 
         job_detail.additional_properties = d

@@ -43,6 +43,9 @@ from .key_validation_response import KeyValidationResponse
 from .key_validation_response_status import KeyValidationResponseStatus
 from .list_jobs_response import ListJobsResponse
 from .list_jobs_status import ListJobsStatus
+from .machining_time_action import MachiningTimeAction
+from .machining_time_response import MachiningTimeResponse
+from .machining_time_setup import MachiningTimeSetup
 from .no_axis import NoAxis
 from .no_axis_kind import NoAxisKind
 from .offset_length import OffsetLength
@@ -52,12 +55,32 @@ from .part_feature_axis import PartFeatureAxis
 from .part_feature_entry import PartFeatureEntry
 from .part_feature_machining_direction import PartFeatureMachiningDirection
 from .part_features_response import PartFeaturesResponse
+from .part_mesh_job_response import PartMeshJobResponse
+from .part_mesh_job_response_status import PartMeshJobResponseStatus
+from .part_mesh_response import PartMeshResponse
 from .part_response import PartResponse
 from .part_response_units import PartResponseUnits
 from .pinch_point import PinchPoint
+from .pipeline_readiness_problem import PipelineReadinessProblem
+from .pipeline_readiness_problem_job_status_type_1 import PipelineReadinessProblemJobStatusType1
+from .pipeline_readiness_problem_job_status_type_2_type_1 import PipelineReadinessProblemJobStatusType2Type1
+from .pipeline_readiness_problem_job_status_type_3_type_1 import PipelineReadinessProblemJobStatusType3Type1
+from .pipeline_readiness_problem_required_step import PipelineReadinessProblemRequiredStep
+from .plan_action import PlanAction
+from .plan_action_tool_type_0 import PlanActionToolType0
+from .plan_issue import PlanIssue
+from .plan_issue_kind import PlanIssueKind
+from .plan_list_response import PlanListResponse
+from .plan_response import PlanResponse
+from .plan_response_level import PlanResponseLevel
+from .plan_setup import PlanSetup
+from .plan_summary import PlanSummary
+from .plan_summary_level import PlanSummaryLevel
 from .pocket_facts import PocketFacts
 from .problem_details import ProblemDetails
 from .profile_facts import ProfileFacts
+from .queue_part_job_response import QueuePartJobResponse
+from .queue_part_job_response_status import QueuePartJobResponseStatus
 from .reach_curve import ReachCurve
 from .region import Region
 from .report_units import ReportUnits
@@ -71,6 +94,9 @@ from .thread_spec import ThreadSpec
 from .threading import Threading
 from .tolerance_band import ToleranceBand
 from .tool_fit_result import ToolFitResult
+from .toolpath_action import ToolpathAction
+from .toolpath_setup import ToolpathSetup
+from .toolpaths_response import ToolpathsResponse
 from .tslot_facts import TslotFacts
 from .turning_axis import TurningAxis
 from .turning_axis_direction import TurningAxisDirection
@@ -134,6 +160,9 @@ __all__ = (
     "KeyValidationResponseStatus",
     "ListJobsResponse",
     "ListJobsStatus",
+    "MachiningTimeAction",
+    "MachiningTimeResponse",
+    "MachiningTimeSetup",
     "NoAxis",
     "NoAxisKind",
     "OffsetLength",
@@ -143,12 +172,32 @@ __all__ = (
     "PartFeatureEntry",
     "PartFeatureMachiningDirection",
     "PartFeaturesResponse",
+    "PartMeshJobResponse",
+    "PartMeshJobResponseStatus",
+    "PartMeshResponse",
     "PartResponse",
     "PartResponseUnits",
     "PinchPoint",
+    "PipelineReadinessProblem",
+    "PipelineReadinessProblemJobStatusType1",
+    "PipelineReadinessProblemJobStatusType2Type1",
+    "PipelineReadinessProblemJobStatusType3Type1",
+    "PipelineReadinessProblemRequiredStep",
+    "PlanAction",
+    "PlanActionToolType0",
+    "PlanIssue",
+    "PlanIssueKind",
+    "PlanListResponse",
+    "PlanResponse",
+    "PlanResponseLevel",
+    "PlanSetup",
+    "PlanSummary",
+    "PlanSummaryLevel",
     "PocketFacts",
     "ProblemDetails",
     "ProfileFacts",
+    "QueuePartJobResponse",
+    "QueuePartJobResponseStatus",
     "ReachCurve",
     "Region",
     "ReportUnits",
@@ -162,6 +211,9 @@ __all__ = (
     "ThreadSpec",
     "ToleranceBand",
     "ToolFitResult",
+    "ToolpathAction",
+    "ToolpathSetup",
+    "ToolpathsResponse",
     "TslotFacts",
     "TurningAxis",
     "TurningAxisDirection",
