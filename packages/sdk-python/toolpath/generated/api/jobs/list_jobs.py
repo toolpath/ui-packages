@@ -65,6 +65,11 @@ def _parse_response(
 
         return response_401
 
+    if response.status_code == 403:
+        response_403 = ProblemDetails.from_dict(response.json())
+
+        return response_403
+
     if response.status_code == 500:
         response_500 = ProblemDetails.from_dict(response.json())
 
@@ -102,6 +107,10 @@ def sync_detailed(
     status: ListJobsStatus | Unset = UNSET,
 ) -> Response[ListJobsResponse | ProblemDetails]:
     """List jobs
+
+     Lists processing jobs, newest first. Every pipeline step that queues work — **Analyze a part**,
+    **Analyze part features**, **Create a plan**, **Calculate toolpaths**, and **Import a tool holder**
+    — returns a job you track here.
 
     Args:
         page (int | Unset):  Default: 1. Example: 1.
@@ -147,6 +156,10 @@ def sync(
 ) -> ListJobsResponse | ProblemDetails | None:
     """List jobs
 
+     Lists processing jobs, newest first. Every pipeline step that queues work — **Analyze a part**,
+    **Analyze part features**, **Create a plan**, **Calculate toolpaths**, and **Import a tool holder**
+    — returns a job you track here.
+
     Args:
         page (int | Unset):  Default: 1. Example: 1.
         page_size (int | Unset): Requested page size. Values above 100 are capped at 100. Default:
@@ -185,6 +198,10 @@ async def asyncio_detailed(
     status: ListJobsStatus | Unset = UNSET,
 ) -> Response[ListJobsResponse | ProblemDetails]:
     """List jobs
+
+     Lists processing jobs, newest first. Every pipeline step that queues work — **Analyze a part**,
+    **Analyze part features**, **Create a plan**, **Calculate toolpaths**, and **Import a tool holder**
+    — returns a job you track here.
 
     Args:
         page (int | Unset):  Default: 1. Example: 1.
@@ -227,6 +244,10 @@ async def asyncio(
     status: ListJobsStatus | Unset = UNSET,
 ) -> ListJobsResponse | ProblemDetails | None:
     """List jobs
+
+     Lists processing jobs, newest first. Every pipeline step that queues work — **Analyze a part**,
+    **Analyze part features**, **Create a plan**, **Calculate toolpaths**, and **Import a tool holder**
+    — returns a job you track here.
 
     Args:
         page (int | Unset):  Default: 1. Example: 1.

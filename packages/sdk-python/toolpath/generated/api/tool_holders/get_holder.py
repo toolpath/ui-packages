@@ -56,10 +56,20 @@ def _parse_response(
 
         return response_401
 
+    if response.status_code == 403:
+        response_403 = ProblemDetails.from_dict(response.json())
+
+        return response_403
+
     if response.status_code == 404:
         response_404 = ProblemDetails.from_dict(response.json())
 
         return response_404
+
+    if response.status_code == 410:
+        response_410 = ProblemDetails.from_dict(response.json())
+
+        return response_410
 
     if response.status_code == 500:
         response_500 = ProblemDetails.from_dict(response.json())
@@ -94,7 +104,10 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     job_id: UUID | Unset = UNSET,
 ) -> Response[HolderResponse | ProblemDetails]:
-    """Get the holder
+    """Get a tool holder
+
+     Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder**
+    (`PATCH /holders/{id}`) to have run and its job to have succeeded.
 
     Args:
         id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -127,7 +140,10 @@ def sync(
     client: AuthenticatedClient | Client,
     job_id: UUID | Unset = UNSET,
 ) -> HolderResponse | ProblemDetails | None:
-    """Get the holder
+    """Get a tool holder
+
+     Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder**
+    (`PATCH /holders/{id}`) to have run and its job to have succeeded.
 
     Args:
         id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -155,7 +171,10 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     job_id: UUID | Unset = UNSET,
 ) -> Response[HolderResponse | ProblemDetails]:
-    """Get the holder
+    """Get a tool holder
+
+     Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder**
+    (`PATCH /holders/{id}`) to have run and its job to have succeeded.
 
     Args:
         id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -186,7 +205,10 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     job_id: UUID | Unset = UNSET,
 ) -> HolderResponse | ProblemDetails | None:
-    """Get the holder
+    """Get a tool holder
+
+     Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder**
+    (`PATCH /holders/{id}`) to have run and its job to have succeeded.
 
     Args:
         id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

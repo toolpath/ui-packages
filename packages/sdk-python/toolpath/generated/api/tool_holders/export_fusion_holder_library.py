@@ -52,6 +52,11 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
         return response_401
 
+    if response.status_code == 403:
+        response_403 = ProblemDetails.from_dict(response.json())
+
+        return response_403
+
     if response.status_code == 404:
         response_404 = ProblemDetails.from_dict(response.json())
 
@@ -95,7 +100,7 @@ def sync_detailed(
     ids: str,
     trim: ExportFusionHolderLibraryTrim | Unset = ExportFusionHolderLibraryTrim.TRUE,
 ) -> Response[ProblemDetails | str]:
-    """Export several holders as one Autodesk Fusion library
+    """Export a holder library (Fusion)
 
      Composes the named holders into a single Autodesk Fusion tool library — how a shop keeps its crib
     in one file. Each holder must already have been imported; this reads their stored results and
@@ -142,7 +147,7 @@ def sync(
     ids: str,
     trim: ExportFusionHolderLibraryTrim | Unset = ExportFusionHolderLibraryTrim.TRUE,
 ) -> ProblemDetails | str | None:
-    """Export several holders as one Autodesk Fusion library
+    """Export a holder library (Fusion)
 
      Composes the named holders into a single Autodesk Fusion tool library — how a shop keeps its crib
     in one file. Each holder must already have been imported; this reads their stored results and
@@ -184,7 +189,7 @@ async def asyncio_detailed(
     ids: str,
     trim: ExportFusionHolderLibraryTrim | Unset = ExportFusionHolderLibraryTrim.TRUE,
 ) -> Response[ProblemDetails | str]:
-    """Export several holders as one Autodesk Fusion library
+    """Export a holder library (Fusion)
 
      Composes the named holders into a single Autodesk Fusion tool library — how a shop keeps its crib
     in one file. Each holder must already have been imported; this reads their stored results and
@@ -229,7 +234,7 @@ async def asyncio(
     ids: str,
     trim: ExportFusionHolderLibraryTrim | Unset = ExportFusionHolderLibraryTrim.TRUE,
 ) -> ProblemDetails | str | None:
-    """Export several holders as one Autodesk Fusion library
+    """Export a holder library (Fusion)
 
      Composes the named holders into a single Autodesk Fusion tool library — how a shop keeps its crib
     in one file. Each holder must already have been imported; this reads their stored results and

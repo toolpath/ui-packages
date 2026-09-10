@@ -52,10 +52,20 @@ def _parse_response(
 
         return response_401
 
+    if response.status_code == 403:
+        response_403 = ProblemDetails.from_dict(response.json())
+
+        return response_403
+
     if response.status_code == 404:
         response_404 = ProblemDetails.from_dict(response.json())
 
         return response_404
+
+    if response.status_code == 410:
+        response_410 = ProblemDetails.from_dict(response.json())
+
+        return response_410
 
     if response.status_code == 500:
         response_500 = ProblemDetails.from_dict(response.json())
@@ -90,7 +100,12 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     ids: str,
 ) -> Response[PartFeaturesResponse | ProblemDetails]:
-    """Get selected features for a part
+    """Get part features
+
+     Returns detailed machining datasheets for the requested features. Requires the datasheets to have
+    been generated first: run **Analyze part features** (`PATCH /parts/{id}/features`), or **Analyze a
+    part** (`PATCH /parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A feature
+    with no datasheet yet comes back with `datasheet: null`.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -123,7 +138,12 @@ def sync(
     client: AuthenticatedClient | Client,
     ids: str,
 ) -> PartFeaturesResponse | ProblemDetails | None:
-    """Get selected features for a part
+    """Get part features
+
+     Returns detailed machining datasheets for the requested features. Requires the datasheets to have
+    been generated first: run **Analyze part features** (`PATCH /parts/{id}/features`), or **Analyze a
+    part** (`PATCH /parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A feature
+    with no datasheet yet comes back with `datasheet: null`.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -151,7 +171,12 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     ids: str,
 ) -> Response[PartFeaturesResponse | ProblemDetails]:
-    """Get selected features for a part
+    """Get part features
+
+     Returns detailed machining datasheets for the requested features. Requires the datasheets to have
+    been generated first: run **Analyze part features** (`PATCH /parts/{id}/features`), or **Analyze a
+    part** (`PATCH /parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A feature
+    with no datasheet yet comes back with `datasheet: null`.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -182,7 +207,12 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     ids: str,
 ) -> PartFeaturesResponse | ProblemDetails | None:
-    """Get selected features for a part
+    """Get part features
+
+     Returns detailed machining datasheets for the requested features. Requires the datasheets to have
+    been generated first: run **Analyze part features** (`PATCH /parts/{id}/features`), or **Analyze a
+    part** (`PATCH /parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A feature
+    with no datasheet yet comes back with `datasheet: null`.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

@@ -2,33 +2,41 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Toolpath Engine API",
-    "version": "1.3.3",
-    "description": "Public REST API for Toolpath engine operations.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a `read_only` key (read_only keys may call GET\noperations only; writes are rejected with 403), or proxy requests through your own server."
+    "version": "1.10.0",
+    "description": "Public REST API for Toolpath engine operations.\n\n**Early access.** Machining plans and toolpath calculation — creating, listing, and reading\nplans, calculating toolpaths, and reading toolpath results and machining time — are available\nnow but still gaining functionality; planned additions include plan constraints and specifying\nmaterial and stock, among others. Breaking changes still follow the API major version, so you\ncan build against them today. These operations are grouped under the `Plans` and `Toolpaths`\ntags and marked `x-toolpath-experimental`.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis,\nfeature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access\ncan be edited on an existing key in the portal. Every operation states its area in its\n`x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in\n`x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs\nDFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key\nwith no access to the operation’s area is refused with 403 `product_mismatch`; one with read\naccess used for a write is refused with 403 `read_only_key`."
   },
   "tags": [
     {
-      "name": "Service",
-      "description": "Service-discovery and health operations."
-    },
-    {
       "name": "Keys",
-      "description": "API key validation operations."
+      "description": "API key validation."
     },
     {
       "name": "Parts",
-      "description": "Part upload and processing operations."
+      "description": "Upload a part and queue its machining analysis, then read the analysis."
     },
     {
       "name": "Features",
-      "description": "Part feature operations."
+      "description": "Queue detailed feature machining datasheets, then read them."
     },
     {
-      "name": "Holders",
-      "description": "Tool holder upload, import, and collision-envelope operations."
+      "name": "Plans",
+      "description": "Create machining plans for a part and read them. Early access — see the description above."
+    },
+    {
+      "name": "Toolpaths",
+      "description": "Calculate a plan’s toolpaths and read the toolpaths and machining time. Early access — see the description above."
+    },
+    {
+      "name": "Tool holders",
+      "description": "Upload and import tool holders, then read their collision envelopes."
     },
     {
       "name": "Jobs",
-      "description": "Asynchronous job operations."
+      "description": "Track queued work. Every pipeline step that queues work returns a job."
+    },
+    {
+      "name": "Service",
+      "description": "Service-discovery and health operations."
     }
   ],
   "servers": [
@@ -323,6 +331,33 @@
           "status"
         ]
       },
+      "PartMeshJobResponse": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the queued tessellation job."
+          },
+          "partId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the part submitted for tessellation."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued"
+            ],
+            "description": "Initial state of the accepted tessellation job."
+          }
+        },
+        "required": [
+          "jobId",
+          "partId",
+          "status"
+        ]
+      },
       "PartResponse": {
         "type": "object",
         "properties": {
@@ -432,26 +467,6 @@
             ],
             "format": "uri",
             "description": "15-minute URL for the generated GLB mesh, or null when absent."
-          },
-          "downloadMs": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Worker time spent downloading the source CAD file, in milliseconds."
-          },
-          "recognitionMs": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Kernel time spent on initial part processing, in milliseconds."
-          },
-          "enrichmentMs": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Kernel time spent building per-feature details, in milliseconds."
-          },
-          "totalMs": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Total worker processing time for this part, in milliseconds."
           }
         },
         "required": [
@@ -469,11 +484,7 @@
           "meshTriangleCount",
           "thumbnailUrl",
           "meshStlUrl",
-          "meshGlbUrl",
-          "downloadMs",
-          "recognitionMs",
-          "enrichmentMs",
-          "totalMs"
+          "meshGlbUrl"
         ]
       },
       "ReportUnits": {
@@ -629,6 +640,43 @@
           "direction",
           "zMin",
           "zMax"
+        ]
+      },
+      "PartMeshResponse": {
+        "type": "object",
+        "properties": {
+          "partId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of this part."
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the tessellation job that produced this display mesh."
+          },
+          "meshPointCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of points in the display mesh."
+          },
+          "meshTriangleCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of triangles in the display mesh."
+          },
+          "meshGlbUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "15-minute URL for the display mesh as binary glTF (GLB)."
+          }
+        },
+        "required": [
+          "partId",
+          "jobId",
+          "meshPointCount",
+          "meshTriangleCount",
+          "meshGlbUrl"
         ]
       },
       "UpdatePartFeaturesResponse": {
@@ -878,6 +926,627 @@
         ],
         "description": "One feature as machining sees it: static, self-contained, and enough to choose a\ntool against without having the part in hand. All lengths mm and angles degrees;\nz runs up the tool axis, so `zMin` is the bottom of the feature and `zMax` its top."
       },
+      "QueuePartJobResponse": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the queued processing job."
+          },
+          "partId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the part submitted for processing."
+          },
+          "planId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the plan this job writes to. Read results at /plans/{planId} once the job completes."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued"
+            ],
+            "description": "Initial state of the accepted processing job."
+          }
+        },
+        "required": [
+          "jobId",
+          "partId",
+          "planId",
+          "status"
+        ]
+      },
+      "PlanListResponse": {
+        "type": "object",
+        "properties": {
+          "partId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of this part."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanSummary"
+            },
+            "description": "The part’s plans in this page, newest first."
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "One-based page number returned."
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Maximum number of plans returned in this page."
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total number of plans for this part."
+          }
+        },
+        "required": [
+          "partId",
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ]
+      },
+      "PlanSummary": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of this plan."
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the job that produced this plan."
+          },
+          "kernelVersion": {
+            "type": "string",
+            "description": "Version of the Toolpath kernel that produced this plan."
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "toolpathed"
+            ],
+            "description": "Fidelity of this plan: `planned` (setups and action-specs only) or `toolpathed` (toolpaths also calculated)."
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanIssue"
+            },
+            "description": "The plan’s coverage shortfalls (see PlanResponse.issues). Empty when it covers all."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When this plan was created (ISO 8601)."
+          }
+        },
+        "required": [
+          "planId",
+          "jobId",
+          "kernelVersion",
+          "level",
+          "issues",
+          "createdAt"
+        ]
+      },
+      "PlanIssue": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "Unseen",
+              "Incomplete"
+            ],
+            "description": "How the plan falls short: `Unseen` (regions no offered feature reaches from any direction that the plan owes) or `Incomplete` (regions some feature could reach that the plan leaves untouched)."
+          },
+          "area": {
+            "type": "number",
+            "description": "Faceted area of this shortfall, in mm² — the figure to gate a quote on."
+          },
+          "regionCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "How many part regions this shortfall covers."
+          }
+        },
+        "required": [
+          "kind",
+          "area",
+          "regionCount"
+        ]
+      },
+      "PlanResponse": {
+        "type": "object",
+        "properties": {
+          "partId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of this part."
+          },
+          "planId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of this plan."
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the job that produced this plan."
+          },
+          "kernelVersion": {
+            "type": "string",
+            "description": "Version of the Toolpath kernel that produced this plan."
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "toolpathed"
+            ],
+            "description": "Fidelity of this plan: `planned` (setups and action-specs only) or `toolpathed` (toolpaths also calculated — fetch them at /plans/{planId}/toolpaths)."
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanIssue"
+            },
+            "description": "The plan’s coverage shortfalls — what it leaves uncut, each with its area (mm²). Empty when the plan machines everything it owes; gate a quote on this rather than on cut coverage alone."
+          },
+          "setups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanSetup"
+            },
+            "description": "Setups, in machining order."
+          }
+        },
+        "required": [
+          "partId",
+          "planId",
+          "jobId",
+          "kernelVersion",
+          "level",
+          "issues",
+          "setups"
+        ]
+      },
+      "PlanSetup": {
+        "type": "object",
+        "properties": {
+          "idx": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Position of this item in machining order."
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Vec3"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The setup’s machining direction (tool axis), or null when none is exposed."
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanAction"
+            },
+            "description": "Action-specs, in machining order."
+          },
+          "unmachined": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Feature tags (hex) this setup was meant to machine that no pass in it does — a coverage loss the tool pool could not finish. Empty when the setup machines everything assigned."
+          }
+        },
+        "required": [
+          "idx",
+          "direction",
+          "actions",
+          "unmachined"
+        ]
+      },
+      "PlanAction": {
+        "type": "object",
+        "properties": {
+          "actionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of this action record."
+          },
+          "idx": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Position of this item in machining order."
+          },
+          "planCase": {
+            "type": "string",
+            "description": "The strategy this action realizes, e.g. WholePartRoughing."
+          },
+          "toolName": {
+            "type": "string",
+            "description": "Name of the tool this action uses."
+          },
+          "featureTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Feature tags (hex) this action machines — join to a part feature’s `featureTag` (from `GET /parts/{id}`). Empty for whole-part roughing and facing, which machine no named feature."
+          },
+          "tool": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {},
+            "description": "The full synthesized tool spec, or null when the kernel exposes none. Its `key` names the tool within this plan only: two actions with equal keys run in one tool, so a change of key between consecutive actions is a tool change. It is not an identity across plans or kernel versions, and is absent on plans computed before tp-kernel 0.10.0."
+          }
+        },
+        "required": [
+          "actionId",
+          "idx",
+          "planCase",
+          "toolName",
+          "featureTags",
+          "tool"
+        ]
+      },
+      "ToolpathsResponse": {
+        "type": "object",
+        "properties": {
+          "partId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of this part."
+          },
+          "planId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the plan."
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the job that produced these toolpaths."
+          },
+          "kernelVersion": {
+            "type": "string",
+            "description": "Version of the Toolpath kernel that produced these toolpaths."
+          },
+          "setups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolpathSetup"
+            },
+            "description": "Setups, in machining order."
+          }
+        },
+        "required": [
+          "partId",
+          "planId",
+          "jobId",
+          "kernelVersion",
+          "setups"
+        ]
+      },
+      "ToolpathSetup": {
+        "type": "object",
+        "properties": {
+          "idx": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Position of this item in machining order."
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolpathAction"
+            },
+            "description": "Actions, in machining order."
+          }
+        },
+        "required": [
+          "idx",
+          "actions"
+        ]
+      },
+      "ToolpathAction": {
+        "type": "object",
+        "properties": {
+          "actionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of this action record."
+          },
+          "idx": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Position of this item in machining order."
+          },
+          "planCase": {
+            "type": "string",
+            "description": "The strategy this action realizes, e.g. WholePartRoughing."
+          },
+          "toolName": {
+            "type": "string",
+            "description": "Name of the tool this action uses."
+          },
+          "featureTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Feature tags (hex) this action machines — join to a part feature’s `featureTag` (from `GET /parts/{id}`). Empty for whole-part roughing and facing, which machine no named feature."
+          },
+          "machiningTime": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Machining time for this action from the cut toolpath’s programmed feeds (links and rapids included, tool change excluded), in seconds, or null when the action was refused."
+          },
+          "cuttingLength": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Cutting-motion length of the toolpath in mm, or null when the action was refused."
+          },
+          "pathLength": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Full toolpath length including links and rapids, in mm, or null when the action was refused."
+          },
+          "empty": {
+            "type": "boolean",
+            "description": "True when the runner ran this action but it produced no cutting motion (nothing left to cut) — distinct from a real cut and from a refusal. Its machining time and lengths are zero and no geometry is stored. Always false for a refused action or a plan that is only `planned`."
+          },
+          "refusedReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the runner refused to cut this action (`unsupported:`/`geometry:`), or null when it cut."
+          },
+          "toolpathUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "description": "15-minute URL for the toolpath geometry (points, segments, placement frame; JSON), or null when the action was refused, empty, or its geometry is unavailable."
+          }
+        },
+        "required": [
+          "actionId",
+          "idx",
+          "planCase",
+          "toolName",
+          "featureTags",
+          "machiningTime",
+          "cuttingLength",
+          "pathLength",
+          "empty",
+          "refusedReason",
+          "toolpathUrl"
+        ]
+      },
+      "PipelineReadinessProblem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ProblemDetails"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "requiredStep": {
+                "type": "string",
+                "enum": [
+                  "plan-part",
+                  "calculate-toolpaths"
+                ],
+                "description": "The pipeline step that must run before this data is available."
+              },
+              "jobStatus": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "queued",
+                  "running",
+                  "succeeded",
+                  "failed",
+                  null
+                ],
+                "description": "State of the latest job for the required step: queued or running when one is in progress, failed when the last attempt failed, or null when no such job has been queued for this part."
+              }
+            },
+            "required": [
+              "requiredStep",
+              "jobStatus"
+            ]
+          }
+        ]
+      },
+      "MachiningTimeResponse": {
+        "type": "object",
+        "properties": {
+          "partId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of this part."
+          },
+          "planId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the plan."
+          },
+          "kernelVersion": {
+            "type": "string",
+            "description": "Version of the Toolpath kernel that produced these toolpaths."
+          },
+          "totalMachiningTimeSeconds": {
+            "type": "number",
+            "description": "Sum of every cut action’s calculated machining time, in seconds — the toolpath time at its programmed feeds (links and rapids included), with tool changes excluded and refused actions contributing nothing, so when `refusedCount` is nonzero this total is partial (not the whole job)."
+          },
+          "setupCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of setups."
+          },
+          "actionCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of actions."
+          },
+          "refusedCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of actions the runner refused (no toolpath calculated). These contribute nothing to the totals, so a nonzero count means the machining-time total covers only part of the plan."
+          },
+          "totalCuttingLength": {
+            "type": "number",
+            "description": "Sum of cut actions’ cutting lengths, in mm."
+          },
+          "totalPathLength": {
+            "type": "number",
+            "description": "Sum of cut actions’ full path lengths, in mm."
+          },
+          "setups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MachiningTimeSetup"
+            },
+            "description": "Per-action machining times, grouped by setup, in machining order."
+          }
+        },
+        "required": [
+          "partId",
+          "planId",
+          "kernelVersion",
+          "totalMachiningTimeSeconds",
+          "setupCount",
+          "actionCount",
+          "refusedCount",
+          "totalCuttingLength",
+          "totalPathLength",
+          "setups"
+        ]
+      },
+      "MachiningTimeSetup": {
+        "type": "object",
+        "properties": {
+          "idx": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Position of this item in machining order."
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MachiningTimeAction"
+            },
+            "description": "Actions, in machining order."
+          }
+        },
+        "required": [
+          "idx",
+          "actions"
+        ]
+      },
+      "MachiningTimeAction": {
+        "type": "object",
+        "properties": {
+          "actionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of this action record."
+          },
+          "idx": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Position of this item in machining order."
+          },
+          "planCase": {
+            "type": "string",
+            "description": "The strategy this action realizes, e.g. WholePartRoughing."
+          },
+          "toolName": {
+            "type": "string",
+            "description": "Name of the tool this action uses."
+          },
+          "featureTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Feature tags (hex) this action machines — join to a part feature’s `featureTag` (from `GET /parts/{id}`). Empty for whole-part roughing and facing, which machine no named feature."
+          },
+          "machiningTime": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Machining time for this action from the cut toolpath’s programmed feeds (links and rapids included, tool change excluded), in seconds, or null when the action was refused."
+          },
+          "cuttingLength": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Cutting-motion length of the toolpath in mm, or null when the action was refused."
+          },
+          "pathLength": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Full toolpath length including links and rapids, in mm, or null when the action was refused."
+          },
+          "empty": {
+            "type": "boolean",
+            "description": "True when the runner ran this action but it produced no cutting motion (nothing left to cut) — distinct from a real cut and from a refusal. Its machining time and lengths are zero and no geometry is stored. Always false for a refused action or a plan that is only `planned`."
+          }
+        },
+        "required": [
+          "actionId",
+          "idx",
+          "planCase",
+          "toolName",
+          "featureTags",
+          "machiningTime",
+          "cuttingLength",
+          "pathLength",
+          "empty"
+        ]
+      },
       "CreateHolderResponse": {
         "type": "object",
         "properties": {
@@ -1123,21 +1792,6 @@
           "fusionTrimmedAvailable": {
             "type": "boolean",
             "description": "Whether that download can serve an envelope cut at the gauge plane. False when there was nothing to cut at — no gauge plane was measured, or a flip put the taper at the nose — in which case `trim=true` serves the complete envelope."
-          },
-          "downloadMs": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Worker time spent downloading the source CAD file, in milliseconds."
-          },
-          "importMs": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Kernel time spent deriving the holder, in milliseconds."
-          },
-          "totalMs": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Total worker processing time for this holder, in milliseconds."
           }
         },
         "required": [
@@ -1165,10 +1819,7 @@
           "meshStlUrl",
           "meshGlbUrl",
           "fusionAvailable",
-          "fusionTrimmedAvailable",
-          "downloadMs",
-          "importMs",
-          "totalMs"
+          "fusionTrimmedAvailable"
         ]
       },
       "HolderUnits": {
@@ -1408,7 +2059,17 @@
           "createdAt": {
             "type": "string",
             "format": "date-time",
-            "description": "Time at which the job was created, in ISO 8601 format."
+            "description": "Time at which the job was created (queued), in ISO 8601 format."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Time of the job’s most recent state change (progress or terminal status), in ISO 8601 format. Equals `createdAt` for a job that has not yet transitioned."
+          },
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Wall-clock elapsed from creation to the most recent state change, in milliseconds — the time the job has taken to reach its current state (queue wait included)."
           }
         },
         "required": [
@@ -1421,7 +2082,9 @@
           "error",
           "reportId",
           "importId",
-          "createdAt"
+          "createdAt",
+          "updatedAt",
+          "durationMs"
         ]
       },
       "BevelFacts": {
@@ -1641,10 +2304,6 @@
             "type": "boolean",
             "description": "The face is to be faced off: a top face the fixture does not rule out."
           },
-          "needsSidemill": {
-            "type": "boolean",
-            "description": "Sweeping the floor does not clear the face on its own — a wall pass must follow."
-          },
           "cd": {
             "$ref": "#/components/schemas/CdData",
             "description": "Clearance-diameter limits for tools sweeping the face."
@@ -1652,15 +2311,20 @@
           "maxBottomDiameter": {
             "type": "number",
             "description": "Largest bottom diameter a terminal tool may have, in mm."
+          },
+          "needsSidemill": {
+            "type": "boolean",
+            "deprecated": true,
+            "description": "Deprecated: sweeping the floor does not clear the face on its own, so a wall pass must follow. tp-kernel 0.11.0 no longer states it separately, since only a face that is not faced off asks its tool to cut on its flank: a feature enriched since reads `!isFacing`. Removed in the next API major."
           }
         },
         "required": [
           "kind",
           "isTopFace",
           "isFacing",
-          "needsSidemill",
           "cd",
-          "maxBottomDiameter"
+          "maxBottomDiameter",
+          "needsSidemill"
         ],
         "description": "A face: a plane square to the tool axis, cleared by sweeping across it."
       },
@@ -1739,6 +2403,10 @@
           "maxSpotDiameter": {
             "type": "number",
             "description": "Largest spot-drill diameter that reaches the hole without collision, in mm."
+          },
+          "minDrillDiameter": {
+            "type": "number",
+            "description": "Smallest drill diameter that leaves the hole within its permitted undersize, in mm."
           },
           "maxDrillDiameter": {
             "type": "number",
@@ -1996,10 +2664,6 @@
             "type": "number",
             "description": "How much scallop the finishing pass may leave between neighboring passes, mm."
           },
-          "isUShapedFillet": {
-            "type": "boolean",
-            "description": "Whether the fillet has a U-shaped cross section."
-          },
           "hasSharpCorner": {
             "type": "boolean",
             "description": "Whether the surface includes a sharp corner a tool must respect."
@@ -2019,6 +2683,11 @@
           "toolFit": {
             "$ref": "#/components/schemas/ToolFitResult",
             "description": "Geometry limits imposed by the surface shape itself."
+          },
+          "isUShapedFillet": {
+            "type": "boolean",
+            "deprecated": true,
+            "description": "Deprecated: whether the fillet has a U-shaped cross section. tp-kernel 0.10.0 no longer computes it, so a feature enriched since reads `false`; `useOnlyBallToolsForFinish` is the whole of that verdict. Removed in the next API major."
           }
         },
         "required": [
@@ -2026,12 +2695,12 @@
           "filletRadius",
           "maxStepdown",
           "surfaceFinishCuspHeight",
-          "isUShapedFillet",
           "hasSharpCorner",
           "useOnlyBallToolsForFinish",
           "maxBottomDiameter",
           "cd",
-          "toolFit"
+          "toolFit",
+          "isUShapedFillet"
         ],
         "description": "A three-dimensional surface a tool has to follow rather than sweep; also the surface\nhalf of a chamfer."
       },
@@ -2358,7 +3027,10 @@
         "tags": [
           "Parts"
         ],
-        "summary": "Create a part upload",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Upload a part",
+        "description": "Creates a part and returns a short-lived URL for uploading its CAD source. This is the first step of the pipeline — upload the file to the URL, then run **Analyze a part** (`PATCH /parts/{id}`).",
         "parameters": [
           {
             "schema": {
@@ -2405,6 +3077,16 @@
               }
             }
           },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The part could not be created.",
             "content": {
@@ -2434,7 +3116,10 @@
         "tags": [
           "Parts"
         ],
-        "summary": "Queue part processing",
+        "x-toolpath-product": "dfm",
+        "x-toolpath-metered": true,
+        "summary": "Analyze a part",
+        "description": "Queues machining analysis for an uploaded part and returns a job. Track the job, then read the result with **Get a part** (`GET /parts/{id}`).",
         "parameters": [
           {
             "schema": {
@@ -2505,6 +3190,16 @@
               }
             }
           },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "The part does not exist.",
             "content": {
@@ -2552,7 +3247,10 @@
         "tags": [
           "Parts"
         ],
-        "summary": "Get the part",
+        "x-toolpath-product": "dfm",
+        "x-toolpath-metered": false,
+        "summary": "Get a part",
+        "description": "Returns a part and the results of its machining analysis. Requires **Analyze a part** (`PATCH /parts/{id}`) to have run and its job to have succeeded; until then there is no result and this returns 404.",
         "parameters": [
           {
             "schema": {
@@ -2608,8 +3306,28 @@
               }
             }
           },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "The part or its result was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2641,13 +3359,369 @@
         }
       }
     },
+    "/v1/parts/{id}/mesh": {
+      "post": {
+        "operationId": "createPartMesh",
+        "tags": [
+          "Parts"
+        ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Tessellate a part for display",
+        "description": "Queues a job that facets the uploaded CAD file into a display mesh without analyzing it — the fast path for a viewer that only needs to draw the part. Poll the job, then read the mesh at GET /parts/{id}/mesh. Each run replaces the part’s previous display mesh.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "example": "mesh-request-123"
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The tessellation job was accepted; poll /jobs/{id}, then read /parts/{id}/mesh.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartMeshJobResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The part does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The part source has not been uploaded, or the Idempotency-Key was already used for a different operation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The tessellation job could not be submitted.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getPartMesh",
+        "tags": [
+          "Parts"
+        ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Get part mesh",
+        "description": "Returns the display mesh the latest tessellation job wrote for this part. Requires **Tessellate a part for display** (`POST /parts/{id}/mesh`) to have run and its job to have succeeded. It is faceted from the uploaded file as-is, so it is not the analysis mesh: its counts differ from the part result’s, and region triangle ranges do not apply to it. 410 once the part is past the retention window.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820",
+              "description": "Only return the mesh if this tessellation job produced it; a part whose latest mesh came from another run is reported as not found."
+            },
+            "required": false,
+            "description": "Only return the mesh if this tessellation job produced it; a part whose latest mesh came from another run is reported as not found.",
+            "name": "jobId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The part’s display mesh.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartMeshResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The part does not exist, or it has no display mesh yet.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The part mesh could not be retrieved.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/parts/{id}/thumbnail": {
+      "get": {
+        "operationId": "getPartThumbnail",
+        "tags": [
+          "Parts"
+        ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Get part thumbnail",
+        "description": "Requires **Analyze a part** (`PATCH /parts/{id}`) to have run and its job to have succeeded.\n\nServes the rendered PNG thumbnail for a part as image bytes, so a client can fetch it with the\nAPI key it already holds rather than reading `thumbnailUrl` off `GET /v1/parts/{id}` first.\nThe thumbnail is the kernel’s three-quarter view of the analyzed part.\n\nThe bytes are served through this request rather than as a redirect to a presigned URL: a\nthumbnail is a few kB, and streaming it keeps the disclosure on this request’s access audit\ninstead of handing out a bearer grant that outlives it. `thumbnailUrl` on the part response is\nstill the right choice for an `<img src>`, which cannot carry an Authorization header.\n\nResolves the same artifact `GET /v1/parts/{id}` reports — the latest analysis run by default,\nor the run named by `?jobId=`. A part whose analysis produced no thumbnail answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820",
+              "description": "Serve the thumbnail from this specific processing run instead of the latest result."
+            },
+            "required": false,
+            "description": "Serve the thumbnail from this specific processing run instead of the latest result.",
+            "name": "jobId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The rendered PNG thumbnail.",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "description": "The PNG image bytes."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The part, its result, or its thumbnail was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The thumbnail could not be retrieved.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/parts/{id}/features": {
       "patch": {
         "operationId": "updatePartFeatures",
         "tags": [
           "Features"
         ],
-        "summary": "Queue processing for selected part features",
+        "x-toolpath-product": "dfm",
+        "x-toolpath-metered": true,
+        "summary": "Analyze part features",
+        "description": "Queues detailed machining datasheets for selected features of an analyzed part and returns a job. Track the job, then read the datasheets with **Get part features** (`GET /parts/{id}/features`).",
         "parameters": [
           {
             "schema": {
@@ -2692,6 +3766,16 @@
           },
           "401": {
             "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2747,7 +3831,10 @@
         "tags": [
           "Features"
         ],
-        "summary": "Get selected features for a part",
+        "x-toolpath-product": "dfm",
+        "x-toolpath-metered": false,
+        "summary": "Get part features",
+        "description": "Returns detailed machining datasheets for the requested features. Requires the datasheets to have been generated first: run **Analyze part features** (`PATCH /parts/{id}/features`), or **Analyze a part** (`PATCH /parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A feature with no datasheet yet comes back with `datasheet: null`.",
         "parameters": [
           {
             "schema": {
@@ -2802,8 +3889,28 @@
               }
             }
           },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "The part does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2835,13 +3942,838 @@
         }
       }
     },
+    "/v1/parts/{id}/plans": {
+      "post": {
+        "operationId": "createPlan",
+        "tags": [
+          "Plans"
+        ],
+        "x-toolpath-product": "dfm",
+        "x-toolpath-metered": true,
+        "x-toolpath-experimental": true,
+        "summary": "Create a plan",
+        "description": "Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality — planned additions include plan constraints and specifying material and stock, among others. Breaking changes still follow the API major version, so you can build against them today; expect new capabilities to arrive as they mature.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "example": "plan-request-123"
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The planning job was accepted; poll /plans/{planId} for the result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueuePartJobResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The part does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The part source has not been uploaded, or the Idempotency-Key was already used for a different operation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The planning job could not be submitted.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listPlans",
+        "tags": [
+          "Plans"
+        ],
+        "x-toolpath-product": "dfm",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "List plans",
+        "description": "Lists the plans created for a part, newest first. Create them first with **Create a plan** (`POST /parts/{id}/plans`); a part with no plans returns an empty page.\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality — planned additions include plan constraints and specifying material and stock, among others. Breaking changes still follow the API major version, so you can build against them today; expect new capabilities to arrive as they mature.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "example": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 20,
+              "example": 20,
+              "description": "Requested page size. Values above 100 are capped at 100."
+            },
+            "required": false,
+            "description": "Requested page size. Values above 100 are capped at 100.",
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the part’s plans, newest first, as summaries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The part was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The plans could not be listed.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/parts/{id}/toolpaths": {
+      "post": {
+        "operationId": "createToolpaths",
+        "tags": [
+          "Toolpaths"
+        ],
+        "x-toolpath-product": "quoting",
+        "x-toolpath-metered": true,
+        "x-toolpath-experimental": true,
+        "summary": "Calculate toolpaths",
+        "description": "Creates a plan and calculates its toolpaths in one step, returning a job. Track the job, then read the result with **Get toolpaths** (`GET /plans/{planId}/toolpaths`) and **Get machining time** (`GET /plans/{planId}/machining-time`).\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality — planned additions include plan constraints and specifying material and stock, among others. Breaking changes still follow the API major version, so you can build against them today; expect new capabilities to arrive as they mature.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "example": "toolpaths-request-123"
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The toolpath job was accepted; poll /plans/{planId}/toolpaths for the calculated result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueuePartJobResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The part does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The part source has not been uploaded, or the Idempotency-Key was already used for a different operation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The toolpath job could not be submitted.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plans/{planId}/toolpaths": {
+      "post": {
+        "operationId": "recalculateToolpaths",
+        "tags": [
+          "Toolpaths"
+        ],
+        "x-toolpath-product": "quoting",
+        "x-toolpath-metered": true,
+        "x-toolpath-experimental": true,
+        "summary": "Calculate a plan’s toolpaths",
+        "description": "Calculates toolpaths for an existing plan and returns a job — for a workflow that creates a plan first with **Create a plan** (`POST /parts/{id}/plans`) and calculates its toolpaths afterward, and for recomputing a plan’s toolpaths. Track the job, then read the result with **Get toolpaths** (`GET /plans/{planId}/toolpaths`) and **Get machining time** (`GET /plans/{planId}/machining-time`).\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality — planned additions include plan constraints and specifying material and stock, among others. Breaking changes still follow the API major version, so you can build against them today; expect new capabilities to arrive as they mature.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "planId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "example": "toolpaths-request-123"
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The toolpath job was accepted; it recomputes onto this plan. Poll /plans/{planId}/toolpaths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueuePartJobResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The plan does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The part source has not been uploaded, or the Idempotency-Key was already used for a different operation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The toolpath job could not be submitted.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getToolpaths",
+        "tags": [
+          "Toolpaths"
+        ],
+        "x-toolpath-product": "quoting",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "Get toolpaths",
+        "description": "Returns the calculated toolpaths for a plan, with geometry download URLs. Requires **Calculate toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST /plans/{planId}/toolpaths`) to have run and its job to have succeeded.\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality — planned additions include plan constraints and specifying material and stock, among others. Breaking changes still follow the API major version, so you can build against them today; expect new capabilities to arrive as they mature.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "planId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The calculated toolpaths for the plan, with geometry download URLs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToolpathsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The plan was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Toolpaths have not been calculated for this plan yet.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineReadinessProblem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The plan is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The toolpaths could not be retrieved.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plans/{planId}": {
+      "get": {
+        "operationId": "getPlan",
+        "tags": [
+          "Plans"
+        ],
+        "x-toolpath-product": "dfm",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "Get a plan",
+        "description": "Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`) to have run and its job to have succeeded.\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality — planned additions include plan constraints and specifying material and stock, among others. Breaking changes still follow the API major version, so you can build against them today; expect new capabilities to arrive as they mature.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "planId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The plan, with its setups and action-specs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The plan was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The plan is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The plan could not be retrieved.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plans/{planId}/machining-time": {
+      "get": {
+        "operationId": "getMachiningTime",
+        "tags": [
+          "Toolpaths"
+        ],
+        "x-toolpath-product": "quoting",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "Get machining time",
+        "description": "Returns the machining time for a plan’s toolpaths, per action and totalled. Requires **Calculate toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST /plans/{planId}/toolpaths`) to have run and its job to have succeeded.\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality — planned additions include plan constraints and specifying material and stock, among others. Breaking changes still follow the API major version, so you can build against them today; expect new capabilities to arrive as they mature.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "planId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The calculated machining time for the plan, per action and totalled. The total is the toolpath time at programmed feeds (links and rapids included), with tool changes excluded and refused actions omitted — so a nonzero `refusedCount` means it covers only part of the plan.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MachiningTimeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The plan was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Toolpaths have not been calculated for this plan yet.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineReadinessProblem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The plan is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The machining time could not be retrieved.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/holders": {
       "post": {
         "operationId": "createHolder",
         "tags": [
-          "Holders"
+          "Tool holders"
         ],
-        "summary": "Create a holder upload",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Upload a tool holder",
+        "description": "Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).",
         "parameters": [
           {
             "schema": {
@@ -2888,6 +4820,16 @@
               }
             }
           },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The holder could not be created.",
             "content": {
@@ -2915,9 +4857,12 @@
       "patch": {
         "operationId": "updateHolder",
         "tags": [
-          "Holders"
+          "Tool holders"
         ],
-        "summary": "Queue holder import",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Import a tool holder",
+        "description": "Queues import of an uploaded tool holder — deriving its collision envelope — and returns a job. Track the job, then read the result with **Get a tool holder** (`GET /holders/{id}`).",
         "parameters": [
           {
             "schema": {
@@ -3018,6 +4963,16 @@
               }
             }
           },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "The holder does not exist.",
             "content": {
@@ -3063,9 +5018,12 @@
       "get": {
         "operationId": "getHolder",
         "tags": [
-          "Holders"
+          "Tool holders"
         ],
-        "summary": "Get the holder",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Get a tool holder",
+        "description": "Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder** (`PATCH /holders/{id}`) to have run and its job to have succeeded.",
         "parameters": [
           {
             "schema": {
@@ -3121,8 +5079,28 @@
               }
             }
           },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "The holder or its result was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The holder is older than the retention window and is no longer available.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3158,10 +5136,12 @@
       "get": {
         "operationId": "downloadHolderFusion",
         "tags": [
-          "Holders"
+          "Tool holders"
         ],
-        "summary": "Download the Autodesk Fusion holder definition",
-        "description": "Returns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,\nhyphenated keys.\n\nBy default this is a **tool library** (`format=library`) that Fusion can import directly.\n`format=document` returns the bare holder document the kernel wrote, which carries the same\ngeometry but cannot be imported on its own.\n\nThe exported envelope stops at the gauge plane by default: material above it is inside the\nspindle and cannot collide with anything. Pass `trim=false` for the complete envelope,\nincluding the taper. Both are written by the kernel during the import, so neither is a\nreshaping of the other. `trim=true` falls back to the complete envelope for a holder that has\nno gauge plane to cut at, or whose taper a flip put at the nose.\n\nAn unmeasured gauge length is not written as zero. In a library it becomes the sum of every\nsegment height — Fusion's own idiom for a holder whose geometry is its gauge length; in a\ndocument the field is omitted, which puts Fusion's own field into manual mode.",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Download a holder (Fusion)",
+        "description": "Requires **Import a tool holder** (`PATCH /holders/{id}`) to have run and its job to have\nsucceeded.\n\nReturns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,\nhyphenated keys.\n\nBy default this is a **tool library** (`format=library`) that Fusion can import directly.\n`format=document` returns the bare holder document the kernel wrote, which carries the same\ngeometry but cannot be imported on its own.\n\nThe exported envelope stops at the gauge plane by default: material above it is inside the\nspindle and cannot collide with anything. Pass `trim=false` for the complete envelope,\nincluding the taper. Both are written by the kernel during the import, so neither is a\nreshaping of the other. `trim=true` falls back to the complete envelope for a holder that has\nno gauge plane to cut at, or whose taper a flip put at the nose.\n\nAn unmeasured gauge length is not written as zero. In a library it becomes the sum of every\nsegment height — Fusion's own idiom for a holder whose geometry is its gauge length; in a\ndocument the field is omitted, which puts Fusion's own field into manual mode.",
         "parameters": [
           {
             "schema": {
@@ -3292,8 +5272,28 @@
               }
             }
           },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "The holder, its result, or its Fusion definition was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The holder is older than the retention window and is no longer available.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3329,9 +5329,11 @@
       "get": {
         "operationId": "exportFusionHolderLibrary",
         "tags": [
-          "Holders"
+          "Tool holders"
         ],
-        "summary": "Export several holders as one Autodesk Fusion library",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Export a holder library (Fusion)",
         "description": "Composes the named holders into a single Autodesk Fusion tool library — how a shop keeps its crib\nin one file. Each holder must already have been imported; this reads their stored results and\ncreates nothing.\n\nHolders appear in the order they were named, and a repeated id is exported once. Each entry\ntakes its name from the holder’s uploaded filename.\n\nEvery named holder has to be exportable. A holder that does not exist, or that has no import\nresult yet, fails the whole request and is named in the response — a library that silently\ncontained fewer holders than were asked for would be worse than an error.",
         "parameters": [
           {
@@ -3394,6 +5396,16 @@
               }
             }
           },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "One or more holders do not exist.",
             "content": {
@@ -3443,7 +5455,10 @@
         "tags": [
           "Jobs"
         ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
         "summary": "List jobs",
+        "description": "Lists processing jobs, newest first. Every pipeline step that queues work — **Analyze a part**, **Analyze part features**, **Create a plan**, **Calculate toolpaths**, and **Import a tool holder** — returns a job you track here.",
         "parameters": [
           {
             "schema": {
@@ -3542,6 +5557,16 @@
               }
             }
           },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The jobs could not be listed.",
             "content": {
@@ -3571,7 +5596,10 @@
         "tags": [
           "Jobs"
         ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
         "summary": "Get a job",
+        "description": "Returns one processing job. After any pipeline step that queues work, poll this (or **Stream job updates**, `GET /jobs/{id}/events`) until the status is `succeeded`, then read the result from the matching Get endpoint.",
         "parameters": [
           {
             "schema": {
@@ -3615,8 +5643,28 @@
               }
             }
           },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "The job was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The job is older than the retention window and is no longer available.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3654,6 +5702,8 @@
         "tags": [
           "Jobs"
         ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
         "summary": "Stream job updates",
         "description": "Sends the current job immediately, then sends every subsequent persisted status, progress, or error change as a `job` server-sent event while the connection remains open. If the connection closes, reconnect to receive the latest job snapshot before continuing with future updates.",
         "parameters": [
@@ -3676,7 +5726,7 @@
                 "schema": {
                   "type": "string",
                   "description": "Each `job` event has a JSON `data` field matching JobDetail.",
-                  "example": "event: job\ndata: {\"partUuid\":\"0195f02c-4b4a-7b5d-9b6e-8f139d5e2820\",\"holderUuid\":null,\"jobUuid\":\"0195f02c-4b4a-7b5d-9b6e-8f139d5e2821\",\"productType\":\"analyze-part\",\"status\":\"running\",\"progress\":null,\"error\":null,\"reportId\":null,\"importId\":null,\"createdAt\":\"2026-08-05T12:00:00.000Z\"}\n\n"
+                  "example": "event: job\ndata: {\"partUuid\":\"0195f02c-4b4a-7b5d-9b6e-8f139d5e2820\",\"holderUuid\":null,\"jobUuid\":\"0195f02c-4b4a-7b5d-9b6e-8f139d5e2821\",\"productType\":\"analyze-part\",\"status\":\"running\",\"progress\":null,\"error\":null,\"reportId\":null,\"importId\":null,\"createdAt\":\"2026-08-05T12:00:00.000Z\",\"updatedAt\":\"2026-08-05T12:00:02.000Z\",\"durationMs\":2000}\n\n"
                 }
               }
             }
@@ -3701,8 +5751,28 @@
               }
             }
           },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "The job was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The job is older than the retention window and is no longer available.",
             "content": {
               "application/problem+json": {
                 "schema": {

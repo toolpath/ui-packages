@@ -48,6 +48,11 @@ def _parse_response(
 
         return response_401
 
+    if response.status_code == 403:
+        response_403 = ProblemDetails.from_dict(response.json())
+
+        return response_403
+
     if response.status_code == 500:
         response_500 = ProblemDetails.from_dict(response.json())
 
@@ -80,7 +85,10 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     filename: str | Unset = UNSET,
 ) -> Response[CreateHolderResponse | ProblemDetails]:
-    """Create a holder upload
+    """Upload a tool holder
+
+     Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
+    the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
@@ -112,7 +120,10 @@ def sync(
     client: AuthenticatedClient | Client,
     filename: str | Unset = UNSET,
 ) -> CreateHolderResponse | ProblemDetails | None:
-    """Create a holder upload
+    """Upload a tool holder
+
+     Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
+    the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
@@ -139,7 +150,10 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     filename: str | Unset = UNSET,
 ) -> Response[CreateHolderResponse | ProblemDetails]:
-    """Create a holder upload
+    """Upload a tool holder
+
+     Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
+    the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
@@ -169,7 +183,10 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     filename: str | Unset = UNSET,
 ) -> CreateHolderResponse | ProblemDetails | None:
-    """Create a holder upload
+    """Upload a tool holder
+
+     Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
+    the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
