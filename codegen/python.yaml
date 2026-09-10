@@ -1,3 +1,15 @@
 project_name_override: toolpath
 package_name_override: toolpath
 package_version_override: 0.1.0
+
+# The Engine API serves binary artifacts under their real media type: GET
+# /v1/parts/{id}/thumbnail responds `image/png`. openapi-python-client recognizes only
+# application/json, application/octet-stream, and text/html, and drops the response body
+# for anything else — the operation is still generated, but with its success case missing,
+# so the method returns None on 200 and the image is unreachable. generate-sdks.mjs passes
+# --fail-on-warning, which turns that silent hole into a build failure instead.
+#
+# Map each binary media type the API uses onto application/octet-stream, which generates a
+# File payload. Adding a response under a new binary type means adding it here too.
+content_type_overrides:
+  image/png: application/octet-stream
