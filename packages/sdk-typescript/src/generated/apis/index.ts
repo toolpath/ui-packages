@@ -1,5 +1,6 @@
 /* tslint:disable */
 /* eslint-disable */
+export * from './DemoApi.js'
 export * from './FeaturesApi.js'
 export * from './HoldersApi.js'
 export * from './JobsApi.js'

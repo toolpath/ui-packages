@@ -13,66 +13,66 @@
  */
 
 import { mapValues } from '../runtime.js'
-import type { PartFeatureEntry } from './PartFeatureEntry.js'
-import {
-  PartFeatureEntryFromJSON,
-  PartFeatureEntryFromJSONTyped,
-  PartFeatureEntryToJSON,
-  PartFeatureEntryToJSONTyped,
-} from './PartFeatureEntry.js'
-
 /**
  *
  * @export
- * @interface PartFeaturesResponse
+ * @interface DemoSessionResponse
  */
-export interface PartFeaturesResponse {
+export interface DemoSessionResponse {
   /**
-   * Detailed machining data for requested features.
-   * @type {Array<PartFeatureEntry>}
-   * @memberof PartFeaturesResponse
+   * The temporary API key. Shown once; send it as `Authorization: Bearer <key>`.
+   * @type {string}
+   * @memberof DemoSessionResponse
    */
-  datasheets: Array<PartFeatureEntry>
+  apiKey: string
   /**
-   * Requested feature identifiers that were unknown.
-   * @type {Array<string>}
-   * @memberof PartFeaturesResponse
+   * When the key stops working (ISO 8601). Prompt the user for a real key before then.
+   * @type {Date}
+   * @memberof DemoSessionResponse
    */
-  notFound: Array<string>
+  expiresAt: Date
+  /**
+   * The throwaway organization this session’s uploads are isolated to.
+   * @type {string}
+   * @memberof DemoSessionResponse
+   */
+  orgId: string
 }
 
 /**
- * Check if a given object implements the PartFeaturesResponse interface.
+ * Check if a given object implements the DemoSessionResponse interface.
  */
-export function instanceOfPartFeaturesResponse(value: object): value is PartFeaturesResponse {
-  if (!('datasheets' in value) || value['datasheets'] === undefined) return false
-  if (!('notFound' in value) || value['notFound'] === undefined) return false
+export function instanceOfDemoSessionResponse(value: object): value is DemoSessionResponse {
+  if (!('apiKey' in value) || value['apiKey'] === undefined) return false
+  if (!('expiresAt' in value) || value['expiresAt'] === undefined) return false
+  if (!('orgId' in value) || value['orgId'] === undefined) return false
   return true
 }
 
-export function PartFeaturesResponseFromJSON(json: any): PartFeaturesResponse {
-  return PartFeaturesResponseFromJSONTyped(json, false)
+export function DemoSessionResponseFromJSON(json: any): DemoSessionResponse {
+  return DemoSessionResponseFromJSONTyped(json, false)
 }
 
-export function PartFeaturesResponseFromJSONTyped(
+export function DemoSessionResponseFromJSONTyped(
   json: any,
   ignoreDiscriminator: boolean,
-): PartFeaturesResponse {
+): DemoSessionResponse {
   if (json == null) {
     return json
   }
   return {
-    datasheets: (json['datasheets'] as Array<any>).map(PartFeatureEntryFromJSON),
-    notFound: json['notFound'],
+    apiKey: json['apiKey'],
+    expiresAt: new Date(json['expiresAt']),
+    orgId: json['orgId'],
   }
 }
 
-export function PartFeaturesResponseToJSON(json: any): PartFeaturesResponse {
-  return PartFeaturesResponseToJSONTyped(json, false)
+export function DemoSessionResponseToJSON(json: any): DemoSessionResponse {
+  return DemoSessionResponseToJSONTyped(json, false)
 }
 
-export function PartFeaturesResponseToJSONTyped(
-  value?: PartFeaturesResponse | null,
+export function DemoSessionResponseToJSONTyped(
+  value?: DemoSessionResponse | null,
   ignoreDiscriminator: boolean = false,
 ): any {
   if (value == null) {
@@ -80,7 +80,8 @@ export function PartFeaturesResponseToJSONTyped(
   }
 
   return {
-    datasheets: (value['datasheets'] as Array<any>).map(PartFeatureEntryToJSON),
-    notFound: value['notFound'],
+    apiKey: value['apiKey'],
+    expiresAt: value['expiresAt'].toISOString(),
+    orgId: value['orgId'],
   }
 }

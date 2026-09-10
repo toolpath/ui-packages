@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Toolpath Engine API",
-    "version": "1.8.0",
+    "version": "1.9.0",
     "description": "Public REST API for Toolpath engine operations.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, reads, holders, and jobs), DFM, and Quoting — and that\naccess can be edited on an existing key in the portal. Every operation states what it is billed\nas in its `x-toolpath-billing` field: `dfm` or `quoting` for a metered operation, which records\nusage, or `unmetered` for a core operation. `GET` reads; every other method writes. A key with\nno access to the operation’s area is refused with 403 `product_mismatch`; one with read access\nused for a write is refused with 403 `read_only_key`."
   },
   "tags": [
@@ -13,6 +13,10 @@
     {
       "name": "Keys",
       "description": "API key validation operations."
+    },
+    {
+      "name": "Demo",
+      "description": "Temporary anonymous demo-session operations."
     },
     {
       "name": "Parts",
@@ -270,6 +274,43 @@
           "status",
           "code"
         ]
+      },
+      "DemoSessionResponse": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "description": "The temporary API key. Shown once; send it as `Authorization: Bearer <key>`.",
+            "example": "tp_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the key stops working (ISO 8601). Prompt the user for a real key before then.",
+            "example": "2026-09-09T14:30:00.000Z"
+          },
+          "orgId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The throwaway organization this session’s uploads are isolated to."
+          }
+        },
+        "required": [
+          "apiKey",
+          "expiresAt",
+          "orgId"
+        ]
+      },
+      "DemoSessionRequest": {
+        "type": "object",
+        "properties": {
+          "installId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "A stable id the caller keeps per install (a UUID). Sending it makes renewals land on the same organization, so uploads and usage stay together. Omit it for a fresh throwaway organization each time.",
+            "example": "2f1c5d0e-6b7a-4c8d-9e0f-1a2b3c4d5e6f"
+          }
+        }
       },
       "CreatePartResponse": {
         "type": "object",
@@ -3006,6 +3047,69 @@
           },
           "503": {
             "description": "Key validation is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/demo/session": {
+      "post": {
+        "operationId": "createDemoSession",
+        "tags": [
+          "Demo"
+        ],
+        "security": [],
+        "summary": "Start a temporary demo session",
+        "description": "Issues a short-lived API key for anonymous, no-signup access to a limited set of endpoints. Each session is isolated to its own throwaway organization, so it sees only the data it uploaded. Send the same `installId` again to renew: the previous key is retired and a new one is issued on the same organization.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemoSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "A demo session was created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoSessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many demo sessions are already active for this network.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Demo sessions are temporarily unavailable.",
             "content": {
               "application/problem+json": {
                 "schema": {

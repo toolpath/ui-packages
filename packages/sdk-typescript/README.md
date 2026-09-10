@@ -20,6 +20,17 @@ await uploadToPresignedUrl(part.uploadUrl, stepFileBytes)
 const analysis = await client.parts.updatePart({ id: part.partId })
 ```
 
+A client with no key can still start a temporary session. The key it returns is limited to a
+short allowlist of operations and expires; send the same `installId` to renew it on the same
+organization:
+
+```ts
+const session = await createToolpathClient({ apiKey: '' }).demo.createDemoSession({
+  demoSessionRequest: { installId },
+})
+const client = createToolpathClient({ apiKey: session.apiKey })
+```
+
 The SDK exports generated request, response, and API types from the Toolpath OpenAPI contract. See the
 [TypeScript example](../../examples/typescript) and [API documentation](https://developers.toolpath.com)
 for a complete analysis flow.

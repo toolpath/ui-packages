@@ -8,6 +8,8 @@ from .chamfer_facts import ChamferFacts
 from .cone import Cone
 from .create_holder_response import CreateHolderResponse
 from .create_part_response import CreatePartResponse
+from .demo_session_request import DemoSessionRequest
+from .demo_session_response import DemoSessionResponse
 from .direction_z_bounds import DirectionZBounds
 from .direction_z_bounds_direction import DirectionZBoundsDirection
 from .dovetail_facts import DovetailFacts
@@ -125,6 +127,8 @@ __all__ = (
     "Cone",
     "CreateHolderResponse",
     "CreatePartResponse",
+    "DemoSessionRequest",
+    "DemoSessionResponse",
     "DirectionZBounds",
     "DirectionZBoundsDirection",
     "DovetailFacts",
