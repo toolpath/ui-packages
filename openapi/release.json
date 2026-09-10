@@ -1,7 +1,7 @@
 {
-  "apiVersion": "1.9.0",
+  "apiVersion": "1.11.0",
   "openApiVersion": "3.1.0",
-  "sha256": "29208a175b47e6b9e09a1abb8919254bebaa1a8d007378f040e6281cb561be19",
+  "sha256": "2889bf0c12b36f8457a8956f179096fc1401d5babf5e16adcb4056e264a1920b",
   "generators": {
     "python": "openapi-python-client@0.29.0",
     "typescript": "openapi-generator:typescript-fetch@7.24.0"
@@ -23,6 +23,7 @@
     "getPart",
     "getPartFeatures",
     "getPartMesh",
+    "getPartThumbnail",
     "getPlan",
     "getToolpaths",
     "listJobs",

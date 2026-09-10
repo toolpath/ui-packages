@@ -18,7 +18,9 @@ class DemoSessionRequest:
     Attributes:
         install_id (UUID | Unset): A stable id the caller keeps per install (a UUID). Sending it makes renewals land on
             the same organization, so uploads and usage stay together. Omit it for a fresh throwaway organization each time.
-            Example: 2f1c5d0e-6b7a-4c8d-9e0f-1a2b3c4d5e6f.
+            Treat it as a secret: this endpoint is unauthenticated, so anyone who knows an `installId` can mint a key on
+            that organization, read what it uploaded, and retire the key its real holder is using. Generate it randomly (a
+            v4 UUID), store it privately, and never show or log it. Example: 2f1c5d0e-6b7a-4c8d-9e0f-1a2b3c4d5e6f.
     """
 
     install_id: UUID | Unset = UNSET
