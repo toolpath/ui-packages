@@ -1,5 +1,36 @@
 # @toolpath/tool-drawing
 
+## 1.0.0
+
+### Major Changes
+
+- 915271f: Drop the provenance note under the drawing, and paint the sheet behind the
+  whole figure rather than behind the drawing alone, so the caption sits on the
+  sheet and the panel is one surface. `data-provenance` stays on each segment for
+  a consumer that wants to state what was assumed; `[data-provenance-note]` is
+  gone.
+
+### Minor Changes
+
+- 10d7b65: Fit the drawing before the room reserved beside it. `<ToolDrawing padding>` is
+  now a reservation granted out of the room the drawing cannot use, rather than a
+  margin the scale pays for, so a reservation sized for a wide sheet no longer
+  shrinks the assembly on a narrow one. An assembly with a holder — wide enough
+  that the across axis binds — is drawn more than twice the size it was in a
+  220 px-wide panel; a long thin tool is unchanged, and still hands the flank to
+  the clearance overlay's wall. `frameFor` takes the same thing as `reserve`, and
+  reports what it granted as `Frame.reserve`.
+- 10d7b65: Add `<ToolDrawing zoom>`, a zoom to the working end. `zoom="tool"` frames the
+  length of tool below the holder — the stickout the assembly was drawn at, or the
+  tool's own `LBH` where no holder is drawn — plus 15% of it again of holder above
+  the cut, and measures the sheet's width below that cut rather than over the
+  whole stack. The holder above the cut is drawn and cut by the edge of the sheet
+  rather than trimmed to a face nobody published; a dimension measuring past the
+  cut is dropped. `extentFor` is the same decision as a pure function, from the
+  root and from `/geometry`, and `dimensionsWithin` is the dimension model's half
+  of it. `DrawingContext` now also carries `extent`, what the sheet was framed to,
+  beside `outline`, what was drawn.
+
 ## 0.3.2
 
 ### Patch Changes
