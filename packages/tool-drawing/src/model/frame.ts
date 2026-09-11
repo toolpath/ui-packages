@@ -16,6 +16,17 @@
  * content in the box, and the viewBox describes the content and its margins.
  * A wide panel now buys a bigger drawing rather than a wider sheet.
  *
+ * ## Margins and reservations
+ *
+ * Two different things want room around the drawing, and pricing them the same
+ * way is what made an assembly with a holder come out small. A **margin** —
+ * {@link FrameOptions.padding} — is room the drawing must have, because the
+ * dimension ladder is drawn in it; the scale pays for it. A **reservation** —
+ * {@link FrameOptions.reserve} — is a claim on room the drawing has no use
+ * for, and it is granted out of the spare the content's own shape leaves and
+ * out of nothing else. So a long thin tool hands most of a flank to the wall
+ * beside it, and a fat one hands over nothing and stays the size it can be.
+ *
  * ## The contract with the renderer
  *
  * The `<svg>` must carry `preserveAspectRatio="xMidYMid meet"`, which is the
@@ -76,6 +87,15 @@ export interface Frame {
    * sheet.
    */
   readonly padding: Padding
+  /**
+   * The reservation actually granted, in pixels — what was asked for, or less.
+   *
+   * Room the drawing could not use, handed to the caller that asked for it.
+   * Absent on a frame built by hand, which is the same as none: a caller
+   * reading it wants `frame.padding.plus + (frame.reserve?.plus ?? 0)` for the
+   * whole distance from the silhouette's edge to the edge of the sheet.
+   */
+  readonly reserve?: Padding
 }
 
 /**
@@ -115,6 +135,28 @@ export interface FrameOptions {
    * long thin tool has least of it. A number still means what it always did.
    */
   readonly padding?: number | Partial<Padding>
+  /**
+   * Room a caller would like on a flank, in **pixels**, taken out of what the
+   * drawing cannot use and never out of the scale.
+   *
+   * **This is the difference between a margin and a reservation.**
+   * {@link FrameOptions.padding} is room the drawing must have — the ladder is
+   * drawn in it, and the scale pays for it. A reservation is a claim on the
+   * panel the *drawing* has no use for: the clearance overlay's wall wants as
+   * much of the `+r` flank as it can get, and is clipped to a break when it
+   * gets less.
+   *
+   * Stated in pixels before the panel is measured, a reservation had to be a
+   * guess, and it was priced as a margin: 240 px asked for the wall in a
+   * 220 px-wide panel came back as 60% of the axis granted, and the assembly
+   * was drawn in the 40% left whether or not the wall had anything to put
+   * there. An assembly with a holder is the case where that hurt — wide enough
+   * that the across axis binds, so every pixel of the guess came straight off
+   * the drawing. So the guess is no longer priced: the drawing is fitted
+   * first, and the reservation gets what is left over, which on a long thin
+   * tool is most of the flank and on a fat one is nothing.
+   */
+  readonly reserve?: number | Partial<Padding>
   /**
    * The box to frame against before the panel has been measured. A
    * `ResizeObserver` reports nothing on the server or on first paint, and
@@ -157,12 +199,27 @@ const MOST_OF_A_PANEL = 0.6
 const clamp = (value: number, low: number, high: number): number =>
   Math.min(Math.max(value, low), high)
 
-/** Two chrome measures scaled back together until they fit their axis. */
-const fitted = (low: number, high: number, axis: number): [number, number] => {
+/** Two measures scaled back together until they fit the room they have. */
+const share = (low: number, high: number, allowance: number): [number, number] => {
   const total = low + high
-  const most = axis * MOST_OF_A_PANEL
-  return total <= most || total <= 0 ? [low, high] : [(low * most) / total, (high * most) / total]
+  return total <= allowance || total <= 0
+    ? [low, high]
+    : [(low * allowance) / total, (high * allowance) / total]
 }
+
+/** Two chrome measures scaled back together until they fit their axis. */
+const fitted = (low: number, high: number, axis: number): [number, number] =>
+  share(low, high, axis * MOST_OF_A_PANEL)
+
+/** A request stated per flank or as one number for every flank. */
+const flanks = (given: number | Partial<Padding>, fallback: number): Padding =>
+  typeof given === 'number'
+    ? { minus: given, plus: given, along: given }
+    : {
+        minus: given.minus ?? fallback,
+        plus: given.plus ?? fallback,
+        along: given.along ?? fallback,
+      }
 
 /** Trimmed so a viewBox reads as a measurement rather than as float noise. */
 const round = (value: number): number => Math.round(value * 1e4) / 1e4
@@ -210,15 +267,8 @@ export const orientationFor = (box: Box, options: FrameOptions = {}): Orientatio
 }
 
 export const frameFor = (outline: Extent, box: Box, options: FrameOptions = {}): Frame => {
-  const given = options.padding ?? DEFAULT_PADDING
-  const pad: Padding =
-    typeof given === 'number'
-      ? { minus: given, plus: given, along: given }
-      : {
-          minus: given.minus ?? DEFAULT_PADDING,
-          plus: given.plus ?? DEFAULT_PADDING,
-          along: given.along ?? DEFAULT_PADDING,
-        }
+  const pad = flanks(options.padding ?? DEFAULT_PADDING, DEFAULT_PADDING)
+  const wanted = flanks(options.reserve ?? 0, 0)
   const measured = boxFor(box, options)
 
   // Along the box's long axis, because that is where the length of a tool has
@@ -245,9 +295,29 @@ export const frameFor = (outline: Extent, box: Box, options: FrameOptions = {}):
   ].filter((ratio) => Number.isFinite(ratio) && ratio > 0)
   const scale = ratios.length > 0 ? Math.min(...ratios) : 1
 
-  const endMargin = padding.along / scale
-  const minusMargin = padding.minus / scale
-  const plusMargin = padding.plus / scale
+  /**
+   * What the drawing could not use, flank by flank, and who gets it.
+   *
+   * One axis binds — its spare is zero by construction, because `scale` is the
+   * ratio that filled it — and the other has whatever the content's shape
+   * left. A reservation is granted out of that and out of nothing else, so it
+   * cannot move `scale`, and the axis that binds still binds at exactly the
+   * number reported. A fat assembly in a narrow panel therefore keeps its
+   * width and the wall beside it gets nothing, which is the order they were
+   * always meant to be in: the part is secondary to the assembly.
+   */
+  const spare = (px: number, mm: number, chrome: number) => Math.max(0, px - mm * scale - chrome)
+  const [extraMinus, extraPlus] = share(
+    wanted.minus,
+    wanted.plus,
+    spare(acrossPx, acrossMm, padding.minus + padding.plus),
+  )
+  const [extraEnds] = share(wanted.along, wanted.along, spare(alongPx, alongMm, padding.along * 2))
+  const reserve: Padding = { minus: extraMinus, plus: extraPlus, along: extraEnds }
+
+  const endMargin = (padding.along + reserve.along) / scale
+  const minusMargin = (padding.minus + reserve.minus) / scale
+  const plusMargin = (padding.plus + reserve.plus) / scale
   const along = alongMm + endMargin * 2
   const across = acrossMm + minusMargin + plusMargin
 
@@ -263,6 +333,7 @@ export const frameFor = (outline: Extent, box: Box, options: FrameOptions = {}):
     scale,
     viewBox: viewBox.map(round).join(' '),
     padding,
+    reserve,
     // The tip sits at the origin. Horizontal runs it left to right, so the
     // business end is where reading starts; vertical runs it bottom to top, so
     // the tool hangs from its holder the way it does in the spindle.

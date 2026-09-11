@@ -102,7 +102,14 @@ describe('the clearance overlay', () => {
 
   it('draws in the frame the surrounding drawing settled on, not one of its own', () => {
     const container = withOverlay(1000, 500)
-    const drawn = frameFor(outline, { width: 1000, height: 500 }, { padding: { plus: 200 } })
+    // The same options the drawing builds from its props: the sheet's own
+    // margin, and the caller's 200 px of `+r` flank as a reservation — granted
+    // out of what the drawing leaves rather than paid for out of the scale.
+    const drawn = frameFor(
+      outline,
+      { width: 1000, height: 500 },
+      { reserve: { minus: 16, plus: 200, along: 16 } },
+    )
 
     // The overlay was given no frame at all, so if the wall lands where a
     // frame built from the same panel puts it, the handoff carried the real

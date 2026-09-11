@@ -364,6 +364,65 @@ const drawnWith = (props: Record<string, unknown>, width = 900, height = 900) =>
   return container
 }
 
+/** The scale `preserveAspectRatio="xMidYMid meet"` will render a sheet at. */
+const scaleOf = (container: HTMLElement, width: number, height: number) => {
+  const view = viewBoxOf(container)
+  return Math.min(width / view.width, height / view.height)
+}
+
+/**
+ * **A reservation costs the drawing nothing.**
+ *
+ * The `+r` flank a caller reserves for the clearance overlay's wall is stated
+ * in pixels before the package has measured the panel, so it is a guess at the
+ * widest sheet it might get. Charged to the scale, that guess was paid for by
+ * the assembly: 240 px of a 400 px axis left an assembly with a holder on it
+ * drawn at less than half the size of the same assembly with nothing beside it
+ * (2026-09-11).
+ */
+describe('the room a caller reserves', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    StubResizeObserver.latest = null
+  })
+
+  const alone = { ...assembly, holder: null }
+
+  it('does not shrink an assembly that fills its panel', () => {
+    const plain = scaleOf(drawnWith({ dimensions: true }, 400, 1200), 400, 1200)
+    const reserved = scaleOf(
+      drawnWith({ dimensions: true, padding: { plus: 240 } }, 400, 1200),
+      400,
+      1200,
+    )
+
+    expect(reserved).toBeCloseTo(plain, 6)
+  })
+
+  it('takes what a tool with nothing beside it leaves, on the flank asked for', () => {
+    const plain = viewBoxOf(drawnWith({ assembly: alone }, 400, 1200))
+    const reserved = viewBoxOf(drawnWith({ assembly: alone, padding: { plus: 240 } }, 400, 1200))
+
+    // A tall panel draws the tool upright, so the flank is the sheet's width.
+    expect(reserved.width).toBeGreaterThan(plain.width)
+    // All of it outside the `+r` flank: the far edge moved and the near one did
+    // not move out with it.
+    expect(reserved.minX + reserved.width).toBeGreaterThan(plain.minX + plain.width)
+    expect(reserved.minX).toBeGreaterThan(plain.minX)
+  })
+
+  it('leaves the tool the scale its length bought either way', () => {
+    const plain = scaleOf(drawnWith({ assembly: alone }, 400, 1200), 400, 1200)
+    const reserved = scaleOf(
+      drawnWith({ assembly: alone, padding: { plus: 240 } }, 400, 1200),
+      400,
+      1200,
+    )
+
+    expect(reserved).toBeCloseTo(plain, 6)
+  })
+})
+
 const codesDrawn = (container: HTMLElement) =>
   [...container.querySelectorAll('[data-dimension]')].map((each) =>
     each.getAttribute('data-dimension'),
@@ -573,5 +632,111 @@ describe('the dimension the reader is pointing at', () => {
     expect(
       targets(drawnWith({ dimensions: true, onDimensionHover: () => undefined })).length,
     ).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * **The working end, framed on its own.**
+ *
+ * An assembly is drawn tip to spindle connection, and on a ⌀6 end mill in a
+ * holder that is most of what the sheet carries: the part a machinist is
+ * looking at is the 25 mm below the nose. The zoom frames that and a sliver of
+ * holder above it, and everything above the cut runs off the sheet.
+ */
+describe('the zoom to the working end', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    StubResizeObserver.latest = null
+  })
+
+  const alone = { ...assembly, holder: null, stickout: null }
+  /** The sheet's own long axis, which is the tool's: the panel is square here. */
+  const alongOf = (container: HTMLElement) => {
+    const view = viewBoxOf(container)
+    return Math.max(view.width, view.height)
+  }
+
+  it('frames the length below the holder, not the whole stack', () => {
+    const whole = alongOf(drawnWith({}))
+    const zoomed = alongOf(drawnWith({ zoom: 'tool' }))
+
+    // 75 mm of stack against 28.75 mm of tool and holder nose, plus margins.
+    expect(whole).toBeGreaterThan(75)
+    expect(zoomed).toBeLessThan(40)
+  })
+
+  it('draws the tool larger in the same panel', () => {
+    const whole = scaleOf(drawnWith({}, 900, 900), 900, 900)
+    const zoomed = scaleOf(drawnWith({ zoom: 'tool' }, 900, 900), 900, 900)
+
+    expect(zoomed).toBeGreaterThan(whole * 2)
+  })
+
+  /**
+   * **Nothing is trimmed.** A silhouette cut to the sheet would close across
+   * the holder at a height nobody published, which is the invented shape this
+   * package refuses everywhere else. The holder is drawn and runs off the
+   * edge, which is how a drawing says it carries on.
+   */
+  it('still draws the holder, and lets it run off the sheet', () => {
+    const container = drawnWith({ zoom: 'tool' })
+
+    expect(partsDrawn(container)).toEqual(['tip', 'flutes', 'shank', 'nose'])
+  })
+
+  /**
+   * **The bound has to be drawn as well as framed.** `xMidYMid meet` centres
+   * the viewBox in a viewport that is larger on the axis the content does not
+   * bind, and a silhouette carrying on past the viewBox paints across that —
+   * so unclipped, the sheet showed however much holder the panel had room
+   * for, which is no bound at all.
+   */
+  it('cuts the stack at the edge of the sheet', () => {
+    const zoomed = drawnWith({ zoom: 'tool' })
+    const clip = zoomed.querySelector('clipPath')!
+    const rect = clip.querySelector('rect')!
+    const view = viewBoxOf(zoomed)
+
+    expect(zoomed.querySelector(`[clip-path="url(#${clip.id})"] [data-part]`)).not.toBeNull()
+    expect(Number(rect.getAttribute('x'))).toBeCloseTo(view.minX, 6)
+    expect(Number(rect.getAttribute('width'))).toBeCloseTo(view.width, 6)
+    expect(Number(rect.getAttribute('height'))).toBeCloseTo(view.height, 6)
+    // Nothing to cut where the sheet is the stack: no clip, and no group.
+    expect(drawnWith({}).querySelector('clipPath')).toBeNull()
+  })
+
+  it('leaves the whole assembly framed by default', () => {
+    expect(drawnWith({}).querySelector('[data-zoom]')).toBeNull()
+    expect(drawnWith({ zoom: 'assembly' }).querySelector('[data-zoom]')).toBeNull()
+    expect(drawnWith({ zoom: 'tool' }).querySelector('[data-zoom="tool"]')).not.toBeNull()
+  })
+
+  /**
+   * A drawing framed to the working end cannot carry a line to a face above
+   * the cut: it would run off the edge of the sheet and point at nothing,
+   * which is the mistake the overall length is dropped for when a holder
+   * buries the end of the shank.
+   */
+  it('drops a dimension that measures past the cut', () => {
+    const whole = codesDrawn(drawnWith({ assembly: alone, dimensions: true }))
+    const zoomed = codesDrawn(drawnWith({ assembly: alone, dimensions: true, zoom: 'tool' }))
+
+    expect(whole).toContain('OAL')
+    expect(zoomed).not.toContain('OAL')
+    // The two that are below the cut are still drawn: the flute length, and
+    // the length below the holder the sheet was cut at.
+    expect(zoomed).toEqual(expect.arrayContaining(['LCF', 'LBH', 'DC']))
+  })
+
+  it('frames the whole stack, and claims no zoom, where there is nothing to zoom to', () => {
+    const unstated = {
+      ...alone,
+      tool: { ...alone.tool, geometry: { DC: 6, LCF: 13, OAL: 57, SFDM: 6 } },
+    }
+    const whole = drawnWith({ assembly: unstated })
+    const asked = drawnWith({ assembly: unstated, zoom: 'tool' })
+
+    expect(asked.querySelector('[data-zoom]')).toBeNull()
+    expect(alongOf(asked)).toBeCloseTo(alongOf(whole), 6)
   })
 })
