@@ -7,6 +7,8 @@ other half: where a code comes from. Before this, the answer was "open a categor
 browser and read it out of a link", which is why every holder and collet family in
 `families/kennametal.ts` carried a hand-counted row total and no `familyCode` at all.
 
+Extended to the six holder interfaces 2026-09-09.
+
 ## 1. The category page renders nothing
 
 `https://www.kennametal.com/us/en/products/metalworking-tools/tool-holders-and-adapters/collets-and-sleeves.html?query=…`
@@ -64,23 +66,53 @@ hundreds of other `data-query` anchors — every filter checkbox has one — so 
 what separates a subcategory from a filter, and the prefix test is what keeps a walk inside the
 branch it was asked about.
 
-## 4. Running it
+## 4. The path in the URL scopes nothing
+
+The `query` does, alone. Asked for the same BT30 ER-collet-chuck facet, the collets-and-sleeves
+path and the tool-holders-and-adapters path return the same 12 parts and the same one family
+(JG 2026-09-09). So `COLLET_CATEGORY` and `HOLDER_CATEGORY` are not two scopes — they are two
+spellings of "a real product category page to hang the component off". A walk is defined by its
+**roots**, and the path only has to exist.
+
+## 5. Running it
 
 ```sh
 toolpath-scrape kennametal --collets
+toolpath-scrape kennametal --holders
 ```
 
-Seven requests. Prints every family the three ER collet categories link to, with the CSV whose
-`familyCode` claims it or `(not configured)`. Then:
+`--collets` is the three ER collet lines: seven nodes, seven requests. `--holders` is the six
+spindle interfaces — BT, BTKV, CV, CVKV, HSK and PSC — which is **336 nodes and about 635
+requests**, some minutes at the package's politeness delay. Both print every family the walk
+links to, indented by depth, with the CSV whose `familyCode` claims it or `(not configured)`.
+Then:
 
 ```sh
 toolpath-scrape kennametal <CODE> "$TOOLPATH_SCRAPE_ROOT/kennametal/csv/<NAME>.csv"
 ```
 
-## 5. Extending it to another category
+### What the holder tree looks like
 
-`COLLET_CATEGORIES` in `catalog.ts` holds three facet strings and `COLLET_CATEGORY` holds the
-path they hang off. A different line — sleeves, DA collets, a holder category — is a different
-pair of those two, and `discoverFamilies` takes both as arguments. Do not widen the three
-without being asked: `AGENTS.md` holds this package to not raising request volume or adding
-vendor scope on its own.
+Four levels where the collet tree has two, and the middle one is the fact a config table needs:
+
+```
+BT                                    565 parts
+  BT 40 Shank Tools                   243 parts
+    ER Collet Chucks                   12 parts
+      100149593  er-collet-adapter-bt40
+    Shrink Fit Toolholders             …
+```
+
+**The interface and its size are a category, never a column.** Across the 158 holder families in
+scope the variant tables publish 33 distinct columns and not one of them is the taper — it
+survives only inside the catalog number (`CV40ZTTHT050275`). So `HolderRecord.taper` is read off
+level two of this path and declared as a per-family `Fact` in `families/kennametal.ts`, which is
+what makes `--holders` the citation for it: re-runnable rather than remembered.
+
+## 6. Extending it to another category
+
+`COLLET_CATEGORIES` and `HOLDER_CATEGORIES` in `catalog.ts` hold the facet strings, and
+`COLLET_CATEGORY` / `HOLDER_CATEGORY` the paths they hang off. A different line — sleeves, DA
+collets, KM™, DV, a VDI holder — is a different pair of those two, and `discoverFamilies` takes
+both as arguments. Do not widen them without being asked: `AGENTS.md` holds this package to not
+raising request volume or adding vendor scope on its own.

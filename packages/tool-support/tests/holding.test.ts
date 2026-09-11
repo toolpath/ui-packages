@@ -68,6 +68,32 @@ describe('which collet goes in which holder', () => {
     const threeEighths: Collet = { ...er16, clampMin: 9.525, clampMax: 9.525, clampLength: 27.5 }
     expect(gripsShank(threeEighths, 9.524999999999999)).toBe(true)
   })
+
+  it('grips the size the collet is named for when the vendor printed it twice', () => {
+    // Kennametal 25ER0312, a 5/16 in ER25. Its own row prints CCCX as 0.312 in
+    // and 7.938 mm; 7.938 mm is 0.3125 in exactly, so the inch cell is that
+    // value at three places and the derived band stops 0.0127 mm short of the
+    // shank the collet is sold for. See GRIP_TOLERANCE.
+    const er25: Collet = { ...er16, series: 'ER25', clampMin: 6.8834, clampMax: 7.9248 }
+    expect(gripsShank(er25, 7.9375)).toBe(true)
+
+    // 32ERSS0281, a sealed 9/32 in ER32: the nominal prints 0.2812 and the band
+    // 0.2813, the same four-decimal inch value rounded the other way.
+    const er32: Collet = { ...er16, series: 'ER32', clampMin: 7.14502, clampMax: 7.14502 }
+    expect(gripsShank(er32, 7.14375)).toBe(true)
+  })
+
+  it('still refuses a capacity the vendor undersized on purpose', () => {
+    // 40ERSS0312 is named 5/16 in and states 7.874 mm in both unit columns —
+    // 0.0635 mm under the shank, five times the widest printing artifact above.
+    // All ten sealed ER40 rows of this shape stay refused.
+    const sealed: Collet = { ...er16, series: 'ER40', clampMin: 7.874, clampMax: 7.874 }
+    expect(gripsShank(sealed, 7.9375)).toBe(false)
+
+    // 40ERSS1000, the widest of them: named 1 in, states 25.24252 mm.
+    const inch: Collet = { ...er16, series: 'ER40', clampMin: 25.24252, clampMax: 25.24252 }
+    expect(gripsShank(inch, 25.4)).toBe(false)
+  })
 })
 
 describe('whether a holder takes a tool', () => {

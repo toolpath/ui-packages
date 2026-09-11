@@ -71,16 +71,32 @@ export const TAPER_FAMILIES: readonly TaperFamily[] = ['iso7x24', 'hsk']
  * A table rather than "letters then digits", for the reason
  * `conventions.IDENTITY_DEVIATIONS` is one: an unknown prefix must be a line
  * somebody added on evidence, not a regex that quietly accepted it. These are
- * the two the scraped catalog states — Kennametal and REGO-FIX declare `BT30`
- * throughout, MariTool states `BT30`, `BT40`, `CAT40` and `CAT50` per part —
- * and a vendor publishing `SK`, `CV` or `ISO` adds its own entry here.
+ * the three the scraped catalog states — REGO-FIX declares `BT30` throughout,
+ * MariTool states `BT30`, `BT40`, `CAT40` and `CAT50` per part, and Kennametal
+ * states `BT30`, `BT40`, `BT50`, `CV40` and `CV50` — and a vendor publishing
+ * `SK` or `ISO` adds its own entry here.
+ *
+ * **`CV` and `CAT` are the same 7:24 cone under two vendors' names**, and both
+ * are here rather than one being rewritten to the other. Kennametal catalogues
+ * and numbers a `CV40ZTTHT050275`; MariTool catalogues a CAT40.
+ * `HolderRecord.taper` is the interface *as the vendor designates it*, so
+ * normalising one to the other would put a word in a vendor's mouth to save a
+ * line in this array. What the two must agree on is what this function returns
+ * — size 40, `iso7x24` — and they do.
  *
  * **`BTKV` is deliberately absent.** `families/kennametal.ts` records why: a
  * BTKV30 is the same JIS B 6339 cone as a BT30 and differs by seating on the
  * flange face as well, which is `HolderRecord.contact`, so those families
- * declare `BT30` and the distinction stays on the axis that carries it.
+ * declare `BT30` and the distinction stays on the axis that carries it. `CVKV`
+ * is absent for the same reason and declares `CV40` / `CV50`.
+ *
+ * **`PSC` is absent because it is not a 7:24 cone at all.** ISO 26623 is a
+ * polygon, so it has no place in {@link TaperFamily}'s two values and no size
+ * this can read. A PSC family scrapes and records like any other; it is
+ * {@link checkProfile} that cannot check one, and the throw below says so with
+ * the fix in it rather than skipping the check quietly.
  */
-export const TAPER_PREFIXES: readonly string[] = ['BT', 'CAT']
+export const TAPER_PREFIXES: readonly string[] = ['BT', 'CAT', 'CV']
 
 /** `HSK63A` -> 63, `HSK100A` -> 100. The form letter is optional; the size is not. */
 const HSK_DESIGNATION = /^HSK(\d+)[A-Z]?$/

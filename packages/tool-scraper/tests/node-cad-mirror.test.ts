@@ -135,11 +135,26 @@ describe('counting what a mirror would get', () => {
       { 'Material Number': 'x' },
     ])
 
-    expect(found).toEqual({ rows: 4, step: 1, dxf: 2 })
+    // The fourth row carries no CAD column at all, which is a different answer
+    // from the two blank cells above it — see the case below.
+    expect(found).toEqual({ rows: 4, step: 1, unspecified: 1, dxf: 2 })
+  })
+
+  it('counts a row nobody looked a model up for apart from one with none', () => {
+    // The operational half of `holding.cadModel`'s three states. Kennametal
+    // publishes no CAD link on a family page, so a family the `cad` pass has not
+    // run over carries no column and every row of it is unspecified — and this
+    // reported `0 STEP` for that until 2026-09-10, which reads as "the vendor
+    // publishes no models" and is a different thing entirely.
+    const unswept = cadCoverage([{ 'Material Number': 'a' }, { 'Material Number': 'b' }])
+    const swept = cadCoverage([{ [CAD_COLUMN]: '' }, { [CAD_COLUMN]: '' }])
+
+    expect(unswept).toEqual({ rows: 2, step: 0, unspecified: 2, dxf: 0 })
+    expect(swept).toEqual({ rows: 2, step: 0, unspecified: 0, dxf: 0 })
   })
 
   it('reads an empty family as no rows rather than as a fault', () => {
-    expect(cadCoverage([])).toEqual({ rows: 0, step: 0, dxf: 0 })
+    expect(cadCoverage([])).toEqual({ rows: 0, step: 0, unspecified: 0, dxf: 0 })
   })
 
   it('agrees with what the mirror actually downloads', async () => {

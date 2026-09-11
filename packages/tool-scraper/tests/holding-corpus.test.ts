@@ -3,10 +3,11 @@
  * make.
  *
  * `tests/holding.test.ts` puts one hand-written row in front of each gate.
- * This runs all 601 holder rows and all 441 collet rows of the real catalog
- * through the mappers their brands bind, which is the only thing that says the
- * column vocabulary in three adapters matches the columns three vendors
- * actually publish. It skips where a machine keeps no corpus — see
+ * This runs every holder and collet row of the real catalog through the mappers
+ * their brands bind — 1,192 Kennametal holder rows alone, across the six spindle
+ * interfaces `kennametal --holders` walks — which is the only thing that says the
+ * column vocabulary in three adapters matches the columns three vendors actually
+ * publish. It skips where a machine keeps no corpus — see
  * `tests/corpus.ts` — and `TOOLPATH_REQUIRE_CORPUS=1` turns that skip into a
  * failure.
  *
@@ -145,6 +146,47 @@ describe('every scraped holder', () => {
       }
     })
   }
+
+  /**
+   * The taper spellings a Kennametal catalog number may open with, for a family
+   * that declares `taper`.
+   *
+   * `BTKV40` and `BT40` are one cone: the KV lines seat on the flange face as
+   * well, which `HolderRecord.contact` carries, so a BTKV family declares the
+   * plain taper on purpose — `families/kennametal.ts` and
+   * `profiles.TAPER_PREFIXES` both record that. Anything else is a real
+   * disagreement.
+   */
+  const spellings = (taper: string): string[] =>
+    taper.startsWith('BT')
+      ? [taper, `BTKV${taper.slice(2)}`]
+      : taper.startsWith('CV')
+        ? [taper, `CVKV${taper.slice(2)}`]
+        : [taper]
+
+  // **A family's `taper` is one fact for a whole table, and the vendor writes it
+  // into every part number.** Kennametal has at least one family that sells two
+  // spindle sizes from one table — `100105369` is eight `PSC50HC…` and ten
+  // `PSC63HC…` — where either value the fact could take is wrong for the rest of
+  // the rows, and a wrong taper is a holder offered for a spindle it does not
+  // fit. That family is left out of the config with a note; this is what stops a
+  // second one arriving quietly, because nothing else in the pipeline reads the
+  // interface out of a part number.
+  it('agrees with the interface the vendor writes into every catalog number', (ctx) => {
+    for (const name of HOLDERS) {
+      const { records } = convert(ctx, name)
+      for (const record of records as HolderRecord[]) {
+        // Kennametal and WIDIA lead with the interface; the other two vendors
+        // number their holders their own way, so this asks nothing of them.
+        if (record.brand !== 'kennametal' && record.brand !== 'widia') continue
+        const allowed = spellings(record.taper)
+        expect(
+          allowed.some((prefix) => record.catalogNumber.startsWith(prefix)),
+          `${name}: ${record.catalogNumber} declares ${record.taper}`,
+        ).toBe(true)
+      }
+    }
+  })
 
   it('gives every holder a gage length in the range a real spindle tool has', (ctx) => {
     // Not a gate — it is one number per part and a vendor may legitimately

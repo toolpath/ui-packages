@@ -81,6 +81,19 @@ function holder(
     style: 'er-collet-chuck',
     colletSeries: 'ER16',
     gaugeLength,
+    // Stated rather than left out, so `over` can set any one of them without
+    // colliding with an `unpublished` declaration — `tests/holding.test.ts`
+    // owns that contract and this fixture only has to satisfy it.
+    bore: null,
+    usableLength: null,
+    clampingLength: null,
+    adjustmentRange: null,
+    bodyDiameter: null,
+    lockNutDiameter: null,
+    cadModelUrl: null,
+    cadModelSource: 'vendor-stated',
+    cadDxfUrl: null,
+    unpublished: [],
     ...over,
   })
 }
@@ -152,11 +165,26 @@ describe('layers to a gage-line silhouette', () => {
 })
 
 describe('reading a taper designation', () => {
-  it('reads the two 7:24 prefixes the catalog states', () => {
+  it('reads the three 7:24 prefixes the catalog states', () => {
     expect(taperDesignation('BT30')).toEqual({ sizeClass: 30, family: 'iso7x24' })
     expect(taperDesignation('BT40')).toEqual({ sizeClass: 40, family: 'iso7x24' })
     expect(taperDesignation('CAT40')).toEqual({ sizeClass: 40, family: 'iso7x24' })
     expect(taperDesignation('CAT50')).toEqual({ sizeClass: 50, family: 'iso7x24' })
+  })
+
+  // Kennametal's word for the cone MariTool calls CAT. Both are here rather
+  // than one rewritten to the other — `HolderRecord.taper` is the interface as
+  // the *vendor* designates it — so what has to agree is what comes back.
+  it('reads CV as the same cone and size CAT names', () => {
+    expect(taperDesignation('CV40')).toEqual(taperDesignation('CAT40'))
+    expect(taperDesignation('CV50')).toEqual(taperDesignation('CAT50'))
+  })
+
+  // ISO 26623 is a polygon, so it has no 7:24 size to read and no `TaperFamily`
+  // to belong to. A PSC family still scrapes and records; it is only the
+  // profile check that cannot be made, and it says so rather than passing.
+  it('refuses PSC rather than inventing a size for a polygon shank', () => {
+    expect(() => taperDesignation('PSC63')).toThrow(ScraperConfigError)
   })
 
   it('reads an HSK size with or without its form letter', () => {

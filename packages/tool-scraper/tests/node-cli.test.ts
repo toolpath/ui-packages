@@ -231,10 +231,41 @@ describe('the kennametal command', () => {
     expect(all).toMatch(/families under 3 category trees, \d+ not configured$/m)
   })
 
-  it('states the collet walk in its usage text', async () => {
+  it('walks the six holder interfaces against the same configured codes', async () => {
+    // The holder tree is four levels where the collet one is two, so a family
+    // is reported with the branch it sits in — `ER Collet Chucks` is a leaf
+    // under all six interfaces and names a different family under each.
+    const leaf = `<div data-totalResults="12">
+      <a href="/us/en/products/fam.er-collet-adapter-bt40.100149593.html">x</a>
+    </div>`
+    const asked: string[] = []
+    const { io, out: printed } = recorder()
+
+    const code = await run(
+      ['kennametal', '--holders'],
+      io,
+      asFetcher({
+        text: (url: string) => {
+          asked.push(url)
+          return Promise.resolve(url.includes('_listing.0.') ? leaf : '<div></div>')
+        },
+      }),
+    )
+
+    expect(code).toBe(0)
+    // The holder category path, not the collet one it defaults to.
+    expect(asked.every((url) => url.includes('tool-holders-and-adapters/_jcr_content'))).toBe(true)
+    const all = printed.join('\n')
+    expect(all).toContain('100149593\ter-collet-adapter-bt40')
+    expect(all).toContain('bt40_er_collet_chuck.csv')
+    expect(all).toMatch(/families under 6 category trees, \d+ not configured$/m)
+  })
+
+  it('states both walks in its usage text', async () => {
     const { io, err } = recorder()
     expect(await run(['kennametal'], io)).toBe(2)
     expect(err.join('\n')).toContain('kennametal --collets')
+    expect(err.join('\n')).toContain('kennametal --holders')
   })
 })
 

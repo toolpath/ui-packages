@@ -13,10 +13,12 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
+import { CAD_COLUMN } from '../src/conventions.js'
 import { IncompletePartError, ScraperConfigError, VendorResponseError } from '../src/errors.js'
 import type { BoundToolholding } from '../src/family.js'
 import {
   asUnit,
+  cadModel,
   checkUnitAgreement,
   clampingMode,
   colletRecord,
@@ -25,13 +27,17 @@ import {
   holderRecord,
   holdingFact,
   millimeters,
+  OPTIONAL_COLLET_FIELDS,
+  OPTIONAL_HOLDER_FIELDS,
   published,
   unitSystem,
   type ColletRecord,
   type HolderRecord,
   type HoldingMappers,
+  type OptionalHolderField,
 } from '../src/holding.js'
 import { recordGuid } from '../src/identity.js'
+import { UNSPECIFIED } from '../src/records.js'
 import { HOLDING_ADAPTERS, boundHolding, resetBindings, toHolding } from '../src/registry.js'
 import type { ScrapeResult, ScrapedRow } from '../src/scrape.js'
 
@@ -48,6 +54,22 @@ const HOLDER = {
   style: 'er-collet-chuck',
   colletSeries: 'ER16',
   gaugeLength: 60,
+  // Every optional field stated, so a `{ ...HOLDER, bore: 12 }` override never
+  // collides with a declaration — and `unpublished: []` is then the honest one:
+  // this fixture leaves nothing out. The contract itself is exercised by its own
+  // block below, where leaving one out is the point.
+  bore: null,
+  usableLength: null,
+  clampingLength: null,
+  adjustmentRange: null,
+  bodyDiameter: null,
+  lockNutDiameter: null,
+  cadModelUrl: null,
+  // The looked-up-and-found-nothing case, which is the one a fixture wants as a
+  // default: `unspecified` would refuse every override that sets a URL.
+  cadModelSource: 'vendor-stated',
+  cadDxfUrl: null,
+  unpublished: [],
 } as const
 
 /** The same for a collet. */
@@ -62,6 +84,13 @@ const COLLET = {
   nominal: 1,
   clampMin: 0.5,
   clampMax: 1,
+  bodyDiameter: null,
+  functionalLength: null,
+  overallLength: null,
+  clampingLength: null,
+  tapRange: null,
+  squareSize: null,
+  unpublished: [],
 } as const
 
 describe('reading one dimension', () => {
@@ -226,18 +255,131 @@ describe('building a holder', () => {
     expect(record.gaugeLengthMm).toBe(63.5)
   })
 
-  it('defaults every unmentioned dimension to null, and freezes the result', () => {
-    const record = holderRecord(HOLDER)
+  it('defaults a declared dimension to null, and freezes the result', () => {
+    const { bore: _bore, lockNutDiameter: _nut, ...rest } = HOLDER
+    const record = holderRecord({
+      ...rest,
+      clamping: 'collet',
+      unpublished: ['bore', 'lockNutDiameter'],
+    })
 
     expect(record.bore).toBeNull()
-    expect(record.usableLength).toBeNull()
-    expect(record.clampingLength).toBeNull()
-    expect(record.adjustmentRange).toBeNull()
-    expect(record.bodyDiameter).toBeNull()
     expect(record.lockNutDiameter).toBeNull()
-    expect(record.cadModelUrl).toBeNull()
-    expect(record.cadDxfUrl).toBeNull()
+    expect(record.unpublished).toEqual(['bore', 'lockNutDiameter'])
     expect(Object.isFrozen(record)).toBe(true)
+    // `Object.freeze` on the record is shallow, and every record of a family
+    // shares one array — an adapter's module constant.
+    expect(Object.isFrozen(record.unpublished)).toBe(true)
+  })
+})
+
+describe('the fields a vendor publishes no column for', () => {
+  it('refuses a field left out and not declared', () => {
+    // The rule this module's own factory used to state only in prose: writing
+    // `usableLength: null` in an adapter is how a null becomes a default nobody
+    // notices. A consumer cannot tell that null from REGO-FIX having no L2
+    // column, and the two lead to opposite decisions about whether to show the
+    // holder at all.
+    const { usableLength: _omitted, ...rest } = HOLDER
+
+    expect(() => holderRecord(rest)).toThrow(ScraperConfigError)
+    expect(() => holderRecord(rest)).toThrow(
+      /the kennametal holder mapper: left usableLength out without declaring/,
+    )
+  })
+
+  it('refuses a field declared unpublished and then supplied', () => {
+    expect(() =>
+      holderRecord({ ...HOLDER, bodyDiameter: 42, unpublished: ['bodyDiameter'] }),
+    ).toThrow(/declares the vendor publishes no bodyDiameter and supplied 42/)
+  })
+
+  it('accepts a declared field supplied as null — the same claim twice', () => {
+    expect(holderRecord({ ...HOLDER, unpublished: ['bodyDiameter'] }).bodyDiameter).toBeNull()
+  })
+
+  it('refuses a declaration naming something that is not an optional field', () => {
+    expect(() =>
+      // `taper` is required and can never be a vendor's blank, so declaring it
+      // is a typo rather than a fact — and a typo that silently did nothing
+      // would leave a real omission undeclared somewhere else.
+      holderRecord({ ...HOLDER, unpublished: ['taper' as OptionalHolderField] }),
+    ).toThrow(/declares taper unpublished, which is not one of/)
+  })
+
+  it('holds the collet half to the same contract', () => {
+    const { squareSize: _omitted, ...rest } = COLLET
+
+    expect(() => colletRecord(rest)).toThrow(
+      /the kennametal collet mapper: left squareSize out without declaring/,
+    )
+    expect(colletRecord({ ...rest, unpublished: ['squareSize'] }).squareSize).toBeNull()
+  })
+
+  it('lists every field a mapper is allowed to declare', () => {
+    // The two lists are what `checkUnpublished` reads at runtime, and a field
+    // added to one of the unions without being added here would be a field no
+    // mapper could ever declare — the omission would then be refused with no way
+    // to state the truth.
+    expect(OPTIONAL_HOLDER_FIELDS).toEqual([
+      'colletSeries',
+      'bore',
+      'usableLength',
+      'clampingLength',
+      'adjustmentRange',
+      'bodyDiameter',
+      'lockNutDiameter',
+      'cadModelUrl',
+      'cadDxfUrl',
+    ])
+    expect(OPTIONAL_COLLET_FIELDS).toEqual([
+      'nominal',
+      'bodyDiameter',
+      'functionalLength',
+      'overallLength',
+      'clampingLength',
+      'tapRange',
+      'squareSize',
+    ])
+  })
+})
+
+describe('reading a CAD model off a row', () => {
+  // The three states the record used to collapse into one null. Kennametal
+  // publishes no CAD link on a family page, so its column arrives only from the
+  // separate `cad` pass — until it runs, every row of a family is blank for a
+  // reason that has nothing to do with the vendor.
+  it('says nothing where no lookup has run', () => {
+    expect(cadModel({ 'ISO Catalog Number': 'BT30ER16060M' })).toEqual({
+      cadModelUrl: null,
+      cadModelSource: UNSPECIFIED,
+    })
+  })
+
+  it('says the vendor publishes none where the lookup ran and found none', () => {
+    expect(cadModel({ [CAD_COLUMN]: '' })).toEqual({
+      cadModelUrl: null,
+      cadModelSource: 'vendor-stated',
+    })
+  })
+
+  it('carries the URL where the vendor publishes one', () => {
+    expect(cadModel({ [CAD_COLUMN]: 'https://cdn.test/a.stp' })).toEqual({
+      cadModelUrl: 'https://cdn.test/a.stp',
+      cadModelSource: 'vendor-stated',
+    })
+  })
+
+  it('refuses a record carrying a URL that nothing looked for', () => {
+    // Not a state any mapper can reach through `cadModel`; it is the one pair
+    // that says a record was assembled two different ways.
+    expect(() =>
+      holderRecord({
+        ...HOLDER,
+        cadModelUrl: 'https://cdn.test/a.stp',
+        cadModelSource: UNSPECIFIED,
+      }),
+    ).toThrow(/carries a CAD model URL and calls its source unspecified/)
   })
 })
 
@@ -440,6 +582,53 @@ describe('one family’s scrape, as records', () => {
     // Kennametal publishes no description column for toolholding, and `''` is
     // the honest answer where a vendor publishes none.
     expect(record?.description).toBe('')
+  })
+
+  // A holder family routinely sells metric and inch bores from one table, and
+  // the vendor says which in the part's own catalog number rather than in any
+  // column. Before this the family's `unit` fact decided for every row, which
+  // showed 6.35 mm to a machinist who ordered a 1/4 in bore.
+  it('reads each row’s unit from the catalog number, not from the family', () => {
+    const metric = { ...ADAPTER_ROW, 'ISO Catalog Number': 'CVKV50HPVTT06M350' }
+    const inch = {
+      ...ADAPTER_ROW,
+      'Material Number': '1258024',
+      'ISO Catalog Number': 'CV40ZTTHT050275',
+    }
+
+    const records = toHolding(FAMILY, scrapeOf([metric, inch])) as HolderRecord[]
+
+    // The `M` marks the size before it, and sits mid-number as often as at the end.
+    expect(records[0]?.unit).toBe('millimeters')
+    expect(records[1]?.unit).toBe('inches')
+    // Same published `L1_mm: '60'` on both rows: the metric one displays it and
+    // the inch one converts, which is the whole point of the field.
+    expect(records[0]?.gaugeLength).toBe(60)
+    expect(records[1]?.gaugeLength).toBeCloseTo(60 / 25.4, 6)
+    // The inch row's twin is a round trip through `round6`, so it agrees to the
+    // micron rather than exactly — which is the existing conversion's precision.
+    expect(records[0]?.gaugeLengthMm).toBeCloseTo(60, 6)
+    expect(records[1]?.gaugeLengthMm).toBeCloseTo(60, 4)
+  })
+
+  // A collet family does not mix the two systems, and its designation is a
+  // series rather than a size — so the fact stays where it was.
+  it('leaves a collet reading the family’s fact', () => {
+    const collets = toHolding(
+      'er_standard_collets_inch.csv',
+      scrapeOf([
+        {
+          'Material Number': '2000001',
+          'ISO Catalog Number': '16ER0250',
+          'Collet Series': 'ER16',
+          D1_in: '0.25',
+          CCCN_in: '0.2402',
+          CCCX_in: '0.2559',
+        },
+      ]),
+    )
+
+    expect(collets[0]?.unit).toBe('inches')
   })
 
   it('refuses a scrape whose identity column was renamed', () => {

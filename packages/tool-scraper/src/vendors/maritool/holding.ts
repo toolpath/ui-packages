@@ -53,7 +53,6 @@
  */
 
 import {
-  CAD_COLUMN,
   CAD_DXF_COLUMN,
   COLLET_SERIES_COLUMN,
   CONTACT_COLUMN,
@@ -65,12 +64,14 @@ import { IncompletePartError, VendorResponseError } from '../../errors.js'
 import { familyBrand, type BoundToolholding } from '../../family.js'
 import {
   asUnit,
+  cadModel,
   clampingMode,
   contactMode,
   holderRecord,
   published,
   type HolderRecord,
   type HoldingMappers,
+  type OptionalHolderField,
 } from '../../holding.js'
 import { fractionValue } from '../../measure.js'
 import type { ScrapedRow } from '../../scrape.js'
@@ -153,6 +154,26 @@ function diameter(row: ScrapedRow, label: string, unit: UnitSystem, what: string
   return asUnit(measured.value, measured.stated, unit)
 }
 
+/**
+ * What MariTool's listings publish no column for.
+ *
+ * A MariTool product listing is a price, a part number and the two or three
+ * dimensions a buyer picks by — it is not a DIN 4000 datasheet, and there is no
+ * page anywhere on the site carrying L2, L9, V or D2 for these parts. So these
+ * four nulls are the vendor's, constant down all 527 rows, and a consumer is
+ * right to read them as "MariTool does not say" rather than as "not measured".
+ *
+ * `bore` and `lockNutDiameter` are **not** here: the listings do publish
+ * `Shank Size` and a collet-nut diameter, and the four holders whose shank cell
+ * is blank are four blank cells rather than a missing column.
+ */
+const HOLDER_UNPUBLISHED: readonly OptionalHolderField[] = [
+  'usableLength',
+  'clampingLength',
+  'adjustmentRange',
+  'bodyDiameter',
+]
+
 /** One MariTool holder row -> one {@link HolderRecord}. */
 function holder(row: ScrapedRow, family: BoundToolholding): HolderRecord {
   const what = subject(row)
@@ -181,8 +202,11 @@ function holder(row: ScrapedRow, family: BoundToolholding): HolderRecord {
     bore: diameter(row, SHANK_SIZE_LABEL, unit, what),
     gaugeLength,
     lockNutDiameter: diameter(row, COLLET_NUT_DIAMETER_LABEL, unit, what),
-    cadModelUrl: row[CAD_COLUMN] || null,
+    // Written by the scrape itself rather than by a second pass, so every row is
+    // answered and `holding.cadModel` reads `vendor-stated` on all of them.
+    ...cadModel(row),
     cadDxfUrl: row[CAD_DXF_COLUMN] || null,
+    unpublished: HOLDER_UNPUBLISHED,
   })
 }
 

@@ -63,6 +63,9 @@ import { scrapeFamily } from '../vendors/kennametal/scrape.js'
 import { annotateCadUrls } from '../vendors/kennametal/cad.js'
 import {
   COLLET_CATEGORIES,
+  COLLET_CATEGORY,
+  HOLDER_CATEGORIES,
+  HOLDER_CATEGORY,
   describeFamily,
   discoverFamilies,
 } from '../vendors/kennametal/catalog.js'
@@ -125,10 +128,13 @@ const USAGE = `usage: toolpath-scrape <command> [args]
       (e.g. "Thread System=metric").
 
   kennametal --collets
-      Walks the three ER collet category trees and prints every family they
-      link to today — code, slug, category, and the configured CSV that claims
-      the code or "(not configured)". For noticing a family Kennametal has
-      added, split or retired; a scrape needs none of it.
+  kennametal --holders
+      Walks a category tree and prints every family it links to today — code,
+      slug, the branch it sits in, and the configured CSV that claims the code
+      or "(not configured)". For noticing a family Kennametal has added, split
+      or retired; a scrape needs none of it. \`--collets\` is the three ER
+      collet lines, seven nodes. \`--holders\` is the six spindle interfaces —
+      BT, BTKV, CV, CVKV, HSK and PSC — which is 336 nodes and some minutes.
 
   regofix holders OUT.csv
   regofix collets "<PRODUCT GROUP>" OUT.csv
@@ -329,9 +335,9 @@ export async function run(
  * The configured CSV that claims each `familyCode`, for the walk to reconcile
  * against.
  *
- * Toolholding only. A cutting-tool family states a code too, but the walk this
- * serves covers the collet categories and reporting a drill family's code
- * against a collet listing would be an answer to a question nobody asked.
+ * Toolholding only. A cutting-tool family states a code too, but the walks this
+ * serves cover the collet and holder categories, and reporting a drill family's
+ * code against either listing would be an answer to a question nobody asked.
  */
 function claimedCodes(): Map<string, string> {
   const claimed = new Map<string, string>()
@@ -339,6 +345,59 @@ function claimedCodes(): Map<string, string> {
     if (cfg.familyCode !== undefined) claimed.set(cfg.familyCode, name)
   }
   return claimed
+}
+
+/**
+ * The two category trees `kennametal` can walk, each pairing its roots with the
+ * category path the listing component hangs off.
+ *
+ * A pair rather than two arguments a caller assembles, because they are one
+ * fact — `catalog.ts` records that the path scopes nothing, which is exactly
+ * what makes a mismatched pair silent rather than an error.
+ */
+const COLLET_TREE = { roots: COLLET_CATEGORIES, category: COLLET_CATEGORY } as const
+const HOLDER_TREE = { roots: HOLDER_CATEGORIES, category: HOLDER_CATEGORY } as const
+
+/**
+ * One category tree, printed family by family against the configured codes.
+ *
+ * Indented by depth, because the holder tree is four levels where the collet
+ * one is two: a flat listing of 537 families under six interfaces is a wall,
+ * and the branch a family sits in is the fact a reader is after — it is what
+ * `HolderRecord.taper` comes from.
+ */
+async function walkCategories(
+  tree: { roots: readonly { name: string; query: string }[]; category: string },
+  io: Console_,
+  fetcher: Fetcher,
+  brand: AemBrandName,
+): Promise<number> {
+  const claimed = claimedCodes()
+  const found = await discoverFamilies(fetcher, tree.roots, {
+    warn: io.error,
+    brand,
+    category: tree.category,
+  })
+
+  let families = 0
+  let missing = 0
+  for (const category of found) {
+    const indent = '  '.repeat(category.path.length - 1)
+    io.log(
+      `${indent}${category.name}: ${category.total} parts, ${category.families.length} families`,
+    )
+    for (const family of category.families) {
+      const where = claimed.get(family.code) ?? null
+      if (where === null) missing += 1
+      families += 1
+      io.log(`${indent}  ${describeFamily(category, family, where)}`)
+    }
+  }
+
+  io.log(
+    `${families} families under ${tree.roots.length} category trees, ${missing} not configured`,
+  )
+  return 0
 }
 
 async function kennametal(argv: string[], io: Console_, fetcher: Fetcher): Promise<number> {
@@ -362,28 +421,9 @@ async function kennametal(argv: string[], io: Console_, fetcher: Fetcher): Promi
     io.error(`unknown brand: ${brand} (known: ${[...AEM_BRANDS].sort().join(', ')})`)
     return 2
   }
-  if (args[0] === '--collets') {
-    const claimed = claimedCodes()
-    const found = await discoverFamilies(fetcher, COLLET_CATEGORIES, {
-      warn: io.error,
-      brand: brand as AemBrandName,
-    })
-    let families = 0
-    let missing = 0
-    for (const category of found) {
-      io.log(`${category.name}: ${category.total} parts, ${category.families.length} families`)
-      for (const family of category.families) {
-        const where = claimed.get(family.code) ?? null
-        if (where === null) missing += 1
-        families += 1
-        io.log(`  ${describeFamily(category, family, where)}`)
-      }
-    }
-    io.log(
-      `${families} families under ${COLLET_CATEGORIES.length} category trees, ` +
-        `${missing} not configured`,
-    )
-    return 0
+  const tree = args[0] === '--collets' ? COLLET_TREE : args[0] === '--holders' ? HOLDER_TREE : null
+  if (tree !== null) {
+    return walkCategories(tree, io, fetcher, brand as AemBrandName)
   }
 
   if (args.length < 2) {
@@ -701,7 +741,7 @@ function coverage(argv: string[], io: Console_): number {
       ? Object.keys(HOLDER_FAMILIES).sort()
       : namesIn(argv, HOLDER_FAMILIES, 'holder')
 
-  const total: CadCoverage = { rows: 0, step: 0, dxf: 0 }
+  const total: CadCoverage = { rows: 0, step: 0, unspecified: 0, dxf: 0 }
   let counted = 0
 
   for (const name of names) {
@@ -713,6 +753,7 @@ function coverage(argv: string[], io: Console_): number {
     counted += 1
     total.rows += found.rows
     total.step += found.step
+    total.unspecified += found.unspecified
     total.dxf += found.dxf
     io.log(`${name}: ${describeCoverage(found)}`)
   }
@@ -727,7 +768,13 @@ function describeCoverage(found: CadCoverage): string {
   // and no parts, and a NaN percentage would read as a parsing fault here
   // instead of as the empty file it is.
   const share = found.rows === 0 ? '—' : `${Math.round((100 * found.step) / found.rows)}%`
-  return `${found.rows} rows, ${found.step} STEP (${share}), ${found.dxf} DXF`
+  // Named on the line rather than folded into the STEP count, because the two
+  // read identically as a number and mean opposite things: `0 STEP` says the
+  // vendor publishes none, and this says nobody has asked yet. A Kennametal
+  // family scraped but never `cad`-annotated is the whole row count, and it is
+  // the prompt to run that pass rather than a finding about the catalog.
+  const unasked = found.unspecified > 0 ? `, ${found.unspecified} not looked up` : ''
+  return `${found.rows} rows, ${found.step} STEP (${share})${unasked}, ${found.dxf} DXF`
 }
 
 /**

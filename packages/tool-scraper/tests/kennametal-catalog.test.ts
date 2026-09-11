@@ -14,11 +14,17 @@ import { describe, expect, it } from 'vitest'
 import { REQUEST_DELAY_MS } from '../src/scrape.js'
 import {
   COLLET_CATEGORIES,
-  colletListingPages,
+  COLLET_CATEGORY,
+  HOLDER_CATEGORIES,
+  HOLDER_CATEGORY,
+  LISTING_ATTEMPTS,
+  RETRY_BASE_MS,
+  RETRY_FACTOR,
+  categoryListingPages,
   describeFamily,
   discoverFamilies,
   listingUrl,
-  parseColletListing,
+  parseCategoryListing,
 } from '../src/vendors/kennametal/catalog.js'
 import { asFetcher, recordPauses } from './stubs.js'
 
@@ -95,7 +101,7 @@ describe('the listing endpoint', () => {
 
 describe('reading one listing response', () => {
   it('takes subcategory tiles by their own class, not by having a query', () => {
-    const listing = parseColletListing(CATEGORY)
+    const listing = parseCategoryListing(CATEGORY)
 
     expect(listing.total).toBe(224)
     expect(listing.families).toEqual([])
@@ -106,7 +112,7 @@ describe('reading one listing response', () => {
   })
 
   it('takes a family’s code and slug out of its link', () => {
-    const listing = parseColletListing(METRIC_LEAF)
+    const listing = parseCategoryListing(METRIC_LEAF)
 
     expect(listing.total).toBe(117)
     expect(listing.tiles).toEqual([])
@@ -117,7 +123,7 @@ describe('reading one listing response', () => {
   })
 
   it('says nothing rather than guessing when the response states no total', () => {
-    expect(parseColletListing('<div></div>')).toEqual({ total: 0, tiles: [], families: [] })
+    expect(parseCategoryListing('<div></div>')).toEqual({ total: 0, tiles: [], families: [] })
   })
 })
 
@@ -135,7 +141,7 @@ describe('paging one category', () => {
       },
     })
 
-    return colletListingPages(fetcher, METRIC, { delayMs: 0 }).then((listing) => {
+    return categoryListingPages(fetcher, METRIC, { delayMs: 0 }).then((listing) => {
       expect(asked).toHaveLength(3)
       expect(asked[0]).toContain('product_listing.0.html')
       expect(asked[2]).toContain('product_listing.2.html')
@@ -145,6 +151,88 @@ describe('paging one category', () => {
       // the branch.
       expect(listing.total).toBe(117)
     })
+  })
+
+  // 336 nodes and about 635 requests for the holder tree, against a vendor that
+  // times a request out roughly once in a hundred: without this a walk that long
+  // ends in an exception with nothing printed, near enough every run.
+  it('re-asks a page the vendor failed, and keeps the families either side of it', async () => {
+    const asked: string[] = []
+    const fetcher = asFetcher({
+      text: (url: string) => {
+        asked.push(url)
+        if (asked.length === 1) return Promise.reject(new Error('aborted due to timeout'))
+        return Promise.resolve(asked.length === 2 ? METRIC_LEAF : EMPTY)
+      },
+    })
+
+    const said: string[] = []
+    const { waits, restore } = recordPauses()
+    let listing
+    try {
+      listing = await categoryListingPages(fetcher, METRIC, {
+        delayMs: 0,
+        warn: (m) => said.push(m),
+      })
+    } finally {
+      restore()
+    }
+
+    // The retry asks for the same page, not the next one.
+    expect(asked[0]).toContain('product_listing.0.html')
+    expect(asked[1]).toContain('product_listing.0.html')
+    expect(listing.families.map((f) => f.code)).toEqual(['100000428', '100000478'])
+    expect(said.join('\n')).toContain('retrying')
+    // **Not the walk's politeness delay.** `delayMs: 0` is passed here and the
+    // retry still waits seconds: three attempts one second apart all land inside
+    // the same bad minute, which is how the 2026-09-09 holder walk died 300 nodes
+    // in after two successful retries.
+    expect(waits).toContain(RETRY_BASE_MS)
+  })
+
+  it('waits longer after each failure, so the attempts do not share one bad minute', async () => {
+    const { waits, restore } = recordPauses()
+    try {
+      await expect(
+        categoryListingPages(
+          asFetcher({ text: () => Promise.reject(new Error('aborted due to timeout')) }),
+          METRIC,
+          { delayMs: 0, warn: () => {} },
+        ),
+      ).rejects.toThrow('timeout')
+    } finally {
+      restore()
+    }
+
+    // 2 s, 8 s, 32 s — the three gaps between four attempts, spanning about the
+    // 40 seconds a vendor blip lasts rather than the one second a flat delay gives.
+    expect(waits).toEqual([
+      RETRY_BASE_MS,
+      RETRY_BASE_MS * RETRY_FACTOR,
+      RETRY_BASE_MS * RETRY_FACTOR ** 2,
+    ])
+  })
+
+  // A branch silently missing from a reconciliation listing reads as "Kennametal
+  // retired these families", which is the question the command exists to answer.
+  it('gives up rather than reporting a category it never read', async () => {
+    let asked = 0
+    const fetcher = asFetcher({
+      text: () => {
+        asked += 1
+        return Promise.reject(new Error('aborted due to timeout'))
+      },
+    })
+
+    const { restore } = recordPauses()
+    try {
+      await expect(
+        categoryListingPages(fetcher, METRIC, { delayMs: 0, warn: () => {} }),
+      ).rejects.toThrow('timeout')
+    } finally {
+      restore()
+    }
+    expect(asked).toBe(LISTING_ATTEMPTS)
   })
 })
 
@@ -180,6 +268,13 @@ describe('walking the collet categories', () => {
       'Standard',
       'ER Standard Collets • Metric',
       'ER Standard Collets • Inch',
+    ])
+    // Every name from the root down, which is what tells one `ER Collet Chucks`
+    // leaf from the five others the holder tree carries under other tapers.
+    expect(found.map((c) => c.path)).toEqual([
+      ['Standard'],
+      ['Standard', 'ER Standard Collets • Metric'],
+      ['Standard', 'ER Standard Collets • Inch'],
     ])
     expect(found[0]?.families).toEqual([])
     expect(found[1]?.families.map((f) => f.code)).toEqual(['100000428', '100000478'])
@@ -253,12 +348,57 @@ describe('what the three roots are', () => {
 
 describe('one line per family', () => {
   it('says which configured CSV claims the code, or that none does', () => {
-    const category = { name: 'ER Tap Collets', query: STANDARD, total: 96, families: [] }
+    const category = {
+      name: 'ER Tap Collets',
+      path: ['ER Tap Collets'],
+      query: STANDARD,
+      total: 96,
+      families: [],
+    }
     const family = { code: '100000434', slug: 'er-standard-tap-collets-inchmetric-ansi' }
 
     expect(describeFamily(category, family, 'er_tap_collets_ansi.csv')).toBe(
       '100000434\ter-standard-tap-collets-inchmetric-ansi\tER Tap Collets\ter_tap_collets_ansi.csv',
     )
     expect(describeFamily(category, family, null)).toContain('(not configured)')
+  })
+
+  // The branch and not the leaf: `ER Collet Chucks` names six different
+  // families across the six spindle interfaces, and the taper a holder family
+  // declares is read off this path rather than off any column.
+  it('names the whole branch, not the leaf it ended at', () => {
+    const category = {
+      name: 'ER Collet Chucks',
+      path: ['BT', 'BT 40 Shank Tools', 'ER Collet Chucks'],
+      query: HOLDER_CATEGORIES[0]!.query,
+      total: 12,
+      families: [],
+    }
+
+    expect(
+      describeFamily(category, { code: '100149593', slug: 'er-collet-adapter-bt40' }, null),
+    ).toBe(
+      '100149593\ter-collet-adapter-bt40\tBT / BT 40 Shank Tools / ER Collet Chucks\t(not configured)',
+    )
+  })
+})
+
+describe('what the six holder roots are', () => {
+  it('names the interfaces asked for, active parts only, under Tool Holders & Adapters', () => {
+    expect(HOLDER_CATEGORIES.map((c) => c.name)).toEqual(['BT', 'BTKV', 'CV', 'CVKV', 'HSK', 'PSC'])
+    for (const root of HOLDER_CATEGORIES) {
+      expect(root.query, root.name).toContain('obsoleteFacet:false')
+      // Every root sits under Tool Holders & Adapters, and extends it by one id.
+      expect(root.query, root.name).toMatch(
+        /^:relevance:obsoleteFacet:false:allCategoriesKMT:2664259:allCategoriesKMT:\d+$/,
+      )
+    }
+  })
+
+  // The path is decorative — the query scopes — but it still has to be a real
+  // product category page, and the holder walk is not the collet one.
+  it('hangs off the holder category rather than the collet one', () => {
+    expect(HOLDER_CATEGORY).toBe('metalworking-tools/tool-holders-and-adapters')
+    expect(COLLET_CATEGORY.startsWith(`${HOLDER_CATEGORY}/`)).toBe(true)
   })
 })
