@@ -1,12 +1,13 @@
 {
-  "apiVersion": "1.8.0",
+  "apiVersion": "1.9.0",
   "openApiVersion": "3.1.0",
-  "sha256": "c859ddb2bcba32a020c102b5e57bfa6791b221e49bbbfbfa97c2342f0d8ec5b9",
+  "sha256": "29208a175b47e6b9e09a1abb8919254bebaa1a8d007378f040e6281cb561be19",
   "generators": {
     "python": "openapi-python-client@0.29.0",
     "typescript": "openapi-generator:typescript-fetch@7.24.0"
   },
   "operationIds": [
+    "createDemoSession",
     "createHolder",
     "createPart",
     "createPartMesh",

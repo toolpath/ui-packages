@@ -13,66 +13,49 @@
  */
 
 import { mapValues } from '../runtime.js'
-import type { PartFeatureEntry } from './PartFeatureEntry.js'
-import {
-  PartFeatureEntryFromJSON,
-  PartFeatureEntryFromJSONTyped,
-  PartFeatureEntryToJSON,
-  PartFeatureEntryToJSONTyped,
-} from './PartFeatureEntry.js'
-
 /**
  *
  * @export
- * @interface PartFeaturesResponse
+ * @interface DemoSessionRequest
  */
-export interface PartFeaturesResponse {
+export interface DemoSessionRequest {
   /**
-   * Detailed machining data for requested features.
-   * @type {Array<PartFeatureEntry>}
-   * @memberof PartFeaturesResponse
+   * A stable id the caller keeps per install (a UUID). Sending it makes renewals land on the same organization, so uploads and usage stay together. Omit it for a fresh throwaway organization each time.
+   * @type {string}
+   * @memberof DemoSessionRequest
    */
-  datasheets: Array<PartFeatureEntry>
-  /**
-   * Requested feature identifiers that were unknown.
-   * @type {Array<string>}
-   * @memberof PartFeaturesResponse
-   */
-  notFound: Array<string>
+  installId?: string
 }
 
 /**
- * Check if a given object implements the PartFeaturesResponse interface.
+ * Check if a given object implements the DemoSessionRequest interface.
  */
-export function instanceOfPartFeaturesResponse(value: object): value is PartFeaturesResponse {
-  if (!('datasheets' in value) || value['datasheets'] === undefined) return false
-  if (!('notFound' in value) || value['notFound'] === undefined) return false
+export function instanceOfDemoSessionRequest(value: object): value is DemoSessionRequest {
   return true
 }
 
-export function PartFeaturesResponseFromJSON(json: any): PartFeaturesResponse {
-  return PartFeaturesResponseFromJSONTyped(json, false)
+export function DemoSessionRequestFromJSON(json: any): DemoSessionRequest {
+  return DemoSessionRequestFromJSONTyped(json, false)
 }
 
-export function PartFeaturesResponseFromJSONTyped(
+export function DemoSessionRequestFromJSONTyped(
   json: any,
   ignoreDiscriminator: boolean,
-): PartFeaturesResponse {
+): DemoSessionRequest {
   if (json == null) {
     return json
   }
   return {
-    datasheets: (json['datasheets'] as Array<any>).map(PartFeatureEntryFromJSON),
-    notFound: json['notFound'],
+    installId: json['installId'] == null ? undefined : json['installId'],
   }
 }
 
-export function PartFeaturesResponseToJSON(json: any): PartFeaturesResponse {
-  return PartFeaturesResponseToJSONTyped(json, false)
+export function DemoSessionRequestToJSON(json: any): DemoSessionRequest {
+  return DemoSessionRequestToJSONTyped(json, false)
 }
 
-export function PartFeaturesResponseToJSONTyped(
-  value?: PartFeaturesResponse | null,
+export function DemoSessionRequestToJSONTyped(
+  value?: DemoSessionRequest | null,
   ignoreDiscriminator: boolean = false,
 ): any {
   if (value == null) {
@@ -80,7 +63,6 @@ export function PartFeaturesResponseToJSONTyped(
   }
 
   return {
-    datasheets: (value['datasheets'] as Array<any>).map(PartFeatureEntryToJSON),
-    notFound: value['notFound'],
+    installId: value['installId'],
   }
 }

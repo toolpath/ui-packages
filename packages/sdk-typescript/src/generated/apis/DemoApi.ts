@@ -14,70 +14,77 @@
 
 import * as runtime from '../runtime.js'
 import {
-  type KeyValidationResponse,
-  KeyValidationResponseFromJSON,
-  KeyValidationResponseToJSON,
-} from '../models/KeyValidationResponse.js'
+  type DemoSessionRequest,
+  DemoSessionRequestFromJSON,
+  DemoSessionRequestToJSON,
+} from '../models/DemoSessionRequest.js'
+import {
+  type DemoSessionResponse,
+  DemoSessionResponseFromJSON,
+  DemoSessionResponseToJSON,
+} from '../models/DemoSessionResponse.js'
 import {
   type ProblemDetails,
   ProblemDetailsFromJSON,
   ProblemDetailsToJSON,
 } from '../models/ProblemDetails.js'
 
+export interface CreateDemoSessionRequest {
+  demoSessionRequest?: DemoSessionRequest
+}
+
 /**
  *
  */
-export class KeysApi extends runtime.BaseAPI {
+export class DemoApi extends runtime.BaseAPI {
   /**
-   * Creates request options for validateKey without sending the request
+   * Creates request options for createDemoSession without sending the request
    */
-  async validateKeyRequestOpts(): Promise<runtime.RequestOpts> {
+  async createDemoSessionRequestOpts(
+    requestParameters: CreateDemoSessionRequest,
+  ): Promise<runtime.RequestOpts> {
     const queryParameters: any = {}
 
     const headerParameters: runtime.HTTPHeaders = {}
 
-    if (this.configuration && this.configuration.accessToken) {
-      const token = this.configuration.accessToken
-      const tokenString = await token('ApiKeyAuth', [])
+    headerParameters['Content-Type'] = 'application/json'
 
-      if (tokenString) {
-        headerParameters['Authorization'] = `Bearer ${tokenString}`
-      }
-    }
-
-    let urlPath = `/v1/keys/validate`
+    let urlPath = `/v1/demo/session`
 
     return {
       path: urlPath,
       method: 'POST',
       headers: headerParameters,
       query: queryParameters,
+      body: DemoSessionRequestToJSON(requestParameters['demoSessionRequest']),
     }
   }
 
   /**
-   * Reports the status of the API key supplied in the Authorization header. A usable key returns 200; a missing, revoked, expired, or unknown key returns 401 — both with the same status body (never problem+json) — so bring-your-own-key integrations can confirm a key and show why it failed.
-   * Validate an API key
+   * Issues a short-lived API key for anonymous, no-signup access to a limited set of endpoints. Each session is isolated to its own throwaway organization, so it sees only the data it uploaded. Send the same `installId` again to renew: the previous key is retired and a new one is issued on the same organization.
+   * Start a temporary demo session
    */
-  async validateKeyRaw(
+  async createDemoSessionRaw(
+    requestParameters: CreateDemoSessionRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction,
-  ): Promise<runtime.ApiResponse<KeyValidationResponse>> {
-    const requestOptions = await this.validateKeyRequestOpts()
+  ): Promise<runtime.ApiResponse<DemoSessionResponse>> {
+    const requestOptions = await this.createDemoSessionRequestOpts(requestParameters)
     const response = await this.request(requestOptions, initOverrides)
 
     return new runtime.JSONApiResponse(response, (jsonValue) =>
-      KeyValidationResponseFromJSON(jsonValue),
+      DemoSessionResponseFromJSON(jsonValue),
     )
   }
 
   /**
-   * Reports the status of the API key supplied in the Authorization header. A usable key returns 200; a missing, revoked, expired, or unknown key returns 401 — both with the same status body (never problem+json) — so bring-your-own-key integrations can confirm a key and show why it failed.
-   * Validate an API key
+   * Issues a short-lived API key for anonymous, no-signup access to a limited set of endpoints. Each session is isolated to its own throwaway organization, so it sees only the data it uploaded. Send the same `installId` again to renew: the previous key is retired and a new one is issued on the same organization.
+   * Start a temporary demo session
    */
-  async validateKey(
+  async createDemoSession(
+    requestParameters: CreateDemoSessionRequest = {},
     initOverrides?: RequestInit | runtime.InitOverrideFunction,
-  ): Promise<KeyValidationResponse> {
-    const response = await this.validateKeyRaw(initOverrides)
+  ): Promise<DemoSessionResponse> {
+    const response = await this.createDemoSessionRaw(requestParameters, initOverrides)
     return await response.value()
   }
 }
