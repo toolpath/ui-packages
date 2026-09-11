@@ -2,9 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { assemblyOutline } from '../model/outline.js'
 import { frameFor, typeSizeFor, type Box, type Padding } from '../model/frame.js'
 import { dimensionsFor, laneLayout, laneRoom, type LaneRoom } from '../model/dimensions.js'
-import { isHolderProfile } from '../model/types.js'
 import type { ViewerAssembly } from '../model/types.js'
-import { SHEETS, assumedNames, sectionFill, type Theme } from './sheet.js'
+import { SHEETS, sectionFill, type Theme } from './sheet.js'
 import { joins, sectionPoints, silhouettePath } from './silhouette.js'
 import { DimensionLines } from './dimension-lines.js'
 import { DrawingProvider } from './drawing-context.js'
@@ -23,7 +22,7 @@ import { DrawingProvider } from './drawing-context.js'
  * **Every line is solid**: flutes pale yellow, shank one light grey whatever
  * its provenance, the holder grey up to the spindle connection, which is
  * darker. What was derived or assumed is on the element as `data-provenance`,
- * and named in the note under the drawing.
+ * for a consumer that wants to say so; the drawing itself does not caption it.
  */
 export interface ToolDrawingProps {
   readonly assembly: ViewerAssembly
@@ -167,19 +166,9 @@ export const ToolDrawing = ({
     }
   }, [])
 
-  const { tool, holder } = assembly
+  const { tool } = assembly
   const name = caption ?? tool.label ?? tool.form
   const outline = assemblyOutline(assembly)
-  /**
-   * Whether the holder reaches a stated spindle face.
-   *
-   * A measured profile states it by its datum — a `gage-line` profile *is*
-   * referenced to that face, and a `nose` one has no gauge plane to solve — so
-   * the two forms answer the same question from different fields.
-   */
-  const unstatedLength =
-    holder !== null &&
-    (isHolderProfile(holder) ? holder.datum !== 'gage-line' : holder.gaugeLength === null)
 
   /**
    * **An undrawable form is said in words, not drawn plausibly.**
@@ -265,7 +254,6 @@ export const ToolDrawing = ({
 
   const frame = frameFor(outline, box, { padding: chrome })
   const { fontSize } = frame
-  const assumed = assumedNames(outline.segments)
   const line = (r: number, z: number) => ({ x: frame.toX(r, z), y: frame.toY(r, z) })
   // A centreline runs a little past both ends of the part, as a drawing draws
   // one. Type-relative, so it keeps its proportion at any scale.
@@ -276,7 +264,20 @@ export const ToolDrawing = ({
   return (
     <figure
       className={className}
-      style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%', margin: 0 }}
+      /*
+        **The sheet is the whole figure, not just the drawing.** The caption
+        sits on the same ground the tool is drawn on, so the panel is one
+        surface rather than a white rectangle inset in the consumer's card.
+      */
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+        height: '100%',
+        margin: 0,
+        background: sheet.ground,
+        borderRadius: '0.25rem',
+      }}
     >
       <figcaption
         style={{
@@ -315,7 +316,7 @@ export const ToolDrawing = ({
         role="img"
         aria-label={`${name}, drawn from its stated dimensions`}
         viewBox={frame.viewBox}
-        style={{ background: sheet.ground, flex: 1, minHeight: 0, borderRadius: '0.25rem' }}
+        style={{ flex: 1, minHeight: 0 }}
         /*
           **Do not change this.** `xMidYMid meet` fits the viewBox by the
           smaller of its own two ratios, and `frameFor` chooses `scale` so that
@@ -423,18 +424,6 @@ export const ToolDrawing = ({
           strokeDasharray={`${(fontSize * 1.6).toFixed(2)} ${(fontSize * 0.5).toFixed(2)} ${(fontSize * 0.3).toFixed(2)} ${(fontSize * 0.5).toFixed(2)}`}
         />
       </svg>
-      <p
-        data-provenance-note
-        style={{
-          padding: '0 0.75rem 0.5rem',
-          fontSize: '0.625rem',
-          color: sheet.dimension,
-          margin: 0,
-        }}
-      >
-        Drawn from stated dimensions{assumed.length > 0 ? `; ${assumed.join(', ')} assumed` : ''}.
-        {unstatedLength ? ' The holder length is not stated.' : ''}
-      </p>
     </figure>
   )
 }

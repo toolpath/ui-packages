@@ -58,36 +58,21 @@ describe('the assembly, drawn', () => {
     expect(partsDrawn(container)).toEqual(['tip', 'flutes', 'shank'])
   })
 
-  it('draws every line solid, keeps the provenance on the element, and names what was assumed', () => {
+  it('draws every line solid and keeps the provenance on the element', () => {
     const drill = { ...assembly, tool: { ...assembly.tool, form: 'drill' } }
     const { container } = render(<ToolDrawing assembly={drill} />)
 
     const tip = container.querySelector('[data-part="tip"]')
     expect(tip?.getAttribute('stroke-dasharray')).toBeNull()
     expect(tip?.getAttribute('data-provenance')).toBe('assumed')
-    expect(container.querySelector('[data-provenance-note]')?.textContent).toMatch(
-      /tip angle assumed/,
-    )
-  })
-
-  it('says the holder length is not stated when it is not', () => {
-    const { container } = render(
-      <ToolDrawing
-        assembly={{ ...assembly, holder: { ...assembly.holder!, gaugeLength: null } }}
-      />,
-    )
-
-    expect(container.querySelector('[data-provenance-note]')?.textContent).toMatch(
-      /The holder length is not stated\./,
-    )
   })
 
   /**
-   * A measured holder answers the same question from a different field: a
-   * `gage-line` profile *is* referenced to the spindle face, and a `nose` one
-   * had no gauge plane to solve.
+   * A measured profile is split at the spindle face it is datumed to: a
+   * `gage-line` profile *is* referenced to that face, and a `nose` one has no
+   * gauge plane to solve, so it stays one section.
    */
-  it('reads a measured holder\u2019s length off its datum', () => {
+  it('splits a measured holder at its datum', () => {
     const measured: ViewerHolderProfile = {
       points: [
         [-40, 11],
@@ -104,9 +89,6 @@ describe('the assembly, drawn', () => {
     )
 
     expect(partsDrawn(container)).toEqual(['tip', 'flutes', 'shank', 'body', 'flange'])
-    expect(container.querySelector('[data-provenance-note]')?.textContent).not.toMatch(
-      /The holder length is not stated\./,
-    )
 
     rerender(
       <ToolDrawing
@@ -123,9 +105,7 @@ describe('the assembly, drawn', () => {
         }}
       />,
     )
-    expect(container.querySelector('[data-provenance-note]')?.textContent).toMatch(
-      /The holder length is not stated\./,
-    )
+    expect(partsDrawn(container)).toEqual(['tip', 'flutes', 'shank', 'body'])
   })
 })
 
@@ -203,20 +183,23 @@ describe('the sheet and its ink', () => {
    * And the sheet is a shade above the card rather than a white rectangle in a
    * dark application — with the ink turned over to match. Dark is the default
    * because the sheet that needed stating was the dark one.
+   *
+   * **The ground is on the figure**, so the caption sits on the sheet too and
+   * the panel is one surface rather than a rectangle inset in the card.
    */
-  it('draws on a dark sheet by default', () => {
+  it('draws on a dark sheet by default, under the caption as well', () => {
     const { container } = render(<ToolDrawing assembly={assembly} />)
-    const svg = container.querySelector('svg')!
+    const figure = container.querySelector('figure')!
 
-    expect(svg.style.background).toBe('rgb(34, 37, 43)')
+    expect(figure.style.background).toBe('rgb(34, 37, 43)')
+    expect(container.querySelector('svg')!.style.background).toBe('')
     expect(container.querySelector('[data-centreline]')?.getAttribute('stroke')).toBe('#e8ebef')
   })
 
   it('turns the whole sheet over when the application passes the light theme', () => {
     const { container } = render(<ToolDrawing assembly={connected} theme="light" />)
-    const svg = container.querySelector('svg')!
 
-    expect(svg.style.background).toBe('rgb(255, 255, 255)')
+    expect(container.querySelector('figure')!.style.background).toBe('rgb(255, 255, 255)')
     expect(container.querySelector('[data-centreline]')?.getAttribute('stroke')).toBe('#15181c')
     expect(container.querySelector('[data-part="flutes"]')?.getAttribute('fill')).toBe('#e6bf59')
     expect(container.querySelector('[data-silhouette]')?.getAttribute('stroke')).toBe('#3f4650')

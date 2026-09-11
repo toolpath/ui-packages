@@ -49,8 +49,9 @@ tool honestly — an unrecognised form, or a tool with no stated cutting diamete
 or flute length. **Every number in a generated profile comes off a vendor
 field.** There is no default taper angle, no assumed neck, no invented lead
 chamfer. Where a number has to be assumed to draw at all — a drill point angle
-the vendor never published — the segment says so in its `provenance`, and a
-renderer is expected to show it.
+the vendor never published — the segment says so in its `provenance`, which
+`<ToolDrawing>` puts on the element as `data-provenance` for a consumer that
+wants to say so.
 
 ## Two kinds of holder
 
@@ -74,7 +75,7 @@ narrows the union for an adapter that holds both.
 On a `gage-line` profile the drawing splits at `z = 0` — the spindle face — so
 everything above it is shaded as the spindle connection, exactly as the
 parametric flange is. A `nose`-datumed profile has no spindle face to split on
-and no gauge length to state, and the note under the drawing says so.
+and no gauge length to state, so it stays one section.
 
 `geometry` keys are the scraper's own field names (`DC`, `SFDM`, `OAL`, `LCF`,
 `RE`, `SIG`, `NOF`, `shoulder-diameter`, `shoulder-length`). They are not
