@@ -1,6 +1,5 @@
-import { type Box3, OrthographicCamera, Plane, Vector3 } from 'three'
+import { type Box3, Plane, Vector3 } from 'three'
 import type { Vec3 } from '../model/types.js'
-import type { ViewerCamera, ViewportSize } from './camera.js'
 
 /**
  * Render order. The stencil pass must precede the cap, and the part must draw
@@ -177,33 +176,6 @@ export function pickedStartDepth(box: Box3): number {
 export function sectionPlane(box: Box3, normal: Vec3, offset: number, into = new Plane()): Plane {
   const axis = unit(normal)
   return into.set(axis, sectionConstant(sectionBounds(box, normal), offset))
-}
-
-/**
- * A world length that covers `pixels` on screen at `point`.
- *
- * A handle sized in world units is a thumbnail on a plate and a wall on an
- * insert; the whole reason it is measured this way is that it is a control
- * rather than part of the model.
- */
-export function screenLength(
-  camera: ViewerCamera,
-  point: Vector3,
-  viewport: ViewportSize,
-  pixels: number,
-): number {
-  const height = viewport.height > 0 ? viewport.height : 1
-  const zoom = camera.zoom || 1
-
-  const visible =
-    camera instanceof OrthographicCamera
-      ? (camera.top - camera.bottom) / zoom
-      : (2 *
-          Math.tan(((camera.fov / 2) * Math.PI) / 180) *
-          Math.max(camera.position.distanceTo(point), EPSILON)) /
-        zoom
-
-  return (visible / height) * pixels
 }
 
 /**

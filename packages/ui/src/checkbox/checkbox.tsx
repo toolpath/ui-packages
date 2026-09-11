@@ -1,6 +1,6 @@
 import React, { useRef } from 'react'
 import { Checkbox as BaseCheckbox, CheckboxRootProps } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { CheckIcon, MinusIcon } from '@phosphor-icons/react'
 
 export interface CheckboxChangeEvent {
@@ -68,8 +68,8 @@ export const Checkbox = ({
       {...props}
     >
       <BaseCheckbox.Indicator className="flex items-center justify-center text-white" keepMounted>
-        {checked && <CheckIcon className="w-full h-full" />}
-        {indeterminate && <MinusIcon className="w-full h-full" />}
+        {checked && <CheckIcon weight="bold" className="w-full h-full" />}
+        {indeterminate && <MinusIcon weight="bold" className="w-full h-full" />}
       </BaseCheckbox.Indicator>
     </BaseCheckbox.Root>
   )

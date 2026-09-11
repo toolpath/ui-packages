@@ -3,7 +3,7 @@ import {
   Combobox as BaseCombobox,
   ComboboxTriggerProps as BaseComboboxTriggerProps,
 } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 export type ComboboxTriggerProps = BaseComboboxTriggerProps & RefAttributes<HTMLElement>
 

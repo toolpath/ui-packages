@@ -1,5 +1,5 @@
 import React, { HTMLAttributes } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 export type AttributionProps = HTMLAttributes<HTMLDivElement>
 

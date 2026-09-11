@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { getRowHeight } from './table'
 import { useTable } from './table-context'
 

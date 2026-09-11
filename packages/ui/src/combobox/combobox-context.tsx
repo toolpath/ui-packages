@@ -1,6 +1,6 @@
 import React, { FC, ReactNode, createContext, useContext, useMemo } from 'react'
 
-export interface ComboboxContextInterface {
+interface ComboboxContextInterface {
   size: 'xl' | 'lg' | 'md' | 'sm'
   variant: 'default' | 'secondary' | 'muted' | 'ghost'
   disabled: boolean
@@ -38,5 +38,4 @@ const ComboboxProvider: FC<ProviderProps> = ({
 }
 
 const useCombobox = () => useContext(ComboboxContext)
-const ComboboxConsumer = ComboboxContext.Consumer
-export { useCombobox, ComboboxProvider, ComboboxContext, ComboboxConsumer }
+export { useCombobox, ComboboxProvider }

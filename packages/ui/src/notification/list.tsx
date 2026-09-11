@@ -1,6 +1,6 @@
 import React from 'react'
 import { Toast, ToastObject } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { IconButton } from '../icon-button'
 import { XIcon } from '@phosphor-icons/react'
 import { useNotificationToastManager } from './provider'
@@ -103,6 +103,7 @@ export const List = () => {
                         {...renderProps}
                       >
                         <XIcon
+                          weight="regular"
                           className={cn({
                             'text-gray dark:text-zinc-950': variant === 'warning',
                             'text-white dark:text-zinc-50':

@@ -1,6 +1,6 @@
 import React, { Children, ReactElement, ReactNode, isValidElement } from 'react'
 import { ToggleGroup as BaseToggleGroup } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { Indicator } from './indicator'
 import { Item, ToggleItemProps } from './item'
 import { ToggleConsumer, ToggleProvider } from './toggle-context'

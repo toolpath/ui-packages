@@ -72,25 +72,39 @@ export const HIGHLIGHT_COLORS = {
  * are unordered and deliberately not a scale.
  */
 export const DIRECTION_COLORS = [
-  0x3b82f6, // blue
-  0x14b8a6, // teal
-  0xd946ef, // fuchsia
-  0x06b6d4, // cyan
   /*
-   * Olive, where a purple used to be.
+   * Nine ways up, told apart at a glance.
    *
-   * The purple sat one step from the violet a proposed feature is painted in,
-   * so an offer laid over work already assigned to this direction was a clash
-   * between "suggested" and "decided" — the two states the part is read for.
-   * Olive is the only hue with room: the warm ramp belongs to the difficulty
-   * bands, red to sharp corners, orange to faces being picked, and green to
-   * whatever is being looked at.
+   * The palette is an **identity**, not a ranking — the same colour on the
+   * face, on the arrow and on the row, which is the whole point of it. Two
+   * entries that look alike make it a worse identity than eight that do not,
+   * and this list had three problems at once:
+   *
+   * - teal-500, cyan-500 and emerald-500 were neighbours in hue *and*
+   *   lightness, so three ways up were one blue-green smear;
+   * - blue-500 and indigo-500 were the closest pair of all;
+   * - indigo-500 sat 0.06 from the violet an offer is painted in — the very
+   *   clash that sent a purple out of this list once already, still here under
+   *   a different name.
+   *
+   * The warm ramp belongs to difficulty, red to sharp corners, orange to the
+   * selection over this cycle, violet to an offer. There is no room to move
+   * anything to a fresh hue, so the spread is along **lightness** as much as
+   * hue: a pale cyan and a mid teal, a light green and a deep navy.
+   *
+   * `selection-colors.test.ts` measures every pair in Oklab and holds them all
+   * above 0.1 — including against the four colours the part can wear over this
+   * wash. The binding pair now is blue against an offer's violet, at 0.12.
    */
+  0x3b82f6, // blue
+  0x0d9488, // teal
+  0xd946ef, // fuchsia
+  0x67e8f9, // pale cyan
   0x65a30d, // olive
   0xec4899, // pink
-  0x64748b, // slate
-  0x10b981, // emerald
-  0x6366f1, // indigo
+  0x94a3b8, // light slate
+  0x4ade80, // light green
+  0x1e3a8a, // deep navy
 ] as const
 
 export const DEFAULT_THEME: ViewerTheme = {

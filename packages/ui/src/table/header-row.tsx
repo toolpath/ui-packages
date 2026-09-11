@@ -1,7 +1,7 @@
 import React from 'react'
 import { HeaderRow as BaseHeaderRow } from '@table-library/react-table-library/table'
 import { HeaderRowProps as BaseHeaderRowProps } from '@table-library/react-table-library/types/table'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { HeaderCell } from './header-cell'
 import { useTable } from './table-context'
 

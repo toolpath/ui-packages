@@ -103,9 +103,19 @@ Use a ref or `useViewerControls()` beneath a viewer to call `fit`, `reset`, `set
 
 - `controls="toolpath"` (default) — left-drag orbits, right-drag pans.
 - `controls="fusion"` — middle-drag and two-finger scroll pan, shift orbits, pinch zooms.
-- `projection="orthographic"` — parallel edges stay parallel, so two features the same size
-  measure the same size wherever they sit.
+- `projection` — `"orthographic"` by default, because it is what a machinist reads a part in:
+  parallel edges stay parallel, so two features the same size measure the same size wherever they
+  sit. `"perspective"` is the better answer for reading a deep pocket as depth.
 - `freeOrbit` (default on) — orbiting past a pole keeps going instead of sticking there.
+- `retargetOnDoubleClick` (default on) — a double **left** click on the part orbits about what was
+  clicked from then on. It moves to the middle of the view at the same size and angle, and the move
+  is immediate — the damping these controls ship with settles a transition inside one frame. Turn
+  on `showOrbitTarget` if the pivot moving needs to be visible. The click is still a click: its pick
+  carries `doubled: true`, so what a second click means to the part is yours to decide. Double
+  **middle** click re-frames the whole part, which is the way back.
+- `showOrbitTarget` (default **off**) — a dot inside a ring at the point the view turns and zooms
+  about. Up while a gesture is running, flashed when the pivot moves on its own, then faded. It is
+  what makes zooming to the cursor legible: the pivot moves with it, and nothing else reports that.
 
 `<ViewCube>` offers all 26 standard views: six faces, twelve edge chamfers, and eight corners, so
 an isometric is a click rather than a drag. `<Grid>` sizes itself from the part — 5 mm cells under a

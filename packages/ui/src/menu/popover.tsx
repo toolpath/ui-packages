@@ -1,6 +1,6 @@
 import React from 'react'
 import { Menu as BaseMenu, ContextMenu, MenuPopupProps, MenuPositionerProps } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { useMenu } from './menu-context'
 
 export type MenuPopoverProps = MenuPopupProps & Omit<MenuPositionerProps, 'children'>

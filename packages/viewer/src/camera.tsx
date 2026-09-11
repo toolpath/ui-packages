@@ -14,6 +14,15 @@ export interface CadCameraControlsProps {
    * about an orbit control.
    */
   freeOrbit?: boolean
+  /**
+   * What the wheel zooms toward: the pointer, or the middle of the view.
+   *
+   * Fusion and SolidWorks zoom to the cursor and most people expect it — you
+   * point at the corner you want and lean in. It is not universally liked: on a
+   * trackpad it can walk the model off screen, which is why the other one
+   * stays.
+   */
+  zoomTo?: 'cursor' | 'centre'
 }
 
 /**
@@ -29,6 +38,7 @@ export const CadCameraControls = ({
   controlsRef,
   scheme = 'toolpath',
   freeOrbit = true,
+  zoomTo = 'cursor',
 }: CadCameraControlsProps) => {
   const camera = useThree((state) => state.camera)
   const domElement = useThree((state) => state.gl.domElement)
@@ -80,6 +90,40 @@ export const CadCameraControls = ({
   useEffect(() => {
     controls.setFreeOrbit(freeOrbit)
   }, [controls, freeOrbit])
+
+  useEffect(() => {
+    /*
+     * `camera-controls` reads this on the next wheel event rather than caching
+     * it, so setting it on the live controls is enough — no rebuild, and the
+     * pose survives the switch.
+     *
+     * Nothing is reset alongside it, and that is a decision rather than an
+     * omission. Two candidate resets were measured against a real part and both
+     * are wrong here:
+     *
+     * - **The focal offset.** The legacy viewer clears it before flipping this
+     *   flag (`three-object.tsx:621-631`), because zoom-to-cursor there
+     *   accumulated an offset and leaving it behind held the view permanently
+     *   off-centre. `camera-controls` 3.1.0 anchors by moving the *target*
+     *   instead, so there is no offset to accumulate: `getFocalOffset` reads
+     *   (0, 0, 0) through every cursor zoom, in both projections, clamped and
+     *   unclamped. The port would clear a value that is already zero.
+     *
+     * - **The orbit target.** That is the symptom legacy was really treating —
+     *   a cursor zoom leaves the target on the last point zoomed at, which for
+     *   a 50 mm cube is a few millimetres off its corner. But the camera always
+     *   looks at the target, so the target is always the exact middle of the
+     *   screen; projecting it lands on (0, 0) at every stage of a zoom, an
+     *   orbit and a flip. There is therefore no such thing as a silent
+     *   re-target: moving it pans the part, and a preference toggle that moves
+     *   the view is worse than a pivot sitting just off the part.
+     *
+     * So flipping this changes what the next wheel gesture does and nothing
+     * else. Putting the pivot back on the part belongs to a gesture that asks
+     * for it — Fit, or a double click on the face you want.
+     */
+    controls.dollyToCursor = zoomTo === 'cursor'
+  }, [controls, zoomTo])
 
   useFrame((_, delta) => {
     controls.update(delta)

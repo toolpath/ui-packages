@@ -1,6 +1,6 @@
 import React, { FC, ReactNode, SVGProps } from 'react'
-import { cn } from '../helpers'
-import { ArrowsOutLineVerticalIcon } from '@phosphor-icons/react'
+import { cn } from '../common'
+import { CaretUpDownIcon } from '@phosphor-icons/react'
 import { useCombobox } from './combobox-context'
 import { Icon } from './icon'
 import { Trigger } from './trigger'
@@ -92,7 +92,7 @@ export const Button = ({
             variant === 'ghost',
         })}
       >
-        <ArrowsOutLineVerticalIcon className="size-3.5 text-gray-200 dark:text-zinc-400" />
+        <CaretUpDownIcon weight="bold" className="size-3.5 text-gray-200 dark:text-zinc-400" />
       </Icon>
     </Trigger>
   )

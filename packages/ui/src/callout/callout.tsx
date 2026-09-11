@@ -7,7 +7,7 @@ import React, {
   useState,
 } from 'react'
 import { Popover, type PopoverRootChangeEventDetails } from '@base-ui/react/popover'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { XIcon } from '@phosphor-icons/react'
 import { useDismissedCallouts } from './use-dismissed-callouts'
 
@@ -172,7 +172,7 @@ const CalloutContent = ({ children, className }: CalloutContentProps) => {
               'transition-colors cursor-pointer',
             )}
           >
-            <XIcon className="size-3.5" />
+            <XIcon weight="bold" className="size-3.5" />
           </Popover.Close>
           {children}
         </Popover.Popup>

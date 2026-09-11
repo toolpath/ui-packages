@@ -1,7 +1,19 @@
-import React, { FC, ReactNode, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
-import { cn } from '../helpers'
-import { ArrowBendUpLeftIcon } from '@phosphor-icons/react'
+import React, {
+  FC,
+  ReactNode,
+  SVGProps,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from 'react'
+import { cn } from '../common'
+import { ArrowElbowDownLeftIcon } from '@phosphor-icons/react'
 import { Input } from '../input'
+
+const ReturnIcon = (props: SVGProps<SVGSVGElement>) => (
+  <ArrowElbowDownLeftIcon weight="bold" {...props} />
+)
 
 export interface EditingCell {
   rowId: string | number
@@ -254,7 +266,7 @@ export const EditableCell: FC<EditableCellProps> = ({
           name={`editable-${field}-${rowId}`}
           id={`editable-${field}-${rowId}`}
           size="md"
-          icon={ArrowBendUpLeftIcon}
+          icon={ReturnIcon}
           iconPosition="right"
           inputMode={type === 'number' ? 'numeric' : undefined}
           onBlur={handleBlur}

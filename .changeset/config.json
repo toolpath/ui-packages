@@ -5,11 +5,7 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [
-    "@toolpath/part-viewer",
-    "@toolpath/example-react-viewer",
-    "@toolpath/example-typescript"
-  ],
+  "ignore": ["@toolpath/example-react-viewer", "@toolpath/example-typescript"],
   "privatePackages": {
     "version": false,
     "tag": false

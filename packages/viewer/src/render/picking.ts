@@ -48,6 +48,21 @@ export interface PartPick {
   /** The surface's outward normal in world space — the plane under the cursor. */
   readonly normal: readonly [number, number, number]
   readonly modifiers: PickModifiers
+  /**
+   * Whether this click completed a double click on the part.
+   *
+   * Reported rather than interpreted, for the same reason the modifiers are:
+   * what a second click means belongs to the app. A viewer that decided —
+   * withholding the pick so a double click could not disturb the selection —
+   * would be right for a list that walks through a face's readings and wrong
+   * for an editor where clicking a face twice puts it in and takes it out
+   * again. Both are ordinary, and only the app knows which one it is showing.
+   *
+   * The viewport still acts on the gesture itself: `retargetOnDoubleClick`
+   * re-aims the orbit, which is a question about the view rather than about the
+   * part, and is nobody else's to answer.
+   */
+  readonly doubled: boolean
 }
 
 /** A unit vector from the part toward the camera, for the owner ranking. */
@@ -77,6 +92,8 @@ export interface BuildPickInput {
    */
   readonly activeDirection?: number | null
   readonly viewDirection?: Vec3 | null
+  /** Whether this click completed a double click. Defaults to `false`. */
+  readonly doubled?: boolean
 }
 
 export function buildPick(input: BuildPickInput): PartPick {
@@ -99,6 +116,7 @@ export function buildPick(input: BuildPickInput): PartPick {
     point: input.point,
     normal: input.normal,
     modifiers: input.modifiers ?? NO_MODIFIERS,
+    doubled: input.doubled ?? false,
   }
 }
 

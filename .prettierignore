@@ -3,3 +3,4 @@ openapi/openapi.json
 packages/viewer/fixtures/reports/
 packages/sdk-python/
 packages/sdk-typescript/src/schema.ts
+packages/tool-scraper/docs/

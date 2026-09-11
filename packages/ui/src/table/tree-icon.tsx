@@ -1,6 +1,6 @@
 import React from 'react'
 import { TableNode } from '@table-library/react-table-library/types/table'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { CaretRightIcon } from '@phosphor-icons/react'
 import { useRow } from './row-context'
 import { useTable } from './table-context'
@@ -137,10 +137,13 @@ export const TreeIcon = ({ item, type = 'IconDefault' }: TreeIconProps) => {
       <Indentation item={item} isExpanded={isExpanded} />
       {type === 'IconDefault' && <div className="w-5" />}
       {type === 'IconRight' && (
-        <CaretRightIcon className="size-5 text-gray-300 dark:text-zinc-100" />
+        <CaretRightIcon weight="bold" className="size-5 text-gray-300 dark:text-zinc-100" />
       )}
       {type === 'IconDown' && (
-        <CaretRightIcon className="size-5 text-gray-300 dark:text-zinc-100 rotate-90" />
+        <CaretRightIcon
+          weight="bold"
+          className="size-5 text-gray-300 dark:text-zinc-100 rotate-90"
+        />
       )}
     </div>
   )

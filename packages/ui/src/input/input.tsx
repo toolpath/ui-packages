@@ -10,7 +10,7 @@ import React, {
   useRef,
   useState,
 } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { IconButton } from '../icon-button'
 import { CheckIcon, CopyIcon, MagnifyingGlassIcon } from '@phosphor-icons/react'
 import { Tooltip } from '../tooltip'
@@ -118,6 +118,7 @@ export const Input = ({
   }
 
   const iconClassName = cn(
+    'self-center',
     {
       'text-gray-400 dark:text-zinc-400':
         (variant === 'muted' || variant === 'default') && !disabled,
@@ -138,7 +139,7 @@ export const Input = ({
 
   const iconElement =
     type === 'search' && !IconComponent ? (
-      <MagnifyingGlassIcon data-icon className={iconClassName} />
+      <MagnifyingGlassIcon weight="bold" data-icon className={iconClassName} />
     ) : IconComponent ? (
       <IconComponent data-icon className={iconClassName} />
     ) : null
@@ -249,7 +250,7 @@ export const Input = ({
                 value ? 'opacity-0' : 'invisible',
               )}
             >
-              {copied ? <CheckIcon /> : <CopyIcon />}
+              {copied ? <CheckIcon weight="bold" /> : <CopyIcon />}
             </IconButton>
           </Tooltip>
         </div>

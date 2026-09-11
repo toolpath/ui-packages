@@ -31,10 +31,15 @@ export interface DirectionArrowsProps {
    */
   activeDirection?: number | null
   /**
-   * Shows one direction's arrow without scoping anything, for "the feature
-   * being read came from this way". Falls back to `activeDirection`.
+   * Which arrows are drawn, without scoping anything: `null` for all of them,
+   * an index for one, `-1` for none — and **a list of indices for a set**, which
+   * is how a plan draws only the ways up it has confirmed.
+   *
+   * One prop rather than a singular and a plural, because two would need a rule
+   * about which wins, and a caller with an answer to give should not also have
+   * to say where to put it. Falls back to `activeDirection`.
    */
-  shownDirection?: number | null
+  shownDirection?: number | readonly number[] | null
   /**
    * A direction being named, drawn while it is aimed. Not a candidate and not a
    * selection: a way up that does not exist yet, so it is drawn over the part —
@@ -73,6 +78,12 @@ export const DirectionArrows = ({
   const box = useContentBox()
   const resolved = useMemo(() => resolveTheme(theme), [theme])
   const shown = shownDirection === undefined ? activeDirection : shownDirection
+  /** Whether this candidate is one of the ones asked for. */
+  const drawn = (index: number): boolean => {
+    if (shown === null) return true
+    if (typeof shown === 'number') return shown === index
+    return shown.includes(index)
+  }
 
   if (!visible) return null
 
@@ -82,7 +93,7 @@ export const DirectionArrows = ({
     // part small in the middle of them.
     <group userData={FURNITURE}>
       {directions.map((direction, index) => {
-        if (shown !== null && shown !== index) return null
+        if (!drawn(index)) return null
         return (
           <Arrow
             key={`candidate-${index}`}

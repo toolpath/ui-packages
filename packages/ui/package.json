@@ -1,16 +1,19 @@
 {
   "name": "@toolpath/ui",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Toolpath React and Tailwind UI primitives",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/toolpath/toolpath.git",
+    "url": "https://github.com/toolpath/ui-packages.git",
     "directory": "packages/ui"
   },
   "homepage": "https://developers.toolpath.com",
   "bugs": {
-    "url": "https://github.com/toolpath/toolpath/issues"
+    "url": "https://github.com/toolpath/ui-packages/issues"
   },
   "publishConfig": {
     "access": "public",

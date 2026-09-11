@@ -1,5 +1,5 @@
 import React, { FC } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { CaretRightIcon } from '@phosphor-icons/react'
 
 export type PaginationMetadata = {
@@ -60,7 +60,7 @@ export const Pagination: FC<PaginationProps> = ({ pagination, page, onClick, cla
         )}
         onClick={() => onClick(page - 1)}
       >
-        <CaretRightIcon className="size-5 rotate-180" />
+        <CaretRightIcon weight="bold" className="size-4 rotate-180" />
         <span className="sr-only">Previous</span>
       </button>
       <nav className="text-sm text-gray-400 dark:text-zinc-300">
@@ -129,7 +129,7 @@ export const Pagination: FC<PaginationProps> = ({ pagination, page, onClick, cla
         onClick={() => onClick(page + 1)}
       >
         <span className="sr-only">Next</span>
-        <CaretRightIcon className="size-5" />
+        <CaretRightIcon weight="bold" className="size-4" />
       </button>
     </div>
   )

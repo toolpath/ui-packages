@@ -4,6 +4,7 @@ import {
   JobsApi,
   KeysApi,
   PartsApi,
+  PlansApi,
   ServiceApi,
 } from './generated/index.js'
 
@@ -18,6 +19,7 @@ export interface ToolpathClient {
   jobs: JobsApi
   keys: KeysApi
   parts: PartsApi
+  plans: PlansApi
   service: ServiceApi
 }
 
@@ -36,6 +38,7 @@ export const createToolpathClient = ({
     jobs: new JobsApi(configuration),
     keys: new KeysApi(configuration),
     parts: new PartsApi(configuration),
+    plans: new PlansApi(configuration),
     service: new ServiceApi(configuration),
   }
 }

@@ -1,5 +1,5 @@
 import React, { HTMLAttributes, ReactNode, useContext } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { DialogContext, DialogContextValue, DialogVariant } from './dialog-context'
 
 export interface DialogRootProps extends HTMLAttributes<HTMLDivElement> {

@@ -8,12 +8,19 @@ machined, and what it may cost.
 
 ## Where to start
 
-| I want to…                    | Use                             | Documentation                                        |
-| ----------------------------- | ------------------------------- | ---------------------------------------------------- |
-| Call Toolpath from JavaScript | `@toolpath/api`                 | [TypeScript SDK](packages/sdk-typescript)            |
-| Call Toolpath from Python     | `toolpath`                      | [Python SDK](packages/sdk-python)                    |
-| See SDK usage examples        | TypeScript or Python            | [Examples](#part-upload-examples)                    |
-| Call the API without an SDK   | HTTP, cURL, or another language | [API documentation](https://developers.toolpath.com) |
+| I want to…                    | Use                             | Documentation                                                      |
+| ----------------------------- | ------------------------------- | ------------------------------------------------------------------ |
+| Call Toolpath from JavaScript | `@toolpath/api`                 | [TypeScript SDK](packages/sdk-typescript)                          |
+| Call Toolpath from Python     | `toolpath`                      | [Python SDK](packages/sdk-python)                                  |
+| Show a part in a React app    | `@toolpath/viewer`              | [Viewer](packages/viewer)                                          |
+| Build Toolpath-styled UI      | `@toolpath/ui`                  | [UI kit](packages/ui)                                              |
+| Collect vendor tool data      | `@toolpath/tool-scraper`        | [Tool scraper](packages/tool-scraper)                              |
+| Draw a tool and its holder    | `@toolpath/tool-drawing`        | [Tool drawing](packages/tool-drawing)                              |
+| Share the cutting-tool domain | `@toolpath/tool-support`        | [Tool support](packages/tool-support)                              |
+| Share application logic       | `@toolpath/app-support`         | [App support](packages/app-support)                                |
+| See usage examples            | TypeScript, Python, or React    | [Examples](#examples)                                              |
+| Start a customer application  | Part Viewer template            | [toolpath-template](https://github.com/toolpath/toolpath-template) |
+| Call the API without an SDK   | HTTP, cURL, or another language | [API documentation](https://developers.toolpath.com)               |
 
 The SDKs are generated from the same OpenAPI document, so their request and response types match the
 public API contract retained in this repository. They also provide a focused helper for directly
@@ -29,21 +36,17 @@ To analyze a part, you need:
    - TypeScript/JavaScript: [Node.js 24](https://nodejs.org/en/download)
    - Python: [Python 3.11 or newer](https://www.python.org/downloads/)
 
-## Part-upload examples
+## Examples
 
-The runnable examples create a part and upload its STEP file; your application controls analysis and
-report retrieval through the generated API bindings:
+The TypeScript and Python examples create a part and upload its STEP file; your application controls
+analysis and report retrieval through the generated API bindings:
 
 - [TypeScript example](examples/typescript/README.md)
 - [Python example](examples/python/README.md)
+
+The React example renders a finished part with `@toolpath/viewer` instead of uploading one:
+
 - [React viewer example](examples/react-viewer/README.md)
-
-## Example Applications
-
-Part Viewer is a bring-your-own-key reference application for inspecting Toolpath part
-features and meshes.
-
-- [Part Viewer](apps/part-viewer/README.md)
 
 ## Run the examples from source
 
@@ -59,7 +62,8 @@ features and meshes.
 | [Python 3.11+](https://www.python.org/downloads/)             | Runs the Python SDK and example                                | Python only                     |
 | [uv](https://docs.astral.sh/uv/getting-started/installation/) | Creates the Python environment and installs its dependencies   | Python only                     |
 
-You do not need Corepack or pnpm merely to use a package installed from npm; they are development tools for this repository.
+These are development tools for this repository, and so is the Node.js 24.18+ floor above. A
+package installed from npm needs neither Corepack nor pnpm, and runs on Node.js 20 or newer.
 
 Verify that Git and Node.js are available:
 
@@ -75,8 +79,8 @@ The Node.js version must be `v24.18.0` or newer within the `v24` release line.
 Open PowerShell, Command Prompt, Terminal, or your editor's terminal, then run:
 
 ```bash
-git clone https://github.com/toolpath/toolpath.git
-cd toolpath
+git clone https://github.com/toolpath/ui-packages.git
+cd ui-packages
 corepack enable pnpm
 pnpm install --frozen-lockfile
 ```
@@ -124,24 +128,29 @@ macOS or Linux:
 uv run --project examples/python python examples/python/src/analyze_part.py "/path/to/part.step"
 ```
 
-### 5. Run the Part Viewer app
+## Contributing
 
-Create the app's local environment file, set a stable session secret and your Toolpath API
-URL, then start the development server:
+Agent and contributor instructions live in [AGENTS.md](AGENTS.md); it is the fuller guide, and this
+section is the short version.
 
-```bash
-cp apps/part-viewer/.env.example apps/part-viewer/.env
-openssl rand -base64 32
-```
+`pnpm check` is the gate. It runs `openapi:verify`, `generate:check`, `lint`, `build`,
+`check-types`, and `test`, in that order. While implementing, run the narrowest thing instead —
+`pnpm --filter @toolpath/viewer test` for one package — and save the full gate for the end.
 
-Paste the generated value after `APP_SESSION_SECRET=` in `apps/part-viewer/.env`, and set
-`TOOLPATH_API_BASE_URL` to the Toolpath API URL. Then run:
+**Docker must be running for `pnpm check`.** Its second step regenerates both SDKs in a pinned
+`openapi-generator` container and compares the result against what is checked in, so a stopped
+Docker daemon fails the gate before it ever reaches lint.
 
-```bash
-pnpm --filter @toolpath/part-viewer dev
-```
+**A consumer-visible change to a public package needs a Changeset in the same pull request.** CI
+enforces this and will fail the pull request without one. Add it with `pnpm changeset`, naming
+every package the change affects, and see AGENTS.md for which paths belong to which package and
+which bump to use. Never edit a package version or changelog by hand: the release workflow
+generates both.
 
-Open the local URL printed by the development server, then enter your Toolpath API key to connect.
+## Publishing a new npm package
+
+New packages need a one-time bootstrap publish before npm trusted publishing can take over. See
+[Bootstrapping npm packages](docs/BOOTSTRAPPING-NPM-PACKAGES.md).
 
 ## License
 

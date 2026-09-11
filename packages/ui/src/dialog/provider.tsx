@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react'
 import { AlertDialog } from '@base-ui/react/alert-dialog'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { DialogContext, DialogContextValue } from './dialog-context'
 
 interface ProviderContextValue {

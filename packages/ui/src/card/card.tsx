@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 export interface CardProps {
   children: ReactNode

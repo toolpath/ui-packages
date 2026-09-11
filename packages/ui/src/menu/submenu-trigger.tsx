@@ -4,7 +4,7 @@ import {
   MenuSubmenuTriggerProps as BaseMenuSubmenuTriggerProps,
   ContextMenu,
 } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { CaretRightIcon } from '@phosphor-icons/react'
 import { useMenu } from './menu-context'
 
@@ -26,7 +26,7 @@ export const SubmenuTrigger = ({ className, children, ...props }: MenuSubmenuTri
         {...(props as MenuSubmenuTriggerProps)}
       >
         <div className="flex-1">{children}</div>
-        <CaretRightIcon className="size-4" />
+        <CaretRightIcon weight="regular" className="size-3" />
       </ContextMenu.SubmenuTrigger>
     )
   }
@@ -37,7 +37,7 @@ export const SubmenuTrigger = ({ className, children, ...props }: MenuSubmenuTri
       render={(renderProps) => (
         <div {...renderProps} tabIndex={-1} className={submenuTriggerClass}>
           <div className="flex-1">{renderProps.children}</div>
-          <CaretRightIcon className="size-4" />
+          <CaretRightIcon weight="regular" className="size-3" />
         </div>
       )}
       {...(props as MenuSubmenuTriggerProps)}

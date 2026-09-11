@@ -25,7 +25,6 @@ import {
   SECTION_RENDER_ORDER,
   type SectionPlacement,
   dragPlane,
-  screenLength,
   sectionBounds,
   sectionConstant,
   sectionDepth,
@@ -33,7 +32,7 @@ import {
   sectionDepthRange,
   sectionOffset,
 } from './render/section.js'
-import { EXCLUDE_FROM_FRAME, type ViewerCamera } from './render/camera.js'
+import { EXCLUDE_FROM_FRAME, type ViewerCamera, screenLength } from './render/camera.js'
 import type { ViewerTheme } from './render/theme.js'
 
 export interface SectionOptions {

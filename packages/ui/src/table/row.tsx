@@ -1,7 +1,7 @@
 import React, { memo, useEffect } from 'react'
 import { Row as BaseRow, Cell } from '@table-library/react-table-library/table'
 import { RowProps } from '@table-library/react-table-library/types/table'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { useRow } from './row-context'
 import { RowDisabledProvider } from './row-disabled-context'
 import { useTable } from './table-context'

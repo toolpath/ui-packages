@@ -1,5 +1,5 @@
 import React, { HTMLAttributes, ReactNode } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 export interface DialogActionsProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode

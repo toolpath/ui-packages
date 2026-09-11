@@ -6,7 +6,7 @@ import {
   TooltipRootChangeEventDetails,
   TooltipRootProps,
 } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 export type TooltipProps = TooltipProviderProps &
   TooltipRootProps &

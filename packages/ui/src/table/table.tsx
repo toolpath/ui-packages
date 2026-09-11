@@ -45,8 +45,8 @@ export type TableSortState = {
   direction: TableSortDirection
   reverse: boolean
 }
-export const ROW_HEIGHT = 33
-export const ROW_HEIGHT_ROOMY = 45
+const ROW_HEIGHT = 33
+const ROW_HEIGHT_ROOMY = 45
 
 export const getRowHeight = (density: TableDensity = 'dense') =>
   density === 'roomy' ? ROW_HEIGHT_ROOMY : ROW_HEIGHT
@@ -159,7 +159,7 @@ export const TableRoot = <T,>({
   )
 }
 
-export const Table = <T,>({
+const Table = <T,>({
   data,
   select: selectable = false,
   multiselect = false,

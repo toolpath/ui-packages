@@ -1,5 +1,5 @@
 import React, { HTMLAttributes, ReactNode } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { capitalize } from 'lodash-es'
 
 export type AttributionActionProps = HTMLAttributes<HTMLSpanElement> & {

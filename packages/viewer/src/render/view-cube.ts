@@ -132,6 +132,43 @@ export function viewUp(direction: Vec3): Vec3 {
 }
 
 /**
+ * The squared up vector nearest to the one the camera already has.
+ *
+ * A view has four square orientations, not one: {@link viewUp} rolled by 0°,
+ * 90°, 180° and 270° about the view direction. Snapping to the canonical one
+ * would spin the part on the way to a view somebody asked for because it was
+ * already nearly in front of them — arrive at the bottom view from the right
+ * and the part turns a quarter of a turn for no reason they can see.
+ *
+ * So the roll is chosen, not imposed: of the four, the one closest to where the
+ * camera is looking from now. The view still lands square — Bottom simply lands
+ * square in whichever of its four ways was already nearest, which is how the
+ * Fusion cube behaves and what somebody arriving from it will expect.
+ */
+export function squaredUp(direction: Vec3, currentUp: Vec3): Vec3 {
+  const forward = new Vector3(direction.x, direction.y, direction.z).normalize()
+  const canonical = viewUp(direction)
+
+  // The canonical up with any component along the view removed, which is the
+  // 0° roll. `viewUp` never returns a vector parallel to its own direction, so
+  // this cannot collapse to zero.
+  const zero = new Vector3(canonical.x, canonical.y, canonical.z)
+  zero.addScaledVector(forward, -forward.dot(zero)).normalize()
+
+  const quarter = new Vector3().crossVectors(forward, zero)
+  const current = new Vector3(currentUp.x, currentUp.y, currentUp.z)
+
+  const rolls = [zero, quarter, zero.clone().negate(), quarter.clone().negate()]
+  // Ties go to the earlier roll, so a camera with no up to speak of gets the
+  // canonical orientation rather than an arbitrary quarter turn.
+  const nearest = rolls.reduce((best, roll) =>
+    roll.dot(current) > best.dot(current) ? roll : best,
+  )
+
+  return vec(nearest)
+}
+
+/**
  * Half-width of a face panel, where the cube's half-extent is 1 — so the
  * chamfer taken off each edge is the remaining `1 - CHAMFER`.
  */

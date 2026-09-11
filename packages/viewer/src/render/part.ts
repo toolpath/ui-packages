@@ -123,11 +123,15 @@ export function buildRegionAttribute(
 /**
  * Builds the renderable part.
  *
- * Takes exclusive use of `geometry`: it adds {@link REGION_ATTRIBUTE} to it and
+ * Takes working use of `geometry`: it adds {@link REGION_ATTRIBUTE} to it and
  * removes that again on dispose, but never disposes the geometry itself — the
  * loader's caller owns it, and a viewer destroying an object it was handed is a
- * good way to break a cache that is legitimately sharing it. One geometry backs
- * one part; sharing it between two parts at once is unsupported.
+ * good way to break a cache that is legitimately sharing it.
+ *
+ * Two parts on one geometry is still not a thing to *render*, but it is a state
+ * that happens: a report changing identity rebuilds the part against the same
+ * cached mesh, and for a moment both exist. So dispose removes the attribute
+ * only if it is still the one this part set — see the note where it is built.
  */
 export function createPart(
   model: PartModel,
@@ -137,10 +141,21 @@ export function createPart(
   const position = geometry.getAttribute('position')
   const texels = buildRegionTexels(model)
 
-  geometry.setAttribute(
-    REGION_ATTRIBUTE,
-    new Float32BufferAttribute(buildRegionAttribute(model, texels, position.count), 1),
+  /*
+   * Held, so `dispose` can tell whether it is still the one in place.
+   *
+   * A consumer whose report changes — a feature added, a re-fetch — rebuilds
+   * the part against the **same cached geometry**, and the order React runs
+   * that in is: new part built during render, *then* old part disposed. A
+   * dispose that deleted the attribute unconditionally therefore deleted the
+   * one the new part had just set, and every vertex fell back to texel 0 — the
+   * whole part in one flat colour, with hover, selection and every wash gone.
+   */
+  const regionAttribute = new Float32BufferAttribute(
+    buildRegionAttribute(model, texels, position.count),
+    1,
   )
+  geometry.setAttribute(REGION_ATTRIBUTE, regionAttribute)
 
   // One texel per region, plus the transparent slot. RGB is the paint color in
   // the renderer's working space; A is how much of it shows.
@@ -190,7 +205,8 @@ export function createPart(
         '#include <color_fragment>',
         `#include <color_fragment>
         regionState = texelFetch(uRegionState, ivec2(int(vRegion + 0.5), 0), 0);
-        diffuseColor.rgb = mix(diffuseColor.rgb, regionState.rgb, regionState.a);`,
+        diffuseColor.rgb = mix(diffuseColor.rgb, regionState.rgb, regionState.a);
+`,
       )
       .replace(
         '#include <emissivemap_fragment>',
@@ -313,7 +329,11 @@ export function createPart(
 
     dispose() {
       object.clear()
-      geometry.deleteAttribute(REGION_ATTRIBUTE)
+      // Only what this part put there. Another may have taken the geometry over
+      // in the meantime — see the note where the attribute is built.
+      if (geometry.getAttribute(REGION_ATTRIBUTE) === regionAttribute) {
+        geometry.deleteAttribute(REGION_ATTRIBUTE)
+      }
       material.dispose()
       edgeGeometry.dispose()
       edgeMaterial.dispose()

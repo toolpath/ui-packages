@@ -1,5 +1,5 @@
 import React, { ChangeEvent, TextareaHTMLAttributes, forwardRef } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 export type TextAreaProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'size'> & {
   name: string

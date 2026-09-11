@@ -1,5 +1,5 @@
 import React, { ReactNode, SVGProps } from 'react'
-import { cn } from '../helpers'
+import { cn } from './cn'
 
 interface Props extends SVGProps<SVGSVGElement> {
   className?: string

@@ -3,7 +3,7 @@ import {
   Combobox as BaseCombobox,
   ComboboxListProps as BaseComboboxListProps,
 } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 export type ComboboxListProps = BaseComboboxListProps
 

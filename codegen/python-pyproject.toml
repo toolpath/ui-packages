@@ -13,8 +13,8 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://developers.toolpath.com"
-Repository = "https://github.com/toolpath/toolpath"
-Issues = "https://github.com/toolpath/toolpath/issues"
+Repository = "https://github.com/toolpath/ui-packages"
+Issues = "https://github.com/toolpath/ui-packages/issues"
 
 [tool.uv.build-backend]
 module-name = "toolpath"

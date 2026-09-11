@@ -1,6 +1,6 @@
 import React, { ReactNode, useCallback } from 'react'
 import { Toggle as BaseToggle } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { useToggle } from './toggle-context'
 
 export type ToggleItemProps = {

@@ -11,7 +11,7 @@ export type LinkComponentProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
   ref?: Ref<HTMLAnchorElement>
 }
 
-export type LinkContextValue = {
+type LinkContextValue = {
   LinkComponent: ComponentType<LinkComponentProps>
 }
 

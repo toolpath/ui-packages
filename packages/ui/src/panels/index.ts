@@ -27,7 +27,6 @@ import { Group as _Group } from './group'
 import { Panel as _Panel } from './panel'
 import { Separator as _Separator } from './separator'
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace Panels {
   export const Group = _Group
   export const Panel = _Panel

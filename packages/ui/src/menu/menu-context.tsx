@@ -1,6 +1,6 @@
 import React, { FC, ReactNode, createContext, useContext, useMemo } from 'react'
 
-export interface MenuContextInterface {
+interface MenuContextInterface {
   context: boolean
   submenu: boolean
 }
@@ -20,5 +20,4 @@ const MenuProvider: FC<ProviderProps> = ({ context = false, submenu = false, chi
 }
 
 const useMenu = () => useContext(MenuContext)
-const MenuConsumer = MenuContext.Consumer
-export { useMenu, MenuProvider, MenuContext, MenuConsumer }
+export { useMenu, MenuProvider }

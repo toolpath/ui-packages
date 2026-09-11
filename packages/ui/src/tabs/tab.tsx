@@ -1,5 +1,5 @@
 import React, { HTMLAttributes, ReactNode, Ref } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { Link } from '../link'
 import { useTabs } from './tabs-context'
 

@@ -16,6 +16,10 @@ const changedFiles = execFileSync(
 
 const releaseSensitivePaths = [
   {
+    packageName: '@toolpath/app-support',
+    paths: ['packages/app-support/src/'],
+  },
+  {
     packageName: '@toolpath/ui',
     paths: ['packages/ui/src/', 'packages/ui/tailwind-preset.cjs'],
   },
@@ -31,6 +35,18 @@ const releaseSensitivePaths = [
       'codegen/typescript-fetch.yaml',
       'scripts/generate-sdks.mjs',
     ],
+  },
+  {
+    packageName: '@toolpath/tool-drawing',
+    paths: ['packages/tool-drawing/src/'],
+  },
+  {
+    packageName: '@toolpath/tool-scraper',
+    paths: ['packages/tool-scraper/src/'],
+  },
+  {
+    packageName: '@toolpath/tool-support',
+    paths: ['packages/tool-support/src/'],
   },
 ]
 

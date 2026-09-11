@@ -12,11 +12,3 @@ permissions:
 jobs:
   quality:
     uses: ./.github/workflows/_quality.yml
-
-  build-part-viewer-container:
-    needs: quality
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: Build Part Viewer container
-        run: docker build --file apps/part-viewer/Dockerfile --target prod --tag part-viewer:ci .

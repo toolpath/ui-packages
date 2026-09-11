@@ -3,7 +3,7 @@ import type { HTMLAttributes, MouseEvent, ReactNode } from 'react'
 import { HeaderCellSort } from '@table-library/react-table-library/sort'
 import { HeaderCell as BaseHeaderCell, TableNode } from '@table-library/react-table-library/table'
 import { HeaderCellSortProps } from '@table-library/react-table-library/types/sort'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { useTable } from './table-context'
 
 const Divider = () => (

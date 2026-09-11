@@ -2,7 +2,7 @@ import React, { FC, ReactElement, createContext, useCallback, useContext, useMem
 import { useRow } from './row-context'
 import { useTable } from './table-context'
 
-export interface CellContextInterface {
+interface CellContextInterface {
   index: number
   isEditing: boolean
   toggleIsEditing: () => void
@@ -45,4 +45,4 @@ const CellProvider: FC<ProviderProps> = ({ index, isHovered, children }) => {
 
 const useCell = () => useContext(CellContext)
 const CellConsumer = CellContext.Consumer
-export { useCell, CellProvider, CellContext, CellConsumer }
+export { useCell, CellProvider, CellConsumer }

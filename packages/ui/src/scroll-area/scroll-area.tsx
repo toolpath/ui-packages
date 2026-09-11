@@ -1,6 +1,6 @@
 import React, { ReactNode, useEffect, useRef, useState } from 'react'
 import { ScrollArea as BaseScrollArea } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 export interface ScrollAreaState {
   hasOverflow: boolean

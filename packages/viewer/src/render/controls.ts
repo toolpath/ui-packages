@@ -12,7 +12,8 @@ import {
   Vector4,
 } from 'three'
 
-import type { ViewerCamera } from './camera.js'
+import { adaptedUp } from './camera.js'
+import type { CameraLimits, ViewerCamera } from './camera.js'
 
 /**
  * `camera-controls` needs the three classes it constructs injected once, and
@@ -69,6 +70,42 @@ const FUSION_TRUCK_SCALE = 0.33
 const DEFAULT_SMOOTH_TIME = 0.001
 
 /**
+ * Wheel step and the settle threshold, both the legacy viewer's
+ * (`three-object.tsx:289-311`).
+ *
+ * `dollySpeed` is only tolerable alongside {@link CameraLimits}: at 1.15 five
+ * notches cross most of the 0.25–10 range, which is the point — the whole range
+ * is a few flicks of the wheel. Unclamped, the same speed is what reached
+ * `zoom` 1e30. Set the two together or the first notch overshoots everything.
+ *
+ * `restThreshold` at 0.005 rather than the library's 0.01. The reason it was
+ * first written down — that the `rest` event fired while the tail of a zoom was
+ * still visibly moving — is not the reason it earns its place here: nothing in
+ * this package or in `examples/react-viewer` listens for `rest`. What it
+ * actually governs is two things, both of which the viewer does use.
+ *
+ * `update()` compares it against the remaining deltas to decide the view has
+ * settled (camera-controls 3.1.0, line 2266), and on a `frameloop="demand"`
+ * canvas that is what ends the run of frames a gesture costs. Every `*To` call
+ * — `setLookAt`, `zoomTo`, `dollyTo` — also compares against it to decide
+ * whether to resolve immediately rather than animate. So halving it buys the
+ * end of a zoom and pays for it in frames.
+ *
+ * **It cannot be scaled to the part, and it is not an oversight that it is
+ * not.** The same number is compared against `deltaTheta` and `deltaPhi` in
+ * radians, `deltaRadius` and `deltaTarget` in world units, and `deltaZoom`
+ * unitless. Multiplying it by the scene radius the way `MIN_FRAME_RATIO`
+ * and `targetBoundary` are would fix the world-unit half and break the angular
+ * one — on a 900 mm plate an orbit would be called finished while still turning
+ * by radians. The honest cost is that a large part spends longer under the
+ * world-unit comparisons than a small one, which is extra update frames per
+ * gesture; fixing that needs the library to separate the units, not a
+ * multiplier here.
+ */
+const DOLLY_SPEED = 1.15
+const REST_THRESHOLD = 0.005
+
+/**
  * `CameraControls` with free orbit, camera-relative up, and the Fusion wheel
  * scheme.
  *
@@ -99,7 +136,6 @@ export class ExtendedCameraControls extends CameraControls {
   #scratchA = new Vector3()
   #scratchB = new Vector3()
   #scratchC = new Vector3()
-  #scratchD = new Vector3()
 
   constructor(
     camera: ViewerCamera,
@@ -116,6 +152,31 @@ export class ExtendedCameraControls extends CameraControls {
     // nothing or the two would compound.
     this.azimuthRotateSpeed = 0
     this.polarRotateSpeed = 0
+
+    this.dollySpeed = DOLLY_SPEED
+    this.restThreshold = REST_THRESHOLD
+  }
+
+  /**
+   * Bounds how far the wheel may travel, and where the orbit target may go.
+   *
+   * Re-applied whenever the scene is re-measured rather than set once: the
+   * limits are derived from the part's bounds, and a viewer that loads a second
+   * part would otherwise keep the first part's idea of far.
+   *
+   * The boundary confines the *target*. Zoom-to-cursor moves it, and goes on
+   * moving it after the zoom clamp bites — which is a runaway no zoom clamp can
+   * catch. `boundaryEnclosesCamera` stays off: under an orthographic camera the
+   * camera sits well outside the framing it is looking at, so enclosing it would
+   * drag the target back in on every frame.
+   */
+  applyLimits(limits: CameraLimits, boundary?: Box3): void {
+    this.minZoom = limits.minZoom
+    this.maxZoom = limits.maxZoom
+    this.minDistance = limits.minDistance
+    this.maxDistance = limits.maxDistance
+
+    this.setBoundary(boundary)
   }
 
   get freeOrbit(): boolean {
@@ -295,10 +356,8 @@ export class ExtendedCameraControls extends CameraControls {
   #adaptUpVector = (): void => {
     const target = this.getTarget(this.#scratchA)
     const view = this.#scratchB.subVectors(target, this.camera.position).normalize()
-    const side = this.#scratchC.crossVectors(view, this.camera.up).normalize()
-    const up = this.#scratchD.crossVectors(side, view).normalize()
 
-    this.camera.up.copy(up)
+    this.camera.up.copy(adaptedUp(view, this.camera.up, this.#scratchC))
 
     const position = this.getPosition(this.#scratchA)
     this.updateCameraUp()

@@ -5,7 +5,10 @@ on:
     branches:
       - main
     paths:
+      - .changeset/**
       - .github/workflows/release.yml
+      - packages/app-support/src/**
+      - packages/app-support/package.json
       - packages/ui/src/**
       - packages/ui/tailwind-preset.cjs
       - packages/ui/package.json
@@ -13,6 +16,12 @@ on:
       - packages/viewer/package.json
       - packages/sdk-typescript/src/**
       - packages/sdk-typescript/package.json
+      - packages/tool-drawing/src/**
+      - packages/tool-drawing/package.json
+      - packages/tool-scraper/src/**
+      - packages/tool-scraper/package.json
+      - packages/tool-support/src/**
+      - packages/tool-support/package.json
       - openapi/**
       - codegen/typescript-fetch.yaml
       - scripts/generate-sdks.mjs
@@ -56,7 +65,7 @@ jobs:
           app-id: ${{ secrets.TOOLPATH_ACTIONS_BOT_APP_ID }}
           private-key: ${{ secrets.TOOLPATH_ACTIONS_BOT_PK }}
           owner: toolpath
-          repositories: toolpath
+          repositories: ui-packages
 
       # Pending Changesets create or update the release-metadata PR. Once that
       # PR merges, this action publishes only npm versions absent from npm.
@@ -70,10 +79,44 @@ jobs:
           commit: 'chore(release): version packages'
           title: 'chore(release): version packages'
 
+      # npm cannot configure a trusted publisher for a package until that package exists.
+      # Leave first-package release PRs open so a maintainer can run the documented bootstrap.
+      - name: Check whether a release needs an initial npm publish
+        id: npm-bootstrap
+        if: steps.changesets.outputs.pullRequestNumber != ''
+        run: node scripts/check-npm-package-bootstrap.mjs
+
+      - name: Explain the initial npm publish
+        if: >-
+          steps.changesets.outputs.pullRequestNumber != '' &&
+          steps.npm-bootstrap.outputs.required == 'true'
+        run: |
+          gh pr comment "${{ steps.changesets.outputs.pullRequestNumber }}" --body "$(cat <<'EOF'
+          This release adds a package that npm has not seen before. It will not auto-merge.
+
+          From a local checkout, run:
+
+          ```sh
+          gh pr checkout ${{ steps.changesets.outputs.pullRequestNumber }}
+          pnpm install --frozen-lockfile
+          npm login
+          for package in ${{ steps.npm-bootstrap.outputs.packages }}; do
+            pnpm bootstrap:npm-package "$package"
+          done
+          ```
+
+          Then merge this release PR. Future releases publish automatically with trusted publishing.
+          EOF
+          )"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
       # The App-created PR triggers ordinary pull-request CI. GitHub merges it
       # only after the repository's protected-branch requirements succeed.
       - name: Enable auto-merge for the release-metadata PR
-        if: steps.changesets.outputs.pullRequestNumber != ''
+        if: >-
+          steps.changesets.outputs.pullRequestNumber != '' &&
+          steps.npm-bootstrap.outputs.required != 'true'
         run: gh pr merge "${{ steps.changesets.outputs.pullRequestNumber }}" --auto --squash
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}

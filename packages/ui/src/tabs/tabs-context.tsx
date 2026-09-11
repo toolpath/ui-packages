@@ -4,13 +4,13 @@ import React, { createContext, ReactNode, useContext } from 'react'
 
 export type TabsSize = 'md' | 'lg'
 
-export interface TabsContextValue {
+interface TabsContextValue {
   value: string
   onValueChange: (value: string) => void
   size: TabsSize
 }
 
-export const TabsContext = createContext<TabsContextValue | null>(null)
+const TabsContext = createContext<TabsContextValue | null>(null)
 
 export const useTabs = () => {
   const context = useContext(TabsContext)

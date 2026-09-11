@@ -1,6 +1,6 @@
 import React, { Ref, useCallback, useEffect, useRef } from 'react'
 import { Menu as BaseMenu, MenuItemProps as BaseMenuItemProps, ContextMenu } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { useMenu } from './menu-context'
 
 type BaseUIEvent<E extends React.SyntheticEvent> = E & {

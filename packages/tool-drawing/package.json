@@ -1,0 +1,70 @@
+{
+  "name": "@toolpath/tool-drawing",
+  "version": "0.3.2",
+  "description": "2D elevation drawing of a cutting tool and its holder",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toolpath/ui-packages.git",
+    "directory": "packages/tool-drawing"
+  },
+  "homepage": "https://developers.toolpath.com",
+  "bugs": {
+    "url": "https://github.com/toolpath/ui-packages/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./geometry": {
+      "types": "./dist/geometry/index.d.ts",
+      "import": "./dist/geometry/index.js"
+    },
+    "./clearance": {
+      "types": "./dist/clearance/index.d.ts",
+      "import": "./dist/clearance/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup src/index.ts src/geometry/index.ts src/clearance/index.ts --format esm --dts --clean --external react --external react-dom",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@toolpath/tool-support": "workspace:^"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "24.10.1",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "jsdom": "^30.0.1",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "tsup": "8.5.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

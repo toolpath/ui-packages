@@ -1,5 +1,5 @@
 import React, { ButtonHTMLAttributes, createContext, ReactNode, Ref, useContext } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 type IconButtonSize = 'sm' | 'md' | 'lg' | 'xl'
 

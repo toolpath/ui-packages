@@ -1,5 +1,5 @@
 import React, { ReactNode, Ref } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { LinkComponentProps, useLinkContext } from './link-context'
 
 export type LinkProps = LinkComponentProps & {

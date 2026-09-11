@@ -1,0 +1,59 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreBinaries": ["uv", "uvx"],
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.mjs"],
+      "project": ["scripts/**/*.mjs"]
+    },
+    "packages/app-support": {
+      "entry": ["src/index.ts", "src/react/index.ts", "tests/**/*.test.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
+    },
+    "packages/sdk-typescript": {
+      "project": ["src/**/*.ts"],
+      "ignore": ["src/generated/**"]
+    },
+    "packages/tool-scraper": {
+      "entry": [
+        "src/index.ts",
+        "src/node/index.ts",
+        "src/node/main.ts",
+        "src/registry.ts",
+        "src/families/index.ts",
+        "src/vendors/*/index.ts",
+        "tests/**/*.test.ts"
+      ],
+      "project": ["src/**/*.ts", "tests/**/*.ts"]
+    },
+    "packages/tool-drawing": {
+      "entry": [
+        "src/index.ts",
+        "src/geometry/index.ts",
+        "src/clearance/index.ts",
+        "tests/**/*.test.{ts,tsx}"
+      ],
+      "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
+    },
+    "packages/tool-support": {
+      "entry": ["src/index.ts", "tests/**/*.test.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"]
+    },
+    "packages/ui": {
+      "entry": ["src/index.ts", "tests/**/*.test.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
+    },
+    "packages/viewer": {
+      "entry": ["src/index.ts", "src/engine/index.ts", "tests/**/*.test.ts"],
+      "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts"]
+    },
+    "examples/typescript": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "examples/react-viewer": {
+      "entry": ["tests/**/*.spec.ts"],
+      "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts"]
+    }
+  }
+}

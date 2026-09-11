@@ -1,6 +1,6 @@
 import React from 'react'
 import { Switch as BaseSwitch, SwitchRootProps } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 export type SwitchProps = SwitchRootProps
 

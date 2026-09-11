@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 export type BadgeProps = {
   children: ReactNode

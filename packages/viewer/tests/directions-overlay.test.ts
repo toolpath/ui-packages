@@ -74,4 +74,21 @@ describe('arrowPlacement', () => {
 
     expect(tip.z - box.max.z).toBeCloseTo(radius * GAP, 6)
   })
+
+  /**
+   * The third seam that reads `useContentBox`, and the one that survives an
+   * unmeasured scene by arithmetic rather than by a guard: `radius` falls back
+   * to 1 and a zero-extent box gives a finite exit distance. Nothing else pins
+   * that, so an arrow flying to infinity would take the whole scene's bounding
+   * sphere with it and never be traced back to here.
+   */
+  it('stays finite for an unmeasured scene', () => {
+    const { tip, length } = arrowPlacement({ x: 0, y: 0, z: 1 }, new Box3())
+
+    expect(Number.isFinite(tip.x)).toBe(true)
+    expect(Number.isFinite(tip.y)).toBe(true)
+    expect(Number.isFinite(tip.z)).toBe(true)
+    expect(Number.isFinite(length)).toBe(true)
+    expect(length).toBeGreaterThan(0)
+  })
 })

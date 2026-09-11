@@ -10,7 +10,7 @@
       `no-release-needed` label and explained why below.
 
 <!-- Select exactly one item above when relevant. A maintainer must apply the
-     exemption label. See CONTRIBUTING.md for package ownership and versioning. -->
+     exemption label. See AGENTS.md for package ownership and versioning. -->
 
 ## Validation
 

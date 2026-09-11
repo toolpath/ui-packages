@@ -2,7 +2,7 @@
 
 import React, { ReactNode, RefObject, createContext, useCallback, useContext, useRef } from 'react'
 
-export interface ToggleContextValue {
+interface ToggleContextValue {
   value: string
   onValueChange: (value: string) => void
   disabled: boolean
@@ -13,7 +13,7 @@ export interface ToggleContextValue {
   itemRefs: RefObject<Map<string, HTMLButtonElement>>
 }
 
-export const ToggleContext = createContext<ToggleContextValue | null>(null)
+const ToggleContext = createContext<ToggleContextValue | null>(null)
 
 export const ToggleConsumer = ToggleContext.Consumer
 

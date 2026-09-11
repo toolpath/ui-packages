@@ -1,0 +1,582 @@
+{
+  "kernelVersion": "0.7.2",
+  "units": {
+    "length": "mm",
+    "angle": "deg"
+  },
+  "options": {
+    "tolerance": 0.05,
+    "fillBays": false,
+    "flipped": false
+  },
+  "layers": [
+    {
+      "thickness": 2.598076211353323,
+      "bottomDiameter": 23.00000000000032,
+      "topDiameter": 32.00000000000034
+    },
+    {
+      "thickness": 14.051923788646675,
+      "bottomDiameter": 32.00000000000034,
+      "topDiameter": 32.00000000000034
+    },
+    {
+      "thickness": 1,
+      "bottomDiameter": 32.00000000000034,
+      "topDiameter": 30.000000000000334
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 30.000000000000334,
+      "topDiameter": 21.85000000000034
+    },
+    {
+      "thickness": 8.600000000000001,
+      "bottomDiameter": 21.85000000000034,
+      "topDiameter": 21.85000000000034
+    },
+    {
+      "thickness": 0.04218672600258344,
+      "bottomDiameter": 21.85000000000034,
+      "topDiameter": 19.346233594379665
+    },
+    {
+      "thickness": 0.05781327399741798,
+      "bottomDiameter": 19.346233594379665,
+      "topDiameter": 21.85000000000034
+    },
+    {
+      "thickness": 1.3500000000000014,
+      "bottomDiameter": 21.85000000000034,
+      "topDiameter": 21.872311520944937
+    },
+    {
+      "thickness": 0.34999999999999787,
+      "bottomDiameter": 21.872311520944937,
+      "topDiameter": 22.11769833270273
+    },
+    {
+      "thickness": 0.25,
+      "bottomDiameter": 22.11769833270273,
+      "topDiameter": 22.527060080656483
+    },
+    {
+      "thickness": 0.1999999999999993,
+      "bottomDiameter": 22.527060080656483,
+      "topDiameter": 23.225444259840465
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 23.225444259840465,
+      "topDiameter": 23.84999999999958
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 23.84999999999958,
+      "topDiameter": 26.9568280263034
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 26.9568280263034,
+      "topDiameter": 27.174820299110852
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 27.174820299110852,
+      "topDiameter": 27.333110446022275
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 27.333110446022275,
+      "topDiameter": 27.458433030469003
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 27.458433030469003,
+      "topDiameter": 27.561782937274927
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 27.561782937274927,
+      "topDiameter": 27.649126478514802
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 27.649126478514802,
+      "topDiameter": 27.72318579349418
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 27.72318579349418,
+      "topDiameter": 27.78585434050932
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 27.78585434050932,
+      "topDiameter": 27.83880317929712
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 27.83880317929712,
+      "topDiameter": 27.88320105057717
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 27.88320105057717,
+      "topDiameter": 27.919922994266198
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 27.919922994266198,
+      "topDiameter": 27.94935493871256
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 27.94935493871256,
+      "topDiameter": 27.971831793912532
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 27.971831793912532,
+      "topDiameter": 27.98760613880397
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 27.98760613880397,
+      "topDiameter": 27.996918649251928
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 27.996918649251928,
+      "topDiameter": 28.000000000000338
+    },
+    {
+      "thickness": 2.0500000000000007,
+      "bottomDiameter": 28.000000000000338,
+      "topDiameter": 28.000000000000338
+    },
+    {
+      "thickness": 0.05000000000000071,
+      "bottomDiameter": 28.000000000000338,
+      "topDiameter": 24.75251274345659
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 24.75251274345659,
+      "topDiameter": 28.000000000000334
+    },
+    {
+      "thickness": 3.799999999999997,
+      "bottomDiameter": 28.000000000000334,
+      "topDiameter": 28.066913785053174
+    },
+    {
+      "thickness": 0.9000000000000057,
+      "bottomDiameter": 28.066913785053174,
+      "topDiameter": 28.64149172518361
+    },
+    {
+      "thickness": 0.75,
+      "bottomDiameter": 28.64149172518361,
+      "topDiameter": 29.715239702965103
+    },
+    {
+      "thickness": 0.29999999999999716,
+      "bottomDiameter": 29.715239702965103,
+      "topDiameter": 30.398571952557845
+    },
+    {
+      "thickness": 0.25,
+      "bottomDiameter": 30.398571952557845,
+      "topDiameter": 31.1863301701857
+    },
+    {
+      "thickness": 0.20000000000000284,
+      "bottomDiameter": 31.1863301701857,
+      "topDiameter": 32.125342377242795
+    },
+    {
+      "thickness": 0.09999999999999432,
+      "bottomDiameter": 32.125342377242795,
+      "topDiameter": 32.90366582258865
+    },
+    {
+      "thickness": 0.05000000000000426,
+      "bottomDiameter": 32.90366582258865,
+      "topDiameter": 44.48050000000033
+    },
+    {
+      "thickness": 0.05000000000000426,
+      "bottomDiameter": 44.48050000000033,
+      "topDiameter": 45.01898711274733
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 45.01898711274733,
+      "topDiameter": 45.22909124525852
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 45.22909124525852,
+      "topDiameter": 45.38084023237991
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 45.38084023237991,
+      "topDiameter": 45.50026650637944
+    },
+    {
+      "thickness": 0.05000000000000426,
+      "bottomDiameter": 45.50026650637944,
+      "topDiameter": 45.59847150540538
+    },
+    {
+      "thickness": 0.05000000000000426,
+      "bottomDiameter": 45.59847150540538,
+      "topDiameter": 45.680660695079816
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 45.680660695079816,
+      "topDiameter": 45.7495964428128
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 45.7495964428128,
+      "topDiameter": 45.80733063712394
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 45.80733063712394,
+      "topDiameter": 45.85522441713885
+    },
+    {
+      "thickness": 0.05000000000000426,
+      "bottomDiameter": 45.85522441713885,
+      "topDiameter": 45.89463421530722
+    },
+    {
+      "thickness": 0.05000000000000426,
+      "bottomDiameter": 45.89463421530722,
+      "topDiameter": 45.926247212434745
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 45.926247212434745,
+      "topDiameter": 45.95036861871838
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 45.95036861871838,
+      "topDiameter": 45.967277811402234
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 45.967277811402234,
+      "topDiameter": 45.97723803740946
+    },
+    {
+      "thickness": 0.05000000000000426,
+      "bottomDiameter": 45.97723803740946,
+      "topDiameter": 45.98050000000033
+    },
+    {
+      "thickness": 3.72228905207929,
+      "bottomDiameter": 45.98050000000033,
+      "topDiameter": 45.98050000000035
+    },
+    {
+      "thickness": 0.12771094792071125,
+      "bottomDiameter": 45.98050000000035,
+      "topDiameter": 45.53809629903744
+    },
+    {
+      "thickness": 0.00574659386620624,
+      "bottomDiameter": 45.53809629903744,
+      "topDiameter": 33.72603147586663
+    },
+    {
+      "thickness": 0.04425340613379092,
+      "bottomDiameter": 33.72603147586663,
+      "topDiameter": 45.36489121828055
+    },
+    {
+      "thickness": 0.20000000000000284,
+      "bottomDiameter": 45.36489121828055,
+      "topDiameter": 44.672070895253
+    },
+    {
+      "thickness": 0.04482678175770616,
+      "bottomDiameter": 44.672070895253,
+      "topDiameter": 27.87690454890153
+    },
+    {
+      "thickness": 0.005173218242291,
+      "bottomDiameter": 27.87690454890153,
+      "topDiameter": 44.498865814496114
+    },
+    {
+      "thickness": 1.6000000000000014,
+      "bottomDiameter": 44.498865814496114,
+      "topDiameter": 38.95630323027572
+    },
+    {
+      "thickness": 6.973548510558203e-5,
+      "bottomDiameter": 38.95630323027572,
+      "topDiameter": 38.48522565597396
+    },
+    {
+      "thickness": 0.054668654983132114,
+      "bottomDiameter": 38.48522565597396,
+      "topDiameter": 38.10963285851536
+    },
+    {
+      "thickness": 0.1022885118576582,
+      "bottomDiameter": 38.10963285851536,
+      "topDiameter": 37.8895707172135
+    },
+    {
+      "thickness": 0.1944917632532679,
+      "bottomDiameter": 37.8895707172135,
+      "topDiameter": 37.75144120913503
+    },
+    {
+      "thickness": 3.298481334420835,
+      "bottomDiameter": 37.75144120913503,
+      "topDiameter": 37.751703446272955
+    },
+    {
+      "thickness": 0.15000000000000568,
+      "bottomDiameter": 37.751703446272955,
+      "topDiameter": 37.8366427592397
+    },
+    {
+      "thickness": 0.14999999999999858,
+      "bottomDiameter": 37.8366427592397,
+      "topDiameter": 38.12565271871798
+    },
+    {
+      "thickness": 0.04999999999999716,
+      "bottomDiameter": 38.12565271871798,
+      "topDiameter": 38.956303230275914
+    },
+    {
+      "thickness": 2.027710947920646,
+      "bottomDiameter": 38.956303230275914,
+      "topDiameter": 45.98050000000034
+    },
+    {
+      "thickness": 5.222289052079354,
+      "bottomDiameter": 45.98050000000034,
+      "topDiameter": 45.98050000000034
+    },
+    {
+      "thickness": 0.020984025859085875,
+      "bottomDiameter": 45.98050000000034,
+      "topDiameter": 41.923081757179304
+    },
+    {
+      "thickness": 0.07901597414091555,
+      "bottomDiameter": 41.923081757179304,
+      "topDiameter": 45.98050000000034
+    },
+    {
+      "thickness": 1.5,
+      "bottomDiameter": 45.98050000000034,
+      "topDiameter": 45.98050000000034
+    },
+    {
+      "thickness": 0.009978061491430879,
+      "bottomDiameter": 45.98050000000034,
+      "topDiameter": 45.980372461422895
+    },
+    {
+      "thickness": 0.04967083050657095,
+      "bottomDiameter": 45.980372461422895,
+      "topDiameter": 45.97588045044076
+    },
+    {
+      "thickness": 0.04882855526327745,
+      "bottomDiameter": 45.97588045044076,
+      "topDiameter": 45.96501403232301
+    },
+    {
+      "thickness": 0.04809791261262575,
+      "bottomDiameter": 45.96501403232301,
+      "topDiameter": 45.947795853073806
+    },
+    {
+      "thickness": 0.04747397757164151,
+      "bottomDiameter": 45.947795853073806,
+      "topDiameter": 45.92419221427445
+    },
+    {
+      "thickness": 0.046950641593575426,
+      "bottomDiameter": 45.92419221427445,
+      "topDiameter": 45.89411328865541
+    },
+    {
+      "thickness": 0.06181508933816815,
+      "bottomDiameter": 45.89411328865541,
+      "topDiameter": 45.84380202659003
+    },
+    {
+      "thickness": 0.04440137075770423,
+      "bottomDiameter": 45.84380202659003,
+      "topDiameter": 45.79957853241084
+    },
+    {
+      "thickness": 0.05611057066845149,
+      "bottomDiameter": 45.79957853241084,
+      "topDiameter": 45.73248946326991
+    },
+    {
+      "thickness": 0.03989564102195686,
+      "bottomDiameter": 45.73248946326991,
+      "topDiameter": 45.675969065465495
+    },
+    {
+      "thickness": 0.05043454173539885,
+      "bottomDiameter": 45.675969065465495,
+      "topDiameter": 45.59207018409128
+    },
+    {
+      "thickness": 0.047345135776524216,
+      "bottomDiameter": 45.59207018409128,
+      "topDiameter": 45.498143570279616
+    },
+    {
+      "thickness": 0.04899767166267566,
+      "bottomDiameter": 45.498143570279616,
+      "topDiameter": 45.380712239538084
+    },
+    {
+      "thickness": 0.05634634946147088,
+      "bottomDiameter": 45.380712239538084,
+      "topDiameter": 45.206806199083005
+    },
+    {
+      "thickness": 0.04799255768469379,
+      "bottomDiameter": 45.206806199083005,
+      "topDiameter": 44.99589666776911
+    },
+    {
+      "thickness": 0.045703522340012626,
+      "bottomDiameter": 44.99589666776911,
+      "topDiameter": 32.623986094789494
+    },
+    {
+      "thickness": 0.05372878400556402,
+      "bottomDiameter": 32.623986094789494,
+      "topDiameter": 32.06273994875852
+    },
+    {
+      "thickness": 0.2492847945740806,
+      "bottomDiameter": 32.06273994875852,
+      "topDiameter": 31.386627337995893
+    },
+    {
+      "thickness": 0.4552041392256143,
+      "bottomDiameter": 31.386627337995893,
+      "topDiameter": 31.043185232780388
+    },
+    {
+      "thickness": 0.2917398527085595,
+      "bottomDiameter": 31.043185232780388,
+      "topDiameter": 31.120814332620217
+    },
+    {
+      "thickness": 0.7501038950316286,
+      "bottomDiameter": 31.120814332620217,
+      "topDiameter": 31.808307540068107
+    },
+    {
+      "thickness": 0.7498961049683714,
+      "bottomDiameter": 31.808307540068107,
+      "topDiameter": 31.589570925895348
+    },
+    {
+      "thickness": 0.03737354517210889,
+      "bottomDiameter": 31.589570925895348,
+      "topDiameter": 28.645446823288744
+    },
+    {
+      "thickness": 0.012626454827895373,
+      "bottomDiameter": 28.645446823288744,
+      "topDiameter": 31.574986464613076
+    },
+    {
+      "thickness": 40.49999999999999,
+      "bottomDiameter": 31.574986464613076,
+      "topDiameter": 19.761572825972834
+    },
+    {
+      "thickness": 0.05000000000001137,
+      "bottomDiameter": 19.761572825972834,
+      "topDiameter": 13.25000000000034
+    },
+    {
+      "thickness": 1.9499999999999886,
+      "bottomDiameter": 19.746988364690562,
+      "topDiameter": 19.178194374681958
+    },
+    {
+      "thickness": 0.05000000000001137,
+      "bottomDiameter": 19.178194374681958,
+      "topDiameter": 13.250000000000336
+    },
+    {
+      "thickness": 4.449999999999989,
+      "bottomDiameter": 19.163609913399682,
+      "topDiameter": 17.865592859277488
+    },
+    {
+      "thickness": 0.025324385848875863,
+      "bottomDiameter": 17.865592859277488,
+      "topDiameter": 16.330820806024835
+    },
+    {
+      "thickness": 0.024675614151135505,
+      "bottomDiameter": 16.330820806024835,
+      "topDiameter": 17.851008397995216
+    },
+    {
+      "thickness": 0.42911918326542775,
+      "bottomDiameter": 17.851008397995216,
+      "topDiameter": 17.72583895571892
+    },
+    {
+      "thickness": 0.023570964209753242,
+      "bottomDiameter": 17.72583895571892,
+      "topDiameter": 17.71758635498663
+    },
+    {
+      "thickness": 0.04730985252481901,
+      "bottomDiameter": 17.71758635498663,
+      "topDiameter": 17.691826394874663
+    },
+    {
+      "thickness": 0.05014421663885571,
+      "bottomDiameter": 17.691826394874663,
+      "topDiameter": 17.64876323838044
+    },
+    {
+      "thickness": 0.05682209046581477,
+      "bottomDiameter": 17.64876323838044,
+      "topDiameter": 17.574366615359274
+    },
+    {
+      "thickness": 0.14303369289532952,
+      "bottomDiameter": 17.574366615359274,
+      "topDiameter": 17.35923819013539
+    }
+  ],
+  "gaugeLength": 60,
+  "sizeClass": 30,
+  "taperFamily": "iso7x24",
+  "axisAreaFraction": 0.8623889,
+  "faceCount": 60,
+  "sampleCount": 2045,
+  "flipped": true,
+  "taperAtNose": false
+}

@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { useTabs } from './tabs-context'
 
 export type TabsListProps = {

@@ -4,8 +4,8 @@ import {
   ComboboxItemProps as BaseComboboxItemProps,
 } from '@base-ui/react'
 import { useCombobox } from './combobox-context'
-import { cn } from '../helpers'
-import { ArrowBendUpLeftIcon } from '@phosphor-icons/react'
+import { cn } from '../common'
+import { ArrowElbowDownLeftIcon } from '@phosphor-icons/react'
 import { Tooltip } from '../tooltip/tooltip'
 
 export type ComboboxItemProps = BaseComboboxItemProps
@@ -52,7 +52,10 @@ export const Item = ({ className, children, value, ...props }: ComboboxItemProps
           <>{children}</>
         </Tooltip>
       </div>
-      <ArrowBendUpLeftIcon className="size-4 text-gray-300 dark:text-zinc-400 hidden group-data-[highlighted]:block group-hover:hidden group-data-[highlighted]:group-hover:hidden group-data-[selected]:hidden" />
+      <ArrowElbowDownLeftIcon
+        weight="bold"
+        className="size-4 text-gray-300 dark:text-zinc-400 hidden group-data-[highlighted]:block group-hover:hidden group-data-[highlighted]:group-hover:hidden group-data-[selected]:hidden"
+      />
     </BaseCombobox.Item>
   )
 }

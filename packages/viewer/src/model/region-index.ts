@@ -8,7 +8,7 @@ export interface IndexableRegion {
 }
 
 /** The minimum a feature must expose to be indexed. */
-export interface IndexableFeature {
+interface IndexableFeature {
   readonly tag: FeatureTag
   readonly regionIdxs: readonly number[]
 }

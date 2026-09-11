@@ -4,7 +4,7 @@ import {
   ComboboxPopupProps,
   ComboboxPositionerProps,
 } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 export type ComboboxPopoverProps = ComboboxPopupProps & Omit<ComboboxPositionerProps, 'children'>
 

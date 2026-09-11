@@ -2,7 +2,7 @@ import React, { createContext, ReactNode, useContext } from 'react'
 
 type Breakpoint = 'sm' | 'md' | 'lg' | 'xl'
 
-export type BreadcrumbsContextValue = {
+type BreadcrumbsContextValue = {
   breakpoint: Breakpoint
 }
 

@@ -30,5 +30,4 @@ export interface ViewerControls {
 
 export interface ViewerHandle extends ViewerControls {}
 
-export type ThreePoint = readonly [number, number, number]
 export type VectorLike = Pick<Vector3, 'x' | 'y' | 'z'>

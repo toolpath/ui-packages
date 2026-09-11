@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { CaretRightIcon } from '@phosphor-icons/react'
 import { useTable } from './table-context'
 
@@ -51,6 +51,7 @@ export const GroupHeader = ({
       }}
     >
       <CaretRightIcon
+        weight="bold"
         className={cn(
           'pointer-events-none fill-current text-gray dark:text-zinc-100 size-3 -rotate-90',
           { 'rotate-90': isCollapsed },

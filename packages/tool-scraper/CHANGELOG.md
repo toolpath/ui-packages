@@ -1,0 +1,561 @@
+# @toolpath/tool-scraper
+
+## 3.0.0
+
+### Major Changes
+
+- a8540d8: Say which kind of null a toolholding record's null is.
+
+  `HolderRecord.cadModelUrl` was `null` for three different reasons — the vendor
+  publishes no model, the vendor publishes one and nothing has looked it up, or
+  the platform has no CAD at all — and a consumer could not tell them apart. Every
+  Kennametal and WIDIA holder reads as the second until `toolpath-scrape cad` has
+  run over its CSV, because those two vendors publish no CAD link on a family page.
+  - `HolderRecord.cadModelSource` is new: `unspecified` where nothing has looked,
+    `vendor-stated` where the lookup ran, whether or not it found a model. The new
+    `cadModel(row)` reader is what every holder mapper now uses to decide it, and
+    `holderRecord` refuses a record carrying a URL it calls `unspecified`.
+  - `HolderRecord.unpublished` and `ColletRecord.unpublished` are new, and required
+    by `holderRecord` and `colletRecord`: a mapper states the nullable fields its
+    vendor publishes no column for, and the factory refuses a field left out
+    without a declaration or declared and then supplied. A null a mapper simply
+    never wrote is no longer reachable.
+  - `OptionalHolderField`, `OPTIONAL_HOLDER_FIELDS`, `OptionalColletField`,
+    `OPTIONAL_COLLET_FIELDS` and `CadSource` are exported for callers that build
+    records themselves.
+  - `CadCoverage.unspecified` counts rows carrying no CAD column, so `coverage`
+    distinguishes a family nobody has annotated from one whose vendor publishes no
+    models. It reported the two identically as `0 STEP`.
+
+- a8540d8: Kennametal's shrink-fit and hydraulic holders now report `clamping: 'shrink'` and
+  `clamping: 'hydraulic'` instead of `clamping: 'bore'`.
+
+  135 families and 989 parts change value: 78 shrink-fit families (650 parts) and 57
+  hydraulic families (339 parts). `bore` is no longer declared by any Kennametal family.
+
+  Previously `clamping` was derived from the variant table — a `D1` bore with no collet
+  series — while MariTool derived it from the vendor's leaf category. A consumer holding
+  both catalogs saw two meanings of the axis, and filtering on `clamping === 'hydraulic'`
+  returned MariTool's chucks and none of Kennametal's. Kennametal states the mode in the
+  family breadcrumb, which these families' `style` facts already cited.
+
+  Fit behavior is unchanged: all three modes are in `BORE_CLAMPINGS`, so a shank-gripping
+  holder still publishes a bore and no collet series. Consumers matching `clamping === 'bore'`
+  to mean "grips a shank" must use `BORE_CLAMPINGS` instead.
+
+- a8540d8: Scrape Kennametal's BT, BTKV, CV, CVKV, HSK and PSC toolholders.
+
+  `kennametal --holders` walks the six spindle-interface category trees and prints every
+  family they link to — 538 families and 2,862 parts, in 552 listings because a family
+  reachable from two branches is reported under each — indented by branch, each against the
+  CSV whose `familyCode` claims it. `HOLDER_FAMILIES` grows from nine families on one BT30
+  spindle to **158 families and 1,192 parts**: every family under those six interfaces whose
+  clamping `HolderRecord` already models — ER collet chucks, shrink fit, and hydraulic
+  chucks. Shell-mill arbors, modular adapters, PSC cutting units and bar blanks grip neither
+  a shank nor a collet and stay out; the walk lists them as `(not configured)`. So does the one
+  family that sells two spindle sizes from one table, which no per-family `taper` can describe —
+  `tests/holding-corpus.test.ts` now holds every other family to the interface the vendor writes
+  into its part numbers, so a second one cannot arrive unnoticed.
+
+  Breaking:
+  - A Kennametal holder record reads its `unit` from the part's own catalog number rather
+    than from its family. 21 of the 158 families sell metric and inch bores from one table,
+    and the family-level fact showed 6.35 mm to a machinist who ordered a 1/4 in bore. The
+    fact remains, as the family's catalogued system and the fallback for a row with no
+    catalog number. Collets are unchanged.
+  - `parseColletListing`, `colletListingPages` and `ColletListing` are `parseCategoryListing`,
+    `categoryListingPages` and `CategoryListing`. They serve two category trees now, and
+    MariTool's adapter already exports a `Listing`.
+  - `discoverFamilies` requires its `roots` argument; there are two trees to walk and no
+    sensible default between them.
+  - `DiscoveredCategory` carries `path`, every name from the root down. `describeFamily`
+    prints that branch instead of the leaf name — `ER Collet Chucks` names six different
+    families across the six interfaces.
+  - `bt30_shrink_fit_hpv_form_ad_metric.csv` and `bt30_shrink_fit_hpv_form_ad_inch.csv` are
+    one family again, `bt30_shrink_fit_hpv_form_ad.csv`. They were one vendor family split by
+    hand because it mixed both systems, which the per-row unit now handles.
+
+  Also:
+  - A listing page is re-asked up to four times, waiting 2 s, then 8 s, then 32 s. The holder
+    walk is about 635 requests and the vendor fails roughly one in a hundred, so a single
+    attempt ended a ten-minute walk with nothing printed — and retries spaced by the walk's
+    own 400 ms politeness delay were no better, because all of them landed inside the same
+    bad minute. The wait is only paid when something is already wrong.
+  - `TAPER_PREFIXES` accepts `CV`, Kennametal's name for the 7:24 V-flange cone MariTool
+    designates `CAT`. `taperDesignation` still refuses `PSC`: ISO 26623 is a polygon, with no
+    7:24 size to read and no `TaperFamily` to belong to.
+  - Every holder family declares its `familyCode`, including the nine that predate the walk.
+
+### Patch Changes
+
+- Updated dependencies [a8540d8]
+  - @toolpath/tool-support@0.3.1
+
+## 2.5.0
+
+### Minor Changes
+
+- 0cdcbbe: Cover Kennametal's whole ER collet catalog: standard, coolant-through and tap.
+  - `kennametal --collets` walks the three ER collet category trees and prints every family they
+    link to, with the configured CSV that claims its code or `(not configured)`.
+  - `COLLET_FAMILIES` grows from 2 families to 14 — 443 parts where there were 120 — and every
+    toolholding family may now record its `familyCode`, so a re-scrape needs no browser.
+  - `ColletRecord` gains `clampingLength`/`clampingLengthMm` (`L9`, the bore depth that is
+    `@toolpath/tool-support`'s `Collet.clampLength`), `squareSize` (`S10`) and `tapRange`.
+  - A tap collet publishes no `CCCN`/`CCCX`; its `D1` is an exact clamping diameter and becomes a
+    zero-width capacity, the shape a sealed collet already had.
+  - `checkCollet` allows a designation to sit up to `NOMINAL_SLACK` outside the size it measures —
+    Kennametal's sealed ER40 inch collets are named for a fraction they clamp under — and refuses a
+    square size that is not smaller than what it clamps.
+
+### Patch Changes
+
+- Updated dependencies [0cdcbbe]
+  - @toolpath/tool-support@0.3.0
+
+## 2.4.0
+
+### Minor Changes
+
+- 15254fb: Record whether a tap cuts its thread or forms it.
+
+  `Tool` takes an optional `threadMethod`, `'cutting' | 'forming'`, beside `form`
+  rather than as new `TOOL_FORMS` values — the form vocabulary stays Fusion's, and
+  Fusion has no form-tap type. `ToolRecord.threadMethod` carries the same value on
+  a tap and `null` on every other kind; `toolRecord` refuses a tap without one and
+  a non-tap with one.
+
+  Every tap family now states it as a cited fact: Kennametal's three from its
+  `newTapType` facet, EMUGE's `FG01` from the category it titles `Machine taps`.
+  And EMUGE's cold-forming taps are scraped for the first time —
+  `emuge_form_taps.csv`, category `FG02`, 1,432 parts — so `forming` is a value the
+  catalog actually holds rather than one only the type admits.
+
+### Patch Changes
+
+- Updated dependencies [15254fb]
+  - @toolpath/tool-support@0.2.0
+
+## 2.3.1
+
+### Patch Changes
+
+- cb1e135: Fix Destiny Tool product links to use the vendor's product page path.
+
+## 2.3.0
+
+### Minor Changes
+
+- a4b5204: Take the units, provenance and geometry vocabulary from `@toolpath/tool-support`
+  instead of declaring it.
+
+  Every name this package published keeps its name and its meaning:
+  - `UnitSystem` is now the shared type. The same two strings were spelled two
+    other ways downstream, with a lookup table between them on ingest.
+  - `MM_PER_INCH` and `convertLength` are re-exported from the domain package.
+    Moving the constant into this package's core stopped two of its own subpaths
+    shipping a copy each; it did nothing about the third copy standing downstream,
+    and `@toolpath/tool-support` now holds the whole tree to one `25.4`.
+  - `SOURCES` and `FactSource` are the shared `PROVENANCE` and `Provenance` under
+    this package's own names, so the order an assumptions document is read in
+    cannot drift from the vocabulary a drawing marks a derived dimension by.
+  - `GEOMETRY_FIELDS` takes each field's definition and ISO code from the shared
+    dictionary, one explicit pick at a time. **The mappable names are unchanged:**
+    still the same ten, seven ISO and three Autodesk's. The dictionary also knows
+    `LBH`, `LD` and `LSCN`, and none of them is mappable — an adapter permitted to
+    map a column to `LBH` could supply a tool claiming a stickout nobody set.
+
+  `GeometryField` stays this package's own interface, unchanged. The shared one
+  carries a required `unit` and is `readonly` throughout, and adopting it outright
+  would have stopped a consumer that builds one — `{ definition, iso }` — from
+  compiling. The entries still `satisfies` the shared shape, so a field renamed
+  upstream is a compile error here, and each entry's `unit` is readable off
+  `GEOMETRY_FIELDS` for a consumer that wants it.
+
+  `HolderRecord`, `ColletRecord` and `ToolRecord` do not move. They are the record
+  seam — what a vendor published, under a guid this package minted — rather than
+  the domain shape.
+
+  `@toolpath/tool-support` is a new runtime dependency. It takes no dependencies
+  and no peers of its own.
+
+- a4b5204: Retire the arithmetic that was written twice.
+
+  Four functions had two copies each, in packages that could not import one
+  another, and each copy carried a note saying it must agree with its twin. Only
+  one of the four had a test comparing them, and nothing enforced the rest.
+
+  `@toolpath/tool-support` now publishes all four:
+  - **`hasNeck`** — whether the section between the flutes and the shank is a neck
+    to draw and to sweep. One copy drew the picture and the other decided the
+    verdict: _"If the rule ever changes, it changes in both places or the picture
+    and the verdict disagree about the same tool."_
+  - **`shankOf`** and **`Shank`** — whether the shank behind the flutes is reduced
+    against the cut. A different question from `hasNeck`, and both are needed: a
+    relief wider than the cut is a neck to draw and not a reduced shank.
+  - **`heightAt`** — the tallest material within an offset of the cut. The
+    clearance verdict and the drawn staircase both read it, and neither could
+    depend on the other.
+  - **`belowGageLine`** — the measured silhouette from the spindle face out, with
+    the crossing interpolated rather than snapped to the nearest vertex.
+
+  `@toolpath/tool-drawing` takes `hasNeck` and `heightAt` from there. `ReachCurve`
+  is now the shared type — still declared structurally, so a curve off a report
+  still satisfies it with no adapter and the overlay still pulls in no Toolpath
+  schema. `heightAt`, `ReachCurve`, `wallFaceAt`, `Margins` and `NO_MARGINS` all
+  stay exported from `/clearance` unchanged.
+
+  `@toolpath/tool-scraper` takes `ProfileDatum` and `ProfilePoint` from there.
+  `HolderProfile`, `ProfilesDocument` and `PROFILES_VERSION` do not move: a
+  measurement record carries the gauge lengths and the taper class a scrape
+  resolved, and its version tracks that document's shape rather than the shape of
+  one silhouette.
+
+  A new test in `@toolpath/tool-drawing` asserts the remaining half of the
+  gage-line pair — that trimming a silhouette at the spindle face and splitting it
+  there interpolate the same crossing. That was a note in both files and is now a
+  check, in the only package that can see both sides.
+
+### Patch Changes
+
+- Updated dependencies [a4b5204]
+- Updated dependencies [a4b5204]
+- Updated dependencies [a4b5204]
+- Updated dependencies [a4b5204]
+- Updated dependencies [a4b5204]
+  - @toolpath/tool-support@0.1.0
+
+## 2.2.0
+
+### Minor Changes
+
+- 1bf3c43: Mint holder and collet records. `HolderRecord` and `ColletRecord` join `ToolRecord` as
+  package output, and `registry.toHolding(family, scrape)` maps one toolholding family's rows
+  onto them through the adapter its brand binds — Kennametal and WIDIA, REGO-FIX, and MariTool
+  (holders only). A brand with no mapper for a kind is unchanged: its families still bind,
+  scrape and write a receipt.
+
+  New public exports from the root entry point: `HolderRecord`, `ColletRecord`,
+  `HoldingRecord`, `HoldingIdentity`, `HolderMapper`, `ColletMapper`, `HoldingMapper`,
+  `HoldingMappers`, `ToolholdingKind`, `ClampingMode`, `CLAMPING_MODES`, `BORE_CLAMPINGS`,
+  `ContactMode`, `CONTACT_MODES`, `holderRecord`, `colletRecord`, `checkHolder`,
+  `checkCollet`, `dim`, `millimeters`, `asUnit`, `checkUnitAgreement`, `contactMode`,
+  `clampingMode`, `unitSystem`, `holdingFact`, `published`, and
+  `conventions.COLLET_DESIGNATION_COLUMN`; from `./registry`, `HOLDING_ADAPTERS`,
+  `boundHolding` and `toHolding`; from each of `./vendors/kennametal`, `./vendors/regofix` and
+  `./vendors/maritool`, that vendor's `HOLDING_MAPPERS`, plus MariTool's `parseShankSize`,
+  `SHANK_SIZE_LABEL` and `COLLET_NUT_DIAMETER_LABEL`.
+
+  `BoundToolholding` gains `kind` and an optional `records` mapper.
+
+- 1bf3c43: Measure a mirrored holder's CAD model into a gage-line profile.
+  - `profiles.ts` — `layersToProfile`, `buildProfiles`, `checkProfile` and
+    `taperDesignation`, plus `HolderProfile` and `ProfilesDocument`. Pure: the
+    layer stack the Toolpath Engine API returns becomes a `[z, r]` silhouette
+    datumed on the gage line, cross-checked against the vendor's published `L1`,
+    and keyed by the guid the holder record was minted under.
+  - `@toolpath/tool-scraper/node` gains `holder-import.ts` — `createHolderApi`,
+    `measureHolder`, `measureFamily`, `parseHolderResponse` — reading
+    `TOOLPATH_API_KEY` and `TOOLPATH_API_URL`, and `paths.profilesDir` /
+    `paths.profilesJson`.
+  - `cad-mirror.stepFileName` is exported, so the mirror and the reader resolve
+    one part to one filename.
+  - New CLI verb: `toolpath-scrape profiles HOLDERS.csv [more.csv ...]`.
+  - `cli.run` takes an optional fourth argument, a `HolderApi`.
+
+- 1bf3c43: Make the CAD steps vendor-neutral, and add a `coverage` verb that reports which rows publish
+  a model without downloading any of them.
+
+  `mirrorFamilySteps` takes the brand: its signature is now
+  `(fetcher, rows, brand, outDir, delayMs?, warn?)`. It named each file from a hardcoded
+  `ISO Catalog Number`, which is Kennametal's column pair; MariTool publishes one number per
+  part under `Material Number` and no catalog designation, so all 357 of its published STEP
+  models were skipped with a warning that the row had no catalog number to name it. The column
+  now comes from the new `conventions.catalogColumn(brand)`.
+
+  `toolpath-scrape cad` no longer exits 2 on a vendor it cannot annotate. The step is
+  dispatched per brand instead of gated on the AEM brand list, and a brand with no lookup is a
+  no-op reporting what the CSV already carries. It exited 2 on the first non-Kennametal
+  family, which made the command impossible to run across a catalog holding more than one
+  vendor's holders.
+
+  New: `toolpath-scrape coverage [HOLDERS.csv ...]` reports rows, rows with a STEP model and
+  rows with a DXF, per holder family and as a total. It reads the scraped CSVs and makes no
+  requests. Backed by `cadCoverage(rows)` and `CadCoverage`, exported from
+  `@toolpath/tool-scraper/node`, plus `conventions.catalogColumn` from the root entry point.
+
+### Patch Changes
+
+- 239d537: Fix two faults that made measuring a holder family unrepeatable.
+
+  **A rate limit ended the run.** The Engine budgets requests per key and answers
+  `429` with `Retry-After`; `createHolderApi` treated every non-2xx alike, so a
+  family large enough to spend the window died partway through — a 217-holder
+  CAT40 batch, on the poll call. A `429` is the API scheduling the client rather
+  than refusing it, so `request` now waits and retries, preferring the API's own
+  `Retry-After` and backing off where it cannot read one. `retryAfterMs` is
+  exported, `RATE_LIMIT_ATTEMPTS` bounds the retries, and `rateLimitAttempts` on
+  `HolderApiOptions` sets it. Every other non-2xx still stops the run.
+
+  **The idempotency key named the part, and the API binds it to the holder.**
+  `measureHolder` creates a fresh holder on every call, so a key derived from the
+  catalog number was the same string naming a different holder on the second run,
+  which the API refuses with `idempotency_key_reused` — the second measurement of
+  any family failed on its first part, permanently, for that organisation.
+  `idempotencyKey` now takes the `holderId` the run just created, which is the
+  scope the API actually enforces.
+
+  That narrows what the key can promise: it stops a retried `PATCH` inside one run
+  dispatching a second import, and it cannot make re-running an interrupted family
+  free, because there is no way to ask the API for the holder a previous run
+  created. The old docstring claimed the second thing and never delivered it.
+  Resuming cheaply belongs to the caller, by not re-measuring what its store
+  already holds.
+
+- 1bf3c43: Join a MariTool mini-nut holder to the collet it takes. `ER25M` in a `Collet Size` cell is
+  the mini collet nut series, and the collet a mini nut closes is a plain ER25, so
+  `colletSeries` resolves it and `CAT40-ER25-3.0MD` and `BT30-ER25-60M` now write `CST: ER25`
+  instead of joining to no collet family. The vendor's own `Collet Size` cell is untouched, so
+  the CSV still records which parts carry a mini nut. A `Collet Size` designation that is
+  neither a series nor a known nut is still written through as the vendor designated it, and
+  still warns.
+
+## 2.1.0
+
+### Minor Changes
+
+- 4296fb3: A `drill` record may carry no point angle. `RECORD_GEOMETRY.drill` lists `SIG`
+  under `sometimes` rather than `always`, so `toolRecord` no longer refuses a
+  drill whose mapper supplies none, and a consumer cannot read `geometry.SIG` on
+  a drill without checking for it.
+
+  EMUGE-FRANKEN states a point angle on 2,669 of its 2,670 drill variants. The
+  last, part `000000000010727800`, publishes a single classification feature and
+  no dimensional properties at all — so its row carries no `SIG` **key**, rather
+  than a key with an empty value. `SIG` is a mapped column in that adapter rather
+  than a family fact, and because `toRecords` maps a family's rows together, that
+  one part refused all 2,670 drills.
+
+  The adapter now omits the key and warns, the way it already treats an end mill's
+  sentinel flute count. A point-angle cell holding something that is not an angle
+  — a length, a range — still refuses, and so does a family that maps no
+  point-angle column at all: that is a fact about the map rather than about a row,
+  so it is asked of the map directly. Reading the two as one is what cost the
+  family, and it named a column map that was correct.
+
+  Kennametal's drills supply `SIG` from a family fact and always carry one.
+
+- b019b61: `ToolRecord` carries a `productLine` — the vendor's own name for the product
+  line a part belongs to, or `null` where the vendor names none. Three of the five
+  cutting-tool adapters fill it.
+
+  Every vendor here publishes a product line and no two published it in the same
+  place, so what a consumer could filter on was an accident of which vendor a
+  record came from. `null` is the vendor's silence rather than an empty name, the
+  same three-state rule `materialGroups` keeps with `unspecified`; `toolRecord`
+  refuses `''` outright.
+  - **EMUGE-FRANKEN** reads it from a column it already scrapes, at no request
+    cost. Each of the three categories is partitioned exactly by one of the
+    vendor's own facets — `product line` for milling, `Geometry` for drilling and
+    tapping — so the value is a read rather than a choice between the 43
+    overlapping product-family pages the vendor's marketing publishes. Milling
+    passes through verbatim (`FRANKEN TOP-Cut VAR`); a drilling or tapping
+    geometry code is mapped onto the title of the vendor's own article page for
+    it (`MULTI` → `MultiDRILL`, `Z` → `Rekord B-Z Taps`), and a code with no such
+    page keeps the code.
+  - **Kennametal and WIDIA** read it from the family page's `h1`, which the
+    variants table does not state anywhere. `scrapeFamily` takes a new
+    `familyTitle` option that fetches it; the whole title reaches the CSV under
+    the new vendor-neutral `FAMILY_TITLE_COLUMN`, and its leading `•` segment
+    becomes the product line. **Off by default** — it is a second request per
+    family, and a caller that only wants dimensions should not pay for one. The
+    `toolpath-scrape kennametal` command turns it on.
+  - **Destiny Tool** maps its `series` column, which the adapter has scraped
+    since it was written and nothing had read.
+
+  Harvey Tool records carry `null`: its product-line title is already this
+  record's `description`, and a second copy of one string is what that field's own
+  docstring refuses.
+
+- 9dbe657: `toRecords` skips a part the vendor left a required dimension blank on, rather
+  than failing the whole family. It warns naming the part, and every other
+  refusal still throws.
+
+  The rows of a family are mapped together, so until now one incomplete part
+  ended the conversion and took every good row with it. EMUGE-FRANKEN omits
+  `overall length l₁` on roughly 175 of its 7,021 end mill variants — the
+  property is absent from the response, not blank — and both end mill families
+  therefore produced no records at all.
+
+  `columns.required` now raises the new `IncompletePartError`, a subclass of
+  `VendorResponseError`, and that is the only failure `toRecords` skips past. A
+  cutting material with no mapping, a column a family stopped mapping, a response
+  that changed shape: those say the vendor's vocabulary or this package's catalog
+  has moved, and they still fail the family.
+
+  **No kind's contract is relaxed.** `RECORD_GEOMETRY.endmill` still lists `OAL`
+  under `always`, and every record returned still carries one — a part without it
+  becomes no record rather than a record with a hole. That is the difference
+  between this and a drill's `SIG`, which is `sometimes` because the vendor
+  genuinely never publishes it.
+
+  Callers that assumed one record per scraped row should read the returned length.
+
+## 2.0.0
+
+### Major Changes
+
+- 220c0f0: A `tap` record may carry no flute count. `RECORD_GEOMETRY.tap` lists `NOF`
+  under `sometimes` rather than `always`, so `toolRecord` no longer refuses a tap
+  whose mapper supplies none, and a consumer cannot read `geometry.NOF` on a tap
+  without checking for it.
+
+  Kennametal's taps publish a `Z` column and still fill it; the relaxation is for
+  a vendor that publishes no tap flute count anywhere a scrape can reach.
+
+### Minor Changes
+
+- bee2487: Add an EMUGE-FRANKEN adapter covering end mills, drills and taps, published as
+  `@toolpath/tool-scraper/vendors/emuge` with an `emuge` CLI subcommand and four
+  families: `emuge_end_mills_inch.csv`, `emuge_end_mills_mm.csv`,
+  `emuge_drills.csv` and `emuge_taps.csv`.
+- 588b43b: Export the per-vendor scrape-target tables, which no subpath reached.
+  `./families` points at the merged index, and that index re-exports `FAMILIES`,
+  `HOLDER_FAMILIES` and `COLLET_FAMILIES` and nothing else — so Harvey Tool's
+  `PRODUCT_PAGES`, MariTool's `LEAVES` and EMUGE-FRANKEN's `SCRAPE_TARGETS` built
+  into `dist`, shipped in the tarball, and threw `ERR_PACKAGE_PATH_NOT_EXPORTED`
+  at any consumer that imported them. Adds `./families/harvey`,
+  `./families/maritool` and `./families/emuge`.
+- cd2a0be: Publish the readers a display-string adapter shares. `measure.asLength` and
+  `measure.asCount` turn one read cell into a length or a count — converting a
+  stated unit the family does not publish, refusing an angle in a length column —
+  and `columns.columnReaders` binds a vendor's reader to the three steps between a
+  `GeometryName` and a number. Both were duplicated verbatim in the Harvey Tool
+  and EMUGE-FRANKEN adapters, warnings and refusal wording included.
+
+  Adds `asLength`, `asCount`, `Measured`, `StatedUnit`, `columnReaders`,
+  `ColumnReaders` and `LengthReader` to the package entry point. No existing
+  signature changes.
+
+## 1.0.0
+
+### Major Changes
+
+- 147ca62: Four things two vendors each declared for themselves now have one home, and a check that keeps it
+  that way.
+  - New `measure` module on the main entry point: `MM_PER_INCH`, `fractionValue` for the decimal,
+    fraction and mixed-number grammar every vendor publishes, and `convertLength`. It replaces three
+    adapter-local readers that disagreed — REGO-FIX refused `1-1/2`, Destiny Tool refused `1.5-1/2`,
+    Harvey read both — and two exported copies of 25.4.
+  - **`MM_PER_INCH` is gone from `./vendors/harvey` and `./vendors/regofix`.** Import it from the
+    package root.
+  - `unionHeader` moves to the main entry point and is gone from `./vendors/regofix` and
+    `./vendors/maritool`. It was byte-identical in both.
+  - `conventions` gains `DESCRIPTION_COLUMN`, `CONTACT_COLUMN`, `COLLET_SERIES_COLUMN` and
+    `GAGE_COLUMNS` — the CSV columns two vendors each write and neither owns, beside `CAD_COLUMN` for
+    the same reason. `./vendors/maritool` no longer exports its own copies of them, and
+    `./vendors/harvey` no longer exports `DESCRIPTION_COLUMN`.
+
+  Harvey's record mapper now reads the `ColumnMap` its caller passes rather than `family.columns`,
+  which is what `registry.toRecords` has just validated. `cornerRadius` and `flutes` on
+  `./vendors/harvey` take that map as a new third argument.
+
+  `tests/vendor-boundary.test.ts` now fails on a name exported by two manufacturers that is not part
+  of the adapter contract, so the next one of these is caught rather than reviewed.
+
+- 4bc7595: `ToolRecord` is now the package's shipped output, and its shape changed.
+  - `toRecords(familyName, scrape, options?)` on the `./registry` subpath maps one family's scrape to
+    `ToolRecord[]`, checking the identity and mapped columns against the header first. Every command
+    previously ended at a vendor-labelled CSV.
+  - `grade` is removed. `coating` replaces it and carries the vendor's own coating string, `''` where
+    none is published; the carbide grade a Kennametal table publishes reaches no record.
+  - `brand` and `guid` are new. `toolRecord()` mints `guid` as `recordGuid(brand, materialNumber)`
+    itself, so an adapter cannot get it wrong and the guid is derivable from a record.
+  - `materialGroups` is `readonly string[] | null`: `null` is "we do not know what this tool is for",
+    `[]` is a vendor index that rates the part for nothing, non-empty is a rating. New
+    `materialGroupsSource` is never absent — the new `UNSPECIFIED` label in the first case, otherwise
+    `vendor-stated` or `derived` — and the label and the null go together or the record is refused.
+    Every Harvey record is `unspecified`: its material index is published per part, not in a variant
+    table, and varies by coating within a family, so nothing a scrape reads can stand in for it.
+  - Every mapper now reads `unit`, `bmc` and `coolantThrough` as required family facts. Harvey's
+    `family.unit!`, Destiny Tool's hardcoded `'inches'`, and the `?? false` / `?? ''` fallbacks are
+    gone, and the three Kennametal tap families state `coolantThrough` rather than the mapper
+    assuming it.
+  - `description` is now the vendor's own free text, `''` where the vendor publishes none, and
+    never a copy of another field on the record. Kennametal publishes no description column, so its
+    drill and end mill records carry `''` where they used to repeat `catalogNumber`; a tap carries
+    its thread designation alone rather than the catalog number and the designation.
+  - `geometry` values are `number`. They were `number | boolean` and no adapter has ever produced a
+    boolean, so every consumer narrowed a type nothing could hold.
+  - New `RECORD_GEOMETRY` states, per tool kind, which geometry a record always carries and which it
+    may omit. `toolRecord()` refuses anything else. An absent key is now a declared claim — an end
+    mill may omit `NOF` where the vendor publishes no flute count (Harvey's two deburring families),
+    a drill carries `SIG` and never `RE` — instead of the ambiguity `materialGroups` had already been
+    given `UNSPECIFIED` to resolve.
+  - REGO-FIX row order no longer depends on the machine's locale.
+
+### Minor Changes
+
+- cba558e: Add the Harvey Tool vendor adapter: 52 miniature end mill and keyseat cutter families, 12,773 orderable parts, scraped from each product page's inline variant table.
+
+  New exports: `@toolpath/tool-scraper/vendors/harvey`, `conventions.CAD_DXF_COLUMN` for a vendor's 2D profile link, and `FamilyFacts.profile` for the end profile a vendor states once per product line. `conventions.IDENTITY_DEVIATIONS` gains a `harvey` entry — Harvey publishes one `Tool #` per part and no catalog designation.
+
+  `toolpath-scrape harvey FAMILY.csv` scrapes one family; `toolpath-scrape harvey --catalog` walks the category trees.
+
+- 54c4144: Add the MariTool vendor adapter: five toolholding families — CAT40, CAT50,
+  BT30, BT40 and HSK — covering 529 ER collet chucks, shrink-fit holders and
+  hydraulic chucks, and a `toolpath-scrape maritool` command that writes them.
+
+  New public surface: the `@toolpath/tool-scraper/vendors/maritool` entry point,
+  `maritool` in `identity.BRANDS` and `conventions.IDENTITY_DEVIATIONS`, and five
+  entries in `families.HOLDER_FAMILIES`. Nothing existing changes shape.
+
+  The gage length is promoted into an `L1_in`/`L1_mm` pair with exactly one cell
+  filled per row, and nothing is converted: MariTool publishes both unit systems
+  in that one column, within a single family and within a single category page.
+
+  MariTool ships toolholding, so like REGO-FIX it binds no record mapper: its
+  scrape ends at rows and a receipt, not at `ToolRecord`. The columns two
+  toolholding vendors now share — `Description`, `contact`, `CST` and the
+  `L1_in`/`L1_mm` pair — are named in `conventions` rather than in either
+  adapter, so a consumer joining the two catalogs has one spelling to read.
+
+## 0.1.0
+
+### Minor Changes
+
+- 987c3a9: Export the types the package's own signatures are written in. The main entry
+  point now exports `ScrapeResult` and `ScrapedRow` — the return type of every
+  scrape and the parameter of `toCsv`, `annotateCadUrls` and `addThreadPitch` —
+  along with `BoundFamily`, `Warn`, `FetcherOptions`, `HttpError`, `statusOf` and
+  `AEM_BRANDS`, none of which a consumer could name before. Each entry point now
+  re-exports its modules whole, so a symbol cannot be public in a module and
+  invisible from the package.
+
+  `REQUEST_DELAY_MS` is one constant on the main entry point rather than a copy
+  per looping step; `@toolpath/tool-scraper/vendors/kennametal` no longer exports
+  its own.
+
+- 92a9645: Add `@toolpath/tool-scraper`: scrape cutting-tool and toolholding geometry from Kennametal, WIDIA,
+  REGO-FIX and Destiny Tool catalogs into records.
+
+  The main entry point returns rows and never touches the filesystem, so a Node backend can embed it;
+  CSV serialization, the provenance sidecar and the bulk CAD mirror live behind
+  `@toolpath/tool-scraper/node`. The transport is a `Fetcher` a caller supplies, so retries, proxies
+  and rate limits stay the consumer's decision. A `toolpath-scrape` command line drives every vendor.
+
+### Patch Changes
+
+- 987c3a9: Refuse two more inputs a scrape cannot serve, and fill two cells that were left
+  empty: a Kennametal header whose columns reduce to one name no longer silently
+  drops a column's data, a `toolpath-scrape kennametal` constant column that is
+  not `Name=Value` is refused instead of dropped, a Destiny Tool record's `vendor`
+  carries the brand's published name rather than its catalog key, and an inch
+  tapping collet's drive square is projected into `Square_mm` the way its
+  diameter already was.
+- ec90d59: Refuse the inputs each scrape step cannot serve rather than carrying them into
+  a record: an unreadable thread designation or collet size, a `Thread System`
+  tag that is neither `metric` nor `inch`, a non-integer flute count, and a
+  `--brand` or `cad` target that is not on the AEM platform. A record's `vendor`
+  carries the brand's published name, and a 404 from the CAD endpoint reads as
+  the vendor publishing no model.

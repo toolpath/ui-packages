@@ -10,7 +10,7 @@ import React, {
 } from 'react'
 import { useTable } from './table-context'
 
-export interface RowContextInterface {
+interface RowContextInterface {
   item: any
   index: number
   groupIndex?: number
@@ -58,4 +58,4 @@ const RowProvider: FC<ProviderProps> = ({ item, index, groupIndex, children }) =
 
 const useRow = () => useContext(RowContext)
 const RowConsumer = RowContext.Consumer
-export { useRow, RowProvider, RowContext, RowConsumer }
+export { useRow, RowProvider, RowConsumer }

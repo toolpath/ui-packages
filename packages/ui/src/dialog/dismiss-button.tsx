@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react'
 import { Button, ButtonProps } from '../button'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { useDialog } from './dialog-context'
 
 export interface DialogDismissProps extends Omit<ButtonProps, 'onClick'> {

@@ -6,7 +6,7 @@ import {
   SliderRootProps,
   SliderThumbProps,
 } from '@base-ui/react/slider'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 export type SliderProps = Omit<SliderRootProps, 'onValueChange'> & {
   variant?: 'default'

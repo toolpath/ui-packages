@@ -1,6 +1,6 @@
 import React, { HTMLAttributes, ReactNode } from 'react'
 import { Combobox as BaseCombobox } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 export type ComboboxEmptyProps = HTMLAttributes<HTMLDivElement> & {
   children?: ReactNode

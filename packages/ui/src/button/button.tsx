@@ -1,5 +1,5 @@
 import React, { Dispatch, HTMLAttributes, MouseEvent, ReactNode, Ref } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { Link } from '../link'
 import { AnimatedEllipsis } from './animated-ellipsis'
 
@@ -82,7 +82,23 @@ export const Button = ({
     }
   }
 
-  const ContentWrapper = ({ children }: { children: ReactNode }) => (
+  /*
+   * The inner surface, as an element rather than a component.
+   *
+   * It used to be `const ContentWrapper = ({children}) => ...` declared here,
+   * inside `Button` — which makes it a **new component type on every render**,
+   * so React unmounts the whole content subtree and mounts a fresh one each
+   * time. That is a real defect and not only a wasted render: a `click` is only
+   * dispatched when `mousedown` and `mouseup` land on the same element, and the
+   * `<div>` the pointer is actually over was being replaced between the two.
+   * Any render occurring mid-press — a hover handler on an ancestor is enough —
+   * silently swallowed the click, while the button stayed in the tree, matched
+   * by role and name, and reported enabled.
+   *
+   * It cost two long debugging sessions in the part viewer before the cause was
+   * found (F61, F67). Nothing in the types or the tests says so.
+   */
+  const wrap = (inner: ReactNode) => (
     <div
       className={cn(
         'whitespace-nowrap rounded px-3 py-1 font-body text-xs font-semibold tracking-normal',
@@ -118,23 +134,21 @@ export const Button = ({
         className,
       )}
     >
-      {children}
+      {inner}
     </div>
   )
 
-  const content = !isLoading ? (
-    <ContentWrapper>{children}</ContentWrapper>
-  ) : (
-    <ContentWrapper>
-      <AnimatedEllipsis
-        className={cn({
-          'h-2 w-1': size === 'sm',
-          'h-2 w-1.5': size === 'md',
-          'h-3 w-2': size === 'lg',
-        })}
-      />
-    </ContentWrapper>
-  )
+  const content = !isLoading
+    ? wrap(children)
+    : wrap(
+        <AnimatedEllipsis
+          className={cn({
+            'h-2 w-1': size === 'sm',
+            'h-2 w-1.5': size === 'md',
+            'h-3 w-2': size === 'lg',
+          })}
+        />,
+      )
 
   if (asLink) {
     return (

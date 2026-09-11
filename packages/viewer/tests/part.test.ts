@@ -190,4 +190,31 @@ describe('createPart — framing and teardown', () => {
     expect(geometry.hasAttribute(REGION_ATTRIBUTE)).toBe(false)
     expect(geometry.getAttribute('position').count).toBe(36)
   })
+
+  /**
+   * The order a consumer rebuilds in, and the bug it caused.
+   *
+   * A report changing identity — a feature added, a re-fetch — rebuilds the
+   * part against the **same cached geometry**, and React builds the new one
+   * during render before disposing the old. A dispose that deleted the
+   * attribute unconditionally therefore deleted the one the new part had just
+   * set: every vertex fell back to texel 0 and the whole part went one flat
+   * colour, with hover, selection and every wash gone with it.
+   */
+  it('leaves a newer part on the same geometry alone', async () => {
+    const { model, part } = await loadCube()
+    const geometry = part.mesh.geometry
+
+    const newer = createPart(model, geometry, DEFAULT_THEME)
+    const attribute = geometry.getAttribute(REGION_ATTRIBUTE)
+
+    part.dispose()
+
+    expect(geometry.hasAttribute(REGION_ATTRIBUTE)).toBe(true)
+    expect(geometry.getAttribute(REGION_ATTRIBUTE)).toBe(attribute)
+
+    // And the newer one still cleans up after itself.
+    newer.dispose()
+    expect(geometry.hasAttribute(REGION_ATTRIBUTE)).toBe(false)
+  })
 })

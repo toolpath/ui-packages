@@ -1,11 +1,12 @@
-import { Box3, Vector3 } from 'three'
+import { Vector3 } from 'three'
 import { describe, expect, it } from 'vitest'
-import { gridSpec } from '../src/render/grid.js'
+import type { Vec3 } from '../src/model/types.js'
 import {
   CHAMFER,
   VIEW_NAMES,
   cubeZones,
   panelGeometry,
+  squaredUp,
   viewKind,
   viewUp,
   viewVector,
@@ -57,6 +58,83 @@ describe('viewUp', () => {
   it('falls to Y on the two views that look down Z', () => {
     expect(viewUp(viewVector('top'))).toEqual({ x: 0, y: 1, z: 0 })
     expect(viewUp(viewVector('bottom'))).toEqual({ x: 0, y: -1, z: 0 })
+  })
+})
+
+/**
+ * Clicking a panel squares the view, and there are four ways to be square. The
+ * cube picks the one nearest the pose being left, as the Fusion cube does — so
+ * a view is reached without the part spinning on the way to it.
+ */
+describe('squaredUp', () => {
+  const near = (a: Vec3, b: Vec3) => {
+    expect(a.x).toBeCloseTo(b.x, 12)
+    expect(a.y).toBeCloseTo(b.y, 12)
+    expect(a.z).toBeCloseTo(b.z, 12)
+  }
+
+  it('is perpendicular to the view, and one of its four rolls, for all 26 views', () => {
+    // A camera rolled well off any axis, so nothing here passes by accident.
+    const rolled = { x: 0.3, y: -0.42, z: 0.86 }
+
+    for (const name of VIEW_NAMES) {
+      const direction = viewVector(name)
+      const up = squaredUp(direction, rolled)
+      const canonical = viewUp(direction)
+
+      expect(Math.hypot(up.x, up.y, up.z)).toBeCloseTo(1, 12)
+      expect(up.x * direction.x + up.y * direction.y + up.z * direction.z).toBeCloseTo(0, 12)
+
+      // Square, and only square: a quarter turn about the view leaves the up
+      // vector either along the canonical one or square to it, never between.
+      // (Measured against the canonical up with its own view component
+      // removed, which is the 0° roll itself.)
+      const along =
+        canonical.x * direction.x + canonical.y * direction.y + canonical.z * direction.z
+      const zero = {
+        x: canonical.x - along * direction.x,
+        y: canonical.y - along * direction.y,
+        z: canonical.z - along * direction.z,
+      }
+      const length = Math.hypot(zero.x, zero.y, zero.z)
+      const cosine = (up.x * zero.x + up.y * zero.y + up.z * zero.z) / length
+
+      expect(Math.min(Math.abs(cosine), Math.abs(Math.abs(cosine) - 1))).toBeCloseTo(0, 12)
+    }
+  })
+
+  it('keeps a face view on an axis, whichever roll it lands on', () => {
+    for (const name of ['top', 'bottom', 'front', 'back', 'left', 'right'] as const) {
+      const up = squaredUp(viewVector(name), { x: 0.3, y: -0.42, z: 0.86 })
+
+      for (const component of [up.x, up.y, up.z]) {
+        expect(Math.min(Math.abs(component), Math.abs(Math.abs(component) - 1))).toBeCloseTo(0, 12)
+      }
+    }
+  })
+
+  it('takes the canonical roll when the camera is already near it', () => {
+    near(squaredUp(viewVector('front'), { x: 0, y: 0, z: 1 }), { x: 0, y: 0, z: 1 })
+    near(squaredUp(viewVector('top'), { x: 0, y: 1, z: 0 }), { x: 0, y: 1, z: 0 })
+  })
+
+  /**
+   * The point of choosing rather than imposing. Arriving at the bottom view
+   * from a camera rolled a quarter turn, the canonical −Y up is a 90° spin
+   * away and +X is already there, so +X is what it lands on.
+   */
+  it('takes a quarter turn when that is the nearer square', () => {
+    near(squaredUp(viewVector('bottom'), { x: 0.9, y: -0.1, z: 0 }), { x: 1, y: 0, z: 0 })
+    near(squaredUp(viewVector('front'), { x: -0.95, y: 0, z: 0.2 }), { x: -1, y: 0, z: 0 })
+  })
+
+  it('turns all the way over when the camera is upside down', () => {
+    near(squaredUp(viewVector('front'), { x: 0, y: 0, z: -1 }), { x: 0, y: 0, z: -1 })
+  })
+
+  /** Nothing to be near, so it falls to the orientation the labels are drawn for. */
+  it('falls back to the canonical roll for a camera with no up', () => {
+    near(squaredUp(viewVector('front'), { x: 0, y: 0, z: 0 }), { x: 0, y: 0, z: 1 })
   })
 })
 
@@ -127,40 +205,5 @@ describe('cubeZones', () => {
       expect(vertices).toBe((zone.polygon.length - 2) * 3)
       expect(geometry.getAttribute('normal').count).toBe(vertices)
     }
-  })
-})
-
-describe('gridSpec', () => {
-  const box = (x: number, y: number, z = 10) => new Box3(new Vector3(0, 0, 0), new Vector3(x, y, z))
-
-  /**
-   * The Engine emits millimetres and says nothing about scale, so the step is a
-   * 1-2-5 progression rather than a fixed size — a fixed grid is invisible under
-   * a 900 mm plate and a solid wash under a 12 mm insert.
-   */
-  it('picks a step a machinist reads without doing arithmetic', () => {
-    expect(gridSpec(box(50.8, 50.8)).step).toBe(5)
-    expect(gridSpec(box(900, 900)).step).toBe(50)
-    expect(gridSpec(box(12, 12)).step).toBe(1)
-  })
-
-  it('rounds the step down, so the part gets a grid rather than a border', () => {
-    // Rounding up would leave a 50.8 mm cube on 10 mm cells: five squares.
-    expect(50.8 / gridSpec(box(50.8, 50.8)).step).toBeGreaterThanOrEqual(10)
-  })
-
-  it('sits on the bottom of the part rather than on z = 0', () => {
-    const raised = new Box3(new Vector3(0, 0, -30), new Vector3(50, 50, -10))
-
-    // A part modelled about its own centre would otherwise be sliced in half by
-    // its own grid.
-    expect(gridSpec(raised).z).toBe(-30)
-  })
-
-  it('spans a whole number of cells past the part', () => {
-    const spec = gridSpec(box(50.8, 50.8))
-
-    expect(spec.extent % spec.step).toBeCloseTo(0, 9)
-    expect(spec.extent * 2).toBeGreaterThan(50.8)
   })
 })

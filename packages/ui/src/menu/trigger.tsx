@@ -5,7 +5,7 @@ import {
   ContextMenu,
   ContextMenuTriggerProps,
 } from '@base-ui/react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { useMenu } from './menu-context'
 
 export type MenuTriggerProps =

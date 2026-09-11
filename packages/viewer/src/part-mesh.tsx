@@ -8,8 +8,10 @@ import { applyHighlightLayers } from './render/paint.js'
 import { sectionBounds, sectionDepth, sectionOffset } from './render/section.js'
 import { useTapGuard } from './tap.js'
 import { createPart } from './render/part.js'
+import { regionAdjacency } from './render/adjacency.js'
 import { type PartPick, buildPick, viewDirection } from './render/picking.js'
-import { useViewerControls } from './viewer.js'
+import { trackDoubleTaps } from './render/tap.js'
+import { useRetarget, useViewerControls } from './viewer.js'
 import {
   type SectionOptions,
   type SectionState,
@@ -76,6 +78,15 @@ export interface PartMeshProps {
    */
   onSectionChange?: (state: SectionState) => void
   /**
+   * Which faces touch which, once the mesh is in.
+   *
+   * The consumer cannot work this out: it has a region table with areas and
+   * shape kinds, and the topology only exists in the geometry. Handed over
+   * rather than queried, because it is computed once per mesh and the consumer
+   * needs it to answer questions about faces it has not clicked yet.
+   */
+  onAdjacency?: (adjacency: ReadonlyMap<number, ReadonlySet<number>>) => void
+  /**
    * A feature to frame. Framed when it changes, so setting it to the feature
    * already framed does nothing — a zoom is a request, not a state to hold.
    */
@@ -117,6 +128,7 @@ export const PartMesh = ({
   activeDirection = null,
   section,
   onSectionChange,
+  onAdjacency,
   focusFeature = null,
   onHover,
   onPick,
@@ -165,6 +177,13 @@ export const PartMesh = ({
   }, [invalidate, part])
 
   useEffect(() => () => part.dispose(), [part])
+
+  // Once per mesh: the topology is a property of the geometry, and a report
+  // gaining a feature does not move a single triangle.
+  const adjacency = useMemo(() => regionAdjacency(model, geometry), [model, geometry])
+  useEffect(() => {
+    onAdjacency?.(adjacency)
+  }, [adjacency, onAdjacency])
 
   const framed = useRef<FeatureTag | null>(null)
   useEffect(() => {
@@ -218,8 +237,15 @@ export const PartMesh = ({
   }, [layerKey, repaint])
 
   const isTap = useTapGuard()
+  const retarget = useRetarget()
+  // One tracker for the life of the mesh: pairing is a property of the pointer,
+  // not of any render.
+  const doubles = useMemo(() => trackDoubleTaps(), [])
 
-  const pickFor = (event: ThreeEvent<PointerEvent | MouseEvent>): PartPick | null => {
+  const pickFor = (
+    event: ThreeEvent<PointerEvent | MouseEvent>,
+    doubled = false,
+  ): PartPick | null => {
     const triangleIndex = event.faceIndex
     if (triangleIndex == null) return null
     const region = model.regionIndex.regionForTriangle(triangleIndex)
@@ -238,6 +264,7 @@ export const PartMesh = ({
       point: [event.point.x, event.point.y, event.point.z],
       normal: [normal.x, normal.y, normal.z],
       activeDirection,
+      doubled,
       viewDirection: viewDirection(camera, target),
       modifiers: {
         alt: source.altKey,
@@ -279,15 +306,100 @@ export const PartMesh = ({
       <primitive
         object={part.object}
         onPointerMove={(event: ThreeEvent<PointerEvent>) => emitHover(pickFor(event))}
-        onPointerOut={() => emitHover(null)}
+        onPointerOut={() => {
+          emitHover(null)
+          /*
+           * The pointer leaving the part breaks the double-click pair.
+           *
+           * Time and distance cannot tell "clicked this face twice" from
+           * "clicked it, pressed something in a panel, clicked it again" — the
+           * second is three gestures and lands well inside the window, and it
+           * is an ordinary way to work: read a face, act on it, read it again.
+           * Without this that second click was swallowed and the view re-aimed
+           * instead, which is the wrong answer twice over.
+           */
+          doubles.reset()
+        }}
         onClick={(event: ThreeEvent<MouseEvent>) => {
-          // The end of an orbit is not a request to select whatever it ended
-          // over — and it usually ends over the part, since that is what was
-          // being orbited.
+          /*
+           * The end of an orbit is not a request to select whatever it ended
+           * over — and it usually ends over the part, since that is what was
+           * being orbited.
+           *
+           * It breaks the double-click pair as well as being swallowed. The
+           * `onPointerOut` reset cannot cover this: an orbit over a part that
+           * fills the viewport never leaves the mesh, so a click, an orbit
+           * released over the part, and a third click inside
+           * the double-tap window of the *first* one paired those two and
+           * re-aimed the view — with a whole drag in between.
+           */
+          if (!isTap(event.nativeEvent)) {
+            doubles.reset()
+            return
+          }
+
+          /*
+           * A double click re-aims the orbit at what was clicked — and the
+           * click is still a click.
+           *
+           * Withholding the second pick was tried and is wrong. It stops a
+           * double click walking a face's readings, which is worth something,
+           * but it also silently takes the gesture away from an app that had
+           * given it a meaning: an editor where clicking a face puts it in and
+           * clicking it again takes it out is an ordinary thing to build, and
+           * this is not the layer that can tell the two apart. `doubled` on the
+           * pick reports the fact and leaves the decision where the knowledge
+           * is — the same bargain `modifiers` makes.
+           *
+           * Paired by hand rather than read off `dblclick`, which fires for the
+           * primary button only after both clicks and would arrive too late to
+           * mark the second one. `event.point` is this raycast's own hit, so
+           * the pivot lands exactly where the pick did.
+           */
+          const doubled = doubles.isDouble(event.nativeEvent)
+
+          /*
+           * The pick is built **before** the re-target, and the order is load
+           * bearing.
+           *
+           * `retarget` calls `setLookAt`, which writes the controls' *end*
+           * target — and `readTarget` reads that same end value back. Re-aiming
+           * first therefore handed the pick a target that was already the point
+           * just clicked, so its view direction came out as
+           * `camera.position - hitPoint` rather than `camera.position -
+           * orbitTarget`. On a face near the edge of a framed part that is
+           * degrees away from the direction the eye is actually looking along,
+           * and the ranking it feeds can name a different owner than a single
+           * click on the very same face.
+           */
+          const pick = pickFor(event, doubled)
+          if (doubled && retarget) retarget(event.point)
+          if (pick) onPick?.(pick)
+        }}
+        /*
+         * The right button is judged on **release**, not on `contextmenu`.
+         *
+         * `contextmenu` fires on right *mouse-down*, so the tap guard sees a
+         * gesture that has not moved yet and lets every one of them through —
+         * and right-drag is how the camera pans. Every pan therefore emitted a
+         * pick at the point it started from, which reads as the part answering
+         * a question nobody asked.
+         *
+         * `pointerup` is where the gesture has actually finished and the guard
+         * can do its job. `contextmenu` is left with the one thing it is still
+         * needed for: suppressing the browser's own menu over geometry.
+         */
+        onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+          if (event.nativeEvent.button !== 2) return
           if (!isTap(event.nativeEvent)) return
 
           const pick = pickFor(event)
           if (pick) onPick?.(pick)
+        }}
+        onContextMenu={(event: ThreeEvent<MouseEvent>) => {
+          // Only over geometry, so a right click that hits nothing still gets
+          // the browser's own menu.
+          if (pickFor(event)) event.nativeEvent.preventDefault()
         }}
       />
       {cut ? (

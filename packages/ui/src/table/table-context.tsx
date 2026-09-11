@@ -13,7 +13,7 @@ import { IdState } from '@table-library/react-table-library/types/common'
 export type EditingCell = [number, number | string, number]
 export type TableDensity = 'dense' | 'roomy'
 
-export interface TableContextInterface {
+interface TableContextInterface {
   columns: number
   density: TableDensity
   select: boolean
@@ -123,5 +123,4 @@ const TableProvider: FC<ProviderProps> = ({
 }
 
 const useTable = () => useContext(TableContext)
-const TableConsumer = TableContext.Consumer
-export { useTable, TableProvider, TableContext, TableConsumer }
+export { useTable, TableProvider }

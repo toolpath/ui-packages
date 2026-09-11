@@ -1,5 +1,5 @@
 import React, { HTMLAttributes, useMemo } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { Tooltip } from '../tooltip/tooltip'
 import { formatFullDate, formatRelativeTime } from './format-time'
 

@@ -1,7 +1,10 @@
 packages:
-  - apps/part-viewer
   - examples/typescript
   - examples/react-viewer
+  - packages/app-support
   - packages/sdk-typescript
+  - packages/tool-drawing
+  - packages/tool-scraper
+  - packages/tool-support
   - packages/ui
   - packages/viewer

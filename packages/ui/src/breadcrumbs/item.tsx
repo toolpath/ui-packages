@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { CaretRightIcon } from '@phosphor-icons/react'
 import { Link } from '../link'
 import { useBreadcrumbs } from './breadcrumbs-context'
@@ -54,9 +54,10 @@ export const Item = ({
             <>
               {previous && (
                 <CaretRightIcon
+                  weight="regular"
                   data-previous
                   className={cn(
-                    'flex size-5 rotate-180 truncate text-gray-300 dark:text-zinc-500',
+                    'flex size-4 rotate-180 truncate text-gray-300 dark:text-zinc-500',
                     {
                       'sm:hidden': breakpoint === 'sm',
                       'md:hidden': breakpoint === 'md',
@@ -70,8 +71,9 @@ export const Item = ({
             </>
           </Link>
           <CaretRightIcon
+            weight="regular"
             data-separator
-            className={cn('hidden size-5 text-gray-300 dark:text-zinc-500', {
+            className={cn('hidden size-4 text-gray-300 dark:text-zinc-500', {
               'sm:flex': breakpoint === 'sm',
               'md:flex': breakpoint === 'md',
               'lg:flex': breakpoint === 'lg',

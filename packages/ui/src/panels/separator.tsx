@@ -3,7 +3,7 @@ import {
   Separator as BaseSeparator,
   type SeparatorProps as BaseSeparatorProps,
 } from 'react-resizable-panels'
-import { cn } from '../helpers'
+import { cn } from '../common'
 import { useOrientation } from './orientation-context'
 
 type SeparatorProps = Omit<BaseSeparatorProps, 'elementRef'> & {

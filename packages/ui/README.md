@@ -4,6 +4,13 @@
 Toolpath Engine API. It is intentionally Tailwind-first and uses Toolpath's
 shared design tokens.
 
+**It is styling and display, and nothing else.** This package is the surface
+[Storybook](https://storybook.staging.toolpath.com) documents: a resource for
+reusable UI elements and a guide for building them. Code that persists a
+preference, reads a route, calls an API or holds application state belongs in
+[`@toolpath/app-support`](https://www.npmjs.com/package/@toolpath/app-support),
+which renders nothing and which this package does not depend on.
+
 ## Install
 
 ```sh

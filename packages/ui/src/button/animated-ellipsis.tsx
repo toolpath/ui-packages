@@ -1,6 +1,6 @@
 import React from 'react'
 import { Svg } from '../common'
-import { cn } from '../helpers'
+import { cn } from '../common'
 
 export type AnimatedEllipsisProps = {
   className?: string
