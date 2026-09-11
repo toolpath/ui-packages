@@ -34,6 +34,8 @@ class HoleFacts:
         fillet_radius (float): Radius of the blend at the hole bottom, in mm; zero when sharp.
         fillet_height (float): Height of the bottom blend, in mm; zero when sharp.
         threading (Threading | Unset): A thread a hole is to receive, and how it is to be cut.
+        min_drill_diameter (float | Unset): Smallest drill diameter that leaves the hole within its permitted undersize,
+            in mm.
     """
 
     kind: Literal["Hole"]
@@ -48,6 +50,7 @@ class HoleFacts:
     fillet_radius: float
     fillet_height: float
     threading: Threading | Unset = UNSET
+    min_drill_diameter: float | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         kind = self.kind
@@ -76,6 +79,8 @@ class HoleFacts:
         if not isinstance(self.threading, Unset):
             threading = self.threading.to_dict()
 
+        min_drill_diameter = self.min_drill_diameter
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update(
@@ -95,6 +100,8 @@ class HoleFacts:
         )
         if threading is not UNSET:
             field_dict["threading"] = threading
+        if min_drill_diameter is not UNSET:
+            field_dict["minDrillDiameter"] = min_drill_diameter
 
         return field_dict
 
@@ -135,6 +142,8 @@ class HoleFacts:
         else:
             threading = Threading.from_dict(_threading)
 
+        min_drill_diameter = d.pop("minDrillDiameter", UNSET)
+
         hole_facts = cls(
             kind=kind,
             diameter=diameter,
@@ -148,6 +157,7 @@ class HoleFacts:
             fillet_radius=fillet_radius,
             fillet_height=fillet_height,
             threading=threading,
+            min_drill_diameter=min_drill_diameter,
         )
 
         return hole_facts

@@ -69,9 +69,6 @@ class HolderResponse:
         fusion_trimmed_available (bool): Whether that download can serve an envelope cut at the gauge plane. False when
             there was nothing to cut at — no gauge plane was measured, or a flip put the taper at the nose — in which case
             `trim=true` serves the complete envelope.
-        download_ms (int): Worker time spent downloading the source CAD file, in milliseconds.
-        import_ms (int): Kernel time spent deriving the holder, in milliseconds.
-        total_ms (int): Total worker processing time for this holder, in milliseconds.
     """
 
     holder_id: UUID
@@ -104,9 +101,6 @@ class HolderResponse:
     mesh_glb_url: None | str
     fusion_available: bool
     fusion_trimmed_available: bool
-    download_ms: int
-    import_ms: int
-    total_ms: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -177,12 +171,6 @@ class HolderResponse:
 
         fusion_trimmed_available = self.fusion_trimmed_available
 
-        download_ms = self.download_ms
-
-        import_ms = self.import_ms
-
-        total_ms = self.total_ms
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -212,9 +200,6 @@ class HolderResponse:
                 "meshGlbUrl": mesh_glb_url,
                 "fusionAvailable": fusion_available,
                 "fusionTrimmedAvailable": fusion_trimmed_available,
-                "downloadMs": download_ms,
-                "importMs": import_ms,
-                "totalMs": total_ms,
             }
         )
 
@@ -357,12 +342,6 @@ class HolderResponse:
 
         fusion_trimmed_available = d.pop("fusionTrimmedAvailable")
 
-        download_ms = d.pop("downloadMs")
-
-        import_ms = d.pop("importMs")
-
-        total_ms = d.pop("totalMs")
-
         holder_response = cls(
             holder_id=holder_id,
             import_id=import_id,
@@ -389,9 +368,6 @@ class HolderResponse:
             mesh_glb_url=mesh_glb_url,
             fusion_available=fusion_available,
             fusion_trimmed_available=fusion_trimmed_available,
-            download_ms=download_ms,
-            import_ms=import_ms,
-            total_ms=total_ms,
         )
 
         holder_response.additional_properties = d

@@ -41,10 +41,6 @@ class PartResponse:
         thumbnail_url (None | str): 15-minute URL for the rendered PNG thumbnail, or null when absent.
         mesh_stl_url (None | str): 15-minute URL for the generated STL mesh, or null when absent.
         mesh_glb_url (None | str): 15-minute URL for the generated GLB mesh, or null when absent.
-        download_ms (int): Worker time spent downloading the source CAD file, in milliseconds.
-        recognition_ms (int): Kernel time spent on initial part processing, in milliseconds.
-        enrichment_ms (int): Kernel time spent building per-feature details, in milliseconds.
-        total_ms (int): Total worker processing time for this part, in milliseconds.
     """
 
     part_id: UUID
@@ -62,10 +58,6 @@ class PartResponse:
     thumbnail_url: None | str
     mesh_stl_url: None | str
     mesh_glb_url: None | str
-    download_ms: int
-    recognition_ms: int
-    enrichment_ms: int
-    total_ms: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -128,14 +120,6 @@ class PartResponse:
         mesh_glb_url: None | str
         mesh_glb_url = self.mesh_glb_url
 
-        download_ms = self.download_ms
-
-        recognition_ms = self.recognition_ms
-
-        enrichment_ms = self.enrichment_ms
-
-        total_ms = self.total_ms
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -155,10 +139,6 @@ class PartResponse:
                 "thumbnailUrl": thumbnail_url,
                 "meshStlUrl": mesh_stl_url,
                 "meshGlbUrl": mesh_glb_url,
-                "downloadMs": download_ms,
-                "recognitionMs": recognition_ms,
-                "enrichmentMs": enrichment_ms,
-                "totalMs": total_ms,
             }
         )
 
@@ -274,14 +254,6 @@ class PartResponse:
 
         mesh_glb_url = _parse_mesh_glb_url(d.pop("meshGlbUrl"))
 
-        download_ms = d.pop("downloadMs")
-
-        recognition_ms = d.pop("recognitionMs")
-
-        enrichment_ms = d.pop("enrichmentMs")
-
-        total_ms = d.pop("totalMs")
-
         part_response = cls(
             part_id=part_id,
             report_id=report_id,
@@ -298,10 +270,6 @@ class PartResponse:
             thumbnail_url=thumbnail_url,
             mesh_stl_url=mesh_stl_url,
             mesh_glb_url=mesh_glb_url,
-            download_ms=download_ms,
-            recognition_ms=recognition_ms,
-            enrichment_ms=enrichment_ms,
-            total_ms=total_ms,
         )
 
         part_response.additional_properties = d

@@ -25,24 +25,26 @@ class SurfaceFacts:
             max_stepdown (float): The deepest cut taken in one pass down the surface, mm.
             surface_finish_cusp_height (float): How much scallop the finishing pass may leave between neighboring passes,
                 mm.
-            is_u_shaped_fillet (bool): Whether the fillet has a U-shaped cross section.
             has_sharp_corner (bool): Whether the surface includes a sharp corner a tool must respect.
             use_only_ball_tools_for_finish (bool): Whether only ball tools are suitable for the finishing pass.
             max_bottom_diameter (float): Largest bottom diameter a terminal tool may have, in mm.
             cd (CdData): Clearance-diameter bounds per tolerance regime, plus the flags derived with them.
             tool_fit (ToolFitResult): The tool geometry a surface's own shape admits, before the layers are consulted.
+            is_u_shaped_fillet (bool): Deprecated: whether the fillet has a U-shaped cross section. tp-kernel 0.10.0 no
+                longer computes it, so a feature enriched since reads `false`; `useOnlyBallToolsForFinish` is the whole of that
+                verdict. Removed in the next API major.
     """
 
     kind: Literal["Three"]
     fillet_radius: float
     max_stepdown: float
     surface_finish_cusp_height: float
-    is_u_shaped_fillet: bool
     has_sharp_corner: bool
     use_only_ball_tools_for_finish: bool
     max_bottom_diameter: float
     cd: CdData
     tool_fit: ToolFitResult
+    is_u_shaped_fillet: bool
 
     def to_dict(self) -> dict[str, Any]:
         kind = self.kind
@@ -52,8 +54,6 @@ class SurfaceFacts:
         max_stepdown = self.max_stepdown
 
         surface_finish_cusp_height = self.surface_finish_cusp_height
-
-        is_u_shaped_fillet = self.is_u_shaped_fillet
 
         has_sharp_corner = self.has_sharp_corner
 
@@ -65,6 +65,8 @@ class SurfaceFacts:
 
         tool_fit = self.tool_fit.to_dict()
 
+        is_u_shaped_fillet = self.is_u_shaped_fillet
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update(
@@ -73,12 +75,12 @@ class SurfaceFacts:
                 "filletRadius": fillet_radius,
                 "maxStepdown": max_stepdown,
                 "surfaceFinishCuspHeight": surface_finish_cusp_height,
-                "isUShapedFillet": is_u_shaped_fillet,
                 "hasSharpCorner": has_sharp_corner,
                 "useOnlyBallToolsForFinish": use_only_ball_tools_for_finish,
                 "maxBottomDiameter": max_bottom_diameter,
                 "cd": cd,
                 "toolFit": tool_fit,
+                "isUShapedFillet": is_u_shaped_fillet,
             }
         )
 
@@ -100,8 +102,6 @@ class SurfaceFacts:
 
         surface_finish_cusp_height = d.pop("surfaceFinishCuspHeight")
 
-        is_u_shaped_fillet = d.pop("isUShapedFillet")
-
         has_sharp_corner = d.pop("hasSharpCorner")
 
         use_only_ball_tools_for_finish = d.pop("useOnlyBallToolsForFinish")
@@ -112,17 +112,19 @@ class SurfaceFacts:
 
         tool_fit = ToolFitResult.from_dict(d.pop("toolFit"))
 
+        is_u_shaped_fillet = d.pop("isUShapedFillet")
+
         surface_facts = cls(
             kind=kind,
             fillet_radius=fillet_radius,
             max_stepdown=max_stepdown,
             surface_finish_cusp_height=surface_finish_cusp_height,
-            is_u_shaped_fillet=is_u_shaped_fillet,
             has_sharp_corner=has_sharp_corner,
             use_only_ball_tools_for_finish=use_only_ball_tools_for_finish,
             max_bottom_diameter=max_bottom_diameter,
             cd=cd,
             tool_fit=tool_fit,
+            is_u_shaped_fillet=is_u_shaped_fillet,
         )
 
         return surface_facts
