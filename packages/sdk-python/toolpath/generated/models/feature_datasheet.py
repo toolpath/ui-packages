@@ -40,9 +40,14 @@ class FeatureDatasheet:
                 API).
             z_min (float): Bottom of the feature along the tool axis, in mm.
             z_max (float): Top of the feature along the tool axis, in mm.
-            extended_z_min (float): The z range extended by adjacent geometry the tool passes over reaching the
-                feature.
-            extended_z_max (float): Highest z the tool passes over while reaching the feature, in mm.
+            extended_z_min (float): Bottom of the band a pass over the feature reaches, in mm: `zMin`, or lower where a
+                chamfer on the far edge of a through feature deepens it. This, not `zMin`, is where
+                a wall pass and the whole-part rough run out, the reach a tool is held to, and the
+                depth the time estimates and setup planning price.
+            extended_z_max (float): Top of the band a pass over the feature runs down, in mm: `zMax`, or higher where a
+                chamfer, fillet or countersink sits on the feature's mouth. This, not `zMax`, is where
+                a rough, a wall pass and a hole's helix start, the reach a tool is held to, and the top
+                of the band the time estimates price.
             reach_curve (ReachCurve): How deep a tool must reach, by how far outboard of the cut the material stands:
                 material
                 within `horizontalOffset[i]` of the feature rises to `verticalOffset[i]` above it, so
