@@ -62,6 +62,11 @@ def _parse_response(
 
         return response_404
 
+    if response.status_code == 410:
+        response_410 = ProblemDetails.from_dict(response.json())
+
+        return response_410
+
     if response.status_code == 500:
         response_500 = ProblemDetails.from_dict(response.json())
 
@@ -99,7 +104,8 @@ def sync_detailed(
 
      The display mesh the latest tessellation job wrote for this part. It is faceted from the uploaded
     file as-is, so it is not the analysis mesh: its counts differ from the part result’s, and region
-    triangle ranges do not apply to it. 404 until a tessellation job has succeeded.
+    triangle ranges do not apply to it. Its own face spans come with it as `faceTriangleCounts`. 404
+    until a tessellation job has succeeded; 410 once the part is past the retention window.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -137,7 +143,8 @@ def sync(
 
      The display mesh the latest tessellation job wrote for this part. It is faceted from the uploaded
     file as-is, so it is not the analysis mesh: its counts differ from the part result’s, and region
-    triangle ranges do not apply to it. 404 until a tessellation job has succeeded.
+    triangle ranges do not apply to it. Its own face spans come with it as `faceTriangleCounts`. 404
+    until a tessellation job has succeeded; 410 once the part is past the retention window.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -170,7 +177,8 @@ async def asyncio_detailed(
 
      The display mesh the latest tessellation job wrote for this part. It is faceted from the uploaded
     file as-is, so it is not the analysis mesh: its counts differ from the part result’s, and region
-    triangle ranges do not apply to it. 404 until a tessellation job has succeeded.
+    triangle ranges do not apply to it. Its own face spans come with it as `faceTriangleCounts`. 404
+    until a tessellation job has succeeded; 410 once the part is past the retention window.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -206,7 +214,8 @@ async def asyncio(
 
      The display mesh the latest tessellation job wrote for this part. It is faceted from the uploaded
     file as-is, so it is not the analysis mesh: its counts differ from the part result’s, and region
-    triangle ranges do not apply to it. 404 until a tessellation job has succeeded.
+    triangle ranges do not apply to it. Its own face spans come with it as `faceTriangleCounts`. 404
+    until a tessellation job has succeeded; 410 once the part is past the retention window.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

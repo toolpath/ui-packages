@@ -81,7 +81,8 @@ def sync_detailed(
      Issues a short-lived API key for anonymous, no-signup access to a limited set of endpoints. Each
     session is isolated to its own throwaway organization, so it sees only the data it uploaded. Send
     the same `installId` again to renew: the previous key is retired and a new one is issued on the same
-    organization.
+    organization. The `installId` is therefore a bearer secret, held to the same care as the key it
+    mints.
 
     Args:
         body (DemoSessionRequest | Unset):
@@ -115,7 +116,8 @@ def sync(
      Issues a short-lived API key for anonymous, no-signup access to a limited set of endpoints. Each
     session is isolated to its own throwaway organization, so it sees only the data it uploaded. Send
     the same `installId` again to renew: the previous key is retired and a new one is issued on the same
-    organization.
+    organization. The `installId` is therefore a bearer secret, held to the same care as the key it
+    mints.
 
     Args:
         body (DemoSessionRequest | Unset):
@@ -144,7 +146,8 @@ async def asyncio_detailed(
      Issues a short-lived API key for anonymous, no-signup access to a limited set of endpoints. Each
     session is isolated to its own throwaway organization, so it sees only the data it uploaded. Send
     the same `installId` again to renew: the previous key is retired and a new one is issued on the same
-    organization.
+    organization. The `installId` is therefore a bearer secret, held to the same care as the key it
+    mints.
 
     Args:
         body (DemoSessionRequest | Unset):
@@ -176,7 +179,8 @@ async def asyncio(
      Issues a short-lived API key for anonymous, no-signup access to a limited set of endpoints. Each
     session is isolated to its own throwaway organization, so it sees only the data it uploaded. Send
     the same `installId` again to renew: the previous key is retired and a new one is issued on the same
-    organization.
+    organization. The `installId` is therefore a bearer secret, held to the same care as the key it
+    mints.
 
     Args:
         body (DemoSessionRequest | Unset):

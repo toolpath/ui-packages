@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Toolpath Engine API",
-    "version": "1.9.0",
+    "version": "1.11.0",
     "description": "Public REST API for Toolpath engine operations.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, reads, holders, and jobs), DFM, and Quoting — and that\naccess can be edited on an existing key in the portal. Every operation states what it is billed\nas in its `x-toolpath-billing` field: `dfm` or `quoting` for a metered operation, which records\nusage, or `unmetered` for a core operation. `GET` reads; every other method writes. A key with\nno access to the operation’s area is refused with 403 `product_mismatch`; one with read access\nused for a write is refused with 403 `read_only_key`."
   },
   "tags": [
@@ -307,7 +307,7 @@
           "installId": {
             "type": "string",
             "format": "uuid",
-            "description": "A stable id the caller keeps per install (a UUID). Sending it makes renewals land on the same organization, so uploads and usage stay together. Omit it for a fresh throwaway organization each time.",
+            "description": "A stable id the caller keeps per install (a UUID). Sending it makes renewals land on the same organization, so uploads and usage stay together. Omit it for a fresh throwaway organization each time. Treat it as a secret: this endpoint is unauthenticated, so anyone who knows an `installId` can mint a key on that organization, read what it uploaded, and retire the key its real holder is using. Generate it randomly (a v4 UUID), store it privately, and never show or log it.",
             "example": "2f1c5d0e-6b7a-4c8d-9e0f-1a2b3c4d5e6f"
           }
         }
@@ -702,6 +702,17 @@
             "minimum": 0,
             "description": "Number of triangles in the display mesh."
           },
+          "faceTriangleCounts": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "How many of the mesh’s triangles each face of the body became, in mesh order. Every face is one contiguous span of triangles, so the counts partition the mesh and sum to `meshTriangleCount`: the first count’s triangles are the first face, the next count’s the second, and so on. Draw a line where two spans meet to outline the part. Null for a mesh tessellated before face spans were kept; queue a new tessellation to get them."
+          },
           "meshGlbUrl": {
             "type": "string",
             "format": "uri",
@@ -713,6 +724,7 @@
           "jobId",
           "meshPointCount",
           "meshTriangleCount",
+          "faceTriangleCounts",
           "meshGlbUrl"
         ]
       },
@@ -835,11 +847,11 @@
           },
           "extendedZMin": {
             "type": "number",
-            "description": "The z range extended by adjacent geometry the tool passes over reaching the\nfeature."
+            "description": "Bottom of the band a pass over the feature reaches, in mm: `zMin`, or lower where a\nchamfer on the far edge of a through feature deepens it. This, not `zMin`, is where\na wall pass and the whole-part rough run out, the reach a tool is held to, and the\ndepth the time estimates and setup planning price."
           },
           "extendedZMax": {
             "type": "number",
-            "description": "Highest z the tool passes over while reaching the feature, in mm."
+            "description": "Highest z the tool passes over while reaching the feature, in mm: `zMax`, or higher\nwhere a chamfer or fillet sits on top of it."
           },
           "reachCurve": {
             "$ref": "#/components/schemas/ReachCurve",
@@ -3066,7 +3078,7 @@
         ],
         "security": [],
         "summary": "Start a temporary demo session",
-        "description": "Issues a short-lived API key for anonymous, no-signup access to a limited set of endpoints. Each session is isolated to its own throwaway organization, so it sees only the data it uploaded. Send the same `installId` again to renew: the previous key is retired and a new one is issued on the same organization.",
+        "description": "Issues a short-lived API key for anonymous, no-signup access to a limited set of endpoints. Each session is isolated to its own throwaway organization, so it sees only the data it uploaded. Send the same `installId` again to renew: the previous key is retired and a new one is issued on the same organization. The `installId` is therefore a bearer secret, held to the same care as the key it mints.",
         "requestBody": {
           "required": false,
           "content": {
@@ -3420,8 +3432,137 @@
               }
             }
           },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The part could not be retrieved.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/parts/{id}/thumbnail": {
+      "get": {
+        "operationId": "getPartThumbnail",
+        "tags": [
+          "Parts"
+        ],
+        "x-toolpath-billing": "unmetered",
+        "summary": "Get the part thumbnail",
+        "description": "Serves the rendered PNG thumbnail for a part as image bytes, so a client can fetch it with the\nAPI key it already holds rather than reading `thumbnailUrl` off `GET /v1/parts/{id}` first.\nThe thumbnail is the kernel’s three-quarter view of the analyzed part.\n\nThe bytes are served through this request rather than as a redirect to a presigned URL: a\nthumbnail is a few kB, and streaming it keeps the disclosure on this request’s access audit\ninstead of handing out a bearer grant that outlives it. `thumbnailUrl` on the part response is\nstill the right choice for an `<img src>`, which cannot carry an Authorization header.\n\nResolves the same artifact `GET /v1/parts/{id}` reports — the latest analysis run by default,\nor the run named by `?jobId=`. A part whose analysis produced no thumbnail answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820",
+              "description": "Serve the thumbnail from this specific processing run instead of the latest result."
+            },
+            "required": false,
+            "description": "Serve the thumbnail from this specific processing run instead of the latest result.",
+            "name": "jobId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The rendered PNG thumbnail.",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "description": "The PNG image bytes."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The part, its result, or its thumbnail was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The thumbnail could not be retrieved.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3565,7 +3706,7 @@
         ],
         "x-toolpath-billing": "unmetered",
         "summary": "Get the part mesh",
-        "description": "The display mesh the latest tessellation job wrote for this part. It is faceted from the uploaded file as-is, so it is not the analysis mesh: its counts differ from the part result’s, and region triangle ranges do not apply to it. 404 until a tessellation job has succeeded.",
+        "description": "The display mesh the latest tessellation job wrote for this part. It is faceted from the uploaded file as-is, so it is not the analysis mesh: its counts differ from the part result’s, and region triangle ranges do not apply to it. Its own face spans come with it as `faceTriangleCounts`. 404 until a tessellation job has succeeded; 410 once the part is past the retention window.",
         "parameters": [
           {
             "schema": {
@@ -3633,6 +3774,16 @@
           },
           "404": {
             "description": "The part does not exist, or it has no display mesh yet.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3849,6 +4000,16 @@
           },
           "404": {
             "description": "The part does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4080,6 +4241,16 @@
           },
           "404": {
             "description": "The part was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4420,6 +4591,16 @@
               }
             }
           },
+          "410": {
+            "description": "The plan is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The toolpaths could not be retrieved.",
             "content": {
@@ -4506,6 +4687,16 @@
           },
           "404": {
             "description": "The plan was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The plan is older than the retention window and is no longer available.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4614,6 +4805,16 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/PipelineReadinessProblem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The plan is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -4970,6 +5171,16 @@
               }
             }
           },
+          "410": {
+            "description": "The holder is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The holder could not be retrieved.",
             "content": {
@@ -5144,6 +5355,16 @@
           },
           "404": {
             "description": "The holder, its result, or its Fusion definition was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The holder is older than the retention window and is no longer available.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5508,6 +5729,16 @@
               }
             }
           },
+          "410": {
+            "description": "The job is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The job could not be retrieved.",
             "content": {
@@ -5597,6 +5828,16 @@
           },
           "404": {
             "description": "The job was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The job is older than the retention window and is no longer available.",
             "content": {
               "application/problem+json": {
                 "schema": {
