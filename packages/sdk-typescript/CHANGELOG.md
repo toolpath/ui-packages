@@ -1,5 +1,76 @@
 # @toolpath/api
 
+## 0.5.0
+
+### Minor Changes
+
+- 26f0d90: Regenerate the TypeScript SDK for Engine API 1.8.0 (from 1.3.3).
+
+  Display fast path: a part can be tessellated for a viewer without being analyzed.
+  - `parts.createPartMesh` (`POST /v1/parts/{id}/mesh`) queues the tessellation and answers `202`
+    with a job id; it honours `Idempotency-Key` like the other triggers.
+  - `parts.getPartMesh` (`GET /v1/parts/{id}/mesh`) returns a `PartMeshResponse`: a 15-minute URL
+    for the binary glTF (GLB), its point and triangle counts, and the job that produced it. Each run
+    replaces the previous mesh; pass `jobId` to insist on a specific run. A part with no display mesh
+    yet is `404 mesh_not_found`. This mesh is faceted from the uploaded file as-is, so it is not the
+    analysis mesh `parts.getPart` describes: its counts differ and region triangle ranges do not
+    apply to it.
+
+  Quoting pipeline (Engine API 1.4–1.6): plans are addressable resources under a part.
+  - `parts.createPlan`, `parts.listPlans`, and `parts.createToolpaths` live on the existing `parts`
+    namespace. `plans.getPlan`, `plans.getToolpaths`, `plans.getMachiningTime`, and
+    `plans.recalculateToolpaths` live on a new `plans` namespace of `createToolpathClient`.
+  - `plans.getToolpaths` and `plans.getMachiningTime` answer `409` with a `PipelineReadinessProblem`
+    — a problem document that also names the plan's current level — while the plan is not yet
+    toolpathed.
+  - New components: `PartMeshJobResponse`, `PartMeshResponse`, `QueuePartJobResponse`, `PlanSummary`, `PlanListResponse`, `PlanResponse`,
+    `PlanSetup`, `PlanAction`, `PlanIssue`, `ToolpathsResponse`, `ToolpathSetup`, `ToolpathAction`,
+    `MachiningTimeResponse`, `MachiningTimeSetup`, `MachiningTimeAction`, and
+    `PipelineReadinessProblem`.
+
+  Jobs and keys (Engine API 1.7):
+  - `JobDetail` gains `updatedAt` and `durationMs`.
+  - Every operation now states what it is billed as, and `403` is documented on every authenticated
+    operation: a key with no access to the operation's area is refused with `product_mismatch`, and
+    a key granted read access only is refused on a write with `read_only_key`.
+  - `FaceFacts.needsSidemill` is deprecated (tp-kernel 0.11.0 no longer states it separately; read
+    `!isFacing`). It stays on the type until the next API major.
+
+  **Removed fields — a consumer that reads them will not compile.** `PartResponse` loses
+  `downloadMs`, `recognitionMs`, `enrichmentMs`, and `totalMs`; `HolderResponse` loses `downloadMs`,
+  `importMs`, and `totalMs`. Read a run's duration from `jobs.getJob(...).durationMs` instead. No
+  other existing field changed name, type, or requiredness.
+
+- 4b91da2: Regenerate the TypeScript SDK for Engine API 1.10.0.
+
+  Reference documentation is reorganized around the part pipeline, the billing annotation is split
+  into product and metered, and machining plans and toolpath calculation are marked as early access.
+  - **Product and metered are now separate.** Each operation declares its product area in
+    `x-toolpath-product` (`core`, `dfm`, or `quoting`) and whether the call is billed in
+    `x-toolpath-metered` (boolean). This replaces the single `x-toolpath-billing` field, whose
+    `unmetered` value conflated "free" with "core area". Every operation now has a product; only the
+    compute calls are metered.
+  - **Plan and toolpath reads move into their product (access change).** Reading a plan or its
+    toolpaths/machining time now belongs to the `dfm`/`quoting` product rather than the free core
+    area, so it requires that product's read grant. A key with only core access that previously read
+    these will now receive `403 product_mismatch`; grant it DFM/Quoting read in the Portal. Nothing
+    is newly billed — these reads remain free.
+  - Operations are grouped and ordered by pipeline stage: `Parts` (upload, tessellate, and analyze),
+    `Features`, `Plans`, `Toolpaths`, then `Tool holders` and `Jobs`, queue endpoints before reads.
+    This is documentation grouping only; paths, request and response shapes, operation ids, and (apart
+    from the read-access change above) key access are unchanged.
+  - Operation summaries were standardized to a `verb + resource` form (for example
+    `Queue part processing` → `Analyze a part`, `Create a plan and calculate its toolpaths` →
+    `Calculate toolpaths`). `POST /v1/plans/{planId}/toolpaths` is renamed from "Recalculate
+    toolpaths" to "Calculate a plan's toolpaths" (operation id unchanged). Every read states which
+    pipeline step must run first to produce its data.
+  - The plan and toolpath operations carry an `x-toolpath-experimental` extension and an early-access
+    notice; they are available now but still gaining functionality, and breaking changes continue to
+    follow the API major version.
+
+  Apart from the plan/toolpath read-access change noted above, this release is additive: no existing
+  response changes shape, and no key is newly billed.
+
 ## 0.4.1
 
 ### Patch Changes
