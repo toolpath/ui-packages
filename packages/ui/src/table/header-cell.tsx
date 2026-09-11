@@ -1,9 +1,9 @@
-import React from 'react'
-import type { HTMLAttributes, MouseEvent, ReactNode } from 'react'
-import { HeaderCellSort } from '@table-library/react-table-library/sort'
+import React, { cloneElement, isValidElement } from 'react'
+import type { HTMLAttributes, MouseEvent, ReactElement, ReactNode } from 'react'
 import { HeaderCell as BaseHeaderCell, TableNode } from '@table-library/react-table-library/table'
 import { HeaderCellSortProps } from '@table-library/react-table-library/types/sort'
 import { cn } from '../common'
+import { useTableSort } from './sort-context'
 import { useTable } from './table-context'
 
 const Divider = () => (
@@ -112,6 +112,27 @@ export const HeaderCellInteractive = ({
   )
 }
 
+/**
+ * The accessory a `HeaderCellContent` carries, lifted out of the sort control.
+ *
+ * A control belongs beside the heading, not inside the button that sorts it.
+ */
+const splitAccessory = (children: ReactNode): { label: ReactNode; accessory: ReactNode } => {
+  if (!isValidElement(children) || children.type !== HeaderCellContent) {
+    return { label: children, accessory: null }
+  }
+
+  const content = children as ReactElement<HeaderCellContentProps>
+  if (content.props.accessory == null) {
+    return { label: children, accessory: null }
+  }
+
+  return {
+    label: cloneElement(content, { accessory: null }),
+    accessory: content.props.accessory,
+  }
+}
+
 export const HeaderCell = ({
   children,
   sortKey,
@@ -122,7 +143,9 @@ export const HeaderCell = ({
   ...props
 }: HeaderCellProps) => {
   const { columns, select, isEmpty, density } = useTable()
+  const sort = useTableSort()
   const isLastColumn = props.index === columns - (select ? 0 : 1)
+  const columnIndex = props.index
 
   const headerCellClass = 'border-b border-gray-100 dark:border-zinc-800 relative'
   const titleClass = cn(
@@ -130,7 +153,7 @@ export const HeaderCell = ({
     density === 'roomy' ? 'h-11' : 'h-8',
   )
 
-  if (isEmpty || (!sortKey && !sortFn)) {
+  if (isEmpty || (!sortKey && !sortFn) || sort === null || typeof columnIndex !== 'number') {
     return (
       <BaseHeaderCell className={headerCellClass} resize={resize} {...props}>
         <div className={titleClass}>{children}</div>
@@ -139,20 +162,42 @@ export const HeaderCell = ({
     )
   }
 
+  const sorted = sort.sortKey === columnIndex
+  const { label, accessory } = splitAccessory(children)
+
   return (
-    <HeaderCellSort
-      className={headerCellClass}
-      sortKey={props.index}
-      resize={resize}
-      sortIcon={{
-        iconDefault: null,
-        iconDown: <SortIcon flipped />,
-        iconUp: <SortIcon />,
-      }}
-      {...props}
-    >
-      <div className={cn(titleClass, 'min-w-0 w-full justify-start')}>{children}</div>
+    <BaseHeaderCell className={headerCellClass} resize={resize} {...props}>
+      <div className={cn(titleClass, 'min-w-0 w-full justify-start gap-1')}>
+        {/*
+          The heading is the sort, and the whole cell is its press: the button
+          holds only the heading, and its `::after` covers the cell — which is
+          the header cell's positioned box — so a click anywhere in it still
+          sorts. An accessory is a sibling rather than a child, because a
+          button inside a button is invalid HTML and a React hydration error,
+          and it is positioned so it stays above that cover and keeps its own
+          presses.
+        */}
+        <button
+          type="button"
+          onClick={() => sort.toggle(columnIndex)}
+          className={cn(
+            'flex min-w-0 items-center overflow-hidden text-left whitespace-nowrap cursor-pointer',
+            "after:absolute after:inset-0 after:content-['']",
+            { 'font-bold': sorted },
+          )}
+        >
+          {label}
+        </button>
+        {accessory !== null && (
+          <span className="relative flex shrink-0 items-center">{accessory}</span>
+        )}
+        {sorted && (
+          <span className="ml-auto flex shrink-0 items-center">
+            {sort.reverse ? <SortIcon flipped /> : <SortIcon />}
+          </span>
+        )}
+      </div>
       {divider && !isLastColumn && <Divider />}
-    </HeaderCellSort>
+    </BaseHeaderCell>
   )
 }
