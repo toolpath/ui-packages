@@ -32,13 +32,13 @@
  */
 
 import {
-  CAD_COLUMN,
   COLLET_DESIGNATION_COLUMN,
   COLLET_SERIES_COLUMN,
   CONTACT_COLUMN,
 } from '../../conventions.js'
 import { familyBrand, type BoundToolholding } from '../../family.js'
 import {
+  cadModel,
   checkUnitAgreement,
   clampingMode,
   colletRecord,
@@ -51,6 +51,8 @@ import {
   type ColletRecord,
   type HolderRecord,
   type HoldingMappers,
+  type OptionalColletField,
+  type OptionalHolderField,
 } from '../../holding.js'
 import { consoleWarn, type ScrapedRow, type Warn } from '../../scrape.js'
 
@@ -70,6 +72,44 @@ const UNIT_COLUMN = 'unit'
 function subject(row: ScrapedRow): string {
   return `${row[CATALOG_NUMBER] ?? ''} (${row[MATERIAL_NUMBER] ?? ''})`
 }
+
+/**
+ * What REGO-FIX's holder documents publish no column for.
+ *
+ * A powRgrip holder is collet-clamping and nothing else in this catalog, so the
+ * DIN 4000 document states a PG series where another vendor's table states a
+ * bore — `bore` is absent because there is no such column to read, and
+ * `holding.checkHolder` separately refuses a bore on a collet holder, which is
+ * the same fact arriving from the other side.
+ *
+ * The vendor publishes a technical drawing per part and no DXF, and no L2, L9,
+ * V or D11 anywhere a scrape can reach.
+ */
+const HOLDER_UNPUBLISHED: readonly OptionalHolderField[] = [
+  'bore',
+  'usableLength',
+  'clampingLength',
+  'adjustmentRange',
+  'lockNutDiameter',
+  'cadDxfUrl',
+]
+
+/**
+ * What REGO-FIX's collet documents publish no column for.
+ *
+ * Six, and the prose this replaces said seven: `holding.ColletRecord`'s factory
+ * called these "the seven REGO-FIX publishes none of" while the mapper below has
+ * read `nominal` out of `D1` since it was written. A comment could not notice
+ * that; this is checked against what the mapper supplies.
+ */
+const COLLET_UNPUBLISHED: readonly OptionalColletField[] = [
+  'bodyDiameter',
+  'functionalLength',
+  'overallLength',
+  'clampingLength',
+  'tapRange',
+  'squareSize',
+]
 
 /** One powRgrip holder row -> one {@link HolderRecord}. */
 function holder(row: ScrapedRow, family: BoundToolholding): HolderRecord {
@@ -92,8 +132,10 @@ function holder(row: ScrapedRow, family: BoundToolholding): HolderRecord {
     colletSeries: row[COLLET_SERIES_COLUMN] || null,
     gaugeLength: published(dim(row, 'L1', unit), what, 'L1 gage length'),
     bodyDiameter: dim(row, 'D2', unit),
-    cadModelUrl: row[CAD_COLUMN] || null,
-    cadDxfUrl: null,
+    // The ProductFinder index carries the CDN link on the part itself, so the
+    // column is written by the scrape and every row is answered.
+    ...cadModel(row),
+    unpublished: HOLDER_UNPUBLISHED,
   })
 }
 
@@ -132,6 +174,7 @@ function collet(
     // and `holding.checkCollet` refuses only an inverted one.
     clampMin: published(dim(row, 'CCCN', unit), what, 'CCCN clamping minimum'),
     clampMax: published(dim(row, 'CCCX', unit), what, 'CCCX clamping maximum'),
+    unpublished: COLLET_UNPUBLISHED,
   })
 }
 

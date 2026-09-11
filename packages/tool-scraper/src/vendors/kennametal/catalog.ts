@@ -34,7 +34,7 @@
  *   page **with a 404 status**, so a wrong guess fails rather than parsing to
  *   nothing.
  * - `pageSize` counts **families**, not parts. At `pageSize=2` the seven-family
- *   coolant-through leaf pages two at a time, which is why {@link colletListingPages}
+ *   coolant-through leaf pages two at a time, which is why {@link categoryListingPages}
  *   pages at all rather than asking once and trusting it.
  *
  * ## The tree is two shapes, not one
@@ -44,6 +44,15 @@
  * A leaf returns family links and no tiles. The tap-collet category is a leaf at
  * depth 0 and the standard-collet one is not, so a walk that assumed either
  * shape would find half the catalog.
+ *
+ * ## The category path in the URL does not scope anything
+ *
+ * The `query` does, alone. Asked for the BT30 ER-collet-chuck facet, the collet
+ * category's path and the holder category's path return the same 12 parts and
+ * the same one family (JG 2026-09-09). So {@link COLLET_CATEGORY} and
+ * {@link HOLDER_CATEGORY} are not two scopes — they are two spellings of "a real
+ * product category page to hang the component off", and a walk is defined by its
+ * roots rather than by which one it passes.
  */
 
 import { Parser } from 'htmlparser2'
@@ -101,6 +110,42 @@ export const COLLET_CATEGORIES: readonly { readonly name: string; readonly query
   },
 ]
 
+/** Where the holder walk starts. See the note above: this scopes nothing. */
+export const HOLDER_CATEGORY = 'metalworking-tools/tool-holders-and-adapters'
+
+/** Active parts under Tool Holders & Adapters — what every holder root extends. */
+const HOLDER_ROOT = ':relevance:obsoleteFacet:false:allCategoriesKMT:2664259'
+
+/**
+ * The six spindle interfaces this package covers, as the vendor's own facets.
+ *
+ * Read off the Tool Holders & Adapters listing on 2026-09-09, and the same
+ * shape {@link COLLET_CATEGORIES} has: `obsoleteFacet:false`, then the
+ * `allCategoriesKMT` chain that names Tool Holders & Adapters (`2664259`) and
+ * then the interface.
+ *
+ * **These are six of fifteen tiles, and the omissions are deliberate.** The
+ * same listing publishes KM™, KM4X™, DV, Collets and Sleeves, Accessories,
+ * Turret Adapted Clamping Units, Straight Shank System, Straight Shank with
+ * DUO-LOCK™ and VDI Toolholders. A seventh interface is a decision rather than
+ * a widening of a pattern — `AGENTS.md` holds this package to not raising
+ * request volume or adding scope on its own.
+ *
+ * `BTKV` and `CVKV` are the vendor's *face-contact* lines on the same two
+ * cones, which is why they are separate roots rather than rows: Kennametal
+ * numbers, prices and categorises them apart, and `HolderRecord.contact` is the
+ * axis that carries the difference. `families/kennametal.ts` records the same
+ * thing about the one BTKV30 family that predates this walk.
+ */
+export const HOLDER_CATEGORIES: readonly { readonly name: string; readonly query: string }[] = [
+  { name: 'BT', query: `${HOLDER_ROOT}:allCategoriesKMT:42025681` },
+  { name: 'BTKV', query: `${HOLDER_ROOT}:allCategoriesKMT:41357960` },
+  { name: 'CV', query: `${HOLDER_ROOT}:allCategoriesKMT:42025689` },
+  { name: 'CVKV', query: `${HOLDER_ROOT}:allCategoriesKMT:42025499` },
+  { name: 'HSK', query: `${HOLDER_ROOT}:allCategoriesKMT:41339510` },
+  { name: 'PSC', query: `${HOLDER_ROOT}:allCategoriesKMT:100025012` },
+]
+
 /**
  * How many families a listing page returns.
  *
@@ -135,7 +180,7 @@ export interface CategoryTile {
 }
 
 /** What one listing response holds. */
-export interface ColletListing {
+export interface CategoryListing {
   /** `data-totalResults`, or 0 where the response states none. */
   readonly total: number
   readonly tiles: readonly CategoryTile[]
@@ -167,7 +212,7 @@ export function listingUrl(
  * `horizontal-facet` is the class the tiles alone wear, and it is what
  * separates a subcategory from a filter checkbox.
  */
-export function parseColletListing(html: string): ColletListing {
+export function parseCategoryListing(html: string): CategoryListing {
   const tiles: CategoryTile[] = []
   const families = new Map<string, FamilyLink>()
 
@@ -222,7 +267,62 @@ export function parseColletListing(html: string): ColletListing {
 }
 
 /**
- * Every page of one collet category, until a page adds no family it had not seen.
+ * How many times one listing page is asked for before the walk gives up on it.
+ *
+ * **Four, because the holder tree made a single attempt unusable.** The collet
+ * walk is seven requests and a transient failure there is a re-run; the six
+ * holder interfaces are 336 nodes and about 635 requests, and Kennametal fails
+ * one often enough — three of 320 family scrapes on 2026-09-09, near 1 % — that
+ * *some* request in a walk that long fails almost every time. Without this, ten
+ * minutes of crawling ends in an exception with nothing printed, and re-running
+ * only buys another draw of the same lottery.
+ *
+ * A retry and not a wider timeout: what the vendor does is fail a request, not
+ * answer slowly.
+ */
+export const LISTING_ATTEMPTS = 4
+
+/**
+ * How long to wait before re-asking, and how fast that grows.
+ *
+ * **The backoff is the part that matters, and it was learned the hard way.**
+ * Three attempts spaced by the walk's 400 ms politeness delay recovered two
+ * failures on the 2026-09-09 walk and then lost it anyway: the vendor stopped
+ * accepting connections for a stretch, all three attempts landed inside that
+ * same stretch, and the walk died 300 nodes in. Attempts spread over about 40
+ * seconds ride that out; attempts spread over one second cannot, however many
+ * of them there are.
+ *
+ * Quadrupling rather than doubling, so four attempts cover 2 s, 8 s and 32 s
+ * without needing a longer list. The wait is only ever paid when something is
+ * already wrong.
+ */
+export const RETRY_BASE_MS = 2_000
+export const RETRY_FACTOR = 4
+
+/**
+ * One listing page, re-asked through a transient vendor failure.
+ *
+ * Exhausting every attempt still **throws**. A branch quietly missing from a
+ * reconciliation listing is worse than no listing at all: it reads as
+ * "Kennametal retired these families", which is exactly the question this
+ * command exists to answer.
+ */
+async function fetchListing(fetcher: Fetcher, url: string, warn: Warn): Promise<string> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await fetcher.text(url)
+    } catch (error) {
+      if (attempt >= LISTING_ATTEMPTS) throw error
+      const wait = RETRY_BASE_MS * RETRY_FACTOR ** (attempt - 1)
+      warn(`  WARNING: ${url} failed (${String(error)}); retrying in ${wait} ms`)
+      await pause(wait)
+    }
+  }
+}
+
+/**
+ * Every page of one category, until a page adds no family it had not seen.
  *
  * The vendor states no page count anywhere, and `data-totalResults` counts
  * *parts* while `pageSize` counts *families*, so the two cannot be divided into
@@ -232,18 +332,25 @@ export function parseColletListing(html: string): ColletListing {
  * Tiles come from the first page only. A category with subcategories publishes
  * them on every page and recursing on a duplicate would re-walk the branch.
  */
-export async function colletListingPages(
+export async function categoryListingPages(
   fetcher: Fetcher,
   query: string,
-  options: { brand?: AemBrandName; category?: string; delayMs?: number } = {},
-): Promise<ColletListing> {
-  const { brand = 'kennametal', category = COLLET_CATEGORY, delayMs = REQUEST_DELAY_MS } = options
+  options: { brand?: AemBrandName; category?: string; delayMs?: number; warn?: Warn } = {},
+): Promise<CategoryListing> {
+  const {
+    brand = 'kennametal',
+    category = COLLET_CATEGORY,
+    delayMs = REQUEST_DELAY_MS,
+    warn = consoleWarn,
+  } = options
   const families = new Map<string, FamilyLink>()
-  let first: ColletListing | null = null
+  let first: CategoryListing | null = null
 
   for (let page = 0; ; page += 1) {
     if (page > 0) await pause(delayMs)
-    const listing = parseColletListing(await fetcher.text(listingUrl(query, page, brand, category)))
+    const listing = parseCategoryListing(
+      await fetchListing(fetcher, listingUrl(query, page, brand, category), warn),
+    )
     first ??= listing
 
     const before = families.size
@@ -261,6 +368,17 @@ export async function colletListingPages(
 /** One node of the walk: the facet that was asked, and what came back. */
 export interface DiscoveredCategory {
   readonly name: string
+  /**
+   * Every name from the root down to and including this node.
+   *
+   * The holder tree is what this is for. `ER Collet Chucks` is a leaf under all
+   * six spindle interfaces and `Shrink Fit Toolholders` under all six as well,
+   * so a leaf's own name identifies neither the family nor the taper it is for
+   * — `BT / BT 40 Shank Tools / ER Collet Chucks` does. It is also where a
+   * holder family's `taper` fact comes from: the vendor states the interface as
+   * a category and never as a column.
+   */
+  readonly path: readonly string[]
   readonly query: string
   /** `data-totalResults` — how many parts the vendor counts under this facet. */
   readonly total: number
@@ -277,44 +395,52 @@ export interface DiscoveredCategory {
  * for and into the whole catalog.
  *
  * Sequential and paced by the package's shared politeness delay. The three
- * collet lines reach seven nodes, so this is a handful of requests run by hand.
+ * collet lines reach seven nodes; the six holder interfaces reach 336 and about
+ * 635 requests, which is minutes rather than seconds and still a command a
+ * maintainer runs by hand rather than something a scrape does.
+ *
+ * **`roots` has no default.** It did — `COLLET_CATEGORIES` — back when there was
+ * one tree to walk. With two, a default is a walk nobody asked for served to a
+ * caller who forgot an argument, and the pair that has to agree is `roots` and
+ * `options.category`.
  */
 export async function discoverFamilies(
   fetcher: Fetcher,
-  roots: readonly { name: string; query: string }[] = COLLET_CATEGORIES,
+  roots: readonly { name: string; query: string }[],
   options: { warn?: Warn; brand?: AemBrandName; category?: string; delayMs?: number } = {},
 ): Promise<DiscoveredCategory[]> {
   const { warn = consoleWarn, delayMs = REQUEST_DELAY_MS, ...where } = options
   const found: DiscoveredCategory[] = []
   const seen = new Set<string>()
 
-  const walk = async (name: string, query: string): Promise<void> => {
+  const walk = async (path: readonly string[], query: string): Promise<void> => {
     if (seen.has(query)) return
     seen.add(query)
+    const name = path[path.length - 1] ?? ''
 
-    const listing = await colletListingPages(fetcher, query, { ...where, delayMs })
-    found.push({ name, query, total: listing.total, families: listing.families })
+    const listing = await categoryListingPages(fetcher, query, { ...where, delayMs, warn })
+    found.push({ name, path, query, total: listing.total, families: listing.families })
 
     const children = listing.tiles.filter((tile) => tile.query.startsWith(`${query}:`))
     if (children.length === 0 && listing.families.length === 0) {
-      warn(`  WARNING: ${name} holds neither a subcategory nor a family`)
+      warn(`  WARNING: ${path.join(' / ')} holds neither a subcategory nor a family`)
     }
     for (const tile of children) {
       await pause(delayMs)
-      await walk(tile.name, tile.query)
+      await walk([...path, tile.name], tile.query)
     }
   }
 
-  for (const root of roots) await walk(root.name, root.query)
+  for (const root of roots) await walk([root.name], root.query)
   return found
 }
 
-/** One line per family, for a human reading a `--collets` run. */
+/** One line per family, for a human reading a `--collets` or `--holders` run. */
 export function describeFamily(
   category: DiscoveredCategory,
   family: FamilyLink,
   configured: string | null,
 ): string {
   const where = configured ?? '(not configured)'
-  return `${family.code}\t${family.slug}\t${category.name}\t${where}`
+  return `${family.code}\t${family.slug}\t${category.path.join(' / ')}\t${where}`
 }

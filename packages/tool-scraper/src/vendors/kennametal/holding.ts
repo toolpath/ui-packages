@@ -8,12 +8,17 @@
  *
  * ## What this platform states as a fact rather than a column
  *
- * Almost everything. `taper`, `contact`, `clamping`, `style` and `unit` are all
- * per-family constants here, declared in `families/kennametal.ts` with a
- * citation each, because Kennametal sells one interface and one clamping mode
- * per family — its dual-contact BT30 is a separate line (BTKV\*) with its own
- * family code. The two vendors whose holders vary row by row are the ones whose
- * mappers read a column instead.
+ * Almost everything. `taper`, `contact`, `clamping` and `style` are per-family
+ * constants here, declared in `families/kennametal.ts` with a citation each,
+ * because Kennametal sells one interface and one clamping mode per family — its
+ * dual-contact BT30 is a separate line (BTKV\*) with its own family code. The two
+ * vendors whose holders vary row by row are the ones whose mappers read a column
+ * instead.
+ *
+ * **`unit` is the exception, and it moved.** A holder family routinely sells
+ * metric and inch bores from one table, and the vendor says which a part is in
+ * the part's own catalog number rather than in any column — see {@link rowUnit}.
+ * A collet family does not do this, so `collet` below still reads the fact.
  *
  * ## Two published columns this deliberately does not carry
  *
@@ -32,13 +37,14 @@
  */
 
 import {
-  CAD_COLUMN,
   COLLET_DESIGNATION_COLUMN,
   COLLET_SERIES_COLUMN,
   dimensionalColumn,
+  type UnitSystem,
 } from '../../conventions.js'
 import { familyBrand, type BoundToolholding } from '../../family.js'
 import {
+  cadModel,
   checkUnitAgreement,
   clampingMode,
   colletRecord,
@@ -50,6 +56,8 @@ import {
   type ColletRecord,
   type HolderRecord,
   type HoldingMappers,
+  type OptionalColletField,
+  type OptionalHolderField,
 } from '../../holding.js'
 import { consoleWarn, type ScrapedRow, type Warn } from '../../scrape.js'
 import { CATALOG_NUMBER, MATERIAL_NUMBER } from './records.js'
@@ -84,6 +92,52 @@ function subject(row: ScrapedRow): string {
   return `${row[CATALOG_NUMBER] ?? ''} (${row[MATERIAL_NUMBER] ?? ''})`
 }
 
+/**
+ * The `M` Kennametal writes into a catalog number after a metric size.
+ *
+ * `CVKV50HPVTT06M350` is a 6 **mm** bore on a 350 mm projection; `BT30ER11060M`
+ * is an ER11 at 60 mm; `CV40ZTTHT050275` is a 0.500 in bore at 2.75 in and
+ * carries no `M` at all. So the marker is a digit run followed by `M`, and it
+ * sits mid-number as often as it sits at the end.
+ */
+const METRIC_MARKER = /\dM/
+
+/**
+ * Which system a holder row is designated in, from the vendor's own catalog
+ * number.
+ *
+ * **Per row, and this is the one vendor fact that can be.** `HoldingIdentity.unit`
+ * has always been per record; what was per *family* was Kennametal's answer to
+ * it, and `families/kennametal.ts` recorded that `100017036` publishes seven
+ * metric bores and six fractional ones under one code — split by hand into two
+ * CSVs, with the note that a third such family should end the splitting and make
+ * this a per-record fact. The holder walk found far more than a third: **21 of the
+ * 158 families** under the six spindle interfaces mix the two systems in one
+ * table, and no title, category or column tells them apart.
+ *
+ * The catalog number does, and it is a **vendor statement** rather than a
+ * measurement heuristic. Across the 1,192 holder rows in scope, 858 publish a
+ * `D1` pair that settles the question on its own — an inch bore is an exact 64th,
+ * a metric one a whole or half millimetre — and this agrees with **all 858**, with
+ * no disagreement anywhere (JG 2026-09-09). It then decides the 131 rows a `D1`
+ * cannot settle — mostly inch parts published in millimetres only, where the one
+ * column is the conversion: `HSK63ASFTT050276` is 12.7 mm, which is a half inch
+ * — and the 203 rows that publish no `D1` at all, which are the collet chucks,
+ * gripping through a collet rather than on a bore. There the number still
+ * answers, because `BT30ER16060M` is a 60 mm projection.
+ *
+ * The family's `unit` fact stays, and stays required: it is what a family with no
+ * dimensional catalog number at all still declares, and what says which system
+ * the family is *catalogued* in when somebody reads the config rather than a row.
+ */
+function rowUnit(row: ScrapedRow, family: BoundToolholding): UnitSystem {
+  const catalogNumber = row[CATALOG_NUMBER]
+  if (catalogNumber === undefined || catalogNumber === '') {
+    return holdingFact(family, 'unit', family.unit)
+  }
+  return METRIC_MARKER.test(catalogNumber) ? 'millimeters' : 'inches'
+}
+
 /** One Kennametal or WIDIA holder row -> one {@link HolderRecord}. */
 function holder(
   row: ScrapedRow,
@@ -92,7 +146,7 @@ function holder(
 ): HolderRecord {
   const warn = options.warn ?? consoleWarn
   const what = subject(row)
-  const unit = holdingFact(family, 'unit', family.unit)
+  const unit = rowUnit(row, family)
 
   for (const label of HOLDER_LABELS) checkUnitAgreement(row, label, what, warn)
 
@@ -118,11 +172,12 @@ function holder(
     adjustmentRange: dim(row, 'V', unit),
     bodyDiameter: dim(row, 'D2', unit),
     lockNutDiameter: dim(row, 'D11', unit),
-    cadModelUrl: row[CAD_COLUMN] || null,
-    // This platform publishes a STEP model and no 2D profile. A DXF column would
-    // be a claim about the data, and false — the call `conventions.CAD_DXF_COLUMN`
-    // records.
-    cadDxfUrl: null,
+    // Whether the models were looked up at all is `holding.cadModel`'s answer
+    // and not this adapter's: Kennametal publishes no CAD link on a family page,
+    // so `conventions.CAD_COLUMN` arrives only from the separate `cad` pass and
+    // an un-swept family is blank for a reason that is not the vendor's.
+    ...cadModel(row),
+    unpublished: HOLDER_UNPUBLISHED,
   })
 }
 
@@ -160,6 +215,19 @@ function colletCapacity(
   return { clampMin: exact, clampMax: exact }
 }
 
+/**
+ * What this platform's holder tables publish no column for.
+ *
+ * One entry, and it is the 2D profile: a Kennametal holder page offers a STEP
+ * model and no DXF, so a `CAD_DXF_URL` column would be a claim about the data
+ * and false — the call `conventions.CAD_DXF_COLUMN` records. Everything else a
+ * holder can state, these tables state.
+ */
+const HOLDER_UNPUBLISHED: readonly OptionalHolderField[] = ['cadDxfUrl']
+
+/** The collet tables publish every optional column, so this declares nothing. */
+const COLLET_UNPUBLISHED: readonly OptionalColletField[] = []
+
 /** One Kennametal or WIDIA collet row -> one {@link ColletRecord}. */
 function collet(
   row: ScrapedRow,
@@ -192,6 +260,7 @@ function collet(
     // vendor filled neither says nothing rather than the wrong one.
     tapRange: row[dimensionalColumn(TAP_RANGE_LABEL, unit)] || null,
     squareSize: dim(row, SQUARE_LABEL, unit),
+    unpublished: COLLET_UNPUBLISHED,
   })
 }
 

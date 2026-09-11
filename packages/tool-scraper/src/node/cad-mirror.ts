@@ -77,6 +77,21 @@ export interface CadCoverage {
   rows: number
   /** Rows carrying a {@link CAD_COLUMN} a mirror could download. */
   step: number
+  /**
+   * Rows **nothing has looked a model up for** — the CSV carries no
+   * {@link CAD_COLUMN} at all.
+   *
+   * Counted apart from the blanks in `step` because the two are different
+   * facts and only one of them is about the vendor. A Kennametal family that
+   * the `cad` pass has not run over is entirely `unspecified`, and reading that
+   * as "publishes no models" is how a maintainer concludes a catalog has no CAD
+   * when what it has is an un-run step — see `holding.cadModel`, which draws the
+   * same line at the record.
+   *
+   * Always `0` or `rows`: the column is a property of the CSV's header, so it is
+   * present for every row of a family or for none.
+   */
+  unspecified: number
   /** Rows carrying a {@link CAD_DXF_COLUMN}. */
   dxf: number
 }
@@ -102,12 +117,18 @@ export interface CadCoverage {
  */
 export function cadCoverage(rows: readonly ScrapedRow[]): CadCoverage {
   let step = 0
+  let unspecified = 0
   let dxf = 0
   for (const row of rows) {
-    if ((row[CAD_COLUMN] ?? '').trim()) step += 1
+    // `undefined` and `''` are two different answers here — the column absent
+    // versus a cell the lookup left blank — and `?? ''` collapsed them until
+    // 2026-09-10. See {@link CadCoverage.unspecified}.
+    const cell = row[CAD_COLUMN]
+    if (cell === undefined) unspecified += 1
+    else if (cell.trim()) step += 1
     if ((row[CAD_DXF_COLUMN] ?? '').trim()) dxf += 1
   }
-  return { rows: rows.length, step, dxf }
+  return { rows: rows.length, step, unspecified, dxf }
 }
 
 /**

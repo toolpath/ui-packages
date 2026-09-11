@@ -43,6 +43,7 @@ import {
 } from './stickout.js'
 import { DEFAULT_CLAMPING, type ClampingRule } from './clamping.js'
 import { isTapForm } from './forms.js'
+import { MM_PER_INCH } from './units.js'
 
 /**
  * How a holder grips what it holds.
@@ -200,11 +201,55 @@ export const colletFitsHolder = (
 ): boolean => holder.clamping === 'collet' && holder.colletSeries === collet.series
 
 /**
- * A hair of tolerance, because 3/8" is 9.525 on the collet's sheet and
- * 9.524999999999999 on the tool's after a conversion. Strict, 350 tools in the
- * scraped catalog had no collet in the crib.
+ * How far outside its published band a shank may sit and still be gripped.
+ *
+ * It began at `1e-6`, to absorb a conversion's last bit: 3/8" is 9.525 on the
+ * collet's sheet and 9.524999999999999 on the tool's, and strict, 350 tools in
+ * the scraped catalog had no collet in the crib. **That is the wrong order of
+ * magnitude for what these numbers actually are.** A clamping band is not a
+ * measurement this package computed; it is a figure a vendor printed to three
+ * or four decimal places, and float error is the smallest thing separating two
+ * such figures.
+ *
+ * ## The rows that proved it
+ *
+ * Four of the 764 collets in the scraped catalog refuse the size they are
+ * *named for*, and every one of them is a printing artifact rather than a
+ * vendor statement:
+ *
+ * - Kennametal `25ER0312`, a 5/16 in ER25, prints `CCCX` as `0.312` in and
+ *   `7.938` mm **in the same row**. 7.938 mm is 0.3125 in exactly, so the inch
+ *   cell is that value at three places and the band stops 0.0127 mm below the
+ *   5/16 shank it is sold for.
+ * - `32ERSS0281`, `32ERSS0406` and `32ERSS0719` print the nominal and the band
+ *   as the same four-decimal inch value rounded in opposite directions —
+ *   0.2812 against 0.2813 for one 9/32 collet — and miss by 0.00254 mm.
+ *
+ * ## Why this number
+ *
+ * One thousandth of an inch: the coarsest last place these catalogs print, so
+ * it is the width of the artifact rather than a figure picked to clear it. The
+ * corridor either side is wide and the check is that it stays wide. The largest
+ * artifact above is 0.0127 mm, which this sits 2x above; the smallest *genuine*
+ * undersize it must still refuse is `40ERSS0312` at 0.0635 mm — a sealed ER40
+ * collet whose vendor states a 7.874 mm capacity against a 5/16 in name, in
+ * both unit columns — which this sits 2.5x below. All ten of those sealed ER40
+ * rows stay refused, which is right: the vendor means them.
+ *
+ * Mechanically it is nothing. An ER collet closes about a millimetre, so a
+ * thousandth of an inch of interference is the collet ending fractionally less
+ * closed than the sheet implies.
+ *
+ * **Not fixed upstream in `@toolpath/tool-scraper`, deliberately.** A record
+ * carries the vendor's own figure at the vendor's own precision, and the
+ * millimetre twin is derived from the native column so that the pair cannot
+ * state two sizes. Reaching into the other unit column to recover the finer
+ * cell would trade that guarantee for one row, and would still leave the three
+ * `32ERSS` rows, whose columns disagree in the last digit in *both* systems.
+ * Precision the vendor did not print is not recoverable there; it is absorbed
+ * here, once, where the comparison happens.
  */
-const GRIP_TOLERANCE = 1e-6
+const GRIP_TOLERANCE = MM_PER_INCH / 1000
 
 /** Whether a collet grips a given shank diameter, in millimetres. */
 export const gripsShank = (collet: Pick<Collet, 'clampMin' | 'clampMax'>, shank: number): boolean =>

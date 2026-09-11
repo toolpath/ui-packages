@@ -60,29 +60,43 @@
  *   starts publishing a catalog nobody checked.
  */
 
-import { dimensionalColumn, UNIT_SUFFIX, type UnitSystem } from './conventions.js'
+import { CAD_COLUMN, dimensionalColumn, UNIT_SUFFIX, type UnitSystem } from './conventions.js'
 import { IncompletePartError, ScraperConfigError, VendorResponseError } from './errors.js'
 import type { BoundToolholding } from './family.js'
 import { BRANDS, productLink, recordGuid, type BrandName } from './identity.js'
 import { convertLength, fractionValue } from './measure.js'
+import type { FactSource } from './provenance.js'
+import { UNSPECIFIED } from './records.js'
 import { consoleWarn, type ScrapedRow, type Warn } from './scrape.js'
 
 /**
  * How a holder grips the thing it holds.
  *
  * Four values where the reference implementation had two. `bore` and `collet`
- * are its own; `shrink` and `hydraulic` are here because MariTool's leaf
- * categories already classify parts as those and the distinction is a real one
- * a buyer makes — a shrink-fit holder needs an induction heater on the bench
- * and a hydraulic chuck needs an actuation screw, where both are otherwise the
- * same answer to "what fits in it".
+ * are its own; `shrink` and `hydraulic` are here because the distinction is a
+ * real one a buyer makes — a shrink-fit holder needs an induction heater on the
+ * bench and a hydraulic chuck needs an actuation screw, where both are
+ * otherwise the same answer to "what fits in it".
  *
  * They are the same *fit* question, which is what {@link BORE_CLAMPINGS} says:
- * all three grip a shank directly and are held to one rule. Kennametal's
- * shrink-fit and hydraulic families declare `bore` and stay declaring it —
- * the vendor states the mode as a bore and this package does not re-classify a
- * family's own words. `style` is the finer axis and already carries
- * `shrink-fit-gp` and `hydraulic-chuck`.
+ * all three grip a shank directly and are held to one rule.
+ *
+ * **Every vendor reads this off the vendor's own category, and none of them
+ * infers it from a column.** MariTool takes it from the leaf a part was
+ * scraped under; Kennametal takes it from the family breadcrumb. Until
+ * 2026-09-10 this docstring claimed Kennametal "states the mode as a bore" and
+ * that declaring `bore` on its 135 shrink-fit and hydraulic families was
+ * therefore not re-classifying a vendor's words. That was wrong on the facts —
+ * no Kennametal variant table publishes a clamping column at all, so `bore` was
+ * this package's own inference from a `D1` being present, while the vendor's
+ * `Hydraulic Chucks` and `Shrink Fit Toolholders` categories were already
+ * scraped and cited on the same families' `style`. The cost was that `clamping`
+ * meant different things per vendor in one crib and a `hydraulic` filter hid
+ * 339 hydraulic chucks.
+ *
+ * `style` is still the finer axis and still carries `shrink-fit-gp`,
+ * `hydraulic-chuck-hydroforce` and the rest — the vendor's product line, where
+ * this is the mode.
  */
 export type ClampingMode = 'bore' | 'collet' | 'shrink' | 'hydraulic'
 
@@ -109,6 +123,48 @@ export type ContactMode = 'taper' | 'face'
 
 /** Every {@link ContactMode}, for the same reason {@link CLAMPING_MODES} is a list. */
 export const CONTACT_MODES: readonly ContactMode[] = ['taper', 'face']
+
+/**
+ * How a part's downloadable STEP model was arrived at.
+ *
+ * **`records.MaterialGroupsSource`'s shape, for the same reason it has one**:
+ * a `null` link carried two incompatible claims at once. `'vendor-stated'` is
+ * bound to `provenance.FactSource` rather than spelled again, because two
+ * declarations of one vocabulary is the drift `records.ts` already refuses.
+ */
+export type CadSource = Extract<FactSource, 'vendor-stated'> | typeof UNSPECIFIED
+
+/**
+ * A part's STEP model and whether anything has looked for one — the reader
+ * every holder mapper uses, so the three states are decided once.
+ *
+ * **`conventions.CAD_COLUMN` is filled by two different kinds of step**, and
+ * the difference used to reach the record as one `null`. REGO-FIX, MariTool and
+ * Harvey write the column during the scrape itself, so their rows are always
+ * answered. Kennametal and WIDIA publish no CAD link on a family page at all —
+ * the models are CDS Visual's — so the column arrives only when the separate
+ * `toolpath-scrape cad` pass has run, and until it does *every* row of a family
+ * is blank for a reason that has nothing to do with the vendor.
+ *
+ * `node/csv.parseCsv` fills `''` only for cells under a column that is in the
+ * header, so the CSV already tells the two apart and this is what stops the
+ * record collapsing them:
+ *
+ * - **`unspecified`**, `cadModelUrl` `null` — nothing has looked. Says nothing
+ *   about whether a model exists, and is not a claim that none does.
+ * - **`vendor-stated`**, `cadModelUrl` `null` — the lookup ran and the vendor
+ *   publishes no model for this part. That is `vendors/kennametal/cad.ts`'s
+ *   documented `cadAvailable: false` case reaching the record intact.
+ * - **`vendor-stated`**, `cadModelUrl` set — the vendor publishes this one.
+ */
+export function cadModel(row: ScrapedRow): {
+  cadModelUrl: string | null
+  cadModelSource: CadSource
+} {
+  const cell = row[CAD_COLUMN]
+  if (cell === undefined) return { cadModelUrl: null, cadModelSource: UNSPECIFIED }
+  return { cadModelUrl: cell || null, cadModelSource: 'vendor-stated' }
+}
 
 /** What every toolholding record shares with every `records.ToolRecord`. */
 export interface HoldingIdentity {
@@ -189,10 +245,40 @@ export interface HolderRecord extends HoldingIdentity {
   readonly bodyDiameter: number | null
   /** `D11` — lock-nut diameter. */
   readonly lockNutDiameter: number | null
-  /** `conventions.CAD_COLUMN`, or null where the vendor publishes no model. */
+  /**
+   * `conventions.CAD_COLUMN` — the downloadable STEP model.
+   *
+   * `null` on its own does **not** mean the vendor publishes none; read it with
+   * {@link HolderRecord.cadModelSource}, which is what says which null this is.
+   */
   readonly cadModelUrl: string | null
+  /** Whether anything has looked for {@link HolderRecord.cadModelUrl}. See {@link cadModel}. */
+  readonly cadModelSource: CadSource
   /** `conventions.CAD_DXF_COLUMN`, or null where the vendor publishes no profile. */
   readonly cadDxfUrl: string | null
+  /**
+   * The nullable fields this part's vendor publishes **no column for**, stated
+   * by the adapter and checked against what it supplied.
+   *
+   * Every null above has two possible causes — the vendor published nothing, or
+   * this package reads nothing — and a consumer building one catalog out of
+   * several vendors cannot tell them apart from the record. That is not a
+   * detail: a picker that hides a holder whose `usableLength` is null is right
+   * to hide it when REGO-FIX's table has no L2 column, and wrong when the
+   * adapter simply never mapped one.
+   *
+   * So a mapper states it rather than reaching it by omission, and
+   * {@link holderRecord} refuses the two ways the statement can be false — a
+   * field left out and not declared, or declared and then supplied. It is the
+   * sensor for the rule this module's own factory used to state only in prose:
+   * *writing `usableLength: null` five times in an adapter is how a null
+   * becomes a default nobody notices.*
+   *
+   * A field **absent** from this list and null is a fact about the part —
+   * MariTool's four blank `Shank Size` cells, a collet-clamping holder's bore.
+   * A field **present** is a fact about the vendor's table, constant down it.
+   */
+  readonly unpublished: readonly OptionalHolderField[]
 }
 
 /** One collet — a series, a capacity band, and the sizes in between. */
@@ -257,6 +343,15 @@ export interface ColletRecord extends HoldingIdentity {
    * `null` where the vendor publishes no square, which is every round collet.
    */
   readonly squareSize: number | null
+  /**
+   * The nullable fields this collet's vendor publishes no column for.
+   *
+   * {@link HolderRecord.unpublished}'s rule, on the collet half. The prose it
+   * replaces was already drifting: the factory below called these "the seven
+   * REGO-FIX publishes none of" while that adapter has mapped `nominal` from
+   * `D1` since it was written, so the count was six and nothing could notice.
+   */
+  readonly unpublished: readonly OptionalColletField[]
 }
 
 /** Either toolholding record. Narrow on {@link HoldingIdentity.kind}. */
@@ -578,6 +673,18 @@ export function checkHolder(record: HolderRecord): void {
       `CAD model URL is not an https .stp or .step: ${JSON.stringify(url)}`,
     )
   }
+
+  // The three states of {@link cadModel} reduced to the one pair that cannot be
+  // true: a URL nothing looked for. `unspecified` with a null URL is the
+  // un-swept case and `vendor-stated` with a null URL is the vendor publishing
+  // none, and both are answers a consumer needs — only a link that arrived
+  // without a lookup says the record was assembled two different ways.
+  if (url !== null && record.cadModelSource === UNSPECIFIED) {
+    throw new ScraperConfigError(
+      what,
+      `carries a CAD model URL and calls its source ${UNSPECIFIED}`,
+    )
+  }
 }
 
 /**
@@ -634,15 +741,18 @@ export function checkCollet(record: ColletRecord): void {
 }
 
 /**
- * The nullable holder dimensions a mapper may simply not mention.
+ * The nullable holder fields a mapper may leave out — and must then declare in
+ * {@link HolderRecord.unpublished}.
  *
  * They stay **required on the type** so a consumer reading a record never
  * handles `undefined`; only the construction is optional, which is the shape
- * `records.toolRecord` already has. Kennametal publishes every one of them and
- * REGO-FIX four fewer, and writing `usableLength: null` five times in an
- * adapter is how a null becomes a default nobody notices.
+ * `records.toolRecord` already has. Leaving one out was free until this
+ * contract, and the prose here said why that was a risk without doing anything
+ * about it — *writing `usableLength: null` five times in an adapter is how a
+ * null becomes a default nobody notices.* The declaration is the check that
+ * prose was asking for.
  */
-type OptionalHolderFields =
+export type OptionalHolderField =
   | 'colletSeries'
   | 'bore'
   | 'usableLength'
@@ -653,12 +763,73 @@ type OptionalHolderFields =
   | 'cadModelUrl'
   | 'cadDxfUrl'
 
+/** Every {@link OptionalHolderField}, for the same reason {@link CLAMPING_MODES} is a list. */
+export const OPTIONAL_HOLDER_FIELDS: readonly OptionalHolderField[] = [
+  'colletSeries',
+  'bore',
+  'usableLength',
+  'clampingLength',
+  'adjustmentRange',
+  'bodyDiameter',
+  'lockNutDiameter',
+  'cadModelUrl',
+  'cadDxfUrl',
+]
+
+/**
+ * Refuse a mapper whose declaration and whose supplied fields disagree.
+ *
+ * A `ScraperConfigError` and not a `VendorResponseError`, because both states
+ * it refuses are this package's fault rather than the vendor's: an adapter that
+ * omitted a field without saying the vendor publishes no column for it, or one
+ * that said so and then supplied a value anyway. Neither is a row that can be
+ * skipped past — the claim is constant down a whole table, so the first part
+ * through carries the same fault as the last.
+ *
+ * Supplying `null` for a declared field is redundant rather than wrong and is
+ * allowed: it is the same claim twice, where a *value* is the opposite claim.
+ */
+function checkUnpublished(
+  what: string,
+  declared: readonly string[],
+  optional: readonly string[],
+  fields: Readonly<Record<string, unknown>>,
+): void {
+  const stated = new Set(declared)
+
+  for (const name of stated) {
+    if (!optional.includes(name)) {
+      throw new ScraperConfigError(
+        what,
+        `declares ${name} unpublished, which is not one of ${optional.join(', ')}`,
+      )
+    }
+    const value = fields[name]
+    if (value !== undefined && value !== null) {
+      throw new ScraperConfigError(
+        what,
+        `declares the vendor publishes no ${name} and supplied ${JSON.stringify(value)}`,
+      )
+    }
+  }
+
+  for (const name of optional) {
+    if (fields[name] === undefined && !stated.has(name)) {
+      throw new ScraperConfigError(
+        what,
+        `left ${name} out without declaring that the vendor publishes no column ` +
+          `for it — a null nobody declared is a null nobody can read`,
+      )
+    }
+  }
+}
+
 /** What a mapper supplies to build a holder; the rest is derived or minted. */
 type HolderFields = Omit<
   HolderRecord,
-  'kind' | 'guid' | 'vendor' | 'productLink' | 'boreMm' | 'gaugeLengthMm' | OptionalHolderFields
+  'kind' | 'guid' | 'vendor' | 'productLink' | 'boreMm' | 'gaugeLengthMm' | OptionalHolderField
 > &
-  Partial<Pick<HolderRecord, OptionalHolderFields>>
+  Partial<Pick<HolderRecord, OptionalHolderField>>
 
 /**
  * Build a {@link HolderRecord}: mint its guid, derive its millimetre twins, and
@@ -675,6 +846,20 @@ type HolderFields = Omit<
  * mutated one would be reaching back across the seam this type exists to draw.
  */
 export function holderRecord(fields: HolderFields): HolderRecord {
+  checkUnpublished(
+    `the ${fields.brand} holder mapper`,
+    fields.unpublished,
+    OPTIONAL_HOLDER_FIELDS,
+    fields,
+  )
+
+  // `Object.freeze` below is shallow, and every record of a family shares this
+  // one array — an adapter's module constant. Frozen in place rather than
+  // copied: a copy per record is an allocation per part for a value that is the
+  // same list every time, and the array a mapper declared is not one anything
+  // should be editing afterwards either.
+  Object.freeze(fields.unpublished)
+
   const record: HolderRecord = Object.freeze({
     ...fields,
     kind: 'holder' as const,
@@ -698,8 +883,8 @@ export function holderRecord(fields: HolderFields): HolderRecord {
   return record
 }
 
-/** The same, for a collet. REGO-FIX publishes none of these seven. */
-type OptionalColletFields =
+/** The same, for a collet. */
+export type OptionalColletField =
   | 'nominal'
   | 'bodyDiameter'
   | 'functionalLength'
@@ -707,6 +892,17 @@ type OptionalColletFields =
   | 'clampingLength'
   | 'tapRange'
   | 'squareSize'
+
+/** Every {@link OptionalColletField}, for the same reason {@link CLAMPING_MODES} is a list. */
+export const OPTIONAL_COLLET_FIELDS: readonly OptionalColletField[] = [
+  'nominal',
+  'bodyDiameter',
+  'functionalLength',
+  'overallLength',
+  'clampingLength',
+  'tapRange',
+  'squareSize',
+]
 
 /** What a mapper supplies to build a collet. */
 type ColletFields = Omit<
@@ -718,12 +914,26 @@ type ColletFields = Omit<
   | 'clampMinMm'
   | 'clampMaxMm'
   | 'clampingLengthMm'
-  | OptionalColletFields
+  | OptionalColletField
 > &
-  Partial<Pick<ColletRecord, OptionalColletFields>>
+  Partial<Pick<ColletRecord, OptionalColletField>>
 
 /** Build a {@link ColletRecord}, on the same terms as {@link holderRecord}. */
 export function colletRecord(fields: ColletFields): ColletRecord {
+  checkUnpublished(
+    `the ${fields.brand} collet mapper`,
+    fields.unpublished,
+    OPTIONAL_COLLET_FIELDS,
+    fields,
+  )
+
+  // `Object.freeze` below is shallow, and every record of a family shares this
+  // one array — an adapter's module constant. Frozen in place rather than
+  // copied: a copy per record is an allocation per part for a value that is the
+  // same list every time, and the array a mapper declared is not one anything
+  // should be editing afterwards either.
+  Object.freeze(fields.unpublished)
+
   const record: ColletRecord = Object.freeze({
     ...fields,
     kind: 'collet' as const,

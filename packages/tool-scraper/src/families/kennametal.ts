@@ -215,10 +215,49 @@ const METRIC_CATALOG = {
   cite: 'the family is titled and catalogued in this system; both unit columns are usually published, so this decides which is displayed',
 } as const satisfies Fact<UnitSystem>
 
-const BORE_CLAMPING = {
-  value: 'bore',
+/**
+ * The two shank-gripping modes, each from the vendor's own category.
+ *
+ * These were one `BORE_CLAMPING` fact until 2026-09-10, cited as "the holder
+ * publishes a D1 bore and no collet series". That is a derivation from which
+ * columns a variant table happens to fill, and it is the wrong way round: no
+ * variant table in this catalog publishes a clamping column at all, so a
+ * column's presence is corroboration and the vendor's category is the source.
+ * It is the shape `families/emuge.ts` uses for the same class of fact — `FG01`
+ * names a machine tap and the `chamfer form` column independently agrees — and
+ * the shape `families/maritool.ts` already uses for *this* fact, where the leaf
+ * category is what `shrink()` and `hydraulic()` read.
+ *
+ * The breadcrumb these cite is the one the `style` facts below already cite,
+ * scraped and verified in the same pass. Declaring a bore beside it was this
+ * package deciding a vendor had not said something it had said.
+ *
+ * **What the old cite cost.** MariTool minted `shrink` and `hydraulic` for
+ * holders Kennametal minted `bore` for, so `clamping` — the axis a picker
+ * branches on — meant different things per vendor in one crib, and a
+ * `hydraulic` filter hid 339 hydraulic chucks and 650 shrink fits.
+ *
+ * **No Kennametal family declares a plain bore now, and that is correct.**
+ * Every family this package configures is one of these two or a collet chuck.
+ * A shell-mill arbor or a side-lock family would be the vendor stating a plain
+ * bore and would declare it then — see the note above `HOLDER_FAMILIES` on the
+ * 380 families the walk lists as `(not configured)`.
+ *
+ * Both are still {@link holding.BORE_CLAMPINGS}, so the fit rule is unchanged:
+ * all three grip a shank directly and are held to one "is this bore the shank's
+ * size?" question. What differs is what a buyer needs on the bench, which is
+ * why the modes are apart at all.
+ */
+const HYDRAULIC_CLAMPING = {
+  value: 'hydraulic',
   source: 'vendor-stated',
-  cite: 'the holder publishes a D1 bore and no collet series, so it grips the shank directly',
+  cite: "the family's breadcrumb names the vendor's own `Hydraulic Chucks` category, as the `style` fact beside it cites; and independently every row publishes a D1 bore and no collet series, so it grips the shank directly",
+} as const satisfies Fact<string>
+
+const SHRINK_CLAMPING = {
+  value: 'shrink',
+  source: 'vendor-stated',
+  cite: "the family's breadcrumb names the vendor's own `Shrink Fit Toolholders` category, as the `style` fact beside it cites; and independently every row publishes a D1 bore and no collet series, so it grips the shank directly",
 } as const satisfies Fact<string>
 
 const HYDRAULIC_CHUCK = {
@@ -244,6 +283,229 @@ const SHRINK_FIT_GP = {
   source: 'vendor-stated',
   cite: 'same category; tagline "Shrink Fit Toolholders General Purpose (GP)"',
 } as const satisfies Fact<string>
+
+/**
+ * The eighteen spindle interfaces the holder walk reaches, one fact each.
+ *
+ * **The taper is a category and never a column.** No holder variant table in
+ * this catalog publishes it — 33 distinct columns across the 159 families and
+ * not one names the interface — so every one of these cites the branch
+ * `kennametal --holders` puts the family in, which is a listing anybody can
+ * re-run, plus the standard that branch names.
+ *
+ * `BTKV` and `CVKV` families declare the **plain** taper of the same size.
+ * A BTKV40 is the same JIS B 6339 cone as a BT40 and differs by seating on the
+ * flange face as well, which is `HolderRecord.contact` — the axis that carries
+ * it. `profiles.TAPER_PREFIXES` records the same split from the other side.
+ */
+const BT40_SHANK = {
+  value: 'BT40',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'BT 40 Shank Tools' or 'BTKV 40 Shank Tools', which are one cone: JIS B 6339 / MAS 403 size 40",
+} as const satisfies Fact<string>
+
+const BT50_SHANK = {
+  value: 'BT50',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'BT 50 Shank Tools' or 'BTKV 50 Shank Tools', which are one cone: JIS B 6339 / MAS 403 size 50",
+} as const satisfies Fact<string>
+
+const CV40_SHANK = {
+  value: 'CV40',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'CV 40 Shank Tools' or 'CVKV 40 Shank Tools', which are one cone: ANSI B5.50 V-flange size 40, the interface MariTool designates CAT40",
+} as const satisfies Fact<string>
+
+const CV50_SHANK = {
+  value: 'CV50',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'CV 50 Shank Tools' or 'CVKV 50 Shank Tools', which are one cone: ANSI B5.50 V-flange size 50, the interface MariTool designates CAT50",
+} as const satisfies Fact<string>
+
+const HSK100A_SHANK = {
+  value: 'HSK100A',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'HSK100A'; DIN 69893 / ISO 12164 form A, size 100",
+} as const satisfies Fact<string>
+
+const HSK125A_SHANK = {
+  value: 'HSK125A',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'HSK125A'; DIN 69893 / ISO 12164 form A, size 125",
+} as const satisfies Fact<string>
+
+const HSK32C_SHANK = {
+  value: 'HSK32C',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'HSK32C'; DIN 69893 / ISO 12164 form C, size 32",
+} as const satisfies Fact<string>
+
+const HSK40A_SHANK = {
+  value: 'HSK40A',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'HSK40A'; DIN 69893 / ISO 12164 form A, size 40",
+} as const satisfies Fact<string>
+
+const HSK40C_SHANK = {
+  value: 'HSK40C',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'HSK40C'; DIN 69893 / ISO 12164 form C, size 40",
+} as const satisfies Fact<string>
+
+const HSK50A_SHANK = {
+  value: 'HSK50A',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'HSK50A'; DIN 69893 / ISO 12164 form A, size 50",
+} as const satisfies Fact<string>
+
+const HSK50C_SHANK = {
+  value: 'HSK50C',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'HSK50C'; DIN 69893 / ISO 12164 form C, size 50",
+} as const satisfies Fact<string>
+
+const HSK63A_SHANK = {
+  value: 'HSK63A',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'HSK63A'; DIN 69893 / ISO 12164 form A, size 63",
+} as const satisfies Fact<string>
+
+const HSK63C_SHANK = {
+  value: 'HSK63C',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'HSK63C'; DIN 69893 / ISO 12164 form C, size 63",
+} as const satisfies Fact<string>
+
+const HSK80A_SHANK = {
+  value: 'HSK80A',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'HSK80A'; DIN 69893 / ISO 12164 form A, size 80",
+} as const satisfies Fact<string>
+
+const HSK80F_SHANK = {
+  value: 'HSK80F',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'HSK80F (Pin)'; DIN 69893 / ISO 12164 form F, size 80",
+} as const satisfies Fact<string>
+
+const PSC50_SHANK = {
+  value: 'PSC50',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'PSC 50'; ISO 26623 polygonal taper size 50",
+} as const satisfies Fact<string>
+
+const PSC63_SHANK = {
+  value: 'PSC63',
+  source: 'vendor-stated',
+  cite: "the walk puts the family under 'PSC 63'; ISO 26623 polygonal taper size 63",
+} as const satisfies Fact<string>
+
+/**
+ * How a holder meets the spindle, for the five interfaces beyond BT.
+ *
+ * `contact` has no default and never has: a family added without it fails
+ * loudly rather than being recorded as plain-taper on no evidence. What the
+ * holder walk adds is that for three of these the answer is a property of the
+ * *interface* rather than of the product line, so it is stated once here rather
+ * than per family.
+ */
+const CV_TAPER_CONTACT = {
+  value: 'taper',
+  source: 'vendor-stated',
+  cite: 'the 7:24 V-flange seats on the cone alone; the vendor sells the face-contact version of the same cone as a separate line, which is why `kennametal --holders` walks CV and CVKV as two trees',
+} as const satisfies Fact<string>
+
+const KV_FACE_CONTACT = {
+  value: 'face',
+  source: 'vendor-stated',
+  cite: "the vendor names the category itself 'BTKV • Taper Face Contact' / 'CVKV • Taper Face Contact' — the KV lines are the same cones seating on the flange face as well, and they carry their own family codes and prices",
+} as const satisfies Fact<string>
+
+const HSK_FACE_CONTACT = {
+  value: 'face',
+  source: 'vendor-stated',
+  cite: 'a hollow taper seats on the flange face and the cone at once by design (DIN 69893 / ISO 12164); the vendor publishes no taper-only HSK line, in any form or size, for the walk to contrast it with',
+} as const satisfies Fact<string>
+
+const PSC_FACE_CONTACT = {
+  value: 'face',
+  source: 'vendor-stated',
+  cite: 'ISO 26623 couples on the polygon and the face together; as with HSK the vendor offers no face-less variant',
+} as const satisfies Fact<string>
+
+/**
+ * The eight holder styles beyond the four that predate the holder walk.
+ *
+ * Every one is Kennametal's own product line, taken from the category leaf the
+ * walk ends at or from the family's own title, and never coined here. They are
+ * split the way `shrink-fit-fc` and `shrink-fit-gp` already were, and for the
+ * reason recorded there: two lines that overlap in size are not interchangeable
+ * at speed, and a consumer turns this string into the words on a holder row.
+ */
+const HYDRAULIC_CHUCK_HYDROFORCE = {
+  value: 'hydraulic-chuck-hydroforce',
+  source: 'vendor-stated',
+  cite: "the category leaf is 'Hydraulic Chucks • HydroForce™ • HT' ('• HydroForce™' on the two PSC families); the vendor's own line name, and its titles read 'HydroForce High Torque'",
+} as const satisfies Fact<string>
+
+const HYDRAULIC_CHUCK_SLIM = {
+  value: 'hydraulic-chuck-slim',
+  source: 'vendor-stated',
+  cite: "the category leaf is 'Hydraulic Chucks • Slim Line'; a slimmer nose for the same bores, which is a reach fact rather than a fit one",
+} as const satisfies Fact<string>
+
+const HYDRAULIC_CHUCK_TREND = {
+  value: 'hydraulic-chuck-trend',
+  source: 'vendor-stated',
+  cite: "the category leaf is 'Hydraulic Chucks • TREND Line'",
+} as const satisfies Fact<string>
+
+const HYDRAULIC_CHUCK_MQL = {
+  value: 'hydraulic-chuck-mql',
+  source: 'vendor-stated',
+  cite: "the category leaf is 'Hydraulic Chuck • MQL' — minimum-quantity lubrication, a coolant path rather than a clamping difference",
+} as const satisfies Fact<string>
+
+const SHRINK_FIT_SF = {
+  value: 'shrink-fit-sf',
+  source: 'vendor-stated',
+  cite: "the family titles read 'Safe-Lock' and the product lines 'TT SF HPV'; a form-locking shank interface, so it takes only a Safe-Lock shank",
+} as const satisfies Fact<string>
+
+const SHRINK_FIT_HT = {
+  value: 'shrink-fit-ht',
+  source: 'vendor-stated',
+  cite: "the family titles read 'High Torque (HT)' and the product lines 'TT HT HPV'",
+} as const satisfies Fact<string>
+
+const SHRINK_FIT_TTGL = {
+  value: 'shrink-fit-ttgl',
+  source: 'vendor-stated',
+  cite: "the family titles read 'TTGL Line' or 'TTGL' — the vendor's gauge-length-controlled shrink line",
+} as const satisfies Fact<string>
+
+/**
+ * The unit a **mixed** family is catalogued in, where its rows are not all one.
+ *
+ * 21 of the 159 holder families publish metric and inch bores from one table,
+ * and `vendors/kennametal/holding.ts` reads each row's own catalog number for
+ * the unit that reaches the record. So this fact decides nothing about a part;
+ * what it says is which system the family is *mostly* sold in, for somebody
+ * reading the config, and it is the fallback for a row with no catalog number
+ * at all. `derived` and not `vendor-stated`, because the vendor states it per
+ * row and this is a count of those rows.
+ */
+const MIXED_METRIC_MAJORITY = {
+  value: 'millimeters',
+  source: 'derived',
+  note: 'the family publishes both systems in one table and more of its rows are metric; each row carries its own designation in its catalog number (JG 2026-09-09)',
+} as const satisfies Fact<UnitSystem>
+
+const MIXED_INCH_MAJORITY = {
+  value: 'inches',
+  source: 'derived',
+  note: 'the family publishes both systems in one table and more of its rows are inch; each row carries its own designation in its catalog number (JG 2026-09-09)',
+} as const satisfies Fact<UnitSystem>
 
 // ── Cutting tools ──────────────────────────────────────────────────────────
 export const FAMILIES = {
@@ -565,10 +827,13 @@ export const FAMILIES = {
 // prefixes).
 //
 // `clamping` is the discriminant a picker branches on and is deliberately not
-// the same field as `style`: 'bore' means the holder takes one shank size
-// directly, 'collet' means it needs a collet in between. A shrink-fit or
-// side-lock family added later is a new `style` but an existing `clamping`, so
-// the fit rules do not grow a case.
+// the same field as `style`: 'collet' means the holder needs a collet in
+// between, and 'bore', 'shrink' and 'hydraulic' each mean it takes one shank
+// size directly. The three shank modes answer one fit question and
+// `holding.BORE_CLAMPINGS` is where that is stated once, so a side-lock family
+// added later is a new `style` and an existing `clamping` and the fit rules do
+// not grow a case. They are separate *values* because what a buyer has to own
+// to use one differs — an induction heater, an actuation screw, or neither.
 //
 // `contact` is the second such discriminant and arrived with BTKV30
 // (JG 2026-08-05). 'taper' is a plain 7/24 cone; 'face' is a dual-contact
@@ -592,161 +857,2070 @@ export const FAMILIES = {
 // front of a machinist rather than a wrong number, and the citation is what
 // keeps it checkable. The breadcrumb is server-rendered, so re-checking one is
 // a single `curl` of `fam.x.<CODE>.html` — no scraper change and no browser.
+//
+// ## What the holder walk added (JG 2026-09-09)
+//
+// This table held nine families on one BT30 spindle until `kennametal --holders`
+// enumerated the six interfaces Kennametal sells: **158 families and 1,192 parts**
+// across BT, BTKV, CV, CVKV, HSK and PSC. `familyCode` came out of that walk on
+// every one of them, including the nine that had none, so a re-scrape now reads
+// the code out of config rather than out of a browser.
+//
+// **These are the families whose clamping this package already models.** The six
+// trees hold 538 families and 2,862 parts; the other 380 are shell-mill arbors,
+// KM and DUO-LOCK modular adapters, PSC cutting units, bar blanks and BTF46
+// adapters, and none of them grips a shank or a collet. `ClampingMode` has four
+// values and a shell-mill arbor is not one of them, so those stay out until
+// somebody decides what a fifth would mean. `--holders` lists them every run as
+// `(not configured)`, which is how they stay visible rather than forgotten.
+//
+// **`unit` moved to the row.** 21 of these 158 families sell metric and inch
+// bores from one table, and `vendors/kennametal/holding.ts` now reads the unit
+// out of each part's own catalog number. The fact below still says which system
+// a family is *catalogued* in, and is what a row with no catalog number falls
+// back to — it no longer decides what a machinist is shown.
+//
+// **A CSV name is `<vendor line><size>_<style>`**, with the family's unit or a
+// distinguishing word from its title where two families would otherwise collide,
+// and the family code where even that is not enough (five of the 158 — the
+// vendor ships two families under one title). The nine names that predate the
+// walk are kept as they were, because they name files a maintainer already has
+// on disk.
+//
+// **These families declared `bore` until 2026-09-10, and that was a bug.** The
+// argument for it was that a shrink fit grips the shank exactly as a hydraulic
+// chuck does and a picker's fit rule asks one question of both — true, and
+// `holding.BORE_CLAMPINGS` is what carries it. What the argument missed is that
+// `clamping` is also a filter axis, that MariTool was already minting `shrink`
+// and `hydraulic` off its leaf categories, and that Kennametal states the same
+// thing in the breadcrumb these families' `style` facts already cite. So one
+// crib held two meanings of `hydraulic` and the filter hid 339 chucks. See
+// `HYDRAULIC_CLAMPING` and `SHRINK_CLAMPING` above.
 export const HOLDER_FAMILIES = {
+  // ── BT ────────────────────────────────────────────────────────────────
+  // BT 30 Shank Tools
   'bt30_er_collet_adapters_metric.csv': {
-    catalogName: 'Kennametal BT30 ER Collet Adapters Metric',
+    catalogName: 'Kennametal ER™ Collet Adapter • BT30',
     rows: 12,
+    familyCode: '100149552',
     facts: {
       taper: BT30_SHANK,
       contact: TAPER_CONTACT,
       clamping: CST_COLLET_CLAMPING,
       style: ER_COLLET_CHUCK,
       unit: METRIC_CATALOG,
+    },
+  },
+  'bt30_hydraulic_chuck_trend.csv': {
+    catalogName: 'Kennametal HC-T - TREND - BT form AD',
+    rows: 2,
+    familyCode: '100018419',
+    facts: {
+      taper: BT30_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_TREND,
+      unit: INCH_CATALOG,
+    },
+  },
+  'bt30_hydraulic_chucks_form_ad_inch.csv': {
+    catalogName: 'Kennametal HC IN-BT Form AD',
+    rows: 3,
+    familyCode: '100127657',
+    facts: {
+      taper: BT30_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: INCH_CATALOG,
     },
   },
   'bt30_hydraulic_chucks_form_ad_metric.csv': {
-    catalogName: 'Kennametal BT30 Hydraulic Chucks Form AD Metric',
+    catalogName: 'Kennametal HC MM-BT Form AD',
     rows: 8,
+    familyCode: '100127643',
     facts: {
       taper: BT30_SHANK,
       contact: TAPER_CONTACT,
-      clamping: BORE_CLAMPING,
+      clamping: HYDRAULIC_CLAMPING,
       style: HYDRAULIC_CHUCK,
       unit: METRIC_CATALOG,
     },
   },
-  // The inch half of the same Form AD line (family 100127657, "HC IN-BT",
-  // scraped JG 2026-08-05) — same BT30 cone, same actuation screw, three
-  // fractional bores (1/4, 3/8, 1/2 in) instead of eight metric ones. It is
-  // a *sibling* family and not more rows on the one above: Kennametal
-  // numbers and codes the two separately, and the bores do not overlap.
-  //
-  // `unit` is 'inches' because the family is inch-native, which is the only
-  // thing that decides which column a holder's record mapper displays. Both unit
-  // columns are published here for every dimension — the HSK63A missing-pair
-  // case does not apply — so this family would have converted either way and
-  // silently shown 6.35 mm where a machinist ordered 1/4 in.
-  'bt30_hydraulic_chucks_form_ad_inch.csv': {
-    catalogName: 'Kennametal BT30 Hydraulic Chucks Form AD Inch',
-    rows: 3,
+  // **`HLD_D1_MIN` is metric-only on both FC families, including this inch one.**
+  // That is the HSK63A missing-pair case from the runbook, and it is why
+  // `holding.dim`'s cross-unit fallback is load-bearing rather than defensive:
+  // without it every one of these six inch chucks would carry no bore, match no
+  // tool, and raise nothing. 330 of the 1,210 holder rows publish `D1` in
+  // millimetres only, so this is the common case rather than the odd one.
+  'bt30_shrink_fit_fc_form_ad_inch.csv': {
+    catalogName:
+      'Kennametal BT30 Shrink Fit Toolholders • FC Line • Through Coolant Form AD • Inch',
+    rows: 6,
+    familyCode: '109480412',
     facts: {
       taper: BT30_SHANK,
       contact: TAPER_CONTACT,
-      clamping: BORE_CLAMPING,
-      style: HYDRAULIC_CHUCK,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
       unit: INCH_CATALOG,
     },
   },
-  // Dual-contact BT30. Same cone, same M16 drawbar, same ER collets as the
-  // family above — what differs is that the flange face seats on the spindle
-  // face too, and the vendor prices and numbers it as its own line (BTKV*).
-  //
-  // This family publishes **two** gage lengths: `L1` (100 mm on all five) and
-  // `L1FC`, "Gage Length Face Contact" (99.002 mm on all five). Which one is
-  // real is a property of the spindle, not of the holder. `gaugeLength` is
-  // `L1` because this shop's BT30 spindle is not face-contact (JG
-  // 2026-08-05), so `L1FC` is scraped into the CSV — the record of what the
-  // vendor said — and deliberately not carried onto the record, per
-  // a holder's record mapper's rule about published columns nothing displays. Promote
-  // it the day a dual-contact spindle exists to read it, and change
-  // `gaugeLength` with it rather than showing both.
-  'btkv30_er_collet_chucks_metric.csv': {
-    catalogName: 'Kennametal BTKV30 ER Collet Chucks Metric',
-    rows: 5,
+  'bt30_shrink_fit_fc_form_ad_metric.csv': {
+    catalogName:
+      'Kennametal BT30 Shrink Fit Toolholders • FC Line • Through Coolant Form AD • Metric',
+    rows: 6,
+    familyCode: '109480407',
     facts: {
       taper: BT30_SHANK,
-      contact: {
-        value: 'face',
-        source: 'vendor-stated',
-        cite: 'the product page names the shank "SK BT Taper Face Contact"',
-      },
+      contact: TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // **The family that moved `unit` onto the row.** 100017036 publishes seven
+  // metric bores (6-20 mm) and six fractional ones (1/4-3/4 in) as thirteen rows
+  // under one code, and until 2026-09-09 it was the only one known to, so it was
+  // split by hand into two CSVs with a note saying a third such family should end
+  // the splitting. The holder walk found twenty more. It is one entry again, and
+  // `vendors/kennametal/holding.ts` reads the `M` in each part's catalog number.
+  'bt30_shrink_fit_hpv_form_ad.csv': {
+    catalogName: 'Kennametal TT HPV-BT Form AD',
+    rows: 13,
+    familyCode: '100017036',
+    // Both systems in one table: 7 metric rows and 6 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: BT30_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  // BT 40 Shank Tools
+  'bt40_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ Collet Adapter • BT40',
+    rows: 19,
+    familyCode: '100149593',
+    facts: {
+      taper: BT40_SHANK,
+      contact: TAPER_CONTACT,
       clamping: CST_COLLET_CLAMPING,
       style: ER_COLLET_CHUCK,
       unit: METRIC_CATALOG,
     },
   },
-  // Shrink-fit chucks, scraped JG 2026-08-05 from the BT category page. Four
-  // entries, two vendor families — see the split note below.
-  //
-  // `clamping: 'bore'` and not a new mode: a shrink fit grips the shank
-  // directly, exactly as a hydraulic chuck does, and the picker's fit rule is
-  // the same question ("is this bore the shank's size?"). What differs is
-  // thermal rather than geometric, and nothing in this catalog reads it.
-  //
-  // The `style` split is the vendor's own product line, not a coinage.
-  // Kennametal sells two shrink-fit lines on the same BT30 cone: the **FC
-  // Line** ("Standard Heat Shrink Holders | Carbide and HSS Compatible | Face
-  // Coolant | Through Coolant", Balanced-by-Design, 3 µm or less) and the
-  // older **General Purpose (GP)** TT HPV line, which is *balanceable* with
-  // optional M6 set screws rather than balanced as shipped. They overlap in
-  // size but are not interchangeable at speed, so they are told apart the way
-  // `er-standard` and `er-sealed` are. `FC` is the vendor's token and is left
-  // unexpanded — nothing on the page says what it abbreviates.
-  //
-  // **`HLD_D1_MIN` is metric-only on both FC families, including the inch
-  // one.** That is the HSK63A case from the runbook, and this is the first
-  // family where it bites a family the catalog actually ships: without
-  // `_dim`'s cross-unit fallback every one of these six inch chucks would
-  // carry no bore, match no tool, and raise nothing.
-  'bt30_shrink_fit_fc_form_ad_metric.csv': {
-    catalogName: 'Kennametal BT30 Shrink Fit FC Line Form AD Metric',
-    rows: 6,
+  'bt40_hydraulic_chuck_hydroforce_inch.csv': {
+    catalogName: 'Kennametal BT40 Hydraulic Chuck • HydroForce High Torque • Inch',
+    rows: 2,
+    familyCode: '109438988',
     facts: {
-      taper: BT30_SHANK,
+      taper: BT40_SHANK,
       contact: TAPER_CONTACT,
-      clamping: BORE_CLAMPING,
-      style: SHRINK_FIT_FC,
-      unit: METRIC_CATALOG,
-    },
-  },
-  'bt30_shrink_fit_fc_form_ad_inch.csv': {
-    catalogName: 'Kennametal BT30 Shrink Fit FC Line Form AD Inch',
-    rows: 6,
-    facts: {
-      taper: BT30_SHANK,
-      contact: TAPER_CONTACT,
-      clamping: BORE_CLAMPING,
-      style: SHRINK_FIT_FC,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
       unit: INCH_CATALOG,
     },
   },
-  // **These two are one vendor family (100017036, "TT HPV-BT Form AD") split
-  // in half, and it is the only place in this package that happens.** Every
-  // other family is wholly metric or wholly inch; this one publishes seven
-  // metric bores (6-20 mm) and six fractional ones (1/4-3/4 in) as thirteen
-  // rows under one code, so a single `unit` would have displayed 0.4724 in
-  // for a 12 mm bore or 11.113 mm for a 7/16 in one.
-  //
-  // The partition is the vendor's own catalog-number suffix — `...M` is a
-  // metric bore — and it is corroborated by which column carries the exact
-  // value: the `M` rows give D1 as integers in millimetres and rounded
-  // decimals in inches (12 / 0.4724), the others exactly the other way round
-  // (0.4375 / 11.113). the toolholding tests pin both halves of that, so a
-  // re-scrape that lost or moved a row fails rather than converting quietly.
-  //
-  // If a third mixed family ever turns up, stop splitting CSVs and make
-  // `unit` a per-record fact instead — that is the honest model, and it is
-  // not worth the churn for one family.
-  'bt30_shrink_fit_hpv_form_ad_metric.csv': {
-    catalogName: 'Kennametal BT30 Shrink Fit HPV GP Form AD Metric',
+  'bt40_hydraulic_chuck_hydroforce_metric.csv': {
+    catalogName:
+      'Kennametal BT40 Hydraulic Chucks • HydroForce High Torque • Through Coolant Form AD • Metric',
+    rows: 2,
+    familyCode: '109438987',
+    facts: {
+      taper: BT40_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'bt40_hydraulic_chuck_inch.csv': {
+    catalogName: 'Kennametal HC-BT form B/AD',
     rows: 7,
+    familyCode: '100131871',
     facts: {
-      taper: BT30_SHANK,
+      taper: BT40_SHANK,
       contact: TAPER_CONTACT,
-      clamping: BORE_CLAMPING,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: INCH_CATALOG,
+    },
+  },
+  'bt40_hydraulic_chuck_metric.csv': {
+    catalogName: 'Kennametal HC-BT form B/AD',
+    rows: 10,
+    familyCode: '100018431',
+    facts: {
+      taper: BT40_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'bt40_hydraulic_chuck_slim_metric.csv': {
+    catalogName: 'Kennametal HC Slim MM-BT Form B/AD',
+    rows: 5,
+    familyCode: '100018466',
+    facts: {
+      taper: BT40_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_SLIM,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'bt40_hydraulic_chuck_slim_metric_t.csv': {
+    catalogName: 'Kennametal HC Slim-T MM-BT Form B/AD',
+    rows: 3,
+    familyCode: '100018458',
+    facts: {
+      taper: BT40_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_SLIM,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'bt40_shrink_fit_fc.csv': {
+    catalogName:
+      'Kennametal BT40 Shrink Fit Toolholders • FC Line • Through Coolant Form AD • Metric',
+    rows: 7,
+    familyCode: '109480408',
+    facts: {
+      taper: BT40_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'bt40_shrink_fit_gp.csv': {
+    catalogName: 'Kennametal TT HPV-BT Form B/AD',
+    rows: 21,
+    familyCode: '100126956',
+    // Both systems in one table: 17 metric rows and 4 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: BT40_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  'bt40_shrink_fit_sf.csv': {
+    catalogName: 'Kennametal TT SF HPV BT40 Form B/AD • Safe-Lock',
+    rows: 4,
+    familyCode: '100003514',
+    // Both systems in one table: 3 metric rows and 1 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: BT40_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_SF,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  'bt40_shrink_fit_ttgl_inch.csv': {
+    catalogName: 'Kennametal TTGL • BT40 • Inch',
+    rows: 5,
+    familyCode: '100102400',
+    facts: {
+      taper: BT40_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_TTGL,
+      unit: INCH_CATALOG,
+    },
+  },
+  'bt40_shrink_fit_ttgl_metric.csv': {
+    catalogName: 'Kennametal TTGL • Metric',
+    rows: 9,
+    familyCode: '100102349',
+    facts: {
+      taper: BT40_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_TTGL,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // BT 50 Shank Tools
+  'bt50_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ Collet Adapter • BT50',
+    rows: 16,
+    familyCode: '100149594',
+    facts: {
+      taper: BT50_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'bt50_hydraulic_chuck_hydroforce_inch.csv': {
+    catalogName: 'Kennametal BT50 Hydraulic Chuck • HydroForce High Torque • Inch',
+    rows: 1,
+    familyCode: '100008369',
+    facts: {
+      taper: BT50_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: INCH_CATALOG,
+    },
+  },
+  'bt50_hydraulic_chuck_hydroforce_metric.csv': {
+    catalogName:
+      'Kennametal BT50 Hydraulic Chucks • HydroForce High Torque • Through Coolant Form AD • Metric',
+    rows: 2,
+    familyCode: '100008410',
+    facts: {
+      taper: BT50_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'bt50_hydraulic_chuck_inch.csv': {
+    catalogName: 'Kennametal HC-BT form B/AD',
+    rows: 7,
+    familyCode: '100131872',
+    facts: {
+      taper: BT50_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: INCH_CATALOG,
+    },
+  },
+  'bt50_hydraulic_chuck_metric.csv': {
+    catalogName: 'Kennametal BT50 Hydraulic Chucks • HP Line • Through Coolant Form B/AD • Metric',
+    rows: 10,
+    familyCode: '100002350',
+    facts: {
+      taper: BT50_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'bt50_hydraulic_chuck_slim_metric.csv': {
+    catalogName: 'Kennametal HC Slim MM-BT Form B/AD',
+    rows: 5,
+    familyCode: '100004692',
+    facts: {
+      taper: BT50_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_SLIM,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'bt50_hydraulic_chuck_slim_metric_t.csv': {
+    catalogName: 'Kennametal HC Slim-T MM-BT Form B/AD',
+    rows: 3,
+    familyCode: '100002349',
+    facts: {
+      taper: BT50_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_SLIM,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'bt50_shrink_fit_fc.csv': {
+    catalogName:
+      'Kennametal BT50 Shrink Fit Toolholders • FC Line • Through Coolant Form AD • Metric',
+    rows: 7,
+    familyCode: '109480410',
+    facts: {
+      taper: BT50_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'bt50_shrink_fit_gp.csv': {
+    catalogName: 'Kennametal TT HPV-BT Form B/AD',
+    rows: 19,
+    familyCode: '100002352',
+    // Both systems in one table: 9 metric rows and 10 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: BT50_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: MIXED_INCH_MAJORITY,
+    },
+  },
+  'bt50_shrink_fit_gp_metric.csv': {
+    catalogName: 'Kennametal BT50 Shrink Fit Toolholders • GL Line • Metric',
+    rows: 7,
+    familyCode: '100091458',
+    facts: {
+      taper: BT50_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
       style: SHRINK_FIT_GP,
       unit: METRIC_CATALOG,
     },
   },
-  'bt30_shrink_fit_hpv_form_ad_inch.csv': {
-    catalogName: 'Kennametal BT30 Shrink Fit HPV GP Form AD Inch',
-    rows: 6,
+  'bt50_shrink_fit_sf.csv': {
+    catalogName: 'Kennametal TT SF HPV BT50 Form B/AD • Safe-Lock',
+    rows: 4,
+    familyCode: '100018389',
+    // Both systems in one table: 3 metric rows and 1 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: BT50_SHANK,
+      contact: TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_SF,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+
+  // ── BTKV ──────────────────────────────────────────────────────────────
+  // BTKV 30 Shank Tools
+  // This family publishes **two** gage lengths: `L1` (100 mm on all five) and
+  // `L1FC`, "Gage Length Face Contact" (99.002 mm on all five). Which one is
+  // real is a property of the spindle, not of the holder. `gaugeLength` is `L1`
+  // because this shop's BT30 spindle is not face-contact (JG 2026-08-05), so
+  // `L1FC` is scraped into the CSV — the record of what the vendor said — and
+  // deliberately not carried onto the record, per the holder mapper's rule about
+  // published columns nothing displays. Twenty-two of the 158 families publish
+  // it — eight BTKV and fourteen CVKV, and no HSK or PSC family, which is the
+  // shape to expect: a KV line is a *taper* cone the vendor also seats on the
+  // face, so it has two gage lengths to state, where an HSK has one and it is
+  // already the face-contact one. Promote it the day a dual-contact spindle
+  // exists to read it, and change `gaugeLength` with it rather than showing both.
+  'btkv30_er_collet_chucks_metric.csv': {
+    catalogName: 'Kennametal BTKV30 ER Collet Chucks • Metric',
+    rows: 5,
+    familyCode: '109321122',
     facts: {
       taper: BT30_SHANK,
-      contact: TAPER_CONTACT,
-      clamping: BORE_CLAMPING,
+      contact: KV_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'btkv30_hydraulic_chuck.csv': {
+    catalogName: 'Kennametal BTKV30 Hydraulic Chucks • HP Line • Through Coolant Form AD • Metric',
+    rows: 2,
+    familyCode: '107798941',
+    facts: {
+      taper: BT30_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'btkv30_shrink_fit_gp.csv': {
+    catalogName:
+      'Kennametal BTKV30 Shank Tools • Shrink Fit Toolholders General Purpose (GP) • Metric',
+    rows: 6,
+    familyCode: '109321207',
+    facts: {
+      taper: BT30_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // BTKV 40 Shank Tools
+  'btkv40_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ • BTKV40 Form B/AD',
+    rows: 15,
+    familyCode: '100149614',
+    facts: {
+      taper: BT40_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'btkv40_hydraulic_chuck_hydroforce_inch.csv': {
+    catalogName: 'Kennametal HCTHT • Inch • BTKV',
+    rows: 1,
+    familyCode: '100053325',
+    facts: {
+      taper: BT40_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: INCH_CATALOG,
+    },
+  },
+  'btkv40_hydraulic_chuck_hydroforce_metric.csv': {
+    catalogName:
+      'Kennametal BTKV40 Hydraulic Chucks • HydroForce™ High Torque • Through Coolant Form AD • Metric',
+    rows: 2,
+    familyCode: '100016405',
+    facts: {
+      taper: BT40_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'btkv40_shrink_fit_gp.csv': {
+    catalogName: 'Kennametal TT GP HPV MM-BTKV Form B/AD',
+    rows: 12,
+    familyCode: '100001701',
+    // Both systems in one table: 7 metric rows and 5 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: BT40_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  // BTKV 50 Shank Tools
+  'btkv50_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ • BTKV50 Form B/AD',
+    rows: 12,
+    familyCode: '100149615',
+    facts: {
+      taper: BT50_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'btkv50_hydraulic_chuck_hydroforce.csv': {
+    catalogName: 'Kennametal HC HT BTKV Metric • BTKV50',
+    rows: 2,
+    familyCode: '100008368',
+    facts: {
+      taper: BT50_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'btkv50_shrink_fit_gp.csv': {
+    catalogName: 'Kennametal TT GP HPV-BTKV Form B/AD',
+    rows: 6,
+    familyCode: '100018260',
+    // Both systems in one table: 3 metric rows and 3 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: BT50_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: MIXED_INCH_MAJORITY,
+    },
+  },
+
+  // ── CV ────────────────────────────────────────────────────────────────
+  // CV 40 Shank Tools
+  'cv40_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ • CV40 Form AD',
+    rows: 16,
+    familyCode: '100149651',
+    facts: {
+      taper: CV40_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cv40_hydraulic_chuck.csv': {
+    catalogName: 'Kennametal HC-CV40 Form AD',
+    rows: 30,
+    familyCode: '100018501',
+    // Both systems in one table: 18 metric rows and 12 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: CV40_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  'cv40_hydraulic_chuck_hydroforce.csv': {
+    catalogName: 'Kennametal CV40 Hydraulic Chuck • HydroForce High Torque • Inch',
+    rows: 2,
+    familyCode: '100008364',
+    facts: {
+      taper: CV40_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cv40_hydraulic_chuck_slim_cv40.csv': {
+    catalogName: 'Kennametal HC Slim CV40 Form AD',
+    rows: 8,
+    familyCode: '100018499',
+    // Both systems in one table: 5 metric rows and 3 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: CV40_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_SLIM,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  'cv40_hydraulic_chuck_slim_t.csv': {
+    catalogName: 'Kennametal HC Slim T CV Form B/AD',
+    rows: 5,
+    familyCode: '100018496',
+    // Both systems in one table: 3 metric rows and 2 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: CV40_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_SLIM,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  'cv40_hydraulic_chuck_trend.csv': {
+    catalogName: 'Kennametal HC TREND-CV form B/AD',
+    rows: 1,
+    familyCode: '100018506',
+    facts: {
+      taper: CV40_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_TREND,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cv40_shrink_fit_fc_inch.csv': {
+    catalogName:
+      'Kennametal CV40 Shrink Fit Toolholders • FC Line • Through Coolant Form AD • Inch',
+    rows: 7,
+    familyCode: '109480404',
+    facts: {
+      taper: CV40_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cv40_shrink_fit_fc_metric.csv': {
+    catalogName:
+      'Kennametal CV40 Shrink Fit Toolholders • FC Line • Through Coolant Form AD • Metric',
+    rows: 7,
+    familyCode: '109480405',
+    facts: {
+      taper: CV40_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'cv40_shrink_fit_gp.csv': {
+    catalogName: 'Kennametal TT GP HPV CV Form B/AD',
+    rows: 20,
+    familyCode: '100018409',
+    // Both systems in one table: 10 metric rows and 10 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: CV40_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: MIXED_INCH_MAJORITY,
+    },
+  },
+  'cv40_shrink_fit_ht_inch.csv': {
+    catalogName: 'Kennametal TT HT HPV CV Form B/AD',
+    rows: 4,
+    familyCode: '100018413',
+    facts: {
+      taper: CV40_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_HT,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cv40_shrink_fit_ht_inch_in.csv': {
+    catalogName: 'Kennametal TT HT HPV IN-CV Z Form AD',
+    rows: 2,
+    familyCode: '100001014',
+    facts: {
+      taper: CV40_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_HT,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cv40_shrink_fit_sf.csv': {
+    catalogName: 'Kennametal TT SF HPV CV Z Form B/AD • Safe-Lock',
+    rows: 8,
+    familyCode: '100003528',
+    // Both systems in one table: 4 metric rows and 4 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: CV40_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_SF,
+      unit: MIXED_INCH_MAJORITY,
+    },
+  },
+  'cv40_shrink_fit_ttgl_inch.csv': {
+    catalogName: 'Kennametal TTGL • CV40 • Inch',
+    rows: 8,
+    familyCode: '100102392',
+    facts: {
+      taper: CV40_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_TTGL,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cv40_shrink_fit_ttgl_metric.csv': {
+    catalogName: 'Kennametal TTGL • CV40 • Metric',
+    rows: 8,
+    familyCode: '100091095',
+    facts: {
+      taper: CV40_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_TTGL,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // CV 50 Shank Tools
+  'cv50_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ • CV50 Form AD',
+    rows: 16,
+    familyCode: '100149652',
+    facts: {
+      taper: CV50_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cv50_hydraulic_chuck.csv': {
+    catalogName: 'Kennametal HC-CV50 Form AD',
+    rows: 30,
+    familyCode: '100002546',
+    // Both systems in one table: 18 metric rows and 12 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: CV50_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  'cv50_hydraulic_chuck_hydroforce.csv': {
+    catalogName: 'Kennametal CV50 Hydraulic Chuck • HydroForce High Torque • Inch',
+    rows: 3,
+    familyCode: '109438989',
+    facts: {
+      taper: CV50_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cv50_hydraulic_chuck_slim_cv50.csv': {
+    catalogName: 'Kennametal HC Slim CV50 Form AD',
+    rows: 8,
+    familyCode: '100001318',
+    // Both systems in one table: 5 metric rows and 3 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: CV50_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_SLIM,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  'cv50_hydraulic_chuck_slim_t.csv': {
+    catalogName: 'Kennametal HC Slim T CV Form B/AD',
+    rows: 5,
+    familyCode: '100003934',
+    // Both systems in one table: 3 metric rows and 2 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: CV50_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_SLIM,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  'cv50_shrink_fit_fc_inch.csv': {
+    catalogName:
+      'Kennametal CV50 Shrink Fit Toolholders • FC Line • Through Coolant Form AD • Inch',
+    rows: 7,
+    familyCode: '109480411',
+    facts: {
+      taper: CV50_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cv50_shrink_fit_fc_metric.csv': {
+    catalogName:
+      'Kennametal CV50 Shrink Fit Toolholders • FC Line • Through Coolant Form AD • Metric',
+    rows: 7,
+    familyCode: '109480413',
+    facts: {
+      taper: CV50_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'cv50_shrink_fit_gp.csv': {
+    catalogName: 'Kennametal TT HPV-CV Form B/AD',
+    rows: 19,
+    familyCode: '100003938',
+    // Both systems in one table: 10 metric rows and 9 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: CV50_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  'cv50_shrink_fit_ht.csv': {
+    catalogName: 'Kennametal TT HPV HT-CV Form B/AD',
+    rows: 3,
+    familyCode: '100003937',
+    facts: {
+      taper: CV50_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_HT,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cv50_shrink_fit_sf.csv': {
+    catalogName: 'Kennametal TT SF HPV MM-CV Z FORM B/AD • Safe-Lock',
+    rows: 7,
+    familyCode: '100018453',
+    // Both systems in one table: 3 metric rows and 4 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: CV50_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_SF,
+      unit: MIXED_INCH_MAJORITY,
+    },
+  },
+  'cv50_shrink_fit_sf_hd.csv': {
+    catalogName: 'Kennametal TT SF HD HPV MM-CV Z FORM B/AD • Safe-Lock',
+    rows: 6,
+    familyCode: '100018460',
+    // Both systems in one table: 4 metric rows and 2 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: CV50_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_SF,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  'cv50_shrink_fit_ttgl_inch.csv': {
+    catalogName: 'Kennametal TTGL • CV50 • Inch',
+    rows: 9,
+    familyCode: '100102394',
+    facts: {
+      taper: CV50_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_TTGL,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cv50_shrink_fit_ttgl_metric.csv': {
+    catalogName: 'Kennametal TTGL • CV50 • Metric',
+    rows: 8,
+    familyCode: '100091119',
+    facts: {
+      taper: CV50_SHANK,
+      contact: CV_TAPER_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_TTGL,
+      unit: METRIC_CATALOG,
+    },
+  },
+
+  // ── CVKV ──────────────────────────────────────────────────────────────
+  // CVKV 40 Shank Tools
+  'cvkv40_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ • CVKV40 Form AD',
+    rows: 16,
+    familyCode: '100149654',
+    facts: {
+      taper: CV40_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cvkv40_hydraulic_chuck_hydroforce.csv': {
+    catalogName: 'Kennametal CVKV40 Hydraulic Chuck • HydroForce High Torque • Inch',
+    rows: 2,
+    familyCode: '100008366',
+    facts: {
+      taper: CV40_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cvkv40_shrink_fit_fc_inch.csv': {
+    catalogName:
+      'Kennametal CVKV40 Shrink Fit Toolholders • FC Line • Through Coolant Form AD • Inch',
+    rows: 7,
+    familyCode: '109480776',
+    facts: {
+      taper: CV40_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cvkv40_shrink_fit_fc_metric.csv': {
+    catalogName:
+      'Kennametal CVKV40 Shrink Fit Toolholders • FC Line • Through Coolant Form AD • Metric',
+    rows: 7,
+    familyCode: '109480777',
+    facts: {
+      taper: CV40_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'cvkv40_shrink_fit_gp.csv': {
+    catalogName: 'Kennametal TT GP HPV-CVKV Form B/AD',
+    rows: 15,
+    familyCode: '100018275',
+    // Both systems in one table: 8 metric rows and 7 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: CV40_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  'cvkv40_shrink_fit_gp_inch.csv': {
+    catalogName: 'Kennametal CVKV40 Shrink Fit adapters • GP Line • Coolant Form AD • Inch',
+    rows: 7,
+    familyCode: '109372320',
+    facts: {
+      taper: CV40_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
       style: SHRINK_FIT_GP,
       unit: INCH_CATALOG,
+    },
+  },
+  'cvkv40_shrink_fit_gp_metric.csv': {
+    catalogName: 'Kennametal CVKV40 Shrink Fit adapters • GP Line • Coolant Form AD • Metric',
+    rows: 6,
+    familyCode: '109453835',
+    facts: {
+      taper: CV40_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // CVKV 50 Shank Tools
+  'cvkv50_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ • CVKV50 Form AD',
+    rows: 15,
+    familyCode: '100149655',
+    facts: {
+      taper: CV50_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cvkv50_hydraulic_chuck_hydroforce.csv': {
+    catalogName: 'Kennametal CVKV50 Hydraulic Chuck • HydroForce High Torque • Inch',
+    rows: 3,
+    familyCode: '109438990',
+    facts: {
+      taper: CV50_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cvkv50_shrink_fit_fc_inch.csv': {
+    catalogName:
+      'Kennametal CVKV50 Shrink Fit Toolholders • FC Line • Through Coolant Form AD • Inch',
+    rows: 7,
+    familyCode: '109480774',
+    facts: {
+      taper: CV50_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cvkv50_shrink_fit_fc_metric.csv': {
+    catalogName:
+      'Kennametal CVKV50 Shrink Fit Toolholders • FC Line • Through Coolant Form AD • Metric',
+    rows: 7,
+    familyCode: '109480775',
+    facts: {
+      taper: CV50_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'cvkv50_shrink_fit_gp.csv': {
+    catalogName: 'Kennametal TT GP HPV-CVKV form B/AD - 50',
+    rows: 14,
+    familyCode: '100002018',
+    // Both systems in one table: 8 metric rows and 6 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: CV50_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  'cvkv50_shrink_fit_gp_inch.csv': {
+    catalogName: 'Kennametal CVKV50 Shrink Fit adapters • GP Line • Coolant Form AD • Inch',
+    rows: 6,
+    familyCode: '109453834',
+    facts: {
+      taper: CV50_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: INCH_CATALOG,
+    },
+  },
+  'cvkv50_shrink_fit_gp_metric.csv': {
+    catalogName: 'Kennametal CVKV50 Shrink Fit adapters • GP Line • Coolant Form AD • Metric',
+    rows: 8,
+    familyCode: '109453836',
+    facts: {
+      taper: CV50_SHANK,
+      contact: KV_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: METRIC_CATALOG,
+    },
+  },
+
+  // ── HSK ───────────────────────────────────────────────────────────────
+  // HSK100A
+  'hsk100a_er_collet_chuck.csv': {
+    catalogName: 'Kennametal HSK100A ER Collet Chucks • Metric',
+    rows: 9,
+    familyCode: '100149700',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk100a_hydraulic_chuck.csv': {
+    catalogName: 'Kennametal HSK100A Hydraulic Chucks • HP Line • Through Coolant Form AD • Metric',
+    rows: 26,
+    familyCode: '100018043',
+    // Both systems in one table: 20 metric rows and 6 inch ones. Each row's own
+    // catalog number decides which it is — see `vendors/kennametal/holding.ts`.
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: MIXED_METRIC_MAJORITY,
+    },
+  },
+  'hsk100a_hydraulic_chuck_hydroforce_inch.csv': {
+    catalogName: 'Kennametal HSK100A Hydraulic Chuck • HydroForce High Torque • Inch',
+    rows: 3,
+    familyCode: '109438982',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk100a_hydraulic_chuck_hydroforce_metric.csv': {
+    catalogName:
+      'Kennametal HSK100A Hydraulic Chucks • HydroForce High Torque • Through Coolant Form AD • Metric',
+    rows: 3,
+    familyCode: '109438985',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk100a_hydraulic_chuck_slim_metric.csv': {
+    catalogName: 'Kennametal HC Slim MM-HSK Form A',
+    rows: 5,
+    familyCode: '100004662',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_SLIM,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk100a_hydraulic_chuck_slim_metric_t.csv': {
+    catalogName: 'Kennametal HC Slim-T MM-HSK Form A',
+    rows: 3,
+    familyCode: '100003155',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_SLIM,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk100a_shrink_fit_fc_inch.csv': {
+    catalogName: 'Kennametal HSK100A Shrink Fit Toolholders • FC Line • Inch',
+    rows: 7,
+    familyCode: '109479999',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk100a_shrink_fit_fc_metric.csv': {
+    catalogName: 'Kennametal HSK100A Shrink Fit Toolholders • FC Line • Metric',
+    rows: 7,
+    familyCode: '109480004',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk100a_shrink_fit_gp_inch_in.csv': {
+    catalogName: 'Kennametal TT GP HPV IN-HSK100A • General Purpose (GP)',
+    rows: 9,
+    familyCode: '109546532',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk100a_shrink_fit_gp_metric_channel.csv': {
+    catalogName: 'Kennametal Shrink Fit HSK100A • MQL 1 Channel • Metric',
+    rows: 20,
+    familyCode: '109427168',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk100a_shrink_fit_gp_metric_channels.csv': {
+    catalogName: 'Kennametal Shrink Fit HSK100A • MQL 2 Channels • Metric',
+    rows: 20,
+    familyCode: '109427170',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk100a_shrink_fit_gp_metric_mm.csv': {
+    catalogName: 'Kennametal TT GP HPV MM-HSK100A • General Purpose (GP)',
+    rows: 12,
+    familyCode: '109546530',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk100a_shrink_fit_ht.csv': {
+    catalogName: 'Kennametal TT HT HPV IN-HSK100A • High Torque (HT)',
+    rows: 2,
+    familyCode: '109546539',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_HT,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk100a_shrink_fit_sf_inch.csv': {
+    catalogName: 'Kennametal TT SF HPV HSK100A • Safe-Lock • Inch',
+    rows: 4,
+    familyCode: '109546666',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_SF,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk100a_shrink_fit_sf_inch_100002960.csv': {
+    catalogName: 'Kennametal TT SF HPV HSK100A Heavy Duty • Safe-Lock • Inch',
+    rows: 2,
+    familyCode: '100002960',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_SF,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk100a_shrink_fit_sf_metric.csv': {
+    catalogName: 'Kennametal TT SF HPV HSK100A • Safe-Lock • Metric',
+    rows: 4,
+    familyCode: '109546667',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_SF,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk100a_shrink_fit_sf_metric_100002961.csv': {
+    catalogName: 'Kennametal TT SF HPV HSK100A Heavy Duty • Safe-Lock • Metric',
+    rows: 2,
+    familyCode: '100002961',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_SF,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk100a_shrink_fit_ttgl_inch.csv': {
+    catalogName: 'Kennametal HSK100A Shrink Fit Toolholders • TTGL Line • Inch',
+    rows: 7,
+    familyCode: '100102398',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_TTGL,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk100a_shrink_fit_ttgl_metric.csv': {
+    catalogName: 'Kennametal HSK100A Shrink Fit Toolholders • TTGL Line • Metric',
+    rows: 9,
+    familyCode: '100093707',
+    facts: {
+      taper: HSK100A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_TTGL,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // HSK125A
+  'hsk125a_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ • HSK125A Form A',
+    rows: 1,
+    familyCode: '100149701',
+    facts: {
+      taper: HSK125A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk125a_hydraulic_chuck_hydroforce_inch.csv': {
+    catalogName: 'Kennametal HSK125A Hydraulic Chuck • HydroForce High Torque • Inch',
+    rows: 2,
+    familyCode: '100042858',
+    facts: {
+      taper: HSK125A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk125a_hydraulic_chuck_hydroforce_metric.csv': {
+    catalogName:
+      'Kennametal HSK125A Hydraulic Chucks • HydroForce High Torque • Through Coolant Form AD • Metric',
+    rows: 3,
+    familyCode: '100008408',
+    facts: {
+      taper: HSK125A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk125a_shrink_fit_ht_inch.csv': {
+    catalogName: 'Kennametal TT HT HPV IN-HSK125A • High Torque (HT)',
+    rows: 3,
+    familyCode: '109546540',
+    facts: {
+      taper: HSK125A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_HT,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk125a_shrink_fit_ht_metric.csv': {
+    catalogName: 'Kennametal TT HT HPV MM-HSK125A • High Torque (HT)',
+    rows: 1,
+    familyCode: '109546562',
+    facts: {
+      taper: HSK125A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_HT,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // HSK32C
+  'hsk32c_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ • HSK32C Form C',
+    rows: 1,
+    familyCode: '100149702',
+    facts: {
+      taper: HSK32C_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk32c_hydraulic_chuck.csv': {
+    catalogName: 'Kennametal HC-HSK Form C',
+    rows: 4,
+    familyCode: '100018062',
+    facts: {
+      taper: HSK32C_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // HSK40A
+  'hsk40a_er_collet_chuck.csv': {
+    catalogName: 'Kennametal HSK40A • ER Collet Chucks • Metric',
+    rows: 3,
+    familyCode: '100149696',
+    facts: {
+      taper: HSK40A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk40a_hydraulic_chuck_inch.csv': {
+    catalogName: 'Kennametal HSK40A • Hydraulic Chuck • HP Line • Inch',
+    rows: 5,
+    familyCode: '109542574',
+    facts: {
+      taper: HSK40A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk40a_hydraulic_chuck_metric.csv': {
+    catalogName: 'Kennametal HSK40A • Hydraulic Chuck • HP Line • Metric',
+    rows: 8,
+    familyCode: '109542575',
+    facts: {
+      taper: HSK40A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk40a_hydraulic_chuck_slim.csv': {
+    catalogName: 'Kennametal HSK40A • Hydraulic Chuck • Slim Line Trend • Metric',
+    rows: 5,
+    familyCode: '109542563',
+    facts: {
+      taper: HSK40A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_SLIM,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk40a_shrink_fit_gp_inch.csv': {
+    catalogName: 'Kennametal HSK40A • Shrink Fit Toolholders • GP Line • Inch',
+    rows: 3,
+    familyCode: '109542558',
+    facts: {
+      taper: HSK40A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk40a_shrink_fit_gp_metric.csv': {
+    catalogName: 'Kennametal HSK40A • Shrink Fit Toolholders • GP Line • Metric',
+    rows: 10,
+    familyCode: '109542557',
+    facts: {
+      taper: HSK40A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // HSK40C
+  'hsk40c_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ • HSK40C Form C',
+    rows: 3,
+    familyCode: '100149715',
+    facts: {
+      taper: HSK40C_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk40c_hydraulic_chuck.csv': {
+    catalogName: 'Kennametal HC-HSK Form C',
+    rows: 4,
+    familyCode: '100005116',
+    facts: {
+      taper: HSK40C_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // HSK50A
+  'hsk50a_er_collet_chuck.csv': {
+    catalogName: 'Kennametal HSK50A • ER Collet Chucks • Metric',
+    rows: 5,
+    familyCode: '100149697',
+    facts: {
+      taper: HSK50A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk50a_hydraulic_chuck.csv': {
+    catalogName: 'Kennametal HSK50A • Hydraulic Chuck • Standard HP Line • Metric',
+    rows: 6,
+    familyCode: '109365742',
+    facts: {
+      taper: HSK50A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk50a_hydraulic_chuck_hydroforce.csv': {
+    catalogName: 'Kennametal HSK50A • Hydraulic Chuck • Hydroforce • Metric',
+    rows: 2,
+    familyCode: '109365729',
+    facts: {
+      taper: HSK50A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk50a_shrink_fit_fc_inch.csv': {
+    catalogName: 'Kennametal HSK50A • Shrink Fit Toolholders • FC Line • Inch',
+    rows: 6,
+    familyCode: '109480001',
+    facts: {
+      taper: HSK50A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk50a_shrink_fit_fc_metric.csv': {
+    catalogName: 'Kennametal HSK50A • Shrink Fit Toolholders • FC Line • Metric',
+    rows: 6,
+    familyCode: '109480003',
+    facts: {
+      taper: HSK50A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk50a_shrink_fit_gp_inch.csv': {
+    catalogName: 'Kennametal HSK50A • Shrink Fit Toolholders • GP Line • Inch',
+    rows: 1,
+    familyCode: '109520390',
+    facts: {
+      taper: HSK50A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk50a_shrink_fit_gp_metric.csv': {
+    catalogName: 'Kennametal HSK50A • Shrink Fit Toolholders • GP Line • Metric',
+    rows: 17,
+    familyCode: '109520387',
+    facts: {
+      taper: HSK50A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // HSK50C
+  'hsk50c_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ • HSK50C Form C',
+    rows: 2,
+    familyCode: '100149718',
+    facts: {
+      taper: HSK50C_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk50c_hydraulic_chuck.csv': {
+    catalogName: 'Kennametal HC-HSK Form C - Metric',
+    rows: 8,
+    familyCode: '100005099',
+    facts: {
+      taper: HSK50C_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // HSK63A
+  'hsk63a_er_collet_chuck.csv': {
+    catalogName: 'Kennametal HSK63A ER Collet Chucks • Metric',
+    rows: 14,
+    familyCode: '100149698',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk63a_hydraulic_chuck_hydroforce_inch.csv': {
+    catalogName: 'Kennametal HSK63A Hydraulic Chuck • HydroForce High Torque • Inch',
+    rows: 2,
+    familyCode: '109438980',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk63a_hydraulic_chuck_hydroforce_metric.csv': {
+    catalogName:
+      'Kennametal HSK63A Hydraulic Chucks • HydroForce High Torque • Through Coolant Form AD • Metric',
+    rows: 2,
+    familyCode: '109438984',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk63a_hydraulic_chuck_inch.csv': {
+    catalogName: 'Kennametal HSK63A Hydraulic Chucks • HP Line • Through Coolant Form AD • Inch',
+    rows: 6,
+    familyCode: '109542551',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk63a_hydraulic_chuck_metric.csv': {
+    catalogName: 'Kennametal HSK63A Hydraulic Chucks • HP Line • Through Coolant Form AD • Metric',
+    rows: 18,
+    familyCode: '109542552',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk63a_hydraulic_chuck_mql_metric.csv': {
+    catalogName: 'Kennametal Hydraulic Chuck HSK63A • MQL 2-Channel • Metric',
+    rows: 10,
+    familyCode: '109427174',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_MQL,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk63a_hydraulic_chuck_mql_metric_109427171.csv': {
+    catalogName: 'Kennametal Hydraulic Chuck HSK63A • MQL 1-Channel • Metric',
+    rows: 10,
+    familyCode: '109427171',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_MQL,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk63a_hydraulic_chuck_slim_inch.csv': {
+    catalogName: 'Kennametal HSK63A • Hydraulic Chuck • Slim Line Trend • Inch',
+    rows: 2,
+    familyCode: '100003550',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_SLIM,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk63a_hydraulic_chuck_slim_metric.csv': {
+    catalogName: 'Kennametal HSK63A • Hydraulic Chuck • Slim Line Trend • Metric',
+    rows: 8,
+    familyCode: '109552626',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_SLIM,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk63a_shrink_fit_fc_inch.csv': {
+    catalogName: 'Kennametal HSK63A Shrink Fit Toolholders • FC Line • Inch',
+    rows: 7,
+    familyCode: '109480000',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk63a_shrink_fit_fc_metric.csv': {
+    catalogName: 'Kennametal HSK63A Shrink Fit Toolholders • FC Line • Metric',
+    rows: 7,
+    familyCode: '109480002',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_FC,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk63a_shrink_fit_gp_inch.csv': {
+    catalogName: 'Kennametal TT GP HPV HSK63A • General Purpose (GP) • Inch',
+    rows: 16,
+    familyCode: '100002075',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk63a_shrink_fit_gp_metric.csv': {
+    catalogName: 'Kennametal Shrink Fit HSK63A • MQL 1 Channel • Metric',
+    rows: 20,
+    familyCode: '109427167',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk63a_shrink_fit_gp_metric_100001389.csv': {
+    catalogName: 'Kennametal TT GP HPV HSK63A • General Purpose (GP) • Metric',
+    rows: 20,
+    familyCode: '100001389',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk63a_shrink_fit_gp_metric_100004610.csv': {
+    catalogName: 'Kennametal TT GP HPV HSK63A • General Purpose (GP) • MQL 1 Channel • Metric',
+    rows: 1,
+    familyCode: '100004610',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk63a_shrink_fit_gp_metric_channels.csv': {
+    catalogName: 'Kennametal Shrink Fit HSK63A • MQL 2 Channels • Metric',
+    rows: 20,
+    familyCode: '109427169',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk63a_shrink_fit_ht.csv': {
+    catalogName: 'Kennametal TT HT HPV HSK63A • High Torque (HT) • Metric',
+    rows: 3,
+    familyCode: '100001376',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_HT,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk63a_shrink_fit_sf_inch.csv': {
+    catalogName: 'Kennametal TT SF HPV HSK63A • Safe-Lock • Inch',
+    rows: 4,
+    familyCode: '100001173',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_SF,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk63a_shrink_fit_sf_metric.csv': {
+    catalogName: 'Kennametal TT SF HPV HSK63A • Safe-Lock • Metric',
+    rows: 5,
+    familyCode: '100001172',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_SF,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk63a_shrink_fit_ttgl_inch.csv': {
+    catalogName: 'Kennametal HSK63A Shrink Fit Toolholders • TTGL Line • Inch',
+    rows: 7,
+    familyCode: '100102396',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_TTGL,
+      unit: INCH_CATALOG,
+    },
+  },
+  'hsk63a_shrink_fit_ttgl_metric.csv': {
+    catalogName: 'Kennametal HSK63A Shrink Fit Toolholders • TTGL Line • Metric',
+    rows: 11,
+    familyCode: '100091151',
+    facts: {
+      taper: HSK63A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_TTGL,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // HSK63C
+  'hsk63c_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ • HSK63C Form C',
+    rows: 3,
+    familyCode: '100149721',
+    facts: {
+      taper: HSK63C_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk63c_hydraulic_chuck.csv': {
+    catalogName: 'Kennametal HC-HSK Form C',
+    rows: 8,
+    familyCode: '100005150',
+    facts: {
+      taper: HSK63C_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // HSK80A
+  'hsk80a_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ • HSK80A Form A',
+    rows: 5,
+    familyCode: '100149699',
+    facts: {
+      taper: HSK80A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk80a_hydraulic_chuck.csv': {
+    catalogName: 'Kennametal HC-HSK Form A • Standard HP Line',
+    rows: 8,
+    familyCode: '100003541',
+    facts: {
+      taper: HSK80A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk80a_shrink_fit_gp.csv': {
+    catalogName: 'Kennametal TT GP HPV MM-HSK80A • General Purpose (GP)',
+    rows: 10,
+    familyCode: '109546529',
+    facts: {
+      taper: HSK80A_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // HSK80F (Pin)
+  'hsk80f_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER™ • HSK80F Form F (Pin)',
+    rows: 1,
+    familyCode: '100149725',
+    facts: {
+      taper: HSK80F_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'hsk80f_shrink_fit_gp.csv': {
+    catalogName: 'Kennametal TT-HSK Form F (Pin)',
+    rows: 5,
+    familyCode: '100005072',
+    facts: {
+      taper: HSK80F_SHANK,
+      contact: HSK_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_GP,
+      unit: INCH_CATALOG,
+    },
+  },
+
+  // ── PSC ───────────────────────────────────────────────────────────────
+  // PSC 50
+  'psc50_er_collet_chuck.csv': {
+    catalogName: 'Kennametal ER • PSC50',
+    rows: 8,
+    familyCode: '100149749',
+    facts: {
+      taper: PSC50_SHANK,
+      contact: PSC_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  // **`100105369` ("HC • Metric", 18 parts) is deliberately absent.** It is the
+  // one family in the six trees that sells two spindle sizes from one table:
+  // eight `PSC50HC…` parts and ten `PSC63HC…`, and the walk links it under both
+  // `PSC / PSC 50` and `PSC / PSC 63`. A `taper` fact is per family, so either
+  // value it could take is wrong for the other ten or eight rows — and a wrong
+  // taper is a holder offered for a spindle it does not fit, which costs a
+  // machinist a purchase rather than an option. Splitting it by hand would mean
+  // deciding which parts are which from their catalog numbers, which is
+  // authoring tool data. `--holders` lists it every run, so it stays visible.
+  // `tests/holding-corpus.test.ts` holds every other family to agreeing with its
+  // own catalog numbers, so a second one cannot arrive quietly.
+  // PSC 63
+  'psc63_er_collet_chuck.csv': {
+    catalogName: 'Kennametal PSC63 ER Collet Chucks • Metric',
+    rows: 6,
+    familyCode: '100149750',
+    facts: {
+      taper: PSC63_SHANK,
+      contact: PSC_FACE_CONTACT,
+      clamping: CST_COLLET_CLAMPING,
+      style: ER_COLLET_CHUCK,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'psc63_hydraulic_chuck_hydroforce_inch.csv': {
+    catalogName: 'Kennametal HCTHT • Inch',
+    rows: 2,
+    familyCode: '100095073',
+    facts: {
+      taper: PSC63_SHANK,
+      contact: PSC_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: INCH_CATALOG,
+    },
+  },
+  'psc63_hydraulic_chuck_hydroforce_metric.csv': {
+    catalogName: 'Kennametal HCTHT • Metric',
+    rows: 2,
+    familyCode: '100095068',
+    facts: {
+      taper: PSC63_SHANK,
+      contact: PSC_FACE_CONTACT,
+      clamping: HYDRAULIC_CLAMPING,
+      style: HYDRAULIC_CHUCK_HYDROFORCE,
+      unit: METRIC_CATALOG,
+    },
+  },
+  'psc63_shrink_fit_ttgl_inch.csv': {
+    catalogName: 'Kennametal TTGL • Inch',
+    rows: 6,
+    familyCode: '100093389',
+    facts: {
+      taper: PSC63_SHANK,
+      contact: PSC_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_TTGL,
+      unit: INCH_CATALOG,
+    },
+  },
+  'psc63_shrink_fit_ttgl_metric.csv': {
+    catalogName: 'Kennametal TTGL • Metric',
+    rows: 10,
+    familyCode: '100093174',
+    facts: {
+      taper: PSC63_SHANK,
+      contact: PSC_FACE_CONTACT,
+      clamping: SHRINK_CLAMPING,
+      style: SHRINK_FIT_TTGL,
+      unit: METRIC_CATALOG,
     },
   },
 } as const satisfies Record<string, ToolholdingDefinition>

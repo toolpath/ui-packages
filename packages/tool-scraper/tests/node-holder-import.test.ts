@@ -370,6 +370,16 @@ describe('measuring a family', () => {
       style: 'er-collet-chuck',
       colletSeries: 'ER16',
       gaugeLength: 10,
+      bore: null,
+      usableLength: null,
+      clampingLength: null,
+      adjustmentRange: null,
+      bodyDiameter: null,
+      lockNutDiameter: null,
+      cadModelUrl: null,
+      cadModelSource: 'vendor-stated',
+      cadDxfUrl: null,
+      unpublished: [],
     })
   }
 
