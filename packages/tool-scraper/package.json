@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/tool-scraper",
-  "version": "2.5.0",
+  "version": "3.0.0",
   "description": "Scrape cutting-tool geometry from vendor catalogs into records and CSVs",
   "license": "MIT",
   "engines": {
