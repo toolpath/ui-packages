@@ -111,7 +111,10 @@ def sync_detailed(
     feature_details: UpdatePartFeatureDetails | Unset = UpdatePartFeatureDetails.FALSE,
     idempotency_key: str | Unset = UNSET,
 ) -> Response[ProblemDetails | UpdatePartResponse]:
-    """Queue part processing
+    """Analyze a part
+
+     Queues machining analysis for an uploaded part and returns a job. Track the job, then read the
+    result with **Get a part** (`GET /parts/{id}`).
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -148,7 +151,10 @@ def sync(
     feature_details: UpdatePartFeatureDetails | Unset = UpdatePartFeatureDetails.FALSE,
     idempotency_key: str | Unset = UNSET,
 ) -> ProblemDetails | UpdatePartResponse | None:
-    """Queue part processing
+    """Analyze a part
+
+     Queues machining analysis for an uploaded part and returns a job. Track the job, then read the
+    result with **Get a part** (`GET /parts/{id}`).
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -180,7 +186,10 @@ async def asyncio_detailed(
     feature_details: UpdatePartFeatureDetails | Unset = UpdatePartFeatureDetails.FALSE,
     idempotency_key: str | Unset = UNSET,
 ) -> Response[ProblemDetails | UpdatePartResponse]:
-    """Queue part processing
+    """Analyze a part
+
+     Queues machining analysis for an uploaded part and returns a job. Track the job, then read the
+    result with **Get a part** (`GET /parts/{id}`).
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -215,7 +224,10 @@ async def asyncio(
     feature_details: UpdatePartFeatureDetails | Unset = UpdatePartFeatureDetails.FALSE,
     idempotency_key: str | Unset = UNSET,
 ) -> ProblemDetails | UpdatePartResponse | None:
-    """Queue part processing
+    """Analyze a part
+
+     Queues machining analysis for an uploaded part and returns a job. Track the job, then read the
+    result with **Get a part** (`GET /parts/{id}`).
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

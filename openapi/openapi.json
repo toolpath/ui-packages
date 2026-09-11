@@ -2,37 +2,41 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Toolpath Engine API",
-    "version": "1.8.0",
-    "description": "Public REST API for Toolpath engine operations.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, reads, holders, and jobs), DFM, and Quoting — and that\naccess can be edited on an existing key in the portal. Every operation states what it is billed\nas in its `x-toolpath-billing` field: `dfm` or `quoting` for a metered operation, which records\nusage, or `unmetered` for a core operation. `GET` reads; every other method writes. A key with\nno access to the operation’s area is refused with 403 `product_mismatch`; one with read access\nused for a write is refused with 403 `read_only_key`."
+    "version": "1.10.0",
+    "description": "Public REST API for Toolpath engine operations.\n\n**Early access.** Machining plans and toolpath calculation — creating, listing, and reading\nplans, calculating toolpaths, and reading toolpath results and machining time — are available\nnow but still gaining functionality; planned additions include plan constraints and specifying\nmaterial and stock, among others. Breaking changes still follow the API major version, so you\ncan build against them today. These operations are grouped under the `Plans` and `Toolpaths`\ntags and marked `x-toolpath-experimental`.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis,\nfeature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access\ncan be edited on an existing key in the portal. Every operation states its area in its\n`x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in\n`x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs\nDFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key\nwith no access to the operation’s area is refused with 403 `product_mismatch`; one with read\naccess used for a write is refused with 403 `read_only_key`."
   },
   "tags": [
     {
-      "name": "Service",
-      "description": "Service-discovery and health operations."
-    },
-    {
       "name": "Keys",
-      "description": "API key validation operations."
+      "description": "API key validation."
     },
     {
       "name": "Parts",
-      "description": "Part upload and processing operations."
-    },
-    {
-      "name": "Plans",
-      "description": "Plan creation, toolpath calculation, and plan-addressed result reads."
+      "description": "Upload a part and queue its machining analysis, then read the analysis."
     },
     {
       "name": "Features",
-      "description": "Part feature operations."
+      "description": "Queue detailed feature machining datasheets, then read them."
     },
     {
-      "name": "Holders",
-      "description": "Tool holder upload, import, and collision-envelope operations."
+      "name": "Plans",
+      "description": "Create machining plans for a part and read them. Early access — see the description above."
+    },
+    {
+      "name": "Toolpaths",
+      "description": "Calculate a plan’s toolpaths and read the toolpaths and machining time. Early access — see the description above."
+    },
+    {
+      "name": "Tool holders",
+      "description": "Upload and import tool holders, then read their collision envelopes."
     },
     {
       "name": "Jobs",
-      "description": "Asynchronous job operations."
+      "description": "Track queued work. Every pipeline step that queues work returns a job."
+    },
+    {
+      "name": "Service",
+      "description": "Service-discovery and health operations."
     }
   ],
   "servers": [
@@ -327,6 +331,33 @@
           "status"
         ]
       },
+      "PartMeshJobResponse": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the queued tessellation job."
+          },
+          "partId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the part submitted for tessellation."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued"
+            ],
+            "description": "Initial state of the accepted tessellation job."
+          }
+        },
+        "required": [
+          "jobId",
+          "partId",
+          "status"
+        ]
+      },
       "PartResponse": {
         "type": "object",
         "properties": {
@@ -609,33 +640,6 @@
           "direction",
           "zMin",
           "zMax"
-        ]
-      },
-      "PartMeshJobResponse": {
-        "type": "object",
-        "properties": {
-          "jobId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Identifier of the queued tessellation job."
-          },
-          "partId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Identifier of the part submitted for tessellation."
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "queued"
-            ],
-            "description": "Initial state of the accepted tessellation job."
-          }
-        },
-        "required": [
-          "jobId",
-          "partId",
-          "status"
         ]
       },
       "PartMeshResponse": {
@@ -3023,8 +3027,10 @@
         "tags": [
           "Parts"
         ],
-        "x-toolpath-billing": "unmetered",
-        "summary": "Create a part upload",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Upload a part",
+        "description": "Creates a part and returns a short-lived URL for uploading its CAD source. This is the first step of the pipeline — upload the file to the URL, then run **Analyze a part** (`PATCH /parts/{id}`).",
         "parameters": [
           {
             "schema": {
@@ -3110,8 +3116,10 @@
         "tags": [
           "Parts"
         ],
-        "x-toolpath-billing": "dfm",
-        "summary": "Queue part processing",
+        "x-toolpath-product": "dfm",
+        "x-toolpath-metered": true,
+        "summary": "Analyze a part",
+        "description": "Queues machining analysis for an uploaded part and returns a job. Track the job, then read the result with **Get a part** (`GET /parts/{id}`).",
         "parameters": [
           {
             "schema": {
@@ -3239,8 +3247,10 @@
         "tags": [
           "Parts"
         ],
-        "x-toolpath-billing": "unmetered",
-        "summary": "Get the part",
+        "x-toolpath-product": "dfm",
+        "x-toolpath-metered": false,
+        "summary": "Get a part",
+        "description": "Returns a part and the results of its machining analysis. Requires **Analyze a part** (`PATCH /parts/{id}`) to have run and its job to have succeeded; until then there is no result and this returns 404.",
         "parameters": [
           {
             "schema": {
@@ -3316,6 +3326,16 @@
               }
             }
           },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The part could not be retrieved.",
             "content": {
@@ -3345,7 +3365,8 @@
         "tags": [
           "Parts"
         ],
-        "x-toolpath-billing": "unmetered",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
         "summary": "Tessellate a part for display",
         "description": "Queues a job that facets the uploaded CAD file into a display mesh without analyzing it — the fast path for a viewer that only needs to draw the part. Poll the job, then read the mesh at GET /parts/{id}/mesh. Each run replaces the part’s previous display mesh.",
         "parameters": [
@@ -3459,9 +3480,10 @@
         "tags": [
           "Parts"
         ],
-        "x-toolpath-billing": "unmetered",
-        "summary": "Get the part mesh",
-        "description": "The display mesh the latest tessellation job wrote for this part. It is faceted from the uploaded file as-is, so it is not the analysis mesh: its counts differ from the part result’s, and region triangle ranges do not apply to it. 404 until a tessellation job has succeeded.",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Get part mesh",
+        "description": "Returns the display mesh the latest tessellation job wrote for this part. Requires **Tessellate a part for display** (`POST /parts/{id}/mesh`) to have run and its job to have succeeded. It is faceted from the uploaded file as-is, so it is not the analysis mesh: its counts differ from the part result’s, and region triangle ranges do not apply to it. 410 once the part is past the retention window.",
         "parameters": [
           {
             "schema": {
@@ -3537,8 +3559,138 @@
               }
             }
           },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The part mesh could not be retrieved.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/parts/{id}/thumbnail": {
+      "get": {
+        "operationId": "getPartThumbnail",
+        "tags": [
+          "Parts"
+        ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Get part thumbnail",
+        "description": "Requires **Analyze a part** (`PATCH /parts/{id}`) to have run and its job to have succeeded.\n\nServes the rendered PNG thumbnail for a part as image bytes, so a client can fetch it with the\nAPI key it already holds rather than reading `thumbnailUrl` off `GET /v1/parts/{id}` first.\nThe thumbnail is the kernel’s three-quarter view of the analyzed part.\n\nThe bytes are served through this request rather than as a redirect to a presigned URL: a\nthumbnail is a few kB, and streaming it keeps the disclosure on this request’s access audit\ninstead of handing out a bearer grant that outlives it. `thumbnailUrl` on the part response is\nstill the right choice for an `<img src>`, which cannot carry an Authorization header.\n\nResolves the same artifact `GET /v1/parts/{id}` reports — the latest analysis run by default,\nor the run named by `?jobId=`. A part whose analysis produced no thumbnail answers 404.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820",
+              "description": "Serve the thumbnail from this specific processing run instead of the latest result."
+            },
+            "required": false,
+            "description": "Serve the thumbnail from this specific processing run instead of the latest result.",
+            "name": "jobId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The rendered PNG thumbnail.",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "description": "The PNG image bytes."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The part, its result, or its thumbnail was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The thumbnail could not be retrieved.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3566,8 +3718,10 @@
         "tags": [
           "Features"
         ],
-        "x-toolpath-billing": "dfm",
-        "summary": "Queue processing for selected part features",
+        "x-toolpath-product": "dfm",
+        "x-toolpath-metered": true,
+        "summary": "Analyze part features",
+        "description": "Queues detailed machining datasheets for selected features of an analyzed part and returns a job. Track the job, then read the datasheets with **Get part features** (`GET /parts/{id}/features`).",
         "parameters": [
           {
             "schema": {
@@ -3677,8 +3831,10 @@
         "tags": [
           "Features"
         ],
-        "x-toolpath-billing": "unmetered",
-        "summary": "Get selected features for a part",
+        "x-toolpath-product": "dfm",
+        "x-toolpath-metered": false,
+        "summary": "Get part features",
+        "description": "Returns detailed machining datasheets for the requested features. Requires the datasheets to have been generated first: run **Analyze part features** (`PATCH /parts/{id}/features`), or **Analyze a part** (`PATCH /parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A feature with no datasheet yet comes back with `datasheet: null`.",
         "parameters": [
           {
             "schema": {
@@ -3753,6 +3909,16 @@
               }
             }
           },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The part features could not be retrieved.",
             "content": {
@@ -3780,10 +3946,13 @@
       "post": {
         "operationId": "createPlan",
         "tags": [
-          "Parts"
+          "Plans"
         ],
-        "x-toolpath-billing": "dfm",
-        "summary": "Create a machining plan",
+        "x-toolpath-product": "dfm",
+        "x-toolpath-metered": true,
+        "x-toolpath-experimental": true,
+        "summary": "Create a plan",
+        "description": "Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality — planned additions include plan constraints and specifying material and stock, among others. Breaking changes still follow the API major version, so you can build against them today; expect new capabilities to arrive as they mature.",
         "parameters": [
           {
             "schema": {
@@ -3893,10 +4062,13 @@
       "get": {
         "operationId": "listPlans",
         "tags": [
-          "Parts"
+          "Plans"
         ],
-        "x-toolpath-billing": "unmetered",
-        "summary": "List a part’s plans",
+        "x-toolpath-product": "dfm",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "List plans",
+        "description": "Lists the plans created for a part, newest first. Create them first with **Create a plan** (`POST /parts/{id}/plans`); a part with no plans returns an empty page.\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality — planned additions include plan constraints and specifying material and stock, among others. Breaking changes still follow the API major version, so you can build against them today; expect new capabilities to arrive as they mature.",
         "parameters": [
           {
             "schema": {
@@ -3984,6 +4156,16 @@
               }
             }
           },
+          "410": {
+            "description": "The part is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The plans could not be listed.",
             "content": {
@@ -4011,10 +4193,13 @@
       "post": {
         "operationId": "createToolpaths",
         "tags": [
-          "Parts"
+          "Toolpaths"
         ],
-        "x-toolpath-billing": "quoting",
-        "summary": "Create a plan and calculate its toolpaths",
+        "x-toolpath-product": "quoting",
+        "x-toolpath-metered": true,
+        "x-toolpath-experimental": true,
+        "summary": "Calculate toolpaths",
+        "description": "Creates a plan and calculates its toolpaths in one step, returning a job. Track the job, then read the result with **Get toolpaths** (`GET /plans/{planId}/toolpaths`) and **Get machining time** (`GET /plans/{planId}/machining-time`).\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality — planned additions include plan constraints and specifying material and stock, among others. Breaking changes still follow the API major version, so you can build against them today; expect new capabilities to arrive as they mature.",
         "parameters": [
           {
             "schema": {
@@ -4126,10 +4311,13 @@
       "post": {
         "operationId": "recalculateToolpaths",
         "tags": [
-          "Plans"
+          "Toolpaths"
         ],
-        "x-toolpath-billing": "quoting",
-        "summary": "Calculate toolpaths for an existing plan",
+        "x-toolpath-product": "quoting",
+        "x-toolpath-metered": true,
+        "x-toolpath-experimental": true,
+        "summary": "Calculate a plan’s toolpaths",
+        "description": "Calculates toolpaths for an existing plan and returns a job — for a workflow that creates a plan first with **Create a plan** (`POST /parts/{id}/plans`) and calculates its toolpaths afterward, and for recomputing a plan’s toolpaths. Track the job, then read the result with **Get toolpaths** (`GET /plans/{planId}/toolpaths`) and **Get machining time** (`GET /plans/{planId}/machining-time`).\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality — planned additions include plan constraints and specifying material and stock, among others. Breaking changes still follow the API major version, so you can build against them today; expect new capabilities to arrive as they mature.",
         "parameters": [
           {
             "schema": {
@@ -4239,10 +4427,13 @@
       "get": {
         "operationId": "getToolpaths",
         "tags": [
-          "Plans"
+          "Toolpaths"
         ],
-        "x-toolpath-billing": "unmetered",
-        "summary": "Get the calculated toolpaths",
+        "x-toolpath-product": "quoting",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "Get toolpaths",
+        "description": "Returns the calculated toolpaths for a plan, with geometry download URLs. Requires **Calculate toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST /plans/{planId}/toolpaths`) to have run and its job to have succeeded.\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality — planned additions include plan constraints and specifying material and stock, among others. Breaking changes still follow the API major version, so you can build against them today; expect new capabilities to arrive as they mature.",
         "parameters": [
           {
             "schema": {
@@ -4316,6 +4507,16 @@
               }
             }
           },
+          "410": {
+            "description": "The plan is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The toolpaths could not be retrieved.",
             "content": {
@@ -4345,8 +4546,11 @@
         "tags": [
           "Plans"
         ],
-        "x-toolpath-billing": "unmetered",
+        "x-toolpath-product": "dfm",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
         "summary": "Get a plan",
+        "description": "Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`) to have run and its job to have succeeded.\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality — planned additions include plan constraints and specifying material and stock, among others. Breaking changes still follow the API major version, so you can build against them today; expect new capabilities to arrive as they mature.",
         "parameters": [
           {
             "schema": {
@@ -4410,6 +4614,16 @@
               }
             }
           },
+          "410": {
+            "description": "The plan is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The plan could not be retrieved.",
             "content": {
@@ -4437,10 +4651,13 @@
       "get": {
         "operationId": "getMachiningTime",
         "tags": [
-          "Plans"
+          "Toolpaths"
         ],
-        "x-toolpath-billing": "unmetered",
-        "summary": "Get the calculated machining time",
+        "x-toolpath-product": "quoting",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "Get machining time",
+        "description": "Returns the machining time for a plan’s toolpaths, per action and totalled. Requires **Calculate toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST /plans/{planId}/toolpaths`) to have run and its job to have succeeded.\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality — planned additions include plan constraints and specifying material and stock, among others. Breaking changes still follow the API major version, so you can build against them today; expect new capabilities to arrive as they mature.",
         "parameters": [
           {
             "schema": {
@@ -4514,6 +4731,16 @@
               }
             }
           },
+          "410": {
+            "description": "The plan is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The machining time could not be retrieved.",
             "content": {
@@ -4541,10 +4768,12 @@
       "post": {
         "operationId": "createHolder",
         "tags": [
-          "Holders"
+          "Tool holders"
         ],
-        "x-toolpath-billing": "unmetered",
-        "summary": "Create a holder upload",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Upload a tool holder",
+        "description": "Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).",
         "parameters": [
           {
             "schema": {
@@ -4628,10 +4857,12 @@
       "patch": {
         "operationId": "updateHolder",
         "tags": [
-          "Holders"
+          "Tool holders"
         ],
-        "x-toolpath-billing": "unmetered",
-        "summary": "Queue holder import",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Import a tool holder",
+        "description": "Queues import of an uploaded tool holder — deriving its collision envelope — and returns a job. Track the job, then read the result with **Get a tool holder** (`GET /holders/{id}`).",
         "parameters": [
           {
             "schema": {
@@ -4787,10 +5018,12 @@
       "get": {
         "operationId": "getHolder",
         "tags": [
-          "Holders"
+          "Tool holders"
         ],
-        "x-toolpath-billing": "unmetered",
-        "summary": "Get the holder",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Get a tool holder",
+        "description": "Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder** (`PATCH /holders/{id}`) to have run and its job to have succeeded.",
         "parameters": [
           {
             "schema": {
@@ -4866,6 +5099,16 @@
               }
             }
           },
+          "410": {
+            "description": "The holder is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The holder could not be retrieved.",
             "content": {
@@ -4893,11 +5136,12 @@
       "get": {
         "operationId": "downloadHolderFusion",
         "tags": [
-          "Holders"
+          "Tool holders"
         ],
-        "x-toolpath-billing": "unmetered",
-        "summary": "Download the Autodesk Fusion holder definition",
-        "description": "Returns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,\nhyphenated keys.\n\nBy default this is a **tool library** (`format=library`) that Fusion can import directly.\n`format=document` returns the bare holder document the kernel wrote, which carries the same\ngeometry but cannot be imported on its own.\n\nThe exported envelope stops at the gauge plane by default: material above it is inside the\nspindle and cannot collide with anything. Pass `trim=false` for the complete envelope,\nincluding the taper. Both are written by the kernel during the import, so neither is a\nreshaping of the other. `trim=true` falls back to the complete envelope for a holder that has\nno gauge plane to cut at, or whose taper a flip put at the nose.\n\nAn unmeasured gauge length is not written as zero. In a library it becomes the sum of every\nsegment height — Fusion's own idiom for a holder whose geometry is its gauge length; in a\ndocument the field is omitted, which puts Fusion's own field into manual mode.",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Download a holder (Fusion)",
+        "description": "Requires **Import a tool holder** (`PATCH /holders/{id}`) to have run and its job to have\nsucceeded.\n\nReturns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,\nhyphenated keys.\n\nBy default this is a **tool library** (`format=library`) that Fusion can import directly.\n`format=document` returns the bare holder document the kernel wrote, which carries the same\ngeometry but cannot be imported on its own.\n\nThe exported envelope stops at the gauge plane by default: material above it is inside the\nspindle and cannot collide with anything. Pass `trim=false` for the complete envelope,\nincluding the taper. Both are written by the kernel during the import, so neither is a\nreshaping of the other. `trim=true` falls back to the complete envelope for a holder that has\nno gauge plane to cut at, or whose taper a flip put at the nose.\n\nAn unmeasured gauge length is not written as zero. In a library it becomes the sum of every\nsegment height — Fusion's own idiom for a holder whose geometry is its gauge length; in a\ndocument the field is omitted, which puts Fusion's own field into manual mode.",
         "parameters": [
           {
             "schema": {
@@ -5048,6 +5292,16 @@
               }
             }
           },
+          "410": {
+            "description": "The holder is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The Fusion definition could not be retrieved.",
             "content": {
@@ -5075,10 +5329,11 @@
       "get": {
         "operationId": "exportFusionHolderLibrary",
         "tags": [
-          "Holders"
+          "Tool holders"
         ],
-        "x-toolpath-billing": "unmetered",
-        "summary": "Export several holders as one Autodesk Fusion library",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Export a holder library (Fusion)",
         "description": "Composes the named holders into a single Autodesk Fusion tool library — how a shop keeps its crib\nin one file. Each holder must already have been imported; this reads their stored results and\ncreates nothing.\n\nHolders appear in the order they were named, and a repeated id is exported once. Each entry\ntakes its name from the holder’s uploaded filename.\n\nEvery named holder has to be exportable. A holder that does not exist, or that has no import\nresult yet, fails the whole request and is named in the response — a library that silently\ncontained fewer holders than were asked for would be worse than an error.",
         "parameters": [
           {
@@ -5200,8 +5455,10 @@
         "tags": [
           "Jobs"
         ],
-        "x-toolpath-billing": "unmetered",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
         "summary": "List jobs",
+        "description": "Lists processing jobs, newest first. Every pipeline step that queues work — **Analyze a part**, **Analyze part features**, **Create a plan**, **Calculate toolpaths**, and **Import a tool holder** — returns a job you track here.",
         "parameters": [
           {
             "schema": {
@@ -5339,8 +5596,10 @@
         "tags": [
           "Jobs"
         ],
-        "x-toolpath-billing": "unmetered",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
         "summary": "Get a job",
+        "description": "Returns one processing job. After any pipeline step that queues work, poll this (or **Stream job updates**, `GET /jobs/{id}/events`) until the status is `succeeded`, then read the result from the matching Get endpoint.",
         "parameters": [
           {
             "schema": {
@@ -5404,6 +5663,16 @@
               }
             }
           },
+          "410": {
+            "description": "The job is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The job could not be retrieved.",
             "content": {
@@ -5433,7 +5702,8 @@
         "tags": [
           "Jobs"
         ],
-        "x-toolpath-billing": "unmetered",
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
         "summary": "Stream job updates",
         "description": "Sends the current job immediately, then sends every subsequent persisted status, progress, or error change as a `job` server-sent event while the connection remains open. If the connection closes, reconnect to receive the latest job snapshot before continuing with future updates.",
         "parameters": [
@@ -5493,6 +5763,16 @@
           },
           "404": {
             "description": "The job was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The job is older than the retention window and is no longer available.",
             "content": {
               "application/problem+json": {
                 "schema": {

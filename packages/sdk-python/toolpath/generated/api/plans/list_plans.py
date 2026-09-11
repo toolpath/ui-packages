@@ -6,7 +6,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.part_response import PartResponse
+from ...models.plan_list_response import PlanListResponse
 from ...models.problem_details import ProblemDetails
 from ...types import UNSET, Response, Unset
 
@@ -14,18 +14,21 @@ from ...types import UNSET, Response, Unset
 def _get_kwargs(
     id: str,
     *,
-    job_id: str | Unset = UNSET,
+    page: int | Unset = 1,
+    page_size: int | Unset = 20,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
-    params["jobId"] = job_id
+    params["page"] = page
+
+    params["pageSize"] = page_size
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/v1/parts/{id}".format(
+        "url": "/v1/parts/{id}/plans".format(
             id=quote(str(id), safe=""),
         ),
         "params": params,
@@ -36,9 +39,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> PartResponse | ProblemDetails | None:
+) -> PlanListResponse | ProblemDetails | None:
     if response.status_code == 200:
-        response_200 = PartResponse.from_dict(response.json())
+        response_200 = PlanListResponse.from_dict(response.json())
 
         return response_200
 
@@ -85,7 +88,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[PartResponse | ProblemDetails]:
+) -> Response[PlanListResponse | ProblemDetails]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -98,30 +101,37 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient | Client,
-    job_id: str | Unset = UNSET,
-) -> Response[PartResponse | ProblemDetails]:
-    """Get a part
+    page: int | Unset = 1,
+    page_size: int | Unset = 20,
+) -> Response[PlanListResponse | ProblemDetails]:
+    """List plans
 
-     Returns a part and the results of its machining analysis. Requires **Analyze a part** (`PATCH
-    /parts/{id}`) to have run and its job to have succeeded; until then there is no result and this
-    returns 404.
+     Lists the plans created for a part, newest first. Create them first with **Create a plan** (`POST
+    /parts/{id}/plans`); a part with no plans returns an empty page.
+
+    **Early access.** Machining plans and toolpath calculation are available now but still gaining
+    functionality — planned additions include plan constraints and specifying material and stock, among
+    others. Breaking changes still follow the API major version, so you can build against them today;
+    expect new capabilities to arrive as they mature.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        job_id (str | Unset): Return the part result for this specific processing run instead of
-            the latest result. Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
+        page (int | Unset):  Default: 1. Example: 1.
+        page_size (int | Unset): Requested page size. Values above 100 are capped at 100. Default:
+            20. Example: 20.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[PartResponse | ProblemDetails]
+        Response[PlanListResponse | ProblemDetails]
     """
 
     kwargs = _get_kwargs(
         id=id,
-        job_id=job_id,
+        page=page,
+        page_size=page_size,
     )
 
     response = client.get_httpx_client().request(
@@ -135,31 +145,38 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient | Client,
-    job_id: str | Unset = UNSET,
-) -> PartResponse | ProblemDetails | None:
-    """Get a part
+    page: int | Unset = 1,
+    page_size: int | Unset = 20,
+) -> PlanListResponse | ProblemDetails | None:
+    """List plans
 
-     Returns a part and the results of its machining analysis. Requires **Analyze a part** (`PATCH
-    /parts/{id}`) to have run and its job to have succeeded; until then there is no result and this
-    returns 404.
+     Lists the plans created for a part, newest first. Create them first with **Create a plan** (`POST
+    /parts/{id}/plans`); a part with no plans returns an empty page.
+
+    **Early access.** Machining plans and toolpath calculation are available now but still gaining
+    functionality — planned additions include plan constraints and specifying material and stock, among
+    others. Breaking changes still follow the API major version, so you can build against them today;
+    expect new capabilities to arrive as they mature.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        job_id (str | Unset): Return the part result for this specific processing run instead of
-            the latest result. Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
+        page (int | Unset):  Default: 1. Example: 1.
+        page_size (int | Unset): Requested page size. Values above 100 are capped at 100. Default:
+            20. Example: 20.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        PartResponse | ProblemDetails
+        PlanListResponse | ProblemDetails
     """
 
     return sync_detailed(
         id=id,
         client=client,
-        job_id=job_id,
+        page=page,
+        page_size=page_size,
     ).parsed
 
 
@@ -167,30 +184,37 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient | Client,
-    job_id: str | Unset = UNSET,
-) -> Response[PartResponse | ProblemDetails]:
-    """Get a part
+    page: int | Unset = 1,
+    page_size: int | Unset = 20,
+) -> Response[PlanListResponse | ProblemDetails]:
+    """List plans
 
-     Returns a part and the results of its machining analysis. Requires **Analyze a part** (`PATCH
-    /parts/{id}`) to have run and its job to have succeeded; until then there is no result and this
-    returns 404.
+     Lists the plans created for a part, newest first. Create them first with **Create a plan** (`POST
+    /parts/{id}/plans`); a part with no plans returns an empty page.
+
+    **Early access.** Machining plans and toolpath calculation are available now but still gaining
+    functionality — planned additions include plan constraints and specifying material and stock, among
+    others. Breaking changes still follow the API major version, so you can build against them today;
+    expect new capabilities to arrive as they mature.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        job_id (str | Unset): Return the part result for this specific processing run instead of
-            the latest result. Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
+        page (int | Unset):  Default: 1. Example: 1.
+        page_size (int | Unset): Requested page size. Values above 100 are capped at 100. Default:
+            20. Example: 20.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[PartResponse | ProblemDetails]
+        Response[PlanListResponse | ProblemDetails]
     """
 
     kwargs = _get_kwargs(
         id=id,
-        job_id=job_id,
+        page=page,
+        page_size=page_size,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -202,31 +226,38 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient | Client,
-    job_id: str | Unset = UNSET,
-) -> PartResponse | ProblemDetails | None:
-    """Get a part
+    page: int | Unset = 1,
+    page_size: int | Unset = 20,
+) -> PlanListResponse | ProblemDetails | None:
+    """List plans
 
-     Returns a part and the results of its machining analysis. Requires **Analyze a part** (`PATCH
-    /parts/{id}`) to have run and its job to have succeeded; until then there is no result and this
-    returns 404.
+     Lists the plans created for a part, newest first. Create them first with **Create a plan** (`POST
+    /parts/{id}/plans`); a part with no plans returns an empty page.
+
+    **Early access.** Machining plans and toolpath calculation are available now but still gaining
+    functionality — planned additions include plan constraints and specifying material and stock, among
+    others. Breaking changes still follow the API major version, so you can build against them today;
+    expect new capabilities to arrive as they mature.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        job_id (str | Unset): Return the part result for this specific processing run instead of
-            the latest result. Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
+        page (int | Unset):  Default: 1. Example: 1.
+        page_size (int | Unset): Requested page size. Values above 100 are capped at 100. Default:
+            20. Example: 20.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        PartResponse | ProblemDetails
+        PlanListResponse | ProblemDetails
     """
 
     return (
         await asyncio_detailed(
             id=id,
             client=client,
-            job_id=job_id,
+            page=page,
+            page_size=page_size,
         )
     ).parsed

@@ -22,7 +22,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/v1/parts/{id}/toolpaths".format(
+        "url": "/v1/parts/{id}/plans".format(
             id=quote(str(id), safe=""),
         ),
     }
@@ -97,11 +97,19 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     idempotency_key: str | Unset = UNSET,
 ) -> Response[ProblemDetails | QueuePartJobResponse]:
-    """Create a plan and calculate its toolpaths
+    """Create a plan
+
+     Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan
+    with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
+
+    **Early access.** Machining plans and toolpath calculation are available now but still gaining
+    functionality — planned additions include plan constraints and specifying material and stock, among
+    others. Breaking changes still follow the API major version, so you can build against them today;
+    expect new capabilities to arrive as they mature.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        idempotency_key (str | Unset):  Example: toolpaths-request-123.
+        idempotency_key (str | Unset):  Example: plan-request-123.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -129,11 +137,19 @@ def sync(
     client: AuthenticatedClient | Client,
     idempotency_key: str | Unset = UNSET,
 ) -> ProblemDetails | QueuePartJobResponse | None:
-    """Create a plan and calculate its toolpaths
+    """Create a plan
+
+     Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan
+    with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
+
+    **Early access.** Machining plans and toolpath calculation are available now but still gaining
+    functionality — planned additions include plan constraints and specifying material and stock, among
+    others. Breaking changes still follow the API major version, so you can build against them today;
+    expect new capabilities to arrive as they mature.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        idempotency_key (str | Unset):  Example: toolpaths-request-123.
+        idempotency_key (str | Unset):  Example: plan-request-123.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -156,11 +172,19 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     idempotency_key: str | Unset = UNSET,
 ) -> Response[ProblemDetails | QueuePartJobResponse]:
-    """Create a plan and calculate its toolpaths
+    """Create a plan
+
+     Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan
+    with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
+
+    **Early access.** Machining plans and toolpath calculation are available now but still gaining
+    functionality — planned additions include plan constraints and specifying material and stock, among
+    others. Breaking changes still follow the API major version, so you can build against them today;
+    expect new capabilities to arrive as they mature.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        idempotency_key (str | Unset):  Example: toolpaths-request-123.
+        idempotency_key (str | Unset):  Example: plan-request-123.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -186,11 +210,19 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     idempotency_key: str | Unset = UNSET,
 ) -> ProblemDetails | QueuePartJobResponse | None:
-    """Create a plan and calculate its toolpaths
+    """Create a plan
+
+     Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan
+    with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
+
+    **Early access.** Machining plans and toolpath calculation are available now but still gaining
+    functionality — planned additions include plan constraints and specifying material and stock, among
+    others. Breaking changes still follow the API major version, so you can build against them today;
+    expect new capabilities to arrive as they mature.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        idempotency_key (str | Unset):  Example: toolpaths-request-123.
+        idempotency_key (str | Unset):  Example: plan-request-123.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

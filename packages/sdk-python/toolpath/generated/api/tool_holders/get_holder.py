@@ -1,34 +1,35 @@
 from http import HTTPStatus
 from typing import Any
 from urllib.parse import quote
+from uuid import UUID
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.plan_list_response import PlanListResponse
+from ...models.holder_response import HolderResponse
 from ...models.problem_details import ProblemDetails
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
-    id: str,
+    id: UUID,
     *,
-    page: int | Unset = 1,
-    page_size: int | Unset = 20,
+    job_id: UUID | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
-    params["page"] = page
-
-    params["pageSize"] = page_size
+    json_job_id: str | Unset = UNSET
+    if not isinstance(job_id, Unset):
+        json_job_id = str(job_id)
+    params["jobId"] = json_job_id
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/v1/parts/{id}/plans".format(
+        "url": "/v1/holders/{id}".format(
             id=quote(str(id), safe=""),
         ),
         "params": params,
@@ -39,9 +40,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> PlanListResponse | ProblemDetails | None:
+) -> HolderResponse | ProblemDetails | None:
     if response.status_code == 200:
-        response_200 = PlanListResponse.from_dict(response.json())
+        response_200 = HolderResponse.from_dict(response.json())
 
         return response_200
 
@@ -65,6 +66,11 @@ def _parse_response(
 
         return response_404
 
+    if response.status_code == 410:
+        response_410 = ProblemDetails.from_dict(response.json())
+
+        return response_410
+
     if response.status_code == 500:
         response_500 = ProblemDetails.from_dict(response.json())
 
@@ -83,7 +89,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[PlanListResponse | ProblemDetails]:
+) -> Response[HolderResponse | ProblemDetails]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -93,32 +99,32 @@ def _build_response(
 
 
 def sync_detailed(
-    id: str,
+    id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    page: int | Unset = 1,
-    page_size: int | Unset = 20,
-) -> Response[PlanListResponse | ProblemDetails]:
-    """List a part’s plans
+    job_id: UUID | Unset = UNSET,
+) -> Response[HolderResponse | ProblemDetails]:
+    """Get a tool holder
+
+     Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder**
+    (`PATCH /holders/{id}`) to have run and its job to have succeeded.
 
     Args:
-        id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        page (int | Unset):  Default: 1. Example: 1.
-        page_size (int | Unset): Requested page size. Values above 100 are capped at 100. Default:
-            20. Example: 20.
+        id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
+        job_id (UUID | Unset): Return the holder result for this specific import run instead of
+            the latest result. Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[PlanListResponse | ProblemDetails]
+        Response[HolderResponse | ProblemDetails]
     """
 
     kwargs = _get_kwargs(
         id=id,
-        page=page,
-        page_size=page_size,
+        job_id=job_id,
     )
 
     response = client.get_httpx_client().request(
@@ -129,63 +135,63 @@ def sync_detailed(
 
 
 def sync(
-    id: str,
+    id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    page: int | Unset = 1,
-    page_size: int | Unset = 20,
-) -> PlanListResponse | ProblemDetails | None:
-    """List a part’s plans
+    job_id: UUID | Unset = UNSET,
+) -> HolderResponse | ProblemDetails | None:
+    """Get a tool holder
+
+     Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder**
+    (`PATCH /holders/{id}`) to have run and its job to have succeeded.
 
     Args:
-        id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        page (int | Unset):  Default: 1. Example: 1.
-        page_size (int | Unset): Requested page size. Values above 100 are capped at 100. Default:
-            20. Example: 20.
+        id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
+        job_id (UUID | Unset): Return the holder result for this specific import run instead of
+            the latest result. Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        PlanListResponse | ProblemDetails
+        HolderResponse | ProblemDetails
     """
 
     return sync_detailed(
         id=id,
         client=client,
-        page=page,
-        page_size=page_size,
+        job_id=job_id,
     ).parsed
 
 
 async def asyncio_detailed(
-    id: str,
+    id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    page: int | Unset = 1,
-    page_size: int | Unset = 20,
-) -> Response[PlanListResponse | ProblemDetails]:
-    """List a part’s plans
+    job_id: UUID | Unset = UNSET,
+) -> Response[HolderResponse | ProblemDetails]:
+    """Get a tool holder
+
+     Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder**
+    (`PATCH /holders/{id}`) to have run and its job to have succeeded.
 
     Args:
-        id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        page (int | Unset):  Default: 1. Example: 1.
-        page_size (int | Unset): Requested page size. Values above 100 are capped at 100. Default:
-            20. Example: 20.
+        id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
+        job_id (UUID | Unset): Return the holder result for this specific import run instead of
+            the latest result. Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[PlanListResponse | ProblemDetails]
+        Response[HolderResponse | ProblemDetails]
     """
 
     kwargs = _get_kwargs(
         id=id,
-        page=page,
-        page_size=page_size,
+        job_id=job_id,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -194,33 +200,33 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    id: str,
+    id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    page: int | Unset = 1,
-    page_size: int | Unset = 20,
-) -> PlanListResponse | ProblemDetails | None:
-    """List a part’s plans
+    job_id: UUID | Unset = UNSET,
+) -> HolderResponse | ProblemDetails | None:
+    """Get a tool holder
+
+     Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder**
+    (`PATCH /holders/{id}`) to have run and its job to have succeeded.
 
     Args:
-        id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        page (int | Unset):  Default: 1. Example: 1.
-        page_size (int | Unset): Requested page size. Values above 100 are capped at 100. Default:
-            20. Example: 20.
+        id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
+        job_id (UUID | Unset): Return the holder result for this specific import run instead of
+            the latest result. Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        PlanListResponse | ProblemDetails
+        HolderResponse | ProblemDetails
     """
 
     return (
         await asyncio_detailed(
             id=id,
             client=client,
-            page=page,
-            page_size=page_size,
+            job_id=job_id,
         )
     ).parsed

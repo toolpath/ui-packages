@@ -53,6 +53,11 @@ def _parse_response(
 
         return response_404
 
+    if response.status_code == 410:
+        response_410 = ProblemDetails.from_dict(response.json())
+
+        return response_410
+
     if response.status_code == 500:
         response_500 = ProblemDetails.from_dict(response.json())
 
@@ -87,6 +92,14 @@ def sync_detailed(
 ) -> Response[PlanResponse | ProblemDetails]:
     """Get a plan
 
+     Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`)
+    to have run and its job to have succeeded.
+
+    **Early access.** Machining plans and toolpath calculation are available now but still gaining
+    functionality — planned additions include plan constraints and specifying material and stock, among
+    others. Breaking changes still follow the API major version, so you can build against them today;
+    expect new capabilities to arrive as they mature.
+
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
 
@@ -116,6 +129,14 @@ def sync(
 ) -> PlanResponse | ProblemDetails | None:
     """Get a plan
 
+     Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`)
+    to have run and its job to have succeeded.
+
+    **Early access.** Machining plans and toolpath calculation are available now but still gaining
+    functionality — planned additions include plan constraints and specifying material and stock, among
+    others. Breaking changes still follow the API major version, so you can build against them today;
+    expect new capabilities to arrive as they mature.
+
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
 
@@ -139,6 +160,14 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
 ) -> Response[PlanResponse | ProblemDetails]:
     """Get a plan
+
+     Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`)
+    to have run and its job to have succeeded.
+
+    **Early access.** Machining plans and toolpath calculation are available now but still gaining
+    functionality — planned additions include plan constraints and specifying material and stock, among
+    others. Breaking changes still follow the API major version, so you can build against them today;
+    expect new capabilities to arrive as they mature.
 
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -166,6 +195,14 @@ async def asyncio(
     client: AuthenticatedClient | Client,
 ) -> PlanResponse | ProblemDetails | None:
     """Get a plan
+
+     Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`)
+    to have run and its job to have succeeded.
+
+    **Early access.** Machining plans and toolpath calculation are available now but still gaining
+    functionality — planned additions include plan constraints and specifying material and stock, among
+    others. Breaking changes still follow the API major version, so you can build against them today;
+    expect new capabilities to arrive as they mature.
 
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

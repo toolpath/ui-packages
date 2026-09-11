@@ -90,6 +90,11 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
         return response_404
 
+    if response.status_code == 410:
+        response_410 = ProblemDetails.from_dict(response.json())
+
+        return response_410
+
     if response.status_code == 500:
         response_500 = ProblemDetails.from_dict(response.json())
 
@@ -129,9 +134,12 @@ def sync_detailed(
     product_id: str | Unset = UNSET,
     product_link: str | Unset = UNSET,
 ) -> Response[ProblemDetails | str]:
-    """Download the Autodesk Fusion holder definition
+    """Download a holder (Fusion)
 
-     Returns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,
+     Requires **Import a tool holder** (`PATCH /holders/{id}`) to have run and its job to have
+    succeeded.
+
+    Returns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,
     hyphenated keys.
 
     By default this is a **tool library** (`format=library`) that Fusion can import directly.
@@ -202,9 +210,12 @@ def sync(
     product_id: str | Unset = UNSET,
     product_link: str | Unset = UNSET,
 ) -> ProblemDetails | str | None:
-    """Download the Autodesk Fusion holder definition
+    """Download a holder (Fusion)
 
-     Returns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,
+     Requires **Import a tool holder** (`PATCH /holders/{id}`) to have run and its job to have
+    succeeded.
+
+    Returns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,
     hyphenated keys.
 
     By default this is a **tool library** (`format=library`) that Fusion can import directly.
@@ -270,9 +281,12 @@ async def asyncio_detailed(
     product_id: str | Unset = UNSET,
     product_link: str | Unset = UNSET,
 ) -> Response[ProblemDetails | str]:
-    """Download the Autodesk Fusion holder definition
+    """Download a holder (Fusion)
 
-     Returns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,
+     Requires **Import a tool holder** (`PATCH /holders/{id}`) to have run and its job to have
+    succeeded.
+
+    Returns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,
     hyphenated keys.
 
     By default this is a **tool library** (`format=library`) that Fusion can import directly.
@@ -341,9 +355,12 @@ async def asyncio(
     product_id: str | Unset = UNSET,
     product_link: str | Unset = UNSET,
 ) -> ProblemDetails | str | None:
-    """Download the Autodesk Fusion holder definition
+    """Download a holder (Fusion)
 
-     Returns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,
+     Requires **Import a tool holder** (`PATCH /holders/{id}`) to have run and its job to have
+    succeeded.
+
+    Returns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,
     hyphenated keys.
 
     By default this is a **tool library** (`format=library`) that Fusion can import directly.

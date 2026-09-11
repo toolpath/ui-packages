@@ -85,7 +85,10 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     filename: str | Unset = UNSET,
 ) -> Response[CreatePartResponse | ProblemDetails]:
-    """Create a part upload
+    """Upload a part
+
+     Creates a part and returns a short-lived URL for uploading its CAD source. This is the first step of
+    the pipeline — upload the file to the URL, then run **Analyze a part** (`PATCH /parts/{id}`).
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
@@ -117,7 +120,10 @@ def sync(
     client: AuthenticatedClient | Client,
     filename: str | Unset = UNSET,
 ) -> CreatePartResponse | ProblemDetails | None:
-    """Create a part upload
+    """Upload a part
+
+     Creates a part and returns a short-lived URL for uploading its CAD source. This is the first step of
+    the pipeline — upload the file to the URL, then run **Analyze a part** (`PATCH /parts/{id}`).
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
@@ -144,7 +150,10 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     filename: str | Unset = UNSET,
 ) -> Response[CreatePartResponse | ProblemDetails]:
-    """Create a part upload
+    """Upload a part
+
+     Creates a part and returns a short-lived URL for uploading its CAD source. This is the first step of
+    the pipeline — upload the file to the URL, then run **Analyze a part** (`PATCH /parts/{id}`).
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
@@ -174,7 +183,10 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     filename: str | Unset = UNSET,
 ) -> CreatePartResponse | ProblemDetails | None:
-    """Create a part upload
+    """Upload a part
+
+     Creates a part and returns a short-lived URL for uploading its CAD source. This is the first step of
+    the pipeline — upload the file to the URL, then run **Analyze a part** (`PATCH /parts/{id}`).
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension

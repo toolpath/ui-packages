@@ -53,6 +53,11 @@ def _parse_response(
 
         return response_404
 
+    if response.status_code == 410:
+        response_410 = ProblemDetails.from_dict(response.json())
+
+        return response_410
+
     if response.status_code == 500:
         response_500 = ProblemDetails.from_dict(response.json())
 
@@ -87,6 +92,10 @@ def sync_detailed(
 ) -> Response[JobDetail | ProblemDetails]:
     """Get a job
 
+     Returns one processing job. After any pipeline step that queues work, poll this (or **Stream job
+    updates**, `GET /jobs/{id}/events`) until the status is `succeeded`, then read the result from the
+    matching Get endpoint.
+
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
 
@@ -116,6 +125,10 @@ def sync(
 ) -> JobDetail | ProblemDetails | None:
     """Get a job
 
+     Returns one processing job. After any pipeline step that queues work, poll this (or **Stream job
+    updates**, `GET /jobs/{id}/events`) until the status is `succeeded`, then read the result from the
+    matching Get endpoint.
+
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
 
@@ -139,6 +152,10 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
 ) -> Response[JobDetail | ProblemDetails]:
     """Get a job
+
+     Returns one processing job. After any pipeline step that queues work, poll this (or **Stream job
+    updates**, `GET /jobs/{id}/events`) until the status is `succeeded`, then read the result from the
+    matching Get endpoint.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -166,6 +183,10 @@ async def asyncio(
     client: AuthenticatedClient | Client,
 ) -> JobDetail | ProblemDetails | None:
     """Get a job
+
+     Returns one processing job. After any pipeline step that queues work, poll this (or **Stream job
+    updates**, `GET /jobs/{id}/events`) until the status is `succeeded`, then read the result from the
+    matching Get endpoint.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

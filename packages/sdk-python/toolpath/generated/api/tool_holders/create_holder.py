@@ -1,37 +1,29 @@
 from http import HTTPStatus
 from typing import Any
-from urllib.parse import quote
-from uuid import UUID
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.holder_response import HolderResponse
+from ...models.create_holder_response import CreateHolderResponse
 from ...models.problem_details import ProblemDetails
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
-    id: UUID,
     *,
-    job_id: UUID | Unset = UNSET,
+    filename: str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
-    json_job_id: str | Unset = UNSET
-    if not isinstance(job_id, Unset):
-        json_job_id = str(job_id)
-    params["jobId"] = json_job_id
+    params["filename"] = filename
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
-        "method": "get",
-        "url": "/v1/holders/{id}".format(
-            id=quote(str(id), safe=""),
-        ),
+        "method": "post",
+        "url": "/v1/holders",
         "params": params,
     }
 
@@ -40,11 +32,11 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> HolderResponse | ProblemDetails | None:
-    if response.status_code == 200:
-        response_200 = HolderResponse.from_dict(response.json())
+) -> CreateHolderResponse | ProblemDetails | None:
+    if response.status_code == 201:
+        response_201 = CreateHolderResponse.from_dict(response.json())
 
-        return response_200
+        return response_201
 
     if response.status_code == 400:
         response_400 = ProblemDetails.from_dict(response.json())
@@ -60,11 +52,6 @@ def _parse_response(
         response_403 = ProblemDetails.from_dict(response.json())
 
         return response_403
-
-    if response.status_code == 404:
-        response_404 = ProblemDetails.from_dict(response.json())
-
-        return response_404
 
     if response.status_code == 500:
         response_500 = ProblemDetails.from_dict(response.json())
@@ -84,7 +71,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[HolderResponse | ProblemDetails]:
+) -> Response[CreateHolderResponse | ProblemDetails]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -94,29 +81,31 @@ def _build_response(
 
 
 def sync_detailed(
-    id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    job_id: UUID | Unset = UNSET,
-) -> Response[HolderResponse | ProblemDetails]:
-    """Get the holder
+    filename: str | Unset = UNSET,
+) -> Response[CreateHolderResponse | ProblemDetails]:
+    """Upload a tool holder
+
+     Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
+    the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).
 
     Args:
-        id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        job_id (UUID | Unset): Return the holder result for this specific import run instead of
-            the latest result. Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
+        filename (str | Unset): Name of the CAD file you are about to upload. The extension
+            selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`,
+            `.sldprt`, `.catpart`, `.prt`, or `.igs`/`.iges`. Omitting it stores the upload as
+            `.step`, which fails processing for any other format. Example: holder.step.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HolderResponse | ProblemDetails]
+        Response[CreateHolderResponse | ProblemDetails]
     """
 
     kwargs = _get_kwargs(
-        id=id,
-        job_id=job_id,
+        filename=filename,
     )
 
     response = client.get_httpx_client().request(
@@ -127,57 +116,61 @@ def sync_detailed(
 
 
 def sync(
-    id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    job_id: UUID | Unset = UNSET,
-) -> HolderResponse | ProblemDetails | None:
-    """Get the holder
+    filename: str | Unset = UNSET,
+) -> CreateHolderResponse | ProblemDetails | None:
+    """Upload a tool holder
+
+     Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
+    the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).
 
     Args:
-        id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        job_id (UUID | Unset): Return the holder result for this specific import run instead of
-            the latest result. Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
+        filename (str | Unset): Name of the CAD file you are about to upload. The extension
+            selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`,
+            `.sldprt`, `.catpart`, `.prt`, or `.igs`/`.iges`. Omitting it stores the upload as
+            `.step`, which fails processing for any other format. Example: holder.step.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HolderResponse | ProblemDetails
+        CreateHolderResponse | ProblemDetails
     """
 
     return sync_detailed(
-        id=id,
         client=client,
-        job_id=job_id,
+        filename=filename,
     ).parsed
 
 
 async def asyncio_detailed(
-    id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    job_id: UUID | Unset = UNSET,
-) -> Response[HolderResponse | ProblemDetails]:
-    """Get the holder
+    filename: str | Unset = UNSET,
+) -> Response[CreateHolderResponse | ProblemDetails]:
+    """Upload a tool holder
+
+     Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
+    the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).
 
     Args:
-        id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        job_id (UUID | Unset): Return the holder result for this specific import run instead of
-            the latest result. Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
+        filename (str | Unset): Name of the CAD file you are about to upload. The extension
+            selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`,
+            `.sldprt`, `.catpart`, `.prt`, or `.igs`/`.iges`. Omitting it stores the upload as
+            `.step`, which fails processing for any other format. Example: holder.step.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HolderResponse | ProblemDetails]
+        Response[CreateHolderResponse | ProblemDetails]
     """
 
     kwargs = _get_kwargs(
-        id=id,
-        job_id=job_id,
+        filename=filename,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -186,30 +179,32 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    job_id: UUID | Unset = UNSET,
-) -> HolderResponse | ProblemDetails | None:
-    """Get the holder
+    filename: str | Unset = UNSET,
+) -> CreateHolderResponse | ProblemDetails | None:
+    """Upload a tool holder
+
+     Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
+    the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).
 
     Args:
-        id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
-        job_id (UUID | Unset): Return the holder result for this specific import run instead of
-            the latest result. Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
+        filename (str | Unset): Name of the CAD file you are about to upload. The extension
+            selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`,
+            `.sldprt`, `.catpart`, `.prt`, or `.igs`/`.iges`. Omitting it stores the upload as
+            `.step`, which fails processing for any other format. Example: holder.step.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HolderResponse | ProblemDetails
+        CreateHolderResponse | ProblemDetails
     """
 
     return (
         await asyncio_detailed(
-            id=id,
             client=client,
-            job_id=job_id,
+            filename=filename,
         )
     ).parsed
