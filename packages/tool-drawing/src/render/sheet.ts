@@ -1,4 +1,4 @@
-import type { OutlinePart, OutlineSegment } from '../model/outline.js'
+import type { OutlineSegment } from '../model/outline.js'
 
 /**
  * The sheet the tool is drawn on, and the ink it is drawn in.
@@ -73,7 +73,7 @@ export const isConnection = (segment: OutlineSegment): boolean =>
  * **Every line is solid**: flutes pale yellow, shank one light grey whatever
  * its provenance, the holder grey up to the spindle connection, which is
  * darker. What was derived or assumed is on the element as `data-provenance`,
- * and named in the note under the drawing.
+ * for a consumer that wants to say so; the drawing itself does not caption it.
  */
 export const sectionFill = (segment: OutlineSegment, sheet: Sheet): string => {
   if (segment.part === 'flutes' || segment.part === 'tip') {
@@ -84,20 +84,3 @@ export const sectionFill = (segment: OutlineSegment, sheet: Sheet): string => {
   }
   return isConnection(segment) ? sheet.connection : sheet.holder
 }
-
-/** What an assumed section is called, in the words the note under the drawing uses. */
-const ASSUMED: Partial<Record<OutlinePart, string>> = {
-  tip: 'tip angle',
-  nose: 'nose length',
-  body: 'body cone',
-  flange: 'flange thickness',
-}
-
-/** Everything the drawing had to assume, named once each, in the order drawn. */
-export const assumedNames = (segments: ReadonlyArray<OutlineSegment>): Array<string> => [
-  ...new Set(
-    segments
-      .filter((segment) => segment.provenance === 'assumed')
-      .map((segment) => ASSUMED[segment.part] ?? segment.part),
-  ),
-]

@@ -49,8 +49,9 @@ tool honestly — an unrecognised form, or a tool with no stated cutting diamete
 or flute length. **Every number in a generated profile comes off a vendor
 field.** There is no default taper angle, no assumed neck, no invented lead
 chamfer. Where a number has to be assumed to draw at all — a drill point angle
-the vendor never published — the segment says so in its `provenance`, and a
-renderer is expected to show it.
+the vendor never published — the segment says so in its `provenance`, which
+`<ToolDrawing>` puts on the element as `data-provenance` for a consumer that
+wants to say so.
 
 ## Two kinds of holder
 
@@ -74,7 +75,7 @@ narrows the union for an adapter that holds both.
 On a `gage-line` profile the drawing splits at `z = 0` — the spindle face — so
 everything above it is shaded as the spindle connection, exactly as the
 parametric flange is. A `nose`-datumed profile has no spindle face to split on
-and no gauge length to state, and the note under the drawing says so.
+and no gauge length to state, so it stays one section.
 
 `geometry` keys are the scraper's own field names (`DC`, `SFDM`, `OAL`, `LCF`,
 `RE`, `SIG`, `NOF`, `shoulder-diameter`, `shoulder-length`). They are not
@@ -89,12 +90,39 @@ import { ToolDrawing } from '@toolpath/tool-drawing'
 ```
 
 The component measures its own panel, frames the assembly to fill it, and draws
-along the panel's long axis — no orientation prop, no pan, no zoom. `theme` is a
-prop rather than a hook because a package cannot reach the application's theme;
-it defaults to `'dark'`.
+along the panel's long axis — no orientation prop and no pan. `theme` is a prop
+rather than a hook because a package cannot reach the application's theme; it
+defaults to `'dark'`.
 
 A form the geometry has no shape for is **stated in words and named**, not drawn
 as a plausible cylinder.
+
+## Zooming to the tool
+
+```tsx
+<ToolDrawing assembly={assembly} zoom="tool" />
+```
+
+An assembly is drawn tip to spindle connection, and the holder is most of it.
+`zoom="tool"` frames the working end instead: the length of tool below the
+holder — the stickout this assembly was drawn at, or the tool's own `LBH` where
+no holder is drawn — and a sliver of holder above it, so the reader can see what
+the tool is held in.
+
+The holder above the cut is **drawn and cut by the edge of the sheet**, not
+trimmed: a trimmed silhouette closes across a face the vendor never published,
+which is the invented shape this package refuses everywhere else. A dimension
+measuring to a face above the cut is dropped rather than left pointing off the
+edge.
+
+The gain is along the axis and, where the holder flares above the nose, across
+it too — a ⌀6 end mill in a ⌀46 flange is drawn across 46 mm of sheet however
+tall the panel, and below the nose the widest thing is the nose. A tool that
+states neither length, and one already shorter than the cut, is framed on the
+whole assembly; the `<svg>` carries `data-zoom="tool"` only where the zoom took.
+
+`extentFor` is the same decision as a pure function, from
+`@toolpath/tool-drawing/geometry`, for a caller framing a sheet itself.
 
 ## Dimensions
 

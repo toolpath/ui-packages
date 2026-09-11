@@ -303,3 +303,70 @@ describe('chrome that will not fit', () => {
     expect(Math.abs(view.minX)).toBeGreaterThan(Math.abs(view.minX + view.width))
   })
 })
+
+/**
+ * **A reservation is not a margin.**
+ *
+ * A caller reserving a flank — the clearance overlay's wall — has to state the
+ * request in pixels before the package has measured anything, so the number is
+ * a guess at the widest sheet it might get. Priced as a margin, that guess came
+ * out of the scale: 240 px asked on a 400 px axis was granted as 225 px of
+ * chrome, and the assembly was drawn in what was left whether or not the wall
+ * had anything to put there. An assembly with a holder is where it hurt, because
+ * it is wide enough that the across axis binds and every pixel of the guess
+ * came straight off the drawing.
+ */
+describe('a reservation is granted out of the room the drawing cannot use', () => {
+  /** A ⌀3 end mill in a BT30 ER16 holder: 85 mm long over a ⌀46 flange. */
+  const held: Extent = { height: 85, radius: 23 }
+  const panel = { width: 400, height: 1200 }
+  const wall = { reserve: { plus: 240 } }
+
+  it('hands a long thin tool the flank it has no use for', () => {
+    const frame = frameFor(thin, panel, wall)
+
+    // The length binds either way, so the ask costs the drawing nothing.
+    expect(frame.scale).toBe(frameFor(thin, panel).scale)
+    expect(frame.reserve).toEqual({ minus: 0, plus: 240, along: 0 })
+  })
+
+  it('grants an assembly that fills its panel none of it', () => {
+    const frame = frameFor(held, panel, wall)
+
+    expect(frame.scale).toBe(frameFor(held, panel).scale)
+    expect(frame.reserve?.plus).toBe(0)
+  })
+
+  it('is worth 2.3 times the scale on that assembly, against pricing it', () => {
+    const priced = frameFor(held, panel, { padding: { plus: 240 } })
+    const reserved = frameFor(held, panel, wall)
+
+    expect(priced.scale).toBeCloseTo(3.478, 3)
+    expect(reserved.scale).toBe(8)
+    // 160 px of a 400 px axis, against 368.
+    expect(held.radius * 2 * reserved.scale).toBe(368)
+  })
+
+  it('splits a flank that cannot hold both requests in proportion', () => {
+    const frame = frameFor(thin, panel, { reserve: { minus: 100, plus: 300 } })
+
+    // 400 px asked of the 321.28 px the tool leaves across, split as asked.
+    const spare = 400 - thin.radius * 2 * frame.scale - 32
+    expect(frame.reserve!.minus + frame.reserve!.plus).toBeCloseTo(spare, 6)
+    expect(frame.reserve!.plus / frame.reserve!.minus).toBeCloseTo(3, 6)
+  })
+
+  it('still reports the scale the browser will render at', () => {
+    for (const box of [
+      { width: 400, height: 1200 },
+      { width: 1450, height: 297 },
+      { width: 232, height: 1032 },
+      { width: 100, height: 60 },
+    ]) {
+      for (const extent of [thin, held]) {
+        const frame = frameFor(extent, box, wall)
+        expect(renderedScale(frame, box)).toBeCloseTo(frame.scale, 4)
+      }
+    }
+  })
+})

@@ -1,10 +1,16 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { assemblyOutline } from '../model/outline.js'
 import { frameFor, typeSizeFor, type Box, type Padding } from '../model/frame.js'
-import { dimensionsFor, laneLayout, laneRoom, type LaneRoom } from '../model/dimensions.js'
-import { isHolderProfile } from '../model/types.js'
+import { extentFor, type Zoom } from '../model/zoom.js'
+import {
+  dimensionsFor,
+  dimensionsWithin,
+  laneLayout,
+  laneRoom,
+  type LaneRoom,
+} from '../model/dimensions.js'
 import type { ViewerAssembly } from '../model/types.js'
-import { SHEETS, assumedNames, sectionFill, type Theme } from './sheet.js'
+import { SHEETS, sectionFill, type Theme } from './sheet.js'
 import { joins, sectionPoints, silhouettePath } from './silhouette.js'
 import { DimensionLines } from './dimension-lines.js'
 import { DrawingProvider } from './drawing-context.js'
@@ -23,7 +29,7 @@ import { DrawingProvider } from './drawing-context.js'
  * **Every line is solid**: flutes pale yellow, shank one light grey whatever
  * its provenance, the holder grey up to the spindle connection, which is
  * darker. What was derived or assumed is on the element as `data-provenance`,
- * and named in the note under the drawing.
+ * for a consumer that wants to say so; the drawing itself does not caption it.
  */
 export interface ToolDrawingProps {
   readonly assembly: ViewerAssembly
@@ -57,6 +63,27 @@ export interface ToolDrawingProps {
    */
   readonly dimensionSides?: 'one' | 'both'
   /**
+   * How much of the stack the sheet is framed to.
+   *
+   * `'assembly'`, the default, is the whole stack — tip to the top of the
+   * holder. `'tool'` frames the working end instead: what the tool has below
+   * the holder, and a sliver of the holder above it so the reader can see what
+   * it is held in. The cut is the length of tool below the holder — the
+   * stickout this assembly was drawn at, or the tool's own `LBH` where no
+   * holder is drawn — and the holder above it is cut off by the edge of the
+   * sheet rather than trimmed to a face nobody published.
+   *
+   * **The gain is mostly across the axis, not along it.** A ⌀6 end mill in a
+   * ⌀46 flange is drawn across 46 mm of sheet however tall the panel; below
+   * the nose the widest thing is the nose, and the same panel draws the tool
+   * several times the size.
+   *
+   * A tool that states neither length, and one already shorter than the cut,
+   * is framed on the whole assembly — there is nothing to zoom to. The `<svg>`
+   * carries `data-zoom="tool"` only where the zoom actually took.
+   */
+  readonly zoom?: Zoom
+  /**
    * The dimension or dimensions drawn in the sheet's accent, by ISO 13399 code
    * — `DC`, `LCF`, `OAL`, `SFDM`, `LBH`, `stickout`, `SIG`, and the two
    * `shoulder-` codes.
@@ -77,12 +104,22 @@ export interface ToolDrawingProps {
    */
   readonly onDimensionHover?: (code: string | null) => void
   /**
-   * Extra room for chrome around the drawing, in pixels, on top of whatever
-   * the dimension bands ask for.
+   * Room reserved for chrome around the drawing, in pixels, on top of whatever
+   * the dimension ladder asks for.
    *
    * Per flank where the caller needs it asymmetrically — drawing a feature
    * section beside the tool means reserving the `plus` flank for it, and the
-   * overlay draws in exactly the room reserved.
+   * overlay draws in exactly the room it was granted.
+   *
+   * **A reservation, not a margin** (2026-09-11): it is granted out of the
+   * room the drawing itself cannot use, so asking for more than the panel has
+   * costs the drawing nothing. It had to be a guess — the caller states it
+   * before the package has measured the panel — and priced as a margin the
+   * guess was paid for out of the scale: 240 px asked for a wall on a 220 px
+   * flank took 60% of the axis and drew the assembly in the rest, which is how
+   * a tool with a holder on it came out a third the size of the same tool
+   * alone. Ask for as much as the widest sheet could use; a narrow one grants
+   * what it has.
    */
   readonly padding?: number | Partial<Padding>
   /**
@@ -119,8 +156,18 @@ export interface ToolDrawingProps {
 /** Type-relative line weights, carried across from the drawing this replaces. */
 const STROKE = { silhouette: 0.09, edge: 0.09, chord: 0.06, centre: 0.05 }
 
-/** Room around a drawing that carries no dimensions, in pixels. */
+/**
+ * Room around a drawing, in pixels: the sheet's own margin, which the scale
+ * pays for, and the fallback for a flank a caller's reservation does not name.
+ */
 const DEFAULT_PADDING = 16
+
+/** The sheet's own margin, on every flank. */
+const SHEET_MARGIN: Padding = {
+  minus: DEFAULT_PADDING,
+  plus: DEFAULT_PADDING,
+  along: DEFAULT_PADDING,
+}
 
 /** What a section that fouls the material is painted: struck, not metal. */
 const STRUCK = '#f87171'
@@ -131,6 +178,7 @@ export const ToolDrawing = ({
   caption,
   dimensions = false,
   dimensionSides = 'one',
+  zoom = 'assembly',
   highlight = null,
   onDimensionHover,
   padding = DEFAULT_PADDING,
@@ -148,6 +196,7 @@ export const ToolDrawing = ({
    * the first paint is a sensible drawing rather than a visibly wrong one that
    * jumps when the observer settles.
    */
+  const sheetId = `sheet-${useId().replace(/:/g, '')}`
   const element = useRef<SVGSVGElement>(null)
   const [box, setBox] = useState<Box>({ width: 0, height: 0 })
   useEffect(() => {
@@ -167,19 +216,9 @@ export const ToolDrawing = ({
     }
   }, [])
 
-  const { tool, holder } = assembly
+  const { tool } = assembly
   const name = caption ?? tool.label ?? tool.form
   const outline = assemblyOutline(assembly)
-  /**
-   * Whether the holder reaches a stated spindle face.
-   *
-   * A measured profile states it by its datum — a `gage-line` profile *is*
-   * referenced to that face, and a `nose` one has no gauge plane to solve — so
-   * the two forms answer the same question from different fields.
-   */
-  const unstatedLength =
-    holder !== null &&
-    (isHolderProfile(holder) ? holder.datum !== 'gage-line' : holder.gaugeLength === null)
 
   /**
    * **An undrawable form is said in words, not drawn plausibly.**
@@ -206,6 +245,15 @@ export const ToolDrawing = ({
   }
 
   /**
+   * **How much of the stack this sheet covers**, which is the whole of the
+   * zoom: the frame is built from an extent, so framing the working end is one
+   * shorter extent and not a transform anything downstream has to know about.
+   * What falls above it is drawn and clipped by the viewport.
+   */
+  const extent = extentFor(outline, assembly, zoom)
+  const zoomed = extent !== outline
+
+  /**
    * **The padding seam.**
    *
    * The lanes are measured in type, and the type size is settled by the panel
@@ -217,7 +265,18 @@ export const ToolDrawing = ({
    * out, total them, and only then build the frame.
    */
   const typePx = typeSizeFor(box)
-  const model = dimensions ? dimensionsFor(assembly) : null
+  /**
+   * **Only the dimensions this sheet can carry.** A line measuring to a face
+   * above the cut runs off the edge and points at nothing, which is the
+   * mistake the overall length is dropped for when a holder buries the end of
+   * the shank. Unfiltered where nothing was cut off, so a drawing of the whole
+   * assembly keeps every line it ever drew — including the overall length of a
+   * tool held at a stickout with no holder drawn, which reaches past the
+   * silhouette by design.
+   */
+  const dimensioned = dimensions ? dimensionsFor(assembly) : null
+  const model =
+    dimensioned !== null && zoomed ? dimensionsWithin(dimensioned, extent.height) : dimensioned
   /**
    * Whether the width arrows reach the edge of the drawing, which is the only
    * case where the lanes have to stand clear of them.
@@ -233,7 +292,7 @@ export const ToolDrawing = ({
    * padding seam below stays a straight line.
    */
   const widthsReachEdge =
-    model !== null && model.widths.some((each) => each.radius >= outline.radius - 1e-6)
+    model !== null && model.widths.some((each) => each.radius >= extent.radius - 1e-6)
   const room: LaneRoom = {
     arrow: widthsReachEdge ? typePx * 0.9 * 2.4 : 0,
     gap: typePx * 0.6,
@@ -243,7 +302,17 @@ export const ToolDrawing = ({
   const lit = new Set(
     highlight === null ? [] : typeof highlight === 'string' ? [highlight] : highlight,
   )
-  const asked: Padding =
+  /**
+   * **The caller's room is a reservation and the ladder's is a margin.**
+   *
+   * They were one number, and the drawing paid for both out of its scale. Only
+   * the ladder has to be paid for: it is drawn in the room it asks for, and a
+   * line pushed off the sheet is a line nobody can read. What the caller
+   * reserves is drawn in by something that can be cut short — the clearance
+   * overlay clips its wall to a break — so it is asked for out of the spare
+   * the drawing leaves, and a panel with no spare grants none of it.
+   */
+  const reserve: Padding =
     typeof padding === 'number'
       ? { minus: padding, plus: padding, along: padding }
       : {
@@ -253,30 +322,44 @@ export const ToolDrawing = ({
         }
   const chrome: Padding =
     layout === null
-      ? asked
+      ? SHEET_MARGIN
       : {
-          minus: asked.minus + laneRoom(layout.count.minus, room) + room.gap,
-          plus: asked.plus + laneRoom(layout.count.plus, room) + room.gap,
+          minus: SHEET_MARGIN.minus + laneRoom(layout.count.minus, room) + room.gap,
+          plus: SHEET_MARGIN.plus + laneRoom(layout.count.plus, room) + room.gap,
           // Headroom for the arrows of a dimension too short to hold them:
           // those stand outside the line and point back in, so they reach past
           // the end of what they measure.
-          along: asked.along + typePx * 0.9 * 3.2,
+          along: SHEET_MARGIN.along + typePx * 0.9 * 3.2,
         }
 
-  const frame = frameFor(outline, box, { padding: chrome })
+  const frame = frameFor(extent, box, { padding: chrome, reserve })
+  /** The sheet itself, as the four numbers the frame stated it in. */
+  const sheetRect = frame.viewBox.split(' ').map(Number)
   const { fontSize } = frame
-  const assumed = assumedNames(outline.segments)
   const line = (r: number, z: number) => ({ x: frame.toX(r, z), y: frame.toY(r, z) })
   // A centreline runs a little past both ends of the part, as a drawing draws
   // one. Type-relative, so it keeps its proportion at any scale.
   const overhang = fontSize * 1.2
   const from = line(0, -overhang)
-  const to = line(0, outline.height + overhang)
+  const to = line(0, extent.height + overhang)
 
   return (
     <figure
       className={className}
-      style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%', margin: 0 }}
+      /*
+        **The sheet is the whole figure, not just the drawing.** The caption
+        sits on the same ground the tool is drawn on, so the panel is one
+        surface rather than a white rectangle inset in the consumer's card.
+      */
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+        height: '100%',
+        margin: 0,
+        background: sheet.ground,
+        borderRadius: '0.25rem',
+      }}
     >
       <figcaption
         style={{
@@ -315,7 +398,16 @@ export const ToolDrawing = ({
         role="img"
         aria-label={`${name}, drawn from its stated dimensions`}
         viewBox={frame.viewBox}
-        style={{ background: sheet.ground, flex: 1, minHeight: 0, borderRadius: '0.25rem' }}
+        {...(zoomed ? { 'data-zoom': 'tool' } : {})}
+        /*
+          **The viewport clips, and that is the zoom's other half.** A sheet
+          framed to the working end still has the holder drawn on it, running
+          up past the top edge — trimmed instead, the silhouette would close
+          across a face the vendor never published. `overflow: hidden` is the
+          user agent's own default for an `<svg>` in a document; it is stated
+          because the drawing now depends on it.
+        */
+        style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}
         /*
           **Do not change this.** `xMidYMid meet` fits the viewBox by the
           smaller of its own two ratios, and `frameFor` chooses `scale` so that
@@ -326,6 +418,25 @@ export const ToolDrawing = ({
         preserveAspectRatio="xMidYMid meet"
       >
         {/*
+          **The sheet's own edge, where the sheet is less than the stack.**
+
+          `preserveAspectRatio="xMidYMid meet"` fits the viewBox inside the
+          viewport and centres it, so on an axis the content does not bind
+          there is viewport either side of the sheet — and a silhouette that
+          carries on past the viewBox paints across it, out to the edge of the
+          panel. Unclipped, a zoom to the working end showed however much
+          holder the panel happened to have room for, which is not a bound at
+          all. The clip is the viewBox: what the frame said the sheet is.
+        */}
+        {zoomed ? (
+          <defs>
+            <clipPath id={sheetId}>
+              <rect x={sheetRect[0]} y={sheetRect[1]} width={sheetRect[2]} height={sheetRect[3]} />
+            </clipPath>
+          </defs>
+        ) : null}
+        <g {...(zoomed ? { clipPath: `url(#${sheetId})` } : {})}>
+          {/*
           Each segment mirrored about the axis: a body of revolution in
           elevation. The **fills** are per section, because a section that
           fouls the part is painted on its own; the **outline** is one stroke
@@ -336,62 +447,63 @@ export const ToolDrawing = ({
           segments — see `silhouette.ts` — so the key carries the index and
           nothing below groups by `data-part`.
         */}
-        {outline.segments.map((segment, index) => {
-          const struck = (collisions ?? []).some(
-            (each) =>
-              each.part === segment.part &&
-              each.height >= Math.min(...segment.points.map((point) => point.z)) - 1e-6 &&
-              each.height <= Math.max(...segment.points.map((point) => point.z)) + 1e-6,
-          )
-          return (
-            <polygon
-              key={`${segment.part}-${String(index)}`}
-              data-part={segment.part}
-              data-provenance={segment.provenance}
-              {...(struck ? { 'data-struck': 'true' } : {})}
-              points={sectionPoints(segment, frame)}
-              fill={struck ? STRUCK : sectionFill(segment, sheet)}
-              fillOpacity={struck ? 0.75 : 1}
-              stroke="none"
-            />
-          )
-        })}
+          {outline.segments.map((segment, index) => {
+            const struck = (collisions ?? []).some(
+              (each) =>
+                each.part === segment.part &&
+                each.height >= Math.min(...segment.points.map((point) => point.z)) - 1e-6 &&
+                each.height <= Math.max(...segment.points.map((point) => point.z)) + 1e-6,
+            )
+            return (
+              <polygon
+                key={`${segment.part}-${String(index)}`}
+                data-part={segment.part}
+                data-provenance={segment.provenance}
+                {...(struck ? { 'data-struck': 'true' } : {})}
+                points={sectionPoints(segment, frame)}
+                fill={struck ? STRUCK : sectionFill(segment, sheet)}
+                fillOpacity={struck ? 0.75 : 1}
+                stroke="none"
+              />
+            )
+          })}
 
-        {joins(outline.segments).map((join, index) => {
-          const start = line(-join.radius, join.z)
-          const end = line(join.radius, join.z)
-          return (
-            <line
-              key={`join-${join.part}-${String(index)}`}
-              data-join={join.part}
-              data-stepped={join.stepped ? 'true' : 'false'}
-              x1={start.x}
-              y1={start.y}
-              x2={end.x}
-              y2={end.y}
-              stroke={sheet.ink}
-              strokeOpacity={join.stepped ? 1 : 0.35}
-              strokeWidth={fontSize * (join.stepped ? STROKE.edge : STROKE.chord)}
-              {...(join.stepped
-                ? {}
-                : {
-                    strokeDasharray: `${(fontSize * 0.5).toFixed(2)} ${(fontSize * 0.4).toFixed(2)}`,
-                  })}
-            />
-          )
-        })}
+          {joins(outline.segments).map((join, index) => {
+            const start = line(-join.radius, join.z)
+            const end = line(join.radius, join.z)
+            return (
+              <line
+                key={`join-${join.part}-${String(index)}`}
+                data-join={join.part}
+                data-stepped={join.stepped ? 'true' : 'false'}
+                x1={start.x}
+                y1={start.y}
+                x2={end.x}
+                y2={end.y}
+                stroke={sheet.ink}
+                strokeOpacity={join.stepped ? 1 : 0.35}
+                strokeWidth={fontSize * (join.stepped ? STROKE.edge : STROKE.chord)}
+                {...(join.stepped
+                  ? {}
+                  : {
+                      strokeDasharray: `${(fontSize * 0.5).toFixed(2)} ${(fontSize * 0.4).toFixed(2)}`,
+                    })}
+              />
+            )
+          })}
 
-        {/* The silhouette, in one stroke: up the right side and down the left. */}
-        <path
-          data-silhouette
-          d={silhouettePath(outline.segments, frame)}
-          fill="none"
-          stroke={sheet.ink}
-          strokeWidth={fontSize * STROKE.silhouette}
-          strokeLinejoin="round"
-        />
+          {/* The silhouette, in one stroke: up the right side and down the left. */}
+          <path
+            data-silhouette
+            d={silhouettePath(outline.segments, frame)}
+            fill="none"
+            stroke={sheet.ink}
+            strokeWidth={fontSize * STROKE.silhouette}
+            strokeLinejoin="round"
+          />
+        </g>
 
-        <DrawingProvider value={{ frame, outline, sheet }}>{children}</DrawingProvider>
+        <DrawingProvider value={{ frame, outline, extent, sheet }}>{children}</DrawingProvider>
 
         {model !== null && layout !== null ? (
           <DimensionLines
@@ -399,6 +511,7 @@ export const ToolDrawing = ({
             layout={layout}
             frame={frame}
             outline={outline}
+            extent={extent}
             room={room}
             requested={chrome}
             ink={sheet.dimension}
@@ -423,18 +536,6 @@ export const ToolDrawing = ({
           strokeDasharray={`${(fontSize * 1.6).toFixed(2)} ${(fontSize * 0.5).toFixed(2)} ${(fontSize * 0.3).toFixed(2)} ${(fontSize * 0.5).toFixed(2)}`}
         />
       </svg>
-      <p
-        data-provenance-note
-        style={{
-          padding: '0 0.75rem 0.5rem',
-          fontSize: '0.625rem',
-          color: sheet.dimension,
-          margin: 0,
-        }}
-      >
-        Drawn from stated dimensions{assumed.length > 0 ? `; ${assumed.join(', ')} assumed` : ''}.
-        {unstatedLength ? ' The holder length is not stated.' : ''}
-      </p>
     </figure>
   )
 }
