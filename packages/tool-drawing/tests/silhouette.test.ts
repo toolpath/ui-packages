@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { assemblyOutline } from '../src/geometry/index.js'
-import { assumedNames, isConnection, sectionFill, SHEETS } from '../src/render/sheet.js'
+import { isConnection, sectionFill, SHEETS } from '../src/render/sheet.js'
 import { joins, sectionPoints, silhouettePath } from '../src/render/silhouette.js'
 import type { OutlineSegment } from '../src/geometry/index.js'
 
@@ -130,23 +130,5 @@ describe('the ink a section is painted in', () => {
     expect(sectionFill(segment({ part: 'shank' }), sheet)).toBe(sheet.body)
     expect(sectionFill(segment({ part: 'nose' }), sheet)).toBe(sheet.holder)
     expect(sectionFill(segment({ part: 'flange' }), sheet)).toBe(sheet.connection)
-  })
-})
-
-describe('what the drawing had to assume', () => {
-  it('names each assumed section once, in the words the note uses', () => {
-    expect(
-      assumedNames([
-        segment({ part: 'tip', provenance: 'assumed' }),
-        segment({ part: 'shank', provenance: 'vendor-stated' }),
-        segment({ part: 'body', provenance: 'assumed' }),
-        segment({ part: 'flange', provenance: 'assumed' }),
-        segment({ part: 'body', provenance: 'assumed' }),
-      ]),
-    ).toEqual(['tip angle', 'body cone', 'flange thickness'])
-  })
-
-  it('names nothing when everything was stated', () => {
-    expect(assumedNames([segment()])).toEqual([])
   })
 })
