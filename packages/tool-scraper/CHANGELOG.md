@@ -1,5 +1,96 @@
 # @toolpath/tool-scraper
 
+## 3.0.0
+
+### Major Changes
+
+- a8540d8: Say which kind of null a toolholding record's null is.
+
+  `HolderRecord.cadModelUrl` was `null` for three different reasons — the vendor
+  publishes no model, the vendor publishes one and nothing has looked it up, or
+  the platform has no CAD at all — and a consumer could not tell them apart. Every
+  Kennametal and WIDIA holder reads as the second until `toolpath-scrape cad` has
+  run over its CSV, because those two vendors publish no CAD link on a family page.
+  - `HolderRecord.cadModelSource` is new: `unspecified` where nothing has looked,
+    `vendor-stated` where the lookup ran, whether or not it found a model. The new
+    `cadModel(row)` reader is what every holder mapper now uses to decide it, and
+    `holderRecord` refuses a record carrying a URL it calls `unspecified`.
+  - `HolderRecord.unpublished` and `ColletRecord.unpublished` are new, and required
+    by `holderRecord` and `colletRecord`: a mapper states the nullable fields its
+    vendor publishes no column for, and the factory refuses a field left out
+    without a declaration or declared and then supplied. A null a mapper simply
+    never wrote is no longer reachable.
+  - `OptionalHolderField`, `OPTIONAL_HOLDER_FIELDS`, `OptionalColletField`,
+    `OPTIONAL_COLLET_FIELDS` and `CadSource` are exported for callers that build
+    records themselves.
+  - `CadCoverage.unspecified` counts rows carrying no CAD column, so `coverage`
+    distinguishes a family nobody has annotated from one whose vendor publishes no
+    models. It reported the two identically as `0 STEP`.
+
+- a8540d8: Kennametal's shrink-fit and hydraulic holders now report `clamping: 'shrink'` and
+  `clamping: 'hydraulic'` instead of `clamping: 'bore'`.
+
+  135 families and 989 parts change value: 78 shrink-fit families (650 parts) and 57
+  hydraulic families (339 parts). `bore` is no longer declared by any Kennametal family.
+
+  Previously `clamping` was derived from the variant table — a `D1` bore with no collet
+  series — while MariTool derived it from the vendor's leaf category. A consumer holding
+  both catalogs saw two meanings of the axis, and filtering on `clamping === 'hydraulic'`
+  returned MariTool's chucks and none of Kennametal's. Kennametal states the mode in the
+  family breadcrumb, which these families' `style` facts already cited.
+
+  Fit behavior is unchanged: all three modes are in `BORE_CLAMPINGS`, so a shank-gripping
+  holder still publishes a bore and no collet series. Consumers matching `clamping === 'bore'`
+  to mean "grips a shank" must use `BORE_CLAMPINGS` instead.
+
+- a8540d8: Scrape Kennametal's BT, BTKV, CV, CVKV, HSK and PSC toolholders.
+
+  `kennametal --holders` walks the six spindle-interface category trees and prints every
+  family they link to — 538 families and 2,862 parts, in 552 listings because a family
+  reachable from two branches is reported under each — indented by branch, each against the
+  CSV whose `familyCode` claims it. `HOLDER_FAMILIES` grows from nine families on one BT30
+  spindle to **158 families and 1,192 parts**: every family under those six interfaces whose
+  clamping `HolderRecord` already models — ER collet chucks, shrink fit, and hydraulic
+  chucks. Shell-mill arbors, modular adapters, PSC cutting units and bar blanks grip neither
+  a shank nor a collet and stay out; the walk lists them as `(not configured)`. So does the one
+  family that sells two spindle sizes from one table, which no per-family `taper` can describe —
+  `tests/holding-corpus.test.ts` now holds every other family to the interface the vendor writes
+  into its part numbers, so a second one cannot arrive unnoticed.
+
+  Breaking:
+  - A Kennametal holder record reads its `unit` from the part's own catalog number rather
+    than from its family. 21 of the 158 families sell metric and inch bores from one table,
+    and the family-level fact showed 6.35 mm to a machinist who ordered a 1/4 in bore. The
+    fact remains, as the family's catalogued system and the fallback for a row with no
+    catalog number. Collets are unchanged.
+  - `parseColletListing`, `colletListingPages` and `ColletListing` are `parseCategoryListing`,
+    `categoryListingPages` and `CategoryListing`. They serve two category trees now, and
+    MariTool's adapter already exports a `Listing`.
+  - `discoverFamilies` requires its `roots` argument; there are two trees to walk and no
+    sensible default between them.
+  - `DiscoveredCategory` carries `path`, every name from the root down. `describeFamily`
+    prints that branch instead of the leaf name — `ER Collet Chucks` names six different
+    families across the six interfaces.
+  - `bt30_shrink_fit_hpv_form_ad_metric.csv` and `bt30_shrink_fit_hpv_form_ad_inch.csv` are
+    one family again, `bt30_shrink_fit_hpv_form_ad.csv`. They were one vendor family split by
+    hand because it mixed both systems, which the per-row unit now handles.
+
+  Also:
+  - A listing page is re-asked up to four times, waiting 2 s, then 8 s, then 32 s. The holder
+    walk is about 635 requests and the vendor fails roughly one in a hundred, so a single
+    attempt ended a ten-minute walk with nothing printed — and retries spaced by the walk's
+    own 400 ms politeness delay were no better, because all of them landed inside the same
+    bad minute. The wait is only paid when something is already wrong.
+  - `TAPER_PREFIXES` accepts `CV`, Kennametal's name for the 7:24 V-flange cone MariTool
+    designates `CAT`. `taperDesignation` still refuses `PSC`: ISO 26623 is a polygon, with no
+    7:24 size to read and no `TaperFamily` to belong to.
+  - Every holder family declares its `familyCode`, including the nine that predate the walk.
+
+### Patch Changes
+
+- Updated dependencies [a8540d8]
+  - @toolpath/tool-support@0.3.1
+
 ## 2.5.0
 
 ### Minor Changes
