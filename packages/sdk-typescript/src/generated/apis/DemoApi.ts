@@ -14,97 +14,72 @@
 
 import * as runtime from '../runtime.js'
 import {
-  type HealthResponse,
-  HealthResponseFromJSON,
-  HealthResponseToJSON,
-} from '../models/HealthResponse.js'
+  type DemoSessionResponse,
+  DemoSessionResponseFromJSON,
+  DemoSessionResponseToJSON,
+} from '../models/DemoSessionResponse.js'
 import {
-  type OpenApiDocument,
-  OpenApiDocumentFromJSON,
-  OpenApiDocumentToJSON,
-} from '../models/OpenApiDocument.js'
+  type ProblemDetails,
+  ProblemDetailsFromJSON,
+  ProblemDetailsToJSON,
+} from '../models/ProblemDetails.js'
+
+export interface CreateDemoSessionRequest {
+  body?: object
+}
 
 /**
  *
  */
-export class ServiceApi extends runtime.BaseAPI {
+export class DemoApi extends runtime.BaseAPI {
   /**
-   * Creates request options for getHealth without sending the request
+   * Creates request options for createDemoSession without sending the request
    */
-  async getHealthRequestOpts(): Promise<runtime.RequestOpts> {
+  async createDemoSessionRequestOpts(
+    requestParameters: CreateDemoSessionRequest,
+  ): Promise<runtime.RequestOpts> {
     const queryParameters: any = {}
 
     const headerParameters: runtime.HTTPHeaders = {}
 
-    let urlPath = `/health`
+    headerParameters['Content-Type'] = 'application/json'
+
+    let urlPath = `/v1/demo/session`
 
     return {
       path: urlPath,
-      method: 'GET',
+      method: 'POST',
       headers: headerParameters,
       query: queryParameters,
+      body: requestParameters['body'] as any,
     }
   }
 
   /**
-   * Check Engine API health
+   * Issues a short-lived API key for anonymous, no-signup access to a limited set of endpoints. Each session is isolated to its own throwaway organization, so it sees only the data it uploaded. Every call mints a fresh session; to keep working past the key’s expiry, call it again for a new one.
+   * Start a temporary demo session
    */
-  async getHealthRaw(
+  async createDemoSessionRaw(
+    requestParameters: CreateDemoSessionRequest,
     initOverrides?: RequestInit | runtime.InitOverrideFunction,
-  ): Promise<runtime.ApiResponse<HealthResponse>> {
-    const requestOptions = await this.getHealthRequestOpts()
+  ): Promise<runtime.ApiResponse<DemoSessionResponse>> {
+    const requestOptions = await this.createDemoSessionRequestOpts(requestParameters)
     const response = await this.request(requestOptions, initOverrides)
 
-    return new runtime.JSONApiResponse(response, (jsonValue) => HealthResponseFromJSON(jsonValue))
+    return new runtime.JSONApiResponse(response, (jsonValue) =>
+      DemoSessionResponseFromJSON(jsonValue),
+    )
   }
 
   /**
-   * Check Engine API health
+   * Issues a short-lived API key for anonymous, no-signup access to a limited set of endpoints. Each session is isolated to its own throwaway organization, so it sees only the data it uploaded. Every call mints a fresh session; to keep working past the key’s expiry, call it again for a new one.
+   * Start a temporary demo session
    */
-  async getHealth(
+  async createDemoSession(
+    requestParameters: CreateDemoSessionRequest = {},
     initOverrides?: RequestInit | runtime.InitOverrideFunction,
-  ): Promise<HealthResponse> {
-    const response = await this.getHealthRaw(initOverrides)
-    return await response.value()
-  }
-
-  /**
-   * Creates request options for getOpenApiDocument without sending the request
-   */
-  async getOpenApiDocumentRequestOpts(): Promise<runtime.RequestOpts> {
-    const queryParameters: any = {}
-
-    const headerParameters: runtime.HTTPHeaders = {}
-
-    let urlPath = `/v1/openapi.json`
-
-    return {
-      path: urlPath,
-      method: 'GET',
-      headers: headerParameters,
-      query: queryParameters,
-    }
-  }
-
-  /**
-   * Get the Engine API OpenAPI document
-   */
-  async getOpenApiDocumentRaw(
-    initOverrides?: RequestInit | runtime.InitOverrideFunction,
-  ): Promise<runtime.ApiResponse<OpenApiDocument>> {
-    const requestOptions = await this.getOpenApiDocumentRequestOpts()
-    const response = await this.request(requestOptions, initOverrides)
-
-    return new runtime.JSONApiResponse(response, (jsonValue) => OpenApiDocumentFromJSON(jsonValue))
-  }
-
-  /**
-   * Get the Engine API OpenAPI document
-   */
-  async getOpenApiDocument(
-    initOverrides?: RequestInit | runtime.InitOverrideFunction,
-  ): Promise<OpenApiDocument> {
-    const response = await this.getOpenApiDocumentRaw(initOverrides)
+  ): Promise<DemoSessionResponse> {
+    const response = await this.createDemoSessionRaw(requestParameters, initOverrides)
     return await response.value()
   }
 }

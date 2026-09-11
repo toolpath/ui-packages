@@ -12,40 +12,76 @@
  * Do not edit the class manually.
  */
 
+import { mapValues } from '../runtime.js'
 /**
- * How a thread is to be cut: the three ways there are.
+ *
  * @export
+ * @interface DemoSessionResponse
  */
-export const ThreadProcess = {
-  ThreadMill: 'ThreadMill',
-  CutTap: 'CutTap',
-  FormTap: 'FormTap',
-} as const
-export type ThreadProcess = (typeof ThreadProcess)[keyof typeof ThreadProcess]
+export interface DemoSessionResponse {
+  /**
+   * The temporary API key. Shown once; send it as `Authorization: Bearer <key>`.
+   * @type {string}
+   * @memberof DemoSessionResponse
+   */
+  apiKey: string
+  /**
+   * When the key stops working (ISO 8601). Prompt the user for a real key before then.
+   * @type {Date}
+   * @memberof DemoSessionResponse
+   */
+  expiresAt: Date
+  /**
+   * The throwaway organization this session’s uploads are isolated to.
+   * @type {string}
+   * @memberof DemoSessionResponse
+   */
+  orgId: string
+}
 
-export function instanceOfThreadProcess(value: any): boolean {
-  for (const key in ThreadProcess) {
-    if (Object.prototype.hasOwnProperty.call(ThreadProcess, key)) {
-      if (ThreadProcess[key as keyof typeof ThreadProcess] === value) {
-        return true
-      }
-    }
+/**
+ * Check if a given object implements the DemoSessionResponse interface.
+ */
+export function instanceOfDemoSessionResponse(value: object): value is DemoSessionResponse {
+  if (!('apiKey' in value) || value['apiKey'] === undefined) return false
+  if (!('expiresAt' in value) || value['expiresAt'] === undefined) return false
+  if (!('orgId' in value) || value['orgId'] === undefined) return false
+  return true
+}
+
+export function DemoSessionResponseFromJSON(json: any): DemoSessionResponse {
+  return DemoSessionResponseFromJSONTyped(json, false)
+}
+
+export function DemoSessionResponseFromJSONTyped(
+  json: any,
+  ignoreDiscriminator: boolean,
+): DemoSessionResponse {
+  if (json == null) {
+    return json
   }
-  return false
+  return {
+    apiKey: json['apiKey'],
+    expiresAt: new Date(json['expiresAt']),
+    orgId: json['orgId'],
+  }
 }
 
-export function ThreadProcessFromJSON(json: any): ThreadProcess {
-  return ThreadProcessFromJSONTyped(json, false)
+export function DemoSessionResponseToJSON(json: any): DemoSessionResponse {
+  return DemoSessionResponseToJSONTyped(json, false)
 }
 
-export function ThreadProcessFromJSONTyped(json: any, ignoreDiscriminator: boolean): ThreadProcess {
-  return json as ThreadProcess
-}
+export function DemoSessionResponseToJSONTyped(
+  value?: DemoSessionResponse | null,
+  ignoreDiscriminator: boolean = false,
+): any {
+  if (value == null) {
+    return value
+  }
 
-export function ThreadProcessToJSON(value?: ThreadProcess | null): any {
-  return value as any
-}
-
-export function ThreadProcessToJSONTyped(value: any, ignoreDiscriminator: boolean): ThreadProcess {
-  return value as ThreadProcess
+  return {
+    apiKey: value['apiKey'],
+    expiresAt: value['expiresAt'].toISOString(),
+    orgId: value['orgId'],
+  }
 }

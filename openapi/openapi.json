@@ -2,13 +2,17 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Toolpath Engine API",
-    "version": "1.10.0",
+    "version": "1.12.1",
     "description": "Public REST API for Toolpath engine operations.\n\n**Early access.** Machining plans and toolpath calculation — creating, listing, and reading\nplans, calculating toolpaths, and reading toolpath results and machining time — are available\nnow but still gaining functionality; planned additions include plan constraints and specifying\nmaterial and stock, among others. Breaking changes still follow the API major version, so you\ncan build against them today. These operations are grouped under the `Plans` and `Toolpaths`\ntags and marked `x-toolpath-experimental`.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis,\nfeature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access\ncan be edited on an existing key in the portal. Every operation states its area in its\n`x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in\n`x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs\nDFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key\nwith no access to the operation’s area is refused with 403 `product_mismatch`; one with read\naccess used for a write is refused with 403 `read_only_key`."
   },
   "tags": [
     {
       "name": "Keys",
       "description": "API key validation."
+    },
+    {
+      "name": "Demo",
+      "description": "Temporary anonymous demo-session operations."
     },
     {
       "name": "Parts",
@@ -274,6 +278,36 @@
           "status",
           "code"
         ]
+      },
+      "DemoSessionResponse": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "description": "The temporary API key. Shown once; send it as `Authorization: Bearer <key>`.",
+            "example": "tp_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the key stops working (ISO 8601). Prompt the user for a real key before then.",
+            "example": "2026-09-09T14:30:00.000Z"
+          },
+          "orgId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The throwaway organization this session’s uploads are isolated to."
+          }
+        },
+        "required": [
+          "apiKey",
+          "expiresAt",
+          "orgId"
+        ]
+      },
+      "DemoSessionRequest": {
+        "type": "object",
+        "properties": {}
       },
       "CreatePartResponse": {
         "type": "object",
@@ -665,6 +699,17 @@
             "minimum": 0,
             "description": "Number of triangles in the display mesh."
           },
+          "faceTriangleCounts": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "How many of the mesh’s triangles each face of the body became, in mesh order. Every face is one contiguous span of triangles, so the counts partition the mesh and sum to `meshTriangleCount`: the first count’s triangles are the first face, the next count’s the second, and so on. Draw a line where two spans meet to outline the part. Null for a mesh tessellated before face spans were kept; queue a new tessellation to get them."
+          },
           "meshGlbUrl": {
             "type": "string",
             "format": "uri",
@@ -676,6 +721,7 @@
           "jobId",
           "meshPointCount",
           "meshTriangleCount",
+          "faceTriangleCounts",
           "meshGlbUrl"
         ]
       },
@@ -798,11 +844,11 @@
           },
           "extendedZMin": {
             "type": "number",
-            "description": "The z range extended by adjacent geometry the tool passes over reaching the\nfeature."
+            "description": "Bottom of the band a pass over the feature reaches, in mm: `zMin`, or lower where a\nchamfer on the far edge of a through feature deepens it. This, not `zMin`, is where\na wall pass and the whole-part rough run out, the reach a tool is held to, and the\ndepth the time estimates and setup planning price."
           },
           "extendedZMax": {
             "type": "number",
-            "description": "Highest z the tool passes over while reaching the feature, in mm."
+            "description": "Top of the band a pass over the feature runs down, in mm: `zMax`, or higher where a\nchamfer, fillet or countersink sits on the feature's mouth. This, not `zMax`, is where\na rough, a wall pass and a hole's helix start, the reach a tool is held to, and the top\nof the band the time estimates price."
           },
           "reachCurve": {
             "$ref": "#/components/schemas/ReachCurve",
@@ -3021,6 +3067,69 @@
         }
       }
     },
+    "/v1/demo/session": {
+      "post": {
+        "operationId": "createDemoSession",
+        "tags": [
+          "Demo"
+        ],
+        "security": [],
+        "summary": "Start a temporary demo session",
+        "description": "Issues a short-lived API key for anonymous, no-signup access to a limited set of endpoints. Each session is isolated to its own throwaway organization, so it sees only the data it uploaded. Every call mints a fresh session; to keep working past the key’s expiry, call it again for a new one.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemoSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "A demo session was created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoSessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many demo sessions are already active for this network.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Demo sessions are temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/parts": {
       "post": {
         "operationId": "createPart",
@@ -3483,7 +3592,7 @@
         "x-toolpath-product": "core",
         "x-toolpath-metered": false,
         "summary": "Get part mesh",
-        "description": "Returns the display mesh the latest tessellation job wrote for this part. Requires **Tessellate a part for display** (`POST /parts/{id}/mesh`) to have run and its job to have succeeded. It is faceted from the uploaded file as-is, so it is not the analysis mesh: its counts differ from the part result’s, and region triangle ranges do not apply to it. 410 once the part is past the retention window.",
+        "description": "Returns the display mesh the latest tessellation job wrote for this part. Requires **Tessellate a part for display** (`POST /parts/{id}/mesh`) to have run and its job to have succeeded. It is faceted from the uploaded file as-is, so it is not the analysis mesh: its counts differ from the part result’s, and region triangle ranges do not apply to it. Its own face spans come with it as `faceTriangleCounts`. 410 once the part is past the retention window.",
         "parameters": [
           {
             "schema": {
