@@ -30,6 +30,7 @@ import { HeaderRow } from './header-row'
 import { isGroupEmptyState, isGroupEmptyStateSpacer } from './is-group-empty-state'
 import { isGroupHeader } from './is-group-header'
 import { RowConsumer, RowProvider } from './row-context'
+import { SortProvider } from './sort-context'
 import { EditingCell, TableDensity, TableProvider, useTable } from './table-context'
 import { TableEmpty, TableEmptyProps } from './table-empty'
 import { TreeIcon } from './tree-icon'
@@ -266,11 +267,6 @@ const Table = <T,>({
       & button.prefix { margin-right: 0 !important; }
     `,
       HeaderCell: `
-      > div:first-of-type > button:first-of-type > div:first-of-type {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-      }
       & .resizer-area {
         cursor: col-resize !important;
         min-width: 8px;
@@ -422,126 +418,128 @@ const Table = <T,>({
   // Scrollable mode: enables internal vertical scroll with hidden scrollbar.
   // Parent must have explicit height (e.g., h-[300px]) for this to work.
   return (
-    <div
-      ref={containerRef}
-      tabIndex={0}
-      onMouseDown={handleContainerMouseDown}
-      className={`w-full h-full overflow-x-scroll ${scrollable ? 'overflow-y-auto' : ''} hide-scrollbar relative tracking-normal text-gray-500 dark:text-zinc-100 bg-white dark:bg-zinc-950 antialiased outline-none`}
-    >
-      <BaseTable
-        data={tableNodes}
-        theme={theme}
-        sort={sort}
-        layout={layout}
-        tree={isTree ? tree : undefined}
-        ref={tableRef}
-        select={selectable || multiselect ? select : undefined}
-        {...props}
+    <SortProvider sort={sort}>
+      <div
+        ref={containerRef}
+        tabIndex={0}
+        onMouseDown={handleContainerMouseDown}
+        className={`w-full h-full overflow-x-scroll ${scrollable ? 'overflow-y-auto' : ''} hide-scrollbar relative tracking-normal text-gray-500 dark:text-zinc-100 bg-white dark:bg-zinc-950 antialiased outline-none`}
       >
-        {(tableList: Array<TableNode>) => {
-          const indexes = tableList
-            .map((item, index) =>
-              isGroupHeader(item) || isGroupEmptyState(item) ? null : [index, item.id],
-            )
-            .filter((item) => !isNull(item)) as Array<[number, number | string]>
+        <BaseTable
+          data={tableNodes}
+          theme={theme}
+          sort={sort}
+          layout={layout}
+          tree={isTree ? tree : undefined}
+          ref={tableRef}
+          select={selectable || multiselect ? select : undefined}
+          {...props}
+        >
+          {(tableList: Array<TableNode>) => {
+            const indexes = tableList
+              .map((item, index) =>
+                isGroupHeader(item) || isGroupEmptyState(item) ? null : [index, item.id],
+              )
+              .filter((item) => !isNull(item)) as Array<[number, number | string]>
 
-          if (isEmpty) {
-            if (empty) {
-              // If a custom empty component is provided, inject the header prop when possible.
-              if (isValidElement(empty)) {
-                return cloneElement(empty, { header })
+            if (isEmpty) {
+              if (empty) {
+                // If a custom empty component is provided, inject the header prop when possible.
+                if (isValidElement(empty)) {
+                  return cloneElement(empty, { header })
+                }
+
+                throw new Error('Invalid empty component provided to Table component')
               }
 
-              throw new Error('Invalid empty component provided to Table component')
+              return <TableEmpty header={header} />
             }
 
-            return <TableEmpty header={header} />
-          }
-
-          if (isTree || !virtualized) {
-            return (
-              <Body indexes={indexes} containerRef={containerRef} data={tableList}>
-                <Header>
-                  {header}
-                  {Boolean(grouped) && (
-                    <HeaderRow noOffset>
-                      <GroupHeader inHeader groupIndex={currentGroupIndex ?? 0}>
-                        {currentGroup}
-                      </GroupHeader>
-                    </HeaderRow>
-                  )}
-                </Header>
-                {tableList.map((item, index) => (
-                  <RowProvider
-                    key={item.id}
-                    item={item}
-                    index={index}
-                    groupIndex={grouped ? getGroupIndex(index) : undefined}
-                  >
-                    <RowConsumer>{({ item }) => children(item, index)}</RowConsumer>
-                  </RowProvider>
-                ))}
-              </Body>
-            )
-          }
-
-          return (
-            <Body indexes={indexes} containerRef={containerRef} data={tableList}>
-              <Virtualized
-                key={density}
-                tableList={sort.state.reverse && grouped ? [...tableList].reverse() : tableList}
-                rowHeight={getRowHeight(density)}
-                header={() => {
-                  // Header rerenders once per scroll.
-                  if (grouped) {
-                    handleScroll()
-                  }
-
-                  return (
-                    <Header>
-                      {header}
-                      {Boolean(grouped) && (
-                        <HeaderRow noOffset>
-                          <GroupHeader inHeader groupIndex={currentGroupIndex ?? 0}>
-                            {currentGroup}
-                          </GroupHeader>
-                        </HeaderRow>
-                      )}
-                    </Header>
-                  )
-                }}
-                body={(item, index) => {
-                  if (isGroupEmptyState(item)) {
-                    if (isGroupEmptyStateSpacer(item)) {
-                      return null
-                    }
-                    const groupIdx = getGroupIndex(index)
-                    return <GroupEmptyState>{grouped?.emptyState?.(groupIdx)}</GroupEmptyState>
-                  }
-
-                  if (isGroupHeader(item)) {
-                    return (
-                      <GroupHeader groupIndex={getGroupIndex(index)} rowIndex={index}>
-                        {item as unknown as ReactNode}
-                      </GroupHeader>
-                    )
-                  }
-
-                  return (
+            if (isTree || !virtualized) {
+              return (
+                <Body indexes={indexes} containerRef={containerRef} data={tableList}>
+                  <Header>
+                    {header}
+                    {Boolean(grouped) && (
+                      <HeaderRow noOffset>
+                        <GroupHeader inHeader groupIndex={currentGroupIndex ?? 0}>
+                          {currentGroup}
+                        </GroupHeader>
+                      </HeaderRow>
+                    )}
+                  </Header>
+                  {tableList.map((item, index) => (
                     <RowProvider
+                      key={item.id}
                       item={item}
                       index={index}
                       groupIndex={grouped ? getGroupIndex(index) : undefined}
                     >
                       <RowConsumer>{({ item }) => children(item, index)}</RowConsumer>
                     </RowProvider>
-                  )
-                }}
-              />
-            </Body>
-          )
-        }}
-      </BaseTable>
-    </div>
+                  ))}
+                </Body>
+              )
+            }
+
+            return (
+              <Body indexes={indexes} containerRef={containerRef} data={tableList}>
+                <Virtualized
+                  key={density}
+                  tableList={sort.state.reverse && grouped ? [...tableList].reverse() : tableList}
+                  rowHeight={getRowHeight(density)}
+                  header={() => {
+                    // Header rerenders once per scroll.
+                    if (grouped) {
+                      handleScroll()
+                    }
+
+                    return (
+                      <Header>
+                        {header}
+                        {Boolean(grouped) && (
+                          <HeaderRow noOffset>
+                            <GroupHeader inHeader groupIndex={currentGroupIndex ?? 0}>
+                              {currentGroup}
+                            </GroupHeader>
+                          </HeaderRow>
+                        )}
+                      </Header>
+                    )
+                  }}
+                  body={(item, index) => {
+                    if (isGroupEmptyState(item)) {
+                      if (isGroupEmptyStateSpacer(item)) {
+                        return null
+                      }
+                      const groupIdx = getGroupIndex(index)
+                      return <GroupEmptyState>{grouped?.emptyState?.(groupIdx)}</GroupEmptyState>
+                    }
+
+                    if (isGroupHeader(item)) {
+                      return (
+                        <GroupHeader groupIndex={getGroupIndex(index)} rowIndex={index}>
+                          {item as unknown as ReactNode}
+                        </GroupHeader>
+                      )
+                    }
+
+                    return (
+                      <RowProvider
+                        item={item}
+                        index={index}
+                        groupIndex={grouped ? getGroupIndex(index) : undefined}
+                      >
+                        <RowConsumer>{({ item }) => children(item, index)}</RowConsumer>
+                      </RowProvider>
+                    )
+                  }}
+                />
+              </Body>
+            )
+          }}
+        </BaseTable>
+      </div>
+    </SortProvider>
   )
 }
