@@ -30,9 +30,14 @@
  * because a record carries the coarse `kind` and the finer name is derived
  * where a dataset is built (see `forms.ts`), and `productLink`, which the tool
  * half of the scraper does not scrape.
+ *
+ * One thing it spells differently, and the difference is real: see
+ * {@link CatalogTool.threadMethod}. `tests/export-fusion.test.ts` assigns a
+ * record-shaped literal to this type, so the rest of the claim is measured
+ * rather than asserted, and a name that drifts stops compiling.
  */
 
-import type { Tool } from '../tool.js'
+import type { ThreadMethod, Tool } from '../tool.js'
 import type { UnitSystem } from '../units.js'
 
 /**
@@ -45,7 +50,24 @@ import type { UnitSystem } from '../units.js'
  * reason: a consumer has to be able to tell "Harvey publishes no coating" from
  * "nobody looked".
  */
-export interface CatalogTool extends Tool {
+export interface CatalogTool extends Omit<Tool, 'threadMethod'> {
+  /**
+   * How this tap makes its thread, in either spelling the tree uses.
+   *
+   * **The two halves of this claim do not quite meet, and this is where it
+   * shows.** {@link Tool} says a tap that nobody has classified carries no
+   * `threadMethod` at all; `@toolpath/tool-scraper`'s `ToolRecord` says it
+   * carries `null`, and enforces that every non-tap does — the question does
+   * not apply, which is a different fact from nobody having answered it. Both
+   * readings are defensible and they are not the same type, so a record is not
+   * in fact assignable to a `Tool` today, however much both packages say it is.
+   *
+   * An export input is the wrong place to settle that, so it takes either. What
+   * would settle it is one spelling in `tool.ts`, which is a breaking change to
+   * a published type and a decision of its own.
+   */
+  readonly threadMethod?: ThreadMethod | null
+
   /**
    * The tool's stable identifier, in RFC 4122 form.
    *

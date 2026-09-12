@@ -27,8 +27,13 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import { TOOL_FORMS } from '../src/forms.js'
+import { GEOMETRY_FIELDS, isLengthField } from '../src/geometry.js'
 import {
+  ALL_MATERIALS,
+  FUSION_GEOMETRY_KINDS,
   FUSION_GUID_PATTERN,
+  FUSION_PRESET_KINDS,
+  FUSION_PRESET_MATERIAL_REQUIRED,
   FUSION_LIBRARY_VERSION,
   FUSION_MATERIALS,
   FUSION_SEGMENT_KEYS,
@@ -45,6 +50,10 @@ interface DigestEntry {
   readonly geometryRequired: readonly string[]
   readonly geometryAllowed: readonly string[]
   readonly geometryClosed: boolean
+  readonly presetRequired: readonly string[]
+  readonly presetAllowed: readonly string[]
+  readonly presetClosed: boolean
+  readonly presetConditionals: readonly { field: string; equals: boolean; requires: string[] }[]
   readonly variants?: readonly DigestEntry[]
 }
 
@@ -54,6 +63,11 @@ const digest = JSON.parse(readFileSync(join(ROOT, 'fusion/digest.json'), 'utf8')
   entry: { required: string[] }
   guidPattern: string
   segment: { required: string[]; allowed: string[]; additionalProperties: boolean }
+  geometryTypes: Record<string, string>
+  preset: {
+    startValuesClosed: boolean
+    material: { required: string[]; allowed: string[] }
+  }
   enums: { unit: string[]; material: string[] }
   types: Record<string, DigestEntry>
 }
@@ -95,6 +109,15 @@ describe('the type table matches Autodesk’s published schema', () => {
     expect(rules?.recordRequired, `${name} record requirements`).toEqual(entry.recordRequired)
     expect(rules?.geometryRequired, `${name} geometry requirements`).toEqual(entry.geometryRequired)
     expect(rules?.geometryAllowed, `${name} permitted geometry`).toEqual(entry.geometryAllowed)
+    // A preset's shape is per tool type and the five shapes are nothing like
+    // each other — a tap models nine fields where a milling tool requires
+    // seventeen. Grouping them into five in the source table is only safe
+    // because this compares the resolved answer.
+    expect(rules?.presetRequired, `${name} preset requirements`).toEqual(entry.presetRequired)
+    expect(rules?.presetAllowed, `${name} permitted preset fields`).toEqual(entry.presetAllowed)
+    expect(rules?.presetConditionals, `${name} preset conditionals`).toEqual(
+      entry.presetConditionals,
+    )
   })
 
   it('writes no geometry into a type whose geometry the schema closes', () => {
@@ -103,6 +126,98 @@ describe('the type table matches Autodesk’s published schema', () => {
     // than this expectation relaxing.
     for (const name of names) {
       expect(digest.types[name]?.geometryClosed, `${name} closed its geometry`).toBe(false)
+    }
+  })
+})
+
+describe('every geometry key an exported type permits has a declared kind', () => {
+  const keys = [
+    ...new Set(Object.values(FUSION_TYPES).flatMap((rules) => rules.geometryAllowed)),
+  ].sort()
+
+  it('reads keys to check', () => {
+    expect(keys.length).toBeGreaterThan(20)
+  })
+
+  it.each(keys)('%s', (key) => {
+    // Without a kind the serializer cannot tell whether to write `2` or `2.0`,
+    // and an integer literal where Fusion expects a dimension crashes its
+    // parser. A key Autodesk adds to a type this package writes fails here
+    // rather than shipping as whichever JSON.stringify felt like.
+    const kind = FUSION_GEOMETRY_KINDS[key]
+    expect(kind, `geometry.${key} has no declared kind`).toBeDefined()
+
+    // The coarser half the schema does state. `length`, `angle` and `count` are
+    // all `number` to Autodesk — that separation is this package's, and only
+    // this direction can be measured.
+    const declared = digest.geometryTypes[key]
+    const expected = kind === 'boolean' ? 'boolean' : kind === 'enum' ? 'enum' : 'number'
+    expect(declared, `geometry.${key} is ${declared} in the schema, not ${expected}`).toBe(expected)
+  })
+})
+
+describe('the two geometry vocabularies agree where they overlap', () => {
+  // `GEOMETRY_FIELDS` is the domain's ISO 13399 dictionary and decides whether a
+  // stated number converts between unit systems. `FUSION_GEOMETRY_KINDS` is
+  // Fusion's own key list and decides the same thing on the way out. Ten codes
+  // are in both, and two tables answering one question is how an `SFDM` gets
+  // converted in one direction and not the other.
+  const shared = Object.keys(GEOMETRY_FIELDS).filter((code) =>
+    Object.hasOwn(FUSION_GEOMETRY_KINDS, code),
+  )
+
+  it('shares the codes both vocabularies name', () => {
+    expect(shared.length).toBeGreaterThan(5)
+  })
+
+  it.each(shared)('%s converts the same way in both', (code) => {
+    expect(FUSION_GEOMETRY_KINDS[code] === 'length').toBe(isLengthField(code))
+  })
+})
+
+describe('every preset field an exported type permits has a declared kind', () => {
+  const fields = [...new Set(Object.values(FUSION_TYPES).flatMap((rules) => rules.presetAllowed))]
+    .filter(
+      // Identity and applicability rather than numbers. `stock-materials` and
+      // `strategies` narrow when a preset applies and this package writes
+      // neither; `expressions` is Fusion's own formula map.
+      (field) =>
+        !['guid', 'name', 'material', 'expressions', 'stock-materials', 'strategies'].includes(
+          field,
+        ),
+    )
+    .sort()
+
+  it('reads fields to check', () => {
+    expect(fields.length).toBeGreaterThan(10)
+  })
+
+  it.each(fields)('%s', (field) => {
+    expect(FUSION_PRESET_KINDS[field], `preset ${field} has no declared kind`).toBeDefined()
+  })
+})
+
+describe('the preset facts that do not vary by type', () => {
+  it('states the material band the schema requires', () => {
+    expect([...FUSION_PRESET_MATERIAL_REQUIRED]).toEqual(digest.preset.material.required)
+    // The all-materials band this package supplies has to satisfy it.
+    for (const key of digest.preset.material.required) {
+      expect(ALL_MATERIALS[key as keyof typeof ALL_MATERIALS]).toBeDefined()
+    }
+  })
+
+  it('knows start-values takes nothing but presets', () => {
+    // Which is why the exporter writes no other key beside it, however much a
+    // caller might want somewhere to put one.
+    expect(digest.preset.startValuesClosed).toBe(true)
+  })
+
+  it('leaves a preset item open, which is why an unmodelled field is a note', () => {
+    // A field a type does not model is tolerated rather than rejected — so a
+    // tap preset carrying a plunge feedrate is dropped with a note instead of
+    // sinking the tool.
+    for (const name of Object.keys(FUSION_TYPES)) {
+      expect(digest.types[name]?.presetClosed, `${name} closed its presets`).toBe(false)
     }
   })
 })

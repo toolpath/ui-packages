@@ -149,10 +149,51 @@ const typesOf = (profile) => {
  * written. Most geometry objects leave `additionalProperties` unset and so
  * take anything; some set it to `false`. That is the flag, not the list.
  */
+/**
+ * Autodesk's own `if`/`then` rules inside one preset schema.
+ *
+ * Per type and not global, because the same switch demands different fields in
+ * different places: `use-feed-per-revolution` requires `f_n f_n_leadIn
+ * f_n_leadOut` on a turning preset and `f_n f_n_retract` on a drill's. Collected
+ * from the item's own subtree so a rule cannot be attributed to a type that
+ * does not carry it.
+ */
+const conditionalsOf = (node) => {
+  const found = new Set()
+  const visit = (current) => {
+    if (Array.isArray(current)) {
+      for (const child of current) visit(child)
+      return
+    }
+    if (!isObject(current)) return
+    if (isObject(current.if) && isObject(current.then) && isObject(current.if.properties)) {
+      const [field] = Object.keys(current.if.properties)
+      const equals = field === undefined ? undefined : current.if.properties[field]?.const
+      const requires = current.then.required
+      if (field !== undefined && typeof equals === 'boolean' && Array.isArray(requires)) {
+        found.add(JSON.stringify({ equals, field, requires: sorted(requires) }))
+      }
+    }
+    for (const value of Object.values(current)) visit(value)
+  }
+  visit(node)
+  return [...found].sort().map((entry) => JSON.parse(entry))
+}
+
 const entryOf = (profile) => {
   const geometry = normalize(profile.properties?.geometry)
   const recordRequired = sorted(profile.required ?? [])
   const geometryRequired = sorted(geometry.required ?? [])
+
+  // A cutting-data preset's shape is per tool type and the types are not close
+  // to each other: a tap models nine fields where a milling tool requires
+  // seventeen. So the preset rules ride on the type entry exactly as the
+  // geometry rules do, rather than being pulled out once and assumed uniform.
+  const startValues = normalize(profile.properties?.['start-values'])
+  const presets = normalize(startValues.properties?.presets)
+  const item = normalize(presets.items)
+  const presetRequired = sorted(item.required ?? [])
+
   return {
     recordRequired,
     recordAllowed: sorted([...Object.keys(profile.properties ?? {}), ...recordRequired]),
@@ -160,6 +201,10 @@ const entryOf = (profile) => {
     geometryRequired,
     geometryAllowed: sorted([...Object.keys(geometry.properties ?? {}), ...geometryRequired]),
     geometryClosed: geometry.additionalProperties === false,
+    presetRequired,
+    presetAllowed: sorted([...Object.keys(item.properties ?? {}), ...presetRequired]),
+    presetClosed: item.additionalProperties === false,
+    presetConditionals: conditionalsOf(item),
   }
 }
 
@@ -181,6 +226,94 @@ const byId = (node, suffix) => {
     if (found) return found
   }
   return null
+}
+
+/**
+ * The preset facts that genuinely do not vary by tool type.
+ *
+ * The roster and the `if`/`then` rules are per type and ride on the type entry.
+ * These two do not: `startValuesClosed` says whether anything but `presets` may
+ * sit beside it, and `material` is the one sub-object every preset requires,
+ * declared by the same shared subschema everywhere. A `material` that differed
+ * between types would mean this flat shape is wrong, so it throws rather than
+ * taking the first one it met.
+ */
+const presetRules = (node) => {
+  let startValuesClosed = false
+  let material = null
+
+  const visit = (current) => {
+    if (Array.isArray(current)) {
+      for (const child of current) visit(child)
+      return
+    }
+    if (!isObject(current)) return
+    const startValues = current.properties?.['start-values']
+    if (isObject(startValues) && isObject(startValues.properties?.presets)) {
+      if (startValues.additionalProperties === false) startValuesClosed = true
+      const candidate = normalize(startValues.properties.presets.items).properties?.material
+      if (isObject(candidate)) {
+        const shape = {
+          required: sorted(candidate.required ?? []),
+          allowed: sorted(Object.keys(candidate.properties ?? {})),
+        }
+        if (material !== null && JSON.stringify(material) !== JSON.stringify(shape)) {
+          throw new Error(
+            "Autodesk's schema now declares more than one preset material shape — " +
+              'the digest carries one and the reduction needs revisiting',
+          )
+        }
+        material = shape
+      }
+    }
+    for (const value of Object.values(current)) visit(value)
+  }
+  visit(node)
+
+  return { startValuesClosed, material: material ?? { required: [], allowed: [] } }
+}
+
+/**
+ * What JSON type each geometry key declares, across every type that declares it.
+ *
+ * The schema calls `NOF` a `number` like every dimension, so it cannot tell a
+ * flute count from a length — that distinction is this repository's and lives
+ * in `schema.ts`. What this pins is the coarser half the schema *does* state,
+ * so a key that changes from a boolean to a string upstream is caught rather
+ * than silently serialized wrong.
+ *
+ * A key declared as two different types would mean the flat map is the wrong
+ * shape, so it throws rather than picking one.
+ */
+const geometryTypes = (node) => {
+  const found = new Map()
+  const visit = (current) => {
+    if (Array.isArray(current)) {
+      for (const child of current) visit(child)
+      return
+    }
+    if (!isObject(current)) return
+    const geometry = current.properties?.geometry
+    for (const [key, value] of Object.entries(geometry?.properties ?? {})) {
+      if (!isObject(value)) continue
+      const declared = Array.isArray(value.enum)
+        ? 'enum'
+        : Array.isArray(value.type)
+          ? [...value.type].sort().join('|')
+          : (value.type ?? 'unknown')
+      const seen = found.get(key)
+      if (seen !== undefined && seen !== declared) {
+        throw new Error(
+          `Autodesk's schema declares geometry.${key} as both ${seen} and ${declared} — ` +
+            `the digest's flat type map cannot express that`,
+        )
+      }
+      found.set(key, declared)
+    }
+    for (const value of Object.values(current)) visit(value)
+  }
+  visit(node)
+  return Object.fromEntries([...found.entries()].sort())
 }
 
 /** Every `enum` found under a property of this name, unioned. */
@@ -262,10 +395,17 @@ export const derive = (schema, { sha256, retrievedAt }) => {
       allowed: sorted(Object.keys(segment.properties ?? {})),
       additionalProperties: segment.additionalProperties ?? true,
     },
+    geometryTypes: geometryTypes(items),
+    preset: presetRules(items),
     enums: {
       unit: enumFor(items, 'unit'),
       material: sorted(byId(items, 'Material.schema.json')?.enum ?? []),
       coolant: sorted(byId(items, 'ToolCoolant.schema.json')?.enum ?? []),
+      // The two small vocabularies the exporter has to choose a value from
+      // rather than copy one across. A wrong member of either is a plausible
+      // value that looks right, so both are pinned.
+      taperedType: enumFor(items, 'tapered-type'),
+      threadTipType: enumFor(items, 'thread-tip-type'),
     },
     types,
   }

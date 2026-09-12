@@ -177,6 +177,75 @@ Every other stickout is this call with more arguments, and `min ≤ setup ≤ ma
 holds by construction — so a drawn stickout can never exceed the length a table
 prints beside it. That invariant is a test, not a sentence in this file.
 
+## Exporting to a CAM system
+
+`@toolpath/tool-support/export/fusion` writes an Autodesk Fusion tool library.
+It is the first of several exporters, so what every exporter needs — the input's
+identity half, and the account of what could not be carried across — lives in
+`@toolpath/tool-support/export` and one subpath per format holds the rest.
+
+```ts
+import { fusionLibrary, fusionLibraryJson } from '@toolpath/tool-support/export/fusion'
+
+const { document, notes } = fusionLibrary({
+  tools: [{ tool, assembly: { stickout: 24, holder } }],
+})
+writeFileSync('shop.tools', fusionLibraryJson(document))
+```
+
+`tool` is a `CatalogTool`: a `Tool` plus the guid, vendor, catalog number and
+unit system a catalog carries. Every field is spelled the way
+`@toolpath/tool-scraper`'s `ToolRecord` spells it, so a scraped record is an
+input with no adapter — asserted by assignment in the tests, so a name that
+drifts stops compiling.
+
+`notes` is the half that matters on real data. A catalog always contains tools a
+format cannot hold, so a batch is never refused for one bad record: the tool is
+left out and the note says why. Each note is `skipped` (no record written),
+`dropped` (a fact the format has no word for), `filled` (a value this package
+supplied) or `coerced` (a stated value mapped to something weaker).
+
+What it will and will not supply is the one rule worth knowing. Fusion requires
+geometry a vendor does not always publish — a bare tool states neither how far
+it stands out nor its assembly gauge length — so the default fills **conventions**
+(a tool is right-handed, a thread has one start) and **readings of the tool's own
+dimensions** (`LB` from `setupStickout`; a plain shank's shoulder is its shank).
+It never invents a **measurement**: a bull nose with no stated corner radius is
+skipped rather than exported as a flat end mill. `fill: 'none'` supplies nothing
+and reports every gap.
+
+### Feeds and speeds
+
+Presets are **carried, not computed** — what a tool's feeds and speeds should be
+is a machining model this package does not have. A caller passes them and the
+exporter checks them against the type they are going on:
+
+```ts
+fusionLibrary({ tools: [{ tool, presets }] })
+```
+
+That check is worth more than it sounds, because **Autodesk states a preset's
+shape per tool type and the five shapes are nothing like each other.** A milling
+preset requires seventeen fields; a tap's requires six and models nine in total,
+having no feedrate at all. A drill states a feed per revolution and no cutting
+feedrate, while a spot drill — which applications commonly generate through the
+same code as a drill — additionally requires five feedrates a drill does not
+model. A preset short of what its type demands is dropped with a note naming
+every missing field, and a field the type does not model is dropped with a note
+of its own. The tool still exports either way: `presets: []` is legal, and a tool
+with no feeds is more use than a tool that was left out.
+
+**Presets are not unit-converted.** Which unit each field uses differs per field
+— `v_c` is metres or feet per minute, `v_f` millimetres or inches per minute,
+`f_z` a length per tooth — so they must arrive stated in the same unit system as
+the tool. This is the one place in the exporter where a caller can be wrong and
+nothing will notice.
+
+The rules each type must satisfy are Autodesk's own published JSON Schema,
+reduced into `fusion/digest.json` at the repository root. `pnpm
+fusion:check-upstream` asks Autodesk weekly whether it has moved, and a test
+fails if the table this package reads drifts from it.
+
 ## Status
 
 `0.x`: in use, and the surface still moves. A minor is the breaking channel

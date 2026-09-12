@@ -23,10 +23,76 @@
       "ti coated",
       "unspecified"
     ],
+    "taperedType": [
+      "tapered_ball",
+      "tapered_bull_nose"
+    ],
+    "threadTipType": [
+      "flat",
+      "point",
+      "round"
+    ],
     "unit": [
       "inches",
       "millimeters"
     ]
+  },
+  "geometryTypes": {
+    "3DGeometry": "object",
+    "CSP": "boolean",
+    "CW": "number",
+    "DC": "number",
+    "DCX": "number",
+    "DRVA": "number",
+    "HAND": "boolean",
+    "INSD": "number",
+    "JET_HEAD_CLEARANCE": "number",
+    "JET_NOZZLE_DIAMETER": "number",
+    "LB": "number",
+    "LCF": "number",
+    "NOF": "number",
+    "NT": "number",
+    "OAL": "number",
+    "RE": "number",
+    "S": "number",
+    "SC": "enum",
+    "SCTY": "enum",
+    "SFDM": "number",
+    "SIG": "number",
+    "TA": "number",
+    "TC": "enum",
+    "TP": "number",
+    "TPN": "number",
+    "TPX": "number",
+    "adaptiveItemSize": "number",
+    "assemblyGaugeLength": "number",
+    "axial-distance": "number",
+    "chamfer-angle": "number",
+    "chamfer-width": "number",
+    "lensType": "string",
+    "lower-radius": "number",
+    "machineSideConnectionType": "string",
+    "nozzleStandoff": "number",
+    "numberOfAttachmentPoints": "integer",
+    "numberOfTools": "integer",
+    "orientationType": "enum",
+    "pierceDiameter": "number",
+    "profile": "array",
+    "profile-radius": "number",
+    "shoulder-diameter": "number",
+    "shoulder-length": "number",
+    "stickout": "number",
+    "thread-profile-angle": "number",
+    "thread-tip-radius": "number",
+    "thread-tip-type": "enum",
+    "thread-tip-width": "number",
+    "tip-diameter": "number",
+    "tip-length": "number",
+    "tip-offset": "number",
+    "tool_grooveWidth": "number",
+    "tool_insertWidth": "number",
+    "tool_internalThread": "boolean",
+    "upper-radius": "number"
   },
   "guidPattern": "(^(\\{{0,1}([0-9a-fA-F]){8}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){12}\\}{0,1})$)|(<.*>)",
   "library": {
@@ -38,6 +104,23 @@
       "minimum": 11,
       "type": "integer"
     }
+  },
+  "preset": {
+    "material": {
+      "allowed": [
+        "category",
+        "maximum-hardness",
+        "minimum-hardness",
+        "query",
+        "use-hardness"
+      ],
+      "required": [
+        "category",
+        "query",
+        "use-hardness"
+      ]
+    },
+    "startValuesClosed": true
   },
   "segment": {
     "additionalProperties": false,
@@ -88,6 +171,60 @@
         "assemblyGaugeLength",
         "shoulder-diameter",
         "shoulder-length"
+      ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
       ],
       "recordAllowed": [
         "BMC",
@@ -148,6 +285,42 @@
         "SFDM",
         "assemblyGaugeLength",
         "shoulder-length"
+      ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "name",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "name",
+        "tool-coolant",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
       ],
       "recordAllowed": [
         "BMC",
@@ -211,6 +384,60 @@
         "assemblyGaugeLength",
         "shoulder-diameter",
         "shoulder-length"
+      ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
       ],
       "recordAllowed": [
         "BMC",
@@ -280,6 +507,53 @@
         "tip-diameter",
         "tip-length"
       ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_n_retract",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "name",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-feed-per-revolution",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_retract",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-feed-per-revolution",
+          "requires": [
+            "f_n",
+            "f_n_retract"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "guid",
+        "material",
+        "n",
+        "name",
+        "tool-coolant",
+        "use-feed-per-revolution",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -345,6 +619,60 @@
         "shoulder-length",
         "tip-diameter"
       ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -409,6 +737,60 @@
         "profile-radius",
         "upper-radius"
       ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -471,6 +853,60 @@
         "assemblyGaugeLength",
         "lower-radius"
       ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -531,6 +967,60 @@
         "assemblyGaugeLength",
         "lower-radius",
         "profile-radius"
+      ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
       ],
       "recordAllowed": [
         "BMC",
@@ -598,6 +1088,60 @@
         "tip-diameter",
         "upper-radius"
       ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -663,6 +1207,60 @@
         "shoulder-diameter",
         "shoulder-length"
       ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -722,6 +1320,42 @@
         "SFDM",
         "assemblyGaugeLength",
         "shoulder-length"
+      ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "name",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "name",
+        "tool-coolant",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
       ],
       "recordAllowed": [
         "BMC",
@@ -786,6 +1420,53 @@
         "assemblyGaugeLength",
         "shoulder-length",
         "tip-diameter"
+      ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_n_retract",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "name",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-feed-per-revolution",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_retract",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-feed-per-revolution",
+          "requires": [
+            "f_n",
+            "f_n_retract"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "guid",
+        "material",
+        "n",
+        "name",
+        "tool-coolant",
+        "use-feed-per-revolution",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_ramp",
+        "v_f_transition"
       ],
       "recordAllowed": [
         "BMC",
@@ -852,6 +1533,60 @@
         "shoulder-diameter",
         "shoulder-length"
       ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -914,6 +1649,42 @@
         "assemblyGaugeLength",
         "shoulder-length"
       ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_n_retract",
+        "guid",
+        "material",
+        "n",
+        "name",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-feed-per-revolution",
+        "v_c",
+        "v_f_plunge",
+        "v_f_retract"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-feed-per-revolution",
+          "requires": [
+            "f_n",
+            "f_n_retract"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "guid",
+        "material",
+        "n",
+        "name",
+        "tool-coolant",
+        "use-feed-per-revolution",
+        "v_c"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -950,6 +1721,64 @@
       "geometryAllowed": [],
       "geometryClosed": false,
       "geometryRequired": [],
+      "presetAllowed": [
+        "BEAD_WIDTH",
+        "DEPOSITING_CURRENT",
+        "DEPOSITING_SHIELD_GAS_FLOW_RATE",
+        "DEPOSITING_VOLTAGE",
+        "LAYER_THICKNESS",
+        "PRESET_PROGRAM",
+        "STAND_OFF_DISTANCE",
+        "USE_PRESET_PROGRAM",
+        "WIRE_FEED",
+        "expressions",
+        "guid",
+        "material",
+        "name",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "use-stepover",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "USE_PRESET_PROGRAM",
+          "requires": [
+            "PRESET_PROGRAM"
+          ]
+        },
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "BEAD_WIDTH",
+        "DEPOSITING_CURRENT",
+        "DEPOSITING_SHIELD_GAS_FLOW_RATE",
+        "DEPOSITING_VOLTAGE",
+        "LAYER_THICKNESS",
+        "STAND_OFF_DISTANCE",
+        "USE_PRESET_PROGRAM",
+        "WIRE_FEED",
+        "guid",
+        "material",
+        "name",
+        "use-stepover",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge"
+      ],
       "recordAllowed": [
         "GRADE",
         "_document_tool_id",
@@ -1009,6 +1838,60 @@
         "shoulder-diameter",
         "shoulder-length",
         "upper-radius"
+      ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
       ],
       "recordAllowed": [
         "BMC",
@@ -1071,6 +1954,60 @@
         "shoulder-diameter",
         "shoulder-length"
       ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -1128,6 +2065,60 @@
         "assemblyGaugeLength",
         "tip-offset"
       ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -1164,6 +2155,10 @@
       "geometryAllowed": [],
       "geometryClosed": false,
       "geometryRequired": [],
+      "presetAllowed": [],
+      "presetClosed": false,
+      "presetConditionals": [],
+      "presetRequired": [],
       "recordAllowed": [
         "GRADE",
         "_document_tool_id",
@@ -1203,6 +2198,35 @@
         "JET_HEAD_CLEARANCE",
         "JET_NOZZLE_DIAMETER"
       ],
+      "presetAllowed": [
+        "abrasiveFlowRate",
+        "assistGas",
+        "cutHeight",
+        "cutPower",
+        "expressions",
+        "guid",
+        "machineQualityControl",
+        "material",
+        "name",
+        "pierceHeight",
+        "piercePower",
+        "pierceTime",
+        "pressure",
+        "stock-materials",
+        "strategies",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [],
+      "presetRequired": [
+        "cutHeight",
+        "guid",
+        "machineQualityControl",
+        "material",
+        "name"
+      ],
       "recordAllowed": [
         "GRADE",
         "_document_tool_id",
@@ -1233,6 +2257,56 @@
       "geometryAllowed": [],
       "geometryClosed": false,
       "geometryRequired": [],
+      "presetAllowed": [
+        "BEAD_WIDTH",
+        "DEPOSITING_AUXILIARY_GAS_FLOW_RATE",
+        "DEPOSITING_CARRIER_GAS_FLOW_RATE",
+        "DEPOSITING_POWER",
+        "DEPOSITING_SHIELD_GAS_FLOW_RATE",
+        "LAYER_THICKNESS",
+        "POWDER_FLOW_RATE",
+        "STAND_OFF_DISTANCE",
+        "expressions",
+        "guid",
+        "material",
+        "name",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "use-stepover",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "BEAD_WIDTH",
+        "DEPOSITING_AUXILIARY_GAS_FLOW_RATE",
+        "DEPOSITING_CARRIER_GAS_FLOW_RATE",
+        "DEPOSITING_POWER",
+        "DEPOSITING_SHIELD_GAS_FLOW_RATE",
+        "LAYER_THICKNESS",
+        "POWDER_FLOW_RATE",
+        "STAND_OFF_DISTANCE",
+        "guid",
+        "material",
+        "name",
+        "use-stepover",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge"
+      ],
       "recordAllowed": [
         "GRADE",
         "_document_tool_id",
@@ -1261,6 +2335,54 @@
       "geometryAllowed": [],
       "geometryClosed": false,
       "geometryRequired": [],
+      "presetAllowed": [
+        "BEAD_WIDTH",
+        "DEPOSITING_AUXILIARY_GAS_FLOW_RATE",
+        "DEPOSITING_POWER",
+        "DEPOSITING_SHIELD_GAS_FLOW_RATE",
+        "LAYER_THICKNESS",
+        "STAND_OFF_DISTANCE",
+        "WIRE_FEED",
+        "expressions",
+        "guid",
+        "material",
+        "name",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "use-stepover",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "BEAD_WIDTH",
+        "DEPOSITING_AUXILIARY_GAS_FLOW_RATE",
+        "DEPOSITING_POWER",
+        "DEPOSITING_SHIELD_GAS_FLOW_RATE",
+        "LAYER_THICKNESS",
+        "STAND_OFF_DISTANCE",
+        "WIRE_FEED",
+        "guid",
+        "material",
+        "name",
+        "use-stepover",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge"
+      ],
       "recordAllowed": [
         "GRADE",
         "_document_tool_id",
@@ -1314,6 +2436,60 @@
         "shoulder-diameter",
         "shoulder-length"
       ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -1361,6 +2537,35 @@
         "JET_HEAD_CLEARANCE",
         "JET_NOZZLE_DIAMETER"
       ],
+      "presetAllowed": [
+        "abrasiveFlowRate",
+        "assistGas",
+        "cutHeight",
+        "cutPower",
+        "expressions",
+        "guid",
+        "machineQualityControl",
+        "material",
+        "name",
+        "pierceHeight",
+        "piercePower",
+        "pierceTime",
+        "pressure",
+        "stock-materials",
+        "strategies",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [],
+      "presetRequired": [
+        "cutHeight",
+        "guid",
+        "machineQualityControl",
+        "material",
+        "name"
+      ],
       "recordAllowed": [
         "GRADE",
         "_document_tool_id",
@@ -1400,6 +2605,25 @@
         "LB",
         "SFDM",
         "assemblyGaugeLength"
+      ],
+      "presetAllowed": [
+        "expressions",
+        "guid",
+        "name",
+        "stock-materials",
+        "strategies",
+        "v_f_leadIn",
+        "v_f_link",
+        "v_f_measure"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [],
+      "presetRequired": [
+        "guid",
+        "name",
+        "v_f_leadIn",
+        "v_f_link",
+        "v_f_measure"
       ],
       "recordAllowed": [
         "GRADE",
@@ -1463,6 +2687,60 @@
         "shoulder-length",
         "tip-length"
       ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -1522,6 +2800,42 @@
         "SFDM",
         "assemblyGaugeLength",
         "shoulder-length"
+      ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_n_retract",
+        "guid",
+        "material",
+        "n",
+        "name",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-feed-per-revolution",
+        "v_c",
+        "v_f_plunge",
+        "v_f_retract"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-feed-per-revolution",
+          "requires": [
+            "f_n",
+            "f_n_retract"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "guid",
+        "material",
+        "n",
+        "name",
+        "tool-coolant",
+        "use-feed-per-revolution",
+        "v_c"
       ],
       "recordAllowed": [
         "BMC",
@@ -1585,6 +2899,60 @@
         "assemblyGaugeLength",
         "shoulder-diameter",
         "shoulder-length"
+      ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
       ],
       "recordAllowed": [
         "BMC",
@@ -1650,6 +3018,53 @@
         "shoulder-length",
         "tip-diameter"
       ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_n_retract",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "name",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-feed-per-revolution",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_retract",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-feed-per-revolution",
+          "requires": [
+            "f_n",
+            "f_n_retract"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "guid",
+        "material",
+        "n",
+        "name",
+        "tool-coolant",
+        "use-feed-per-revolution",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -1710,6 +3125,27 @@
         "assemblyGaugeLength",
         "shoulder-length"
       ],
+      "presetAllowed": [
+        "expressions",
+        "guid",
+        "material",
+        "n",
+        "name",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "v_c"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [],
+      "presetRequired": [
+        "guid",
+        "material",
+        "n",
+        "name",
+        "tool-coolant",
+        "v_c"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -1769,6 +3205,27 @@
         "TP",
         "assemblyGaugeLength",
         "shoulder-length"
+      ],
+      "presetAllowed": [
+        "expressions",
+        "guid",
+        "material",
+        "n",
+        "name",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "v_c"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [],
+      "presetRequired": [
+        "guid",
+        "material",
+        "n",
+        "name",
+        "tool-coolant",
+        "v_c"
       ],
       "recordAllowed": [
         "BMC",
@@ -1834,6 +3291,60 @@
         "assemblyGaugeLength",
         "shoulder-diameter",
         "shoulder-length"
+      ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
       ],
       "recordAllowed": [
         "BMC",
@@ -1909,6 +3420,60 @@
         "thread-profile-angle",
         "thread-tip-type"
       ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_z",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "stepdown",
+        "stepover",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-stepover",
+          "requires": [
+            "stepover"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "f_n",
+        "guid",
+        "material",
+        "n",
+        "n_ramp",
+        "name",
+        "ramp-angle",
+        "tool-coolant",
+        "use-stepdown",
+        "use-stepover",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut",
+        "v_f_plunge",
+        "v_f_ramp",
+        "v_f_transition"
+      ],
       "recordAllowed": [
         "BMC",
         "GRADE",
@@ -1958,6 +3523,10 @@
         "numberOfTools",
         "orientationType"
       ],
+      "presetAllowed": [],
+      "presetClosed": false,
+      "presetConditionals": [],
+      "presetRequired": [],
       "recordAllowed": [
         "GRADE",
         "_document_tool_id",
@@ -1999,6 +3568,48 @@
         "RE",
         "S",
         "SCTY"
+      ],
+      "presetAllowed": [
+        "depth-of-cut",
+        "expressions",
+        "f_n",
+        "f_n_leadIn",
+        "f_n_leadOut",
+        "guid",
+        "material",
+        "n",
+        "name",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-constant-surface-speed",
+        "use-depth-of-cut",
+        "use-feed-per-revolution",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-feed-per-revolution",
+          "requires": [
+            "f_n",
+            "f_n_leadIn",
+            "f_n_leadOut"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "guid",
+        "material",
+        "name",
+        "tool-coolant",
+        "use-constant-surface-speed",
+        "use-depth-of-cut",
+        "use-feed-per-revolution"
       ],
       "recordAllowed": [
         "BMC",
@@ -2048,6 +3659,48 @@
         "RE",
         "S",
         "SCTY"
+      ],
+      "presetAllowed": [
+        "depth-of-cut",
+        "expressions",
+        "f_n",
+        "f_n_leadIn",
+        "f_n_leadOut",
+        "guid",
+        "material",
+        "n",
+        "name",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-constant-surface-speed",
+        "use-depth-of-cut",
+        "use-feed-per-revolution",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-feed-per-revolution",
+          "requires": [
+            "f_n",
+            "f_n_leadIn",
+            "f_n_leadOut"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "guid",
+        "material",
+        "name",
+        "tool-coolant",
+        "use-constant-surface-speed",
+        "use-depth-of-cut",
+        "use-feed-per-revolution"
       ],
       "recordAllowed": [
         "BMC",
@@ -2101,6 +3754,45 @@
         "TC",
         "tool_grooveWidth",
         "tool_insertWidth"
+      ],
+      "presetAllowed": [
+        "expressions",
+        "f_n",
+        "f_n_leadIn",
+        "f_n_leadOut",
+        "guid",
+        "material",
+        "n",
+        "name",
+        "stock-materials",
+        "strategies",
+        "tool-coolant",
+        "use-constant-surface-speed",
+        "use-feed-per-revolution",
+        "v_c",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [
+        {
+          "equals": true,
+          "field": "use-feed-per-revolution",
+          "requires": [
+            "f_n",
+            "f_n_leadIn",
+            "f_n_leadOut"
+          ]
+        }
+      ],
+      "presetRequired": [
+        "guid",
+        "material",
+        "name",
+        "tool-coolant",
+        "use-constant-surface-speed",
+        "use-feed-per-revolution"
       ],
       "recordAllowed": [
         "BMC",
@@ -2170,6 +3862,24 @@
             "thread-tip-type",
             "tool_internalThread"
           ],
+          "presetAllowed": [
+            "expressions",
+            "guid",
+            "material",
+            "n",
+            "name",
+            "stock-materials",
+            "strategies",
+            "tool-coolant"
+          ],
+          "presetClosed": false,
+          "presetConditionals": [],
+          "presetRequired": [
+            "guid",
+            "material",
+            "name",
+            "tool-coolant"
+          ],
           "recordAllowed": [
             "BMC",
             "GRADE",
@@ -2235,6 +3945,24 @@
             "thread-profile-angle",
             "thread-tip-type"
           ],
+          "presetAllowed": [
+            "expressions",
+            "guid",
+            "material",
+            "n",
+            "name",
+            "stock-materials",
+            "strategies",
+            "tool-coolant"
+          ],
+          "presetClosed": false,
+          "presetConditionals": [],
+          "presetRequired": [
+            "guid",
+            "material",
+            "name",
+            "tool-coolant"
+          ],
           "recordAllowed": [
             "BMC",
             "GRADE",
@@ -2283,6 +4011,35 @@
         "CW",
         "JET_HEAD_CLEARANCE",
         "JET_NOZZLE_DIAMETER"
+      ],
+      "presetAllowed": [
+        "abrasiveFlowRate",
+        "assistGas",
+        "cutHeight",
+        "cutPower",
+        "expressions",
+        "guid",
+        "machineQualityControl",
+        "material",
+        "name",
+        "pierceHeight",
+        "piercePower",
+        "pierceTime",
+        "pressure",
+        "stock-materials",
+        "strategies",
+        "v_f",
+        "v_f_leadIn",
+        "v_f_leadOut"
+      ],
+      "presetClosed": false,
+      "presetConditionals": [],
+      "presetRequired": [
+        "cutHeight",
+        "guid",
+        "machineQualityControl",
+        "material",
+        "name"
       ],
       "recordAllowed": [
         "GRADE",

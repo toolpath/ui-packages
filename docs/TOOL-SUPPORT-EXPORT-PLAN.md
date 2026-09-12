@@ -171,7 +171,7 @@ What the reference gets **right**, and we take:
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | How the exporter is reached                         | A subpath per format. `@toolpath/tool-support/export` for the shared vocabulary, `…/export/fusion` for this one. Keeps the root from growing ~15 names per format; matches `tool-drawing`'s `/geometry` and `/clearance`.                               |
 | What the default does about fields a vendor omitted | Fill the parser-required constants and derive `LB` from `setupStickout`, so a bare scraped tool loads. Never fill a dimension.                                                                                                                          |
-| Cutting-data presets                                | `start-values: { presets: [] }` — the key is required, an empty list is legal. Populating it is the named extension point, not v1.                                                                                                                      |
+| Cutting-data presets                                | Carried, not computed: a caller passes them and the exporter validates them per type. See [Carrying presets](#carrying-presets).                                                                                                                        |
 | How the format spec is pinned and watched           | A mechanically derived ~23 KB digest checked in at `fusion/`, cross-checked against the source table by an offline test, with upstream drift caught by a scheduled fetch. The 2.6 MB schema is not vendored. See [Pinning the spec](#pinning-the-spec). |
 
 ## Design
@@ -491,13 +491,167 @@ onward over everything emitted.
 
 ## Deliberately out of scope
 
-- **Cutting-data presets.** `start-values: { presets: [] }` is emitted because the
-  key is required. Populating it needs a feeds-and-speeds model this package does
-  not have, and Autodesk requires 17 fields on a preset. Named as the extension
-  point, not built.
+- **Computing feeds and speeds.** A caller's presets are carried; deciding what
+  they should be needs a machining model this package does not have and is not
+  acquiring. See [Carrying presets](#carrying-presets).
 - **`shaft` segments.** No shaft model here.
 - **Turning, waterjet, laser, probe, tool block.** `TOOL_FORMS` has no words for
   them, and inventing them to fill a schema branch is the wrong direction.
 - **Writing files.** The caller's.
 - **Reading a Fusion library back.** An importer is a different job with a
   different failure mode; a round-trip test would be the reason to build one.
+
+---
+
+# Carrying presets
+
+`start-values: { presets: [] }` shipped as a placeholder, and
+`FusionTool['start-values']` types its list `readonly never[]` — so there is no
+way to pass a preset in at all. The catalog application generates PreTool feeds
+and speeds into that field today
+(`apps/catalog/app/shared/pretool-presets.ts`), so adopting the exporter as it
+stands would drop every feed and speed it has. The fix is to widen the input;
+the interesting part is what the exporter should check once it can see one.
+
+## What the evidence says, against what was assumed
+
+Two claims were worth testing before building on them. One holds and one does
+not.
+
+### Preset requirements are per tool type, and that is the real hazard
+
+The schema has **13 distinct preset shapes**, six of which cover types this
+package writes. They are not close to each other:
+
+| Types                                        | Required                                                                                                                                              | Models                                     |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| the 17 milling types                         | `f_n guid material n n_ramp name ramp-angle tool-coolant use-stepdown use-stepover v_c v_f v_f_leadIn v_f_leadOut v_f_plunge v_f_ramp v_f_transition` | + `f_z stepdown stepover expressions`      |
+| `drill`, `reamer`                            | `guid material n name tool-coolant use-feed-per-revolution v_c`                                                                                       | + `f_n f_n_retract v_f_plunge v_f_retract` |
+| `spot drill`, `counter sink`, `center drill` | …**+ `v_f v_f_leadIn v_f_leadOut v_f_ramp v_f_transition`**                                                                                           | + `f_n f_z v_f_plunge v_f_retract`         |
+| `counter bore`, `boring bar`                 | `f_n guid material n name tool-coolant v_c v_f v_f_leadIn v_f_leadOut v_f_plunge v_f_ramp v_f_transition`                                             | + `f_z`                                    |
+| `tap left hand`, `tap right hand`            | `guid material n name tool-coolant v_c`                                                                                                               | **nothing else** but `expressions`         |
+
+A tap models nine fields; a milling tool requires seventeen. One `FusionPreset`
+type applied to every tool cannot be right for all of them, and the exporter has
+no way to notice — which is exactly the gap the geometry table already closed
+for `geometry`.
+
+**This is not hypothetical.** `pretoolPresets` routes `spot drill` and
+`center drill` through `holePreset`, which writes `guid name material n v_c
+v_f_plunge v_f_retract f_n tool-coolant use-feed-per-revolution`. Those two
+types require `v_f`, `v_f_leadIn`, `v_f_leadOut`, `v_f_ramp` and
+`v_f_transition` as well, so **the application's spot-drill and center-drill
+presets are missing five required fields today** and nothing says so. Its drill
+and reamer presets are valid; its tap presets carry four fields a tap does not
+model, which is legal but invisible in Fusion.
+
+### Integer literals do not crash the parser, and `library.ts` overstates it
+
+The proposal is to extend the serializer's `isFloat` rule to `v_f`, `v_c`,
+`f_n`, `stepdown`, `stepover` and `ramp-angle`, on the grounds that writing them
+as bare integers is _"the exact parser crash `library.ts` documents"_.
+
+Measured against 100 real tools scanned out of Fusion libraries — 361 presets —
+**every one of those fields already appears as a bare integer**: `n`, `v_c`,
+`v_f`, `f_z`, `stepdown`, `v_f_plunge`, `v_f_ramp`, and `ramp-angle` which is
+_only_ ever an integer. The same libraries carry bare integers in `DC`, `LB`,
+`LCF`, `OAL`, `RE`, `TP`, `shoulder-length`, `tip-diameter` and in holder
+segment `height` and diameters.
+
+So Fusion demonstrably reads integers in both places, and the rule inherited
+from BetterToolLib — one incident in which a Syil library with `LB: 25` failed
+to load and `LB: 25.0` did not — is not the general law `library.ts` currently
+asserts. **That docstring is wrong and gets corrected as part of this work.**
+
+The float rule still stays, and the preset fields still join it, for the reason
+that actually survives: `25.0` is accepted everywhere `25` is, one rule over the
+whole document is simpler than two, and the cost is a character. What changes is
+the justification, so the next person does not inherit a law that the data in
+front of them contradicts.
+
+## Design
+
+### The digest learns about presets
+
+`scripts/fusion-schema.mjs` gains preset extraction per type — `presetRequired`,
+`presetAllowed`, `presetClosed` — alongside `startValuesClosed`, the `material`
+sub-object's own requirement, and the `use-stepover ⇒ stepover` conditional.
+Then `pnpm fusion:adopt`, and preset rules are pinned to Autodesk exactly as the
+geometry table is, with the same test and the same weekly upstream check.
+
+Two facts the extraction records because they decide behaviour: `start-values`
+itself is closed (`presets` is the only key it takes), and a **preset item is
+open** — so a field a type does not model is tolerated rather than rejected,
+which is what makes the tap case a note rather than a refusal.
+
+### `preset.ts`
+
+```ts
+export interface CatalogPreset {
+  readonly guid: string // required; the exporter mints none, as everywhere
+  readonly name: string
+  readonly material?: PresetMaterial // defaulted to the all-materials entry
+  readonly [field: string]: unknown // the numeric fields, per type
+}
+```
+
+`fusionPresets(type, presets)` then:
+
+- drops any field the type does not model, one `dropped` note each — so a tap
+  preset carrying `v_f_plunge` loses it and says so;
+- reports every required field the type demands and the preset lacks, which is
+  what would have caught the spot-drill gap;
+- supplies `material` when absent (`{ category: 'all', query: '', 'use-hardness':
+false }` is the all-materials entry, a convention rather than a measurement —
+  the same line `FILL_CONSTANTS` already draws);
+- enforces `use-stepover ⇒ stepover` and `use-stepdown ⇒ stepdown`.
+
+A preset that is missing a required field does **not** sink the tool. It is
+dropped with a note and the tool exports with the presets that are valid, because
+a tool with no feeds is still a usable tool and a tool that vanished is not.
+
+### Units are the caller's, and this is the part to get wrong quietly
+
+A preset's numbers are in the tool's unit system, and which unit each field uses
+differs per field — `v_c` is m/min or SFM, `v_f` is mm/min or in/min, `f_z` is a
+length per tooth. **The exporter does not convert them.** It has no units model
+for feeds and speeds, and inventing one to convert a field whose unit it has
+guessed is worse than carrying what it was given.
+
+So the contract is stated on the type and in the README: presets arrive stated in
+the same unit system as the tool. The application generates metric presets for
+metric tools today, so nothing changes for it — but this is the one part of the
+exporter where a caller can be wrong without anything noticing, and it is worth
+saying out loud rather than leaving implied.
+
+### The rest
+
+- `ToolRequest` gains `presets?: readonly CatalogPreset[]`, and
+  `FusionTool['start-values']` becomes `{ presets: readonly FusionPreset[] }`.
+- `library.ts`'s `isFloat` reads a new `FUSION_PRESET_KINDS` beside the geometry
+  one; counts and flags stay integers, everything dimensional gets its point.
+- **A tool with no presets still exports.** `presets: []` is schema-legal, so a
+  form PreTool has no generator for produces a tool with an empty preset list and
+  a note — where the application skips the tool entirely today. That is a
+  behaviour change in the application's favour and worth stating in its migration.
+
+## Tests
+
+- Per type, the resolved `presetRequired` / `presetAllowed` equal the digest's,
+  and every preset field has a declared kind whose JSON type matches — the
+  geometry table's two checks, applied to presets.
+- A milling preset survives whole; the same preset offered for a tap loses the
+  fields a tap does not model, with a note naming each.
+- A spot-drill preset shaped like the application's is reported missing exactly
+  `v_f`, `v_f_leadIn`, `v_f_leadOut`, `v_f_ramp`, `v_f_transition` — the
+  regression this whole section exists to catch.
+- `use-stepover: true` without `stepover` is refused.
+- Presets serialize with decimal points on dimensions and integers on counts, and
+  the document still round-trips through `JSON.parse`.
+- A tool whose preset list is empty still exports and conforms.
+
+## Wiring
+
+A `@toolpath/tool-support` **minor** Changeset — `start-values` widening from
+`never[]` is additive for every consumer that never passed presets, which is all
+of them. README gains the preset contract and the unit warning.
