@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/tool-support",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "The cutting-tool domain: what a tool, holder, collet and assembly are",
   "license": "MIT",
   "engines": {
