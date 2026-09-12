@@ -30,9 +30,9 @@
 
 import { convertLength } from '../../units.js'
 import type { ExportNote, ExportResult } from '../report.js'
-import { derivedGuid, guidBytes, EMPTY_GUID, isGuid } from './guid.js'
+import { derivedGuid, guidBytes, guidText, EMPTY_GUID, isGuid } from './guid.js'
 import { mastercamHolder, type CatalogHolder } from './holder.js'
-import { rowSet } from './rows.js'
+import { rowSet, type RowSet } from './rows.js'
 import {
   MASTERCAM_SCHEMA_VERSION,
   MASTERCAM_SEED,
@@ -40,7 +40,7 @@ import {
   MASTERCAM_VERSION,
 } from './schema.generated.js'
 import { encodeDatabase, type Row } from './sqlite/index.js'
-import { mastercamTool, type MastercamToolRequest } from './tool.js'
+import { mastercamTool, type MastercamSetup, type MastercamToolRequest } from './tool.js'
 
 export interface LibraryRequest {
   readonly tools?: readonly MastercamToolRequest[]
@@ -108,65 +108,94 @@ export const mastercamLibrary = (request: LibraryRequest): ExportResult<Uint8Arr
     notes.push(...written.notes)
     if (written.written === null) continue
 
-    const holderGuid = entry.assembly?.holderGuid
-    const stickout = entry.assembly?.stickout ?? null
-    if (holderGuid === undefined || stickout === null) continue
-    if (!holdersWritten.has(holderGuid)) {
-      notes.push({
-        subject: entry.tool.guid,
-        kind: 'dropped',
-        field: 'TlAssembly',
-        message:
-          `the assembly names holder ${holderGuid}, which is not in this library, so the ` +
-          `tool is written on its own`,
-      })
-      continue
+    for (const setup of entry.assemblies ?? []) {
+      writeAssembly(entry, setup, written.written.overallLength, holdersWritten, rows, notes)
     }
-
-    const assembly = derivedGuid(entry.tool.guid, 'assembly')
-    const number = entry.tool.number ?? 0
-    rows.add('TlAssembly', {
-      ID: assembly,
-      Name: entry.tool.label ?? entry.tool.catalogNumber ?? entry.tool.guid,
-      Description: '',
-      MainHolder: guidBytes(holderGuid),
-      MainTool: guidBytes(entry.tool.guid),
-      ToolNumber: number,
-      MachineGroup: 0,
-      RelationshipHierarchyXML: '',
-      DiameterOffsetNum: number,
-      LengthOffsetNum: number,
-      MaxRamp: 0,
-      IsMetric: 0,
-      TlGraphicsFileCollectionID: derivedGuid(entry.tool.guid, 'assembly-graphics'),
-      TlAccessoryCollectionID: derivedGuid(entry.tool.guid, 'assembly-accessories'),
-      ExternalId: '',
-    })
-    // The root's CScalar is how much of the tool the holder swallows; the
-    // stickout is what is left. Both are inches, like every other length.
-    const inside = written.written.overallLength - convertLength(stickout, 'millimeters', 'inches')
-    rows.add('TlAssemblyComponent', {
-      TlAssemblyID: assembly,
-      TlAssemblyItemID: guidBytes(holderGuid),
-      ParentID: EMPTY_GUID,
-      MTransformID: EMPTY_GUID,
-      UTransformID: EMPTY_GUID,
-      CTransformID: EMPTY_GUID,
-      CScalar: inside,
-    })
-    rows.add('TlAssemblyComponent', {
-      TlAssemblyID: assembly,
-      TlAssemblyItemID: guidBytes(entry.tool.guid),
-      ParentID: guidBytes(holderGuid),
-      MTransformID: EMPTY_GUID,
-      UTransformID: EMPTY_GUID,
-      CTransformID: EMPTY_GUID,
-      CScalar: 0,
-    })
   }
 
   return {
     document: encodeDatabase({ tables: MASTERCAM_TABLES, rows: rows.tables }),
     notes,
   }
+}
+
+/**
+ * One tool in one holder, as an assembly and its two components.
+ *
+ * The tool's own rows are already written and are **not** written again: one
+ * tool set up in two holders is one `TlTool` row named by two `TlAssembly`
+ * rows, which is the shape `TlAssemblyComponent`'s composite key exists for.
+ */
+const writeAssembly = (
+  entry: MastercamToolRequest,
+  setup: MastercamSetup,
+  overallLength: number,
+  holdersWritten: ReadonlySet<string>,
+  rows: RowSet,
+  notes: ExportNote[],
+): void => {
+  const { holderGuid, stickout } = setup
+  if (stickout === null) return
+  if (!holdersWritten.has(holderGuid)) {
+    notes.push({
+      subject: entry.tool.guid,
+      kind: 'dropped',
+      field: 'TlAssembly',
+      message:
+        `the assembly names holder ${holderGuid}, which is not in this library, so the ` +
+        `tool is written on its own`,
+    })
+    return
+  }
+
+  // Derived from both ends, so one tool in two holders is two assemblies
+  // rather than one key written twice. A shop that tracks the assembly
+  // itself states its own, which is the only way to tell apart two set-ups
+  // of one tool in one holder.
+  const assembly =
+    setup.guid === undefined
+      ? derivedGuid(entry.tool.guid, `assembly:${setup.holderGuid}`)
+      : guidBytes(setup.guid)
+  const number = setup.number ?? entry.tool.number ?? 0
+  // Keyed like the tool's own rows: a set-up stated twice is one assembly, not
+  // two rows under one guid.
+  const key = guidText(assembly)
+  rows.addOnce('TlAssembly', key, {
+    ID: assembly,
+    Name: entry.tool.label ?? entry.tool.catalogNumber ?? entry.tool.guid,
+    Description: '',
+    MainHolder: guidBytes(holderGuid),
+    MainTool: guidBytes(entry.tool.guid),
+    ToolNumber: number,
+    MachineGroup: 0,
+    RelationshipHierarchyXML: '',
+    DiameterOffsetNum: number,
+    LengthOffsetNum: number,
+    MaxRamp: 0,
+    IsMetric: 0,
+    TlGraphicsFileCollectionID: derivedGuid(entry.tool.guid, 'assembly-graphics'),
+    TlAccessoryCollectionID: derivedGuid(entry.tool.guid, 'assembly-accessories'),
+    ExternalId: '',
+  })
+  // The root's CScalar is how much of the tool the holder swallows; the
+  // stickout is what is left. Both are inches, like every other length.
+  const inside = overallLength - convertLength(stickout, 'millimeters', 'inches')
+  rows.addOnce('TlAssemblyComponent', `${key}#holder`, {
+    TlAssemblyID: assembly,
+    TlAssemblyItemID: guidBytes(holderGuid),
+    ParentID: EMPTY_GUID,
+    MTransformID: EMPTY_GUID,
+    UTransformID: EMPTY_GUID,
+    CTransformID: EMPTY_GUID,
+    CScalar: inside,
+  })
+  rows.addOnce('TlAssemblyComponent', `${key}#tool`, {
+    TlAssemblyID: assembly,
+    TlAssemblyItemID: guidBytes(entry.tool.guid),
+    ParentID: guidBytes(holderGuid),
+    MTransformID: EMPTY_GUID,
+    UTransformID: EMPTY_GUID,
+    CTransformID: EMPTY_GUID,
+    CScalar: 0,
+  })
 }

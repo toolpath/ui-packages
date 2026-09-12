@@ -177,6 +177,8 @@ judgment rule starts being violated, give it a check rather than restating it he
 | The generated Mastercam schema matches the pinned digest                  | `pnpm test` (`export-mastercam-schema`) |
 | The SQLite encoder's output is a database SQLite reads back               | `pnpm test` (`sqlite-encoder`)          |
 | A Mastercam library round-trips its tools, holders and stickouts          | `pnpm test` (`export-mastercam`)        |
+| The encoder refuses two rows under one unique key                         | `pnpm test` (`sqlite-encoder`)          |
+| One tool set up in several holders is one tool row and several assemblies | `pnpm test` (`export-mastercam`)        |
 | The Fusion type table matches Autodesk's published schema                 | `pnpm test` (`export-fusion-schema`)    |
 | A scraper vendor adapter imports no other vendor                          | `pnpm test` (`vendor-boundary`)         |
 | Only a composition root reaches into `src/vendors/`                       | `pnpm test` (`vendor-boundary`)         |
@@ -223,6 +225,14 @@ What the sensors cannot carry:
   publish it. `knip.json` models each package's entry points by hand because every manifest's
   `exports` map points at `dist/`; an entry point added to a manifest needs its `src/` counterpart
   added there too, or knip will call a whole live module dead.
+- **One tool set up in several holders is written as one tool row.** Mastercam's schema allows
+  it — `TlAssemblyComponent`'s key is `(TlAssemblyID, TlAssemblyItemID)` — but the reference
+  library never does: it holds 113 tool rows for 63 distinct tools and 63 holder rows for 7,
+  duplicating an item each time it goes into an assembly and giving the copy its own carousel
+  number. Sharing keeps the tool's guid as its `TlAssemblyItem.ID`, which is what makes a
+  re-export update a tool rather than add one, and costs one thing: `TlTool.ToolNumber` and the
+  legacy record hold a single number, so a tool at two carousel positions states the first and
+  reports the rest as an `ExportNote`. **This is not verified against Mastercam.**
 - **Mastercam publishes no table of its tool-type codes.** Every integer in
   `packages/tool-support/src/export/mastercam/schema.ts` was read out of a real library and
   cross-checked against the twenty legacy names the file also carries; twelve are confirmed that

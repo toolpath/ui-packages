@@ -45,6 +45,17 @@ interface ColumnSpec {
 interface IndexSpec {
   readonly name: string
   readonly columns: readonly string[]
+  /**
+   * Whether two rows may share this key.
+   *
+   * Only `true` is supported, and it is carried rather than assumed so that a
+   * schema growing a plain index fails loudly here. Every index this encoder
+   * can write is one SQLite implies from a `PRIMARY KEY` or `UNIQUE`
+   * constraint, which records no `CREATE INDEX` text of its own; a plain index
+   * needs that text, and a `sqlite_master` row without it is an orphan index
+   * rather than a usable one.
+   */
+  readonly unique?: boolean
 }
 
 export interface TableSpec {
@@ -122,6 +133,30 @@ export const encodeDatabase = (request: EncodeRequest): Uint8Array => {
           const order = compareKeys(left.key, right.key)
           return order !== 0 ? order : left.rowid - right.rowid
         })
+      if (index.unique === false) {
+        throw new Error(
+          `${index.name} on ${table.name} is not unique, and this writer emits no ` +
+            `CREATE INDEX text — SQLite would read it as an orphan index`,
+        )
+      }
+      {
+        // Two rows under one key is not something SQLite notices on the way in
+        // — it notices on the way out, as `PRAGMA integrity_check` reporting a
+        // non-unique index entry, by which point the file is written and the
+        // caller is gone. A writer that never deletes can check it here for
+        // the cost of one comparison per row, so it does.
+        for (let at = 1; at < entries.length; at += 1) {
+          const previous = entries[at - 1] as (typeof entries)[number]
+          const current = entries[at] as (typeof entries)[number]
+          if (compareKeys(previous.key, current.key) === 0) {
+            throw new Error(
+              `${table.name} has two rows with the same ${index.columns.join(', ')} — ` +
+                `${index.name} is unique, and writing both would produce a database ` +
+                `SQLite reports as malformed`,
+            )
+          }
+        }
+      }
       const root = buildIndexTree(
         entries.map((entry) => ({
           payload: encodeRecord([...entry.key, entry.rowid], [...keyAffinities, 'INTEGER']),

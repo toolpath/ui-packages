@@ -53,13 +53,41 @@ export interface MastercamCuttingData {
   readonly retractRate?: number
 }
 
+/**
+ * One tool set up in one holder.
+ *
+ * A tool can have several. Mastercam's schema keeps `TlAssembly` apart from
+ * `TlTool` so that one tool row can be the `MainTool` of more than one
+ * assembly, and `TlAssemblyComponent`'s key — `(TlAssemblyID, TlAssemblyItemID)`
+ * — only makes sense if an item appears in several.
+ */
+export interface MastercamSetup {
+  readonly holderGuid: string
+  /** Tool tip to holder nose, in millimetres. `null` is nobody having decided. */
+  readonly stickout: number | null
+  /**
+   * The carousel position for *this* set-up.
+   *
+   * A tool number belongs to the set-up rather than to the tool: the reference
+   * library holds one ball nose twice, numbered 9 in the crib and 107 in the
+   * machine. Falls back to the tool's own number where a caller states none.
+   */
+  readonly number?: number
+  /**
+   * The assembly's own identifier, where a shop tracks one.
+   *
+   * Derived from the tool and the holder when absent, which is stable across
+   * re-exports — the rule `catalog.ts` keeps. Two set-ups of one tool in one
+   * holder at different stickouts need one stated, because the derivation
+   * cannot tell them apart.
+   */
+  readonly guid?: string
+}
+
 export interface MastercamToolRequest {
   readonly tool: CatalogTool
-  /** The holder this tool is set up in, and how far it stands out of it. */
-  readonly assembly?: {
-    readonly stickout: number | null
-    readonly holderGuid?: string
-  }
+  /** Every holder this tool is set up in. */
+  readonly assemblies?: readonly MastercamSetup[]
   readonly cuttingData?: MastercamCuttingData
 }
 
@@ -110,7 +138,7 @@ const writeOpParams = (
 ): Uint8Array => {
   const id = derivedGuid(guid, 'op-params')
   const coolant = derivedGuid(guid, 'coolant')
-  rows.add('TlCoolant', {
+  rows.addOnce('TlCoolant', guid, {
     ID: coolant,
     OldStyle: 0,
     Flood: 0,
@@ -130,7 +158,7 @@ const writeOpParams = (
   // does. Spindle speed does not.
   const rate = (value: number | undefined): number =>
     value === undefined ? 0 : unit === 'inches' ? value : inches(value)
-  rows.add('TlOpParams', {
+  rows.addOnce('TlOpParams', guid, {
     ID: id,
     MaterialSFMAdjust: 1,
     MaterialFPTAdjust: 1,
@@ -142,7 +170,7 @@ const writeOpParams = (
     IsMetric: 0,
   })
   if (holemaking) {
-    rows.add('TlHolemakingOpParams', {
+    rows.addOnce('TlHolemakingOpParams', guid, {
       ID: id,
       CannedCycleType: 0,
       Peck1: 0,
@@ -152,7 +180,7 @@ const writeOpParams = (
       Dwell: 0,
     })
   } else {
-    rows.add('TlMillingOpParams', {
+    rows.addOnce('TlMillingOpParams', guid, {
       ID: id,
       IsRough: 1,
       IsFinish: 1,
@@ -210,7 +238,19 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
   }
 
   const id = guidBytes(tool.guid)
-  const number = request.tool.number ?? 0
+  // `TlTool.ToolNumber`, the offsets and the legacy record can each hold one
+  // number, so a tool set up in two carousel positions states the first here
+  // and the rest on their own `TlAssembly` rows.
+  const numbers = (request.assemblies ?? []).map((setup) => setup.number ?? tool.number ?? 0)
+  const number = numbers[0] ?? tool.number ?? 0
+  if (numbers.some((each) => each !== number)) {
+    note(
+      'dropped',
+      'TlTool.ToolNumber',
+      `the tool is set up at more than one carousel position and this row states ${number}; ` +
+        `each assembly carries its own`,
+    )
+  }
   const subtype = MC_SUBTYPE[mcToolType]
   const holemaking = MC_HOLEMAKING.has(mcToolType)
 
@@ -232,7 +272,7 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
   }
 
   const manufacturer = tool.vendor === undefined ? EMPTY_GUID : namedGuid(tool.vendor)
-  rows.add('TlAssemblyItem', {
+  rows.addOnce('TlAssemblyItem', tool.guid, {
     ID: id,
     CatalogID: tool.catalogNumber ?? '',
     GeometryFile: '',
@@ -259,7 +299,7 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
   // exporter writes tools coaxial with their holders, which is every milling
   // assembly.
   const locator = derivedGuid(tool.guid, 'locator')
-  rows.add('TlLocator', {
+  rows.addOnce('TlLocator', tool.guid, {
     ID: locator,
     IsMetric: 0,
     r00: 1,
@@ -275,7 +315,7 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
     t1: 0,
     t2: 0,
   })
-  rows.add('TlConnection', {
+  rows.addOnce('TlConnection', tool.guid, {
     ID: derivedGuid(tool.guid, 'connection'),
     Type: '',
     Size: '',
@@ -315,7 +355,7 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
     )
   }
 
-  rows.add('TlTool', {
+  rows.addOnce('TlTool', tool.guid, {
     ID: id,
     OpToolInfo: legacyToolRecord({
       toolNumber: number,
@@ -342,7 +382,7 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
   })
 
   const shank = SFDM ?? DC
-  rows.add('TlToolMill', {
+  rows.addOnce('TlToolMill', tool.guid, {
     ID: id,
     MCToolType: mcToolType,
     DiameterOffsetNum: number,
@@ -377,7 +417,7 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
 
   switch (subtype) {
     case 'endmill':
-      rows.add('TlToolEndmill', {
+      rows.addOnce('TlToolEndmill', tool.guid, {
         ID: id,
         TipDiameter: 0,
         TaperAngle: taperAngle,
@@ -387,16 +427,25 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
       })
       break
     case 'drill':
-      rows.add('TlToolDrill', { ID: id, TipAngle: pointAngle, ShoulderAngle: 0, CornerRadius: 0 })
+      rows.addOnce('TlToolDrill', tool.guid, {
+        ID: id,
+        TipAngle: pointAngle,
+        ShoulderAngle: 0,
+        CornerRadius: 0,
+      })
       break
     case 'reamer':
-      rows.add('TlToolReamer', { ID: id, TipAngle: REAMER_LEAD_ANGLE, ChamferLength: 0 })
+      rows.addOnce('TlToolReamer', tool.guid, {
+        ID: id,
+        TipAngle: REAMER_LEAD_ANGLE,
+        ChamferLength: 0,
+      })
       break
     case 'threading':
       if (thread === null) {
         note('dropped', 'ThreadPitch', 'the catalog states no thread pitch')
       }
-      rows.add('TlToolThreading', {
+      rows.addOnce('TlToolThreading', tool.guid, {
         ID: id,
         TipDiameter: 0,
         TipAngle: 0,

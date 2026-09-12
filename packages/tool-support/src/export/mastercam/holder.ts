@@ -117,7 +117,7 @@ export const mastercamHolder = (entry: CatalogHolder, rows: RowSet): HolderResul
   const vertices: Vertex[] = [[0, first[1]], ...walked, [0, last[1]]]
 
   const manufacturer = entry.vendor === undefined ? EMPTY_GUID : namedGuid(entry.vendor)
-  rows.add('TlAssemblyItem', {
+  rows.addOnce('TlAssemblyItem', entry.guid, {
     ID: id,
     CatalogID: entry.catalogNumber ?? '',
     GeometryFile: '',
@@ -141,7 +141,7 @@ export const mastercamHolder = (entry: CatalogHolder, rows: RowSet): HolderResul
     IsProjectionAdjustmentEditable: 0,
   })
   const locator = derivedGuid(entry.guid, 'locator')
-  rows.add('TlLocator', {
+  rows.addOnce('TlLocator', entry.guid, {
     ID: locator,
     IsMetric: 0,
     r00: 1,
@@ -157,7 +157,7 @@ export const mastercamHolder = (entry: CatalogHolder, rows: RowSet): HolderResul
     t1: 0,
     t2: 0,
   })
-  rows.add('TlConnection', {
+  rows.addOnce('TlConnection', entry.guid, {
     ID: derivedGuid(entry.guid, 'connection'),
     Type: '',
     Size: '',
@@ -167,7 +167,7 @@ export const mastercamHolder = (entry: CatalogHolder, rows: RowSet): HolderResul
     Width: 0,
     Name: '',
   })
-  rows.add('TlHolder', {
+  rows.addOnce('TlHolder', entry.guid, {
     ID: id,
     LibraryName: '',
     HolderType: 0,
@@ -181,7 +181,9 @@ export const mastercamHolder = (entry: CatalogHolder, rows: RowSet): HolderResul
 
   vertices.slice(0, -1).forEach((from, index) => {
     const to = vertices[index + 1] as Vertex
-    rows.add('TlProfileData', {
+    // Keyed per segment, not per holder: a holder shipped twice writes its
+    // silhouette once, and every segment of it.
+    rows.addOnce('TlProfileData', `${entry.guid}#${index}`, {
       ItemID: id,
       Segment: index,
       // Every segment in the reference is a line; an arc is tessellated before

@@ -72,7 +72,7 @@ const ITEM: TableSpec = {
     { name: 'Size', type: 'DOUBLE' },
     { name: 'Count', type: 'INT' },
   ],
-  indexes: [{ name: 'sqlite_autoindex_Item_1', columns: ['ID'] }],
+  indexes: [{ name: 'sqlite_autoindex_Item_1', unique: true, columns: ['ID'] }],
 }
 
 describe('a database SQLite agrees with', () => {
@@ -161,7 +161,7 @@ describe('a database SQLite agrees with', () => {
         { name: 'ID', type: 'GUID' },
         { name: 'Data', type: 'BLOB' },
       ],
-      indexes: [{ name: 'sqlite_autoindex_Blobs_1', columns: ['ID'] }],
+      indexes: [{ name: 'sqlite_autoindex_Blobs_1', unique: true, columns: ['ID'] }],
     }
     // 1 KiB pages, so every one of these overflows: the 1024-byte case is the
     // one a Mastercam tool record actually hits, and the others bracket it.
@@ -189,7 +189,7 @@ describe('a database SQLite agrees with', () => {
         { name: 'Key', type: 'VARCHAR' },
         { name: 'N', type: 'INT' },
       ],
-      indexes: [{ name: 'sqlite_autoindex_Wide_1', columns: ['Key'] }],
+      indexes: [{ name: 'sqlite_autoindex_Wide_1', unique: true, columns: ['Key'] }],
     }
     // Well past indexMaxLocal at a 1 KiB page, so every index entry overflows
     // and the chain has to be written exactly once.
@@ -215,7 +215,7 @@ describe('a database SQLite agrees with', () => {
         { name: 'Segment', type: 'INT' },
         { name: 'x', type: 'DOUBLE' },
       ],
-      indexes: [{ name: 'sqlite_autoindex_Seg_1', columns: ['ItemID', 'Segment'] }],
+      indexes: [{ name: 'sqlite_autoindex_Seg_1', unique: true, columns: ['ItemID', 'Segment'] }],
     }
     const rows: Row[] = []
     for (let item = 0; item < 60; item += 1) {
@@ -251,6 +251,34 @@ describe('a database SQLite agrees with', () => {
     const db = roundTrip([ITEM], new Map([['Item', rows]]), pageSize)
     expect(db.prepare('select count(*) c from Item').get()).toEqual({ c: 2_000 })
     expect(db.prepare('pragma page_size').get()).toEqual({ page_size: pageSize })
+  })
+
+  it('refuses two rows under one unique key rather than writing them', () => {
+    // The failure this replaces is silent: SQLite accepts the bytes and only
+    // reports `non-unique entry in index` from `PRAGMA integrity_check`, long
+    // after the file has been handed to somebody. A writer that never deletes
+    // knows every key up front, so it can say so while the caller is still
+    // here.
+    const rows: Row[] = [
+      { ID: guid(1), Name: 'first', Size: 1, Count: 1 },
+      { ID: guid(2), Name: 'second', Size: 2, Count: 2 },
+      { ID: guid(1), Name: 'a second first', Size: 3, Count: 3 },
+    ]
+    expect(() => encodeDatabase({ tables: [ITEM], rows: new Map([['Item', rows]]) })).toThrow(
+      /Item has two rows with the same ID/,
+    )
+  })
+
+  it('refuses a plain index, which it has no CREATE INDEX text for', () => {
+    // Every index in Mastercam's schema is implied by a PRIMARY KEY, and one
+    // of those carries no SQL of its own. A plain index does, and a
+    // `sqlite_master` row without it opens as "orphan index" — so the
+    // unsupported case says so here instead.
+    const loose: TableSpec = {
+      ...ITEM,
+      indexes: [{ name: 'ix_item_count', unique: false, columns: ['Count'] }],
+    }
+    expect(() => encodeDatabase({ tables: [loose], rows: new Map() })).toThrow(/orphan index/)
   })
 
   it('refuses rows for a table the schema does not define', () => {

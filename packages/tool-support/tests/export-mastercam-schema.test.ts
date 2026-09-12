@@ -40,7 +40,11 @@ interface Digest {
     {
       readonly sql: string
       readonly columns: readonly { readonly name: string; readonly type: string }[]
-      readonly indexes: readonly { readonly name: string; readonly columns: readonly string[] }[]
+      readonly indexes: readonly {
+        readonly name: string
+        readonly unique: boolean
+        readonly columns: readonly string[]
+      }[]
     }
   >
   readonly seed: Record<string, readonly Record<string, unknown>[]>
@@ -62,10 +66,10 @@ describe('the generated schema matches the pinned digest', () => {
   })
 
   it('carries each table’s CREATE TABLE text, columns and indexes verbatim', () => {
-    // The digest also records each column's `pk` and each index's `unique`,
-    // and neither travels: the encoder takes an index's key columns from the
-    // index itself and enforces no uniqueness while writing, so carrying them
-    // would be two more fields nothing reads. The projection is spelled out
+    // The digest also records each column's `pk`, which does not travel: the
+    // encoder takes an index's key columns from the index itself, so a second
+    // spelling of the same fact would be a field nothing reads. `unique` does
+    // travel — it gates the duplicate-key check. The projection is spelled out
     // here so that a field quietly appearing in the digest and not in the
     // module still fails.
     for (const table of MASTERCAM_TABLES) {
@@ -76,7 +80,11 @@ describe('the generated schema matches the pinned digest', () => {
         pinned?.columns.map((column) => ({ name: column.name, type: column.type })),
       )
       expect(table.indexes, table.name).toEqual(
-        pinned?.indexes.map((index) => ({ name: index.name, columns: index.columns })),
+        pinned?.indexes.map((index) => ({
+          name: index.name,
+          unique: index.unique,
+          columns: index.columns,
+        })),
       )
     }
   })

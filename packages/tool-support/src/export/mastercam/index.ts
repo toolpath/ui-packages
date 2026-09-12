@@ -9,7 +9,7 @@
  * ```ts
  * const { document, notes } = mastercamLibrary({
  *   holders: [{ guid: holderGuid, holder, label: 'CAT40 ER16' }],
- *   tools: [{ tool, assembly: { holderGuid, stickout: 30 } }],
+ *   tools: [{ tool, assemblies: [{ holderGuid, stickout: 30 }] }],
  * })
  * writeFileSync('shop.TOOLDB', document)
  * ```
@@ -26,6 +26,7 @@ export { mastercamHolder, type CatalogHolder, type HolderResult } from './holder
 export {
   mastercamTool,
   type MastercamCuttingData,
+  type MastercamSetup,
   type MastercamToolRequest,
   type ToolResult,
 } from './tool.js'

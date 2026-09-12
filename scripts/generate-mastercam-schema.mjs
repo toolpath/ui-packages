@@ -36,7 +36,7 @@ ${entry.columns.map((column) => `      { name: ${literal(column.name)}, type: ${
 ${entry.indexes
   .map(
     (index) =>
-      `      { name: ${literal(index.name)}, columns: [${index.columns.map(literal).join(', ')}] },`,
+      `      { name: ${literal(index.name)}, unique: ${index.unique === true}, columns: [${index.columns.map(literal).join(', ')}] },`,
   )
   .join('\n')}
     ],

@@ -91,7 +91,7 @@ describe('a library Mastercam’s schema would recognise', () => {
     tools: [
       {
         tool: endmill,
-        assembly: { holderGuid: HOLDER_GUID, stickout: 42.8625 },
+        assemblies: [{ holderGuid: HOLDER_GUID, stickout: 42.8625 }],
         cuttingData: { spindleSpeed: 15_000, feedRate: 225, plungeRate: 25, retractRate: 50 },
       },
     ],
@@ -321,7 +321,7 @@ describe('what does not travel', () => {
       tools: [
         {
           tool: { ...endmill, guid: guidFor('12345678') },
-          assembly: { holderGuid: HOLDER_GUID, stickout: 40 },
+          assemblies: [{ holderGuid: HOLDER_GUID, stickout: 40 }],
         },
       ],
     })
@@ -355,11 +355,122 @@ describe('rows several tools share', () => {
   })
 })
 
+describe('one tool set up in several holders', () => {
+  const SECOND_HOLDER = '77777777-8888-4999-8aaa-bbbbbbbbbbbb'
+  const longHolder: CatalogHolder = {
+    ...holder,
+    guid: SECOND_HOLDER,
+    label: 'CAT40 ER16 6in',
+  }
+
+  const built = mastercamLibrary({
+    holders: [holder, longHolder],
+    tools: [
+      {
+        tool: endmill,
+        assemblies: [
+          { holderGuid: HOLDER_GUID, stickout: 42.8625, number: 101 },
+          { holderGuid: SECOND_HOLDER, stickout: 63.5, number: 107 },
+        ],
+      },
+    ],
+  })
+
+  it('writes one tool row and two assemblies', () => {
+    const db = open(built.document)
+    // The defect this replaces wrote every one of the tool's rows twice under
+    // the same primary key, which SQLite reports as a non-unique index entry —
+    // and the exporter said nothing at all.
+    expect(db.prepare('select count(*) c from TlTool').get()).toEqual({ c: 1 })
+    expect(db.prepare('select count(*) c from TlToolMill').get()).toEqual({ c: 1 })
+    expect(db.prepare('select count(*) c from TlAssembly').get()).toEqual({ c: 2 })
+    expect(db.prepare('select count(distinct hex(ID)) c from TlAssembly').get()).toEqual({ c: 2 })
+    expect(db.prepare('select count(*) c from TlAssemblyComponent').get()).toEqual({ c: 4 })
+  })
+
+  it('gives each assembly its own holder, stickout and carousel position', () => {
+    const db = open(built.document)
+    const setups = db
+      .prepare(
+        `select a.ToolNumber n, hi.Name holder, round(m.OverallLength - c.CScalar, 6) stickout
+         from TlAssembly a
+         join TlAssemblyItem hi on hi.ID = a.MainHolder
+         join TlToolMill m on m.ID = a.MainTool
+         join TlAssemblyComponent c
+           on c.TlAssemblyID = a.ID and c.TlAssemblyItemID = a.MainHolder
+         order by a.ToolNumber`,
+      )
+      .all() as { n: number; holder: string; stickout: number }[]
+    expect(setups.map((setup) => setup.n)).toEqual([101, 107])
+    expect(setups.map((setup) => setup.holder)).toEqual(['CAT40 ER16 4in', 'CAT40 ER16 6in'])
+    expect(setups[0]?.stickout).toBeCloseTo(42.8625 / MM_PER_INCH, 9)
+    expect(setups[1]?.stickout).toBeCloseTo(63.5 / MM_PER_INCH, 9)
+  })
+
+  it('says that the single tool row can only state one carousel position', () => {
+    // `TlTool.ToolNumber` and the legacy record hold one number between them,
+    // so the second position lives on its assembly and nowhere else.
+    const dropped = built.notes.filter((note) => note.field === 'TlTool.ToolNumber')
+    expect(dropped).toHaveLength(1)
+    expect(dropped[0]?.kind).toBe('dropped')
+    const db = open(built.document)
+    expect(db.prepare('select ToolNumber from TlTool').get()).toEqual({ ToolNumber: 101 })
+  })
+
+  it('has nothing to say when the set-ups agree on the number', () => {
+    const { notes } = mastercamLibrary({
+      holders: [holder, longHolder],
+      tools: [
+        {
+          tool: endmill,
+          assemblies: [
+            { holderGuid: HOLDER_GUID, stickout: 42.8625, number: 101 },
+            { holderGuid: SECOND_HOLDER, stickout: 63.5, number: 101 },
+          ],
+        },
+      ],
+    })
+    expect(notes).toEqual([])
+  })
+
+  it('takes the same tool or holder twice without writing it twice', () => {
+    const { document } = mastercamLibrary({
+      holders: [holder, holder],
+      tools: [
+        { tool: endmill, assemblies: [{ holderGuid: HOLDER_GUID, stickout: 42.8625 }] },
+        { tool: endmill, assemblies: [{ holderGuid: HOLDER_GUID, stickout: 42.8625 }] },
+      ],
+    })
+    const db = open(document)
+    expect(db.prepare('select count(*) c from TlHolder').get()).toEqual({ c: 1 })
+    expect(db.prepare('select count(*) c from TlTool').get()).toEqual({ c: 1 })
+    expect(db.prepare('select count(*) c from TlAssembly').get()).toEqual({ c: 1 })
+  })
+
+  it('tells two set-ups in one holder apart when the caller names them', () => {
+    const { document } = mastercamLibrary({
+      holders: [holder],
+      tools: [
+        {
+          tool: endmill,
+          assemblies: [
+            { holderGuid: HOLDER_GUID, stickout: 30, guid: '99999999-1111-4222-8333-444444444444' },
+            { holderGuid: HOLDER_GUID, stickout: 50, guid: '99999999-2222-4333-8444-555555555555' },
+          ],
+        },
+      ],
+    })
+    const db = open(document)
+    expect(db.prepare('select count(*) c from TlAssembly').get()).toEqual({ c: 2 })
+    expect(db.prepare('select count(*) c from TlTool').get()).toEqual({ c: 1 })
+  })
+})
+
 describe('exporting twice', () => {
   it('produces the same bytes, so a re-export updates rather than accumulates', () => {
     const request = {
       holders: [holder],
-      tools: [{ tool: endmill, assembly: { holderGuid: HOLDER_GUID, stickout: 42.8625 } }],
+      tools: [{ tool: endmill, assemblies: [{ holderGuid: HOLDER_GUID, stickout: 42.8625 }] }],
     }
     const first = mastercamLibrary(request).document
     const second = mastercamLibrary(request).document
