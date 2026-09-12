@@ -121,8 +121,10 @@ describe('a tool with a holder', () => {
 
   it('runs the holder from the nose toward the machine', () => {
     // Autodesk states it on the segment array: ordered from the cutter end to
-    // the machine tool. So the nose is first, and the heights sum to the gauge
-    // length because the stack stops at the gauge line.
+    // the machine tool, so the nose is first. The heights sum to the gauge
+    // length because the gauge length *is* that sum — this fixture's vendor
+    // happens to publish the same figure, and `a published holder that does not
+    // reach its own gauge line` is the case where one does not.
     const segments = (written.tool as FusionTool).holder?.segments ?? []
     expect(segments[0]?.['lower-diameter']).toBe(33)
     expect(segments.reduce((total, segment) => total + segment.height, 0)).toBe(50)
@@ -270,6 +272,100 @@ describe('a measured holder', () => {
     const holderOut = (written.tool as FusionTool).holder
     expect(holderOut?.segments.length).toBeGreaterThan(0)
     expect(holderOut).not.toHaveProperty('gaugeLength')
+  })
+})
+
+describe('a published holder that does not reach its own gauge line', () => {
+  /**
+   * A BT 30 collet chuck, published the way DIN 4000 publishes one.
+   *
+   * `projection` is nose to the flange face and `gaugeLength` is nose to the
+   * gauge line, and on a BT 30 those differ by 48.4 mm — the gauge-line-to-
+   * flange distance, which is a property of the taper rather than of the part.
+   * The 48.4 mm above the flange face is real holder, and no vendor publishes
+   * its shape, so the stack this exporter can draw stops short of the figure
+   * the vendor states.
+   */
+  const chuck: Holder = {
+    noseDiameter: 10,
+    noseLength: 10.55,
+    bodyDiameter: 12.02,
+    bodyLength: 9.6,
+    projection: 50,
+    flangeDiameter: 46,
+    gaugeLength: 98.4,
+    colletSeries: 'PG 6',
+    colletProtrusion: null,
+  }
+
+  const held = (holder: Holder): FusionTool => {
+    const written = fusionTool({
+      tool: endMill,
+      assembly: {
+        stickout: 24,
+        holder: { guid: catalogHolder.guid, holder, unit: 'millimeters' },
+      },
+    })
+    return written.tool as FusionTool
+  }
+
+  it('states the height it drew, not the length it could not draw', () => {
+    const tool = held(chuck)
+    const segments = tool.holder?.segments ?? []
+    expect(segments.reduce((total, segment) => total + segment.height, 0)).toBe(50)
+    expect(tool.holder?.gaugeLength).toBe(50)
+  })
+
+  it('measures the assembly from the same place it measured the holder', () => {
+    // A document whose assembly gauge length was built from the vendor's figure
+    // and whose holder was built from the vendor's dimensions would put the tool
+    // 48.4 mm from the gauge line it is drawn against.
+    expect(held(chuck).geometry.assemblyGaugeLength).toBe(74)
+  })
+
+  it('reports the difference rather than exporting it', () => {
+    const written = fusionTool({
+      tool: endMill,
+      assembly: {
+        stickout: 24,
+        holder: { guid: catalogHolder.guid, holder: chuck, unit: 'millimeters' },
+      },
+    })
+    const dropped = written.notes.find(
+      (note) => note.kind === 'dropped' && note.field === 'holder.gaugeLength',
+    )
+    expect(dropped?.message).toContain('98.4')
+    expect(dropped?.message).toContain('50')
+  })
+
+  it('says nothing where the vendor figure and the stack agree', () => {
+    const reaching: Holder = { ...chuck, gaugeLength: 50 }
+    const written = fusionTool({
+      tool: endMill,
+      assembly: {
+        stickout: 24,
+        holder: { guid: catalogHolder.guid, holder: reaching, unit: 'millimeters' },
+      },
+    })
+    expect(written.notes.filter((note) => note.field === 'holder.gaugeLength')).toHaveLength(0)
+  })
+
+  it('still gives Fusion a gauge length where the vendor publishes none', () => {
+    // This used to leave the key off, which puts Fusion into manual mode for a
+    // holder whose shape is fully drawn and whose height is therefore known.
+    const unstated: Holder = { ...chuck, gaugeLength: null }
+    const written = fusionTool({
+      tool: endMill,
+      assembly: {
+        stickout: 24,
+        holder: { guid: catalogHolder.guid, holder: unstated, unit: 'millimeters' },
+      },
+    })
+    expect((written.tool as FusionTool).holder?.gaugeLength).toBe(50)
+    const filled = written.notes.find(
+      (note) => note.kind === 'filled' && note.field === 'holder.gaugeLength',
+    )
+    expect(filled).toBeDefined()
   })
 })
 
