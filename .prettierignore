@@ -2,8 +2,15 @@ openapi/openapi.json
 # Derived from Autodesk's tool-library schema by `pnpm fusion:adopt`, and hashed
 # by it. Reformatting changes the bytes and fails `pnpm fusion:verify`.
 fusion/digest.json
+# Derived from a Mastercam tool database by `pnpm mastercam:adopt`, and hashed
+# by it. Reformatting changes the bytes and fails `pnpm mastercam:verify`.
+mastercam/digest.json
 # Captured Engine responses. Kept byte-identical to what the API returned.
 packages/viewer/fixtures/reports/
 packages/sdk-python/
 packages/sdk-typescript/src/schema.ts
+# Written from mastercam/digest.json by `pnpm mastercam:adopt`. Reformatting it
+# makes the next regeneration a diff, and the test that holds it against the
+# digest compares content rather than layout.
+packages/tool-support/src/export/mastercam/schema.generated.ts
 packages/tool-scraper/docs/

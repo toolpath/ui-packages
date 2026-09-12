@@ -42,6 +42,16 @@ are never published. They exist to exercise a package the way a consumer would.
   hashes both the upstream document and the digest. `pnpm fusion:adopt` is the only thing that
   may write either; `pnpm fusion:verify` proves they agree, and `pnpm fusion:check-upstream`
   asks Autodesk whether the original has changed.
+- `mastercam/` holds the same thing for Mastercam's tool-database schema, which arrives inside
+  a `.TOOLDB` a maintainer is handed rather than at a URL. `digest.json` is a derived reduction —
+  the 79 `CREATE TABLE` statements with their columns and index keys, plus the reference rows
+  Mastercam ships under fixed guids — and `schema.sha256` hashes both it and the reference.
+  `pnpm mastercam:adopt` is the only thing that may write either, and it also writes
+  `packages/tool-support/src/export/mastercam/schema.generated.ts`, because the package imports
+  no `fs` and cannot read the digest at runtime. **The reference database is not vendored and
+  neither is its name**: it is somebody's shop library, and the digest carries only the schema and
+  Mastercam's own rows. `pnpm mastercam:verify` proves the pinned pair agree; the generated module
+  is held against them by `pnpm test`.
 - `packages/viewer/src/model/` and `src/render/` are pure — geometry, selection, camera, theme.
   The `.tsx` files at `packages/viewer/src/` are the React surface over them. New behavior that
   can be pure belongs in `model/` or `render/`, where it is cheap to test without a canvas.
@@ -97,13 +107,20 @@ substitute `npm`, `npx`, or a bare `tsc`.
 | Verify the Fusion schema digest      | `pnpm fusion:verify`                                |
 | Adopt a new Fusion schema            | `pnpm fusion:adopt -- --fetch`                      |
 | Ask Autodesk if the schema moved     | `pnpm fusion:check-upstream`                        |
+| Verify the Mastercam schema digest   | `pnpm mastercam:verify`                             |
+| Adopt a Mastercam schema             | `pnpm mastercam:adopt -- <reference.TOOLDB>`        |
 | Regenerate the SDKs                  | `pnpm generate`                                     |
 | Prove the generated SDKs are current | `pnpm generate:check`                               |
 | Find dead code and unused deps       | `pnpm knip`                                         |
 | Add a Changeset                      | `pnpm changeset`                                    |
 
-`pnpm check` runs `openapi:verify`, `fusion:verify`, `generate:check`, `lint`, `knip`, `build`,
-`check-types`, and `test`, in that order, so the cheap contract checks fail before a build does.
+`pnpm check` runs `openapi:verify`, `fusion:verify`, `mastercam:verify`, `generate:check`, `lint`,
+`knip`, `build`, `check-types`, and `test`, in that order, so the cheap contract checks fail before
+a build does.
+
+`mastercam:adopt` has no `--fetch` and no upstream check to pair with it. Autodesk publishes its
+schema at a URL that can be polled; Mastercam's only exists inside a file somebody sends you, so
+there is nothing to ask on a schedule.
 
 `pnpm fusion:check-upstream` is **not** in the gate, and deliberately: it is the one check that
 calls a third party, so in `pnpm check` it would turn Autodesk's downtime into this repository's
@@ -147,37 +164,41 @@ without one is a preference a reviewer carries in their head, and agents drift o
 longer a session runs. This table is deliberately short and deliberately honest: when a
 judgment rule starts being violated, give it a check rather than restating it here.
 
-| Rule                                                                      | Proven by                             |
-| ------------------------------------------------------------------------- | ------------------------------------- |
-| No component defined inside another component                             | `pnpm lint`                           |
-| Complete React hook dependency arrays                                     | `pnpm lint`                           |
-| Python style in `packages/sdk-python` and `examples/python`               | `pnpm lint` (Ruff)                    |
-| Workflow YAML style                                                       | `pnpm lint` (yamllint)                |
-| The generated SDK sources match a fresh generation                        | `pnpm generate:check`                 |
-| `openapi/openapi.json` matches its recorded hash                          | `pnpm openapi:verify`                 |
-| `fusion/digest.json` is derived, not hand-edited                          | `pnpm fusion:verify`                  |
-| The Fusion type table matches Autodesk's published schema                 | `pnpm test` (`export-fusion-schema`)  |
-| A scraper vendor adapter imports no other vendor                          | `pnpm test` (`vendor-boundary`)       |
-| Only a composition root reaches into `src/vendors/`                       | `pnpm test` (`vendor-boundary`)       |
-| Every scraper vendor directory has a `scrape.ts`                          | `pnpm test` (`vendor-boundary`)       |
-| Every tap family states whether it cuts its thread or forms it            | `pnpm test` (`tap-method`)            |
-| `@toolpath/tool-support` imports nothing and declares no dependency       | `pnpm test` (`boundary`)              |
-| `@toolpath/app-support`'s root entry imports no React                     | `pnpm test` (`boundary`)              |
-| `@toolpath/app-support` never imports `@toolpath/ui`                      | `pnpm test` (`boundary`)              |
-| One `25.4` in the whole tree                                              | `pnpm test` (`boundary`)              |
-| `release:npm` builds a package before the ones that import it             | `pnpm test` (`release-build-order`)   |
-| The bootstrap publish rewrites `workspace:` ranges, as pnpm does          | `pnpm test` (`bootstrap-publish`)     |
-| A Changeset on `main` starts a release run                                | `pnpm test` (`release-trigger`)       |
-| The viewer example mounts with a clean console, in both projections       | `pnpm test` (Playwright `openViewer`) |
-| `@toolpath/ui` holds components only: every `src/` directory has a `.tsx` | `pnpm test` (`boundary`)              |
-| `@toolpath/ui` imports no Toolpath sibling                                | `pnpm test` (`boundary`)              |
-| `@toolpath/ui` ships its theme, `dist`, and `src` in the tarball          | `pnpm test` (`test-ui-package`)       |
-| `@toolpath/ui` theme tokens and the built bundle agree                    | `pnpm test` (`tailwind-preset`)       |
-| `@toolpath/tool-scraper` resolves and its errors are `instanceof`-safe    | `pnpm test` (`packaging`)             |
-| No unreferenced export, file, or dependency                               | `pnpm knip`                           |
-| A change under a package's `src/` carries a Changeset                     | CI (`release-intent.yml`)             |
-| Formatting                                                                | Prettier, via the pre-commit hook     |
-| TypeScript style beyond the above                                         | judgment                              |
+| Rule                                                                      | Proven by                               |
+| ------------------------------------------------------------------------- | --------------------------------------- |
+| No component defined inside another component                             | `pnpm lint`                             |
+| Complete React hook dependency arrays                                     | `pnpm lint`                             |
+| Python style in `packages/sdk-python` and `examples/python`               | `pnpm lint` (Ruff)                      |
+| Workflow YAML style                                                       | `pnpm lint` (yamllint)                  |
+| The generated SDK sources match a fresh generation                        | `pnpm generate:check`                   |
+| `openapi/openapi.json` matches its recorded hash                          | `pnpm openapi:verify`                   |
+| `fusion/digest.json` is derived, not hand-edited                          | `pnpm fusion:verify`                    |
+| `mastercam/digest.json` is derived, not hand-edited                       | `pnpm mastercam:verify`                 |
+| The generated Mastercam schema matches the pinned digest                  | `pnpm test` (`export-mastercam-schema`) |
+| The SQLite encoder's output is a database SQLite reads back               | `pnpm test` (`sqlite-encoder`)          |
+| A Mastercam library round-trips its tools, holders and stickouts          | `pnpm test` (`export-mastercam`)        |
+| The Fusion type table matches Autodesk's published schema                 | `pnpm test` (`export-fusion-schema`)    |
+| A scraper vendor adapter imports no other vendor                          | `pnpm test` (`vendor-boundary`)         |
+| Only a composition root reaches into `src/vendors/`                       | `pnpm test` (`vendor-boundary`)         |
+| Every scraper vendor directory has a `scrape.ts`                          | `pnpm test` (`vendor-boundary`)         |
+| Every tap family states whether it cuts its thread or forms it            | `pnpm test` (`tap-method`)              |
+| `@toolpath/tool-support` imports nothing and declares no dependency       | `pnpm test` (`boundary`)                |
+| `@toolpath/app-support`'s root entry imports no React                     | `pnpm test` (`boundary`)                |
+| `@toolpath/app-support` never imports `@toolpath/ui`                      | `pnpm test` (`boundary`)                |
+| One `25.4` in the whole tree                                              | `pnpm test` (`boundary`)                |
+| `release:npm` builds a package before the ones that import it             | `pnpm test` (`release-build-order`)     |
+| The bootstrap publish rewrites `workspace:` ranges, as pnpm does          | `pnpm test` (`bootstrap-publish`)       |
+| A Changeset on `main` starts a release run                                | `pnpm test` (`release-trigger`)         |
+| The viewer example mounts with a clean console, in both projections       | `pnpm test` (Playwright `openViewer`)   |
+| `@toolpath/ui` holds components only: every `src/` directory has a `.tsx` | `pnpm test` (`boundary`)                |
+| `@toolpath/ui` imports no Toolpath sibling                                | `pnpm test` (`boundary`)                |
+| `@toolpath/ui` ships its theme, `dist`, and `src` in the tarball          | `pnpm test` (`test-ui-package`)         |
+| `@toolpath/ui` theme tokens and the built bundle agree                    | `pnpm test` (`tailwind-preset`)         |
+| `@toolpath/tool-scraper` resolves and its errors are `instanceof`-safe    | `pnpm test` (`packaging`)               |
+| No unreferenced export, file, or dependency                               | `pnpm knip`                             |
+| A change under a package's `src/` carries a Changeset                     | CI (`release-intent.yml`)               |
+| Formatting                                                                | Prettier, via the pre-commit hook       |
+| TypeScript style beyond the above                                         | judgment                                |
 
 What the sensors cannot carry:
 
@@ -202,6 +223,13 @@ What the sensors cannot carry:
   publish it. `knip.json` models each package's entry points by hand because every manifest's
   `exports` map points at `dist/`; an entry point added to a manifest needs its `src/` counterpart
   added there too, or knip will call a whole live module dead.
+- **Mastercam publishes no table of its tool-type codes.** Every integer in
+  `packages/tool-support/src/export/mastercam/schema.ts` was read out of a real library and
+  cross-checked against the twenty legacy names the file also carries; twelve are confirmed that
+  way and the rest are not known. A form with no confirmed code is either coerced onto one whose
+  silhouette matches — a face mill onto a flat end mill — or skipped, and both are reported as an
+  `ExportNote`. Do not add a code without a library that demonstrates it: a wrong `MCToolType` is
+  not a rejected file, it is a library that loads and puts the wrong solid in a simulation.
 - **The Changeset check watches `src/` and not the manifests.** `scripts/check-release-intent.mjs`
   lists `packages/ui/src/`, `packages/ui/tailwind-preset.cjs`, `packages/app-support/src/`,
   `packages/viewer/src/`, `packages/tool-scraper/src/`, `packages/sdk-typescript/src/`, `openapi/`,
