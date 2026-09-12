@@ -35,6 +35,13 @@ are never published. They exist to exercise a package the way a consumer would.
   A hand edit there survives exactly until the next generation.
 - `openapi/` holds the pinned API contract and its `openapi.sha256`. `pnpm openapi:adopt` moves
   it forward; `pnpm openapi:verify` proves the checked-in document matches its hash.
+- `fusion/` holds the same thing for a document this repository does not own: Autodesk's
+  tool-library JSON Schema, which `@toolpath/tool-support/export/fusion` writes against and
+  which Autodesk moves without announcement. The 2.6 MB schema is **not** vendored — `digest.json`
+  is a derived reduction of it (what each tool type requires and permits) and `schema.sha256`
+  hashes both the upstream document and the digest. `pnpm fusion:adopt` is the only thing that
+  may write either; `pnpm fusion:verify` proves they agree, and `pnpm fusion:check-upstream`
+  asks Autodesk whether the original has changed.
 - `packages/viewer/src/model/` and `src/render/` are pure — geometry, selection, camera, theme.
   The `.tsx` files at `packages/viewer/src/` are the React surface over them. New behavior that
   can be pure belongs in `model/` or `render/`, where it is cheap to test without a canvas.
@@ -87,13 +94,23 @@ substitute `npm`, `npx`, or a bare `tsc`.
 | One package's tests                  | `pnpm --filter @toolpath/viewer test`               |
 | Browser tests only                   | `pnpm --filter @toolpath/example-react-viewer test` |
 | Verify the pinned OpenAPI document   | `pnpm openapi:verify`                               |
+| Verify the Fusion schema digest      | `pnpm fusion:verify`                                |
+| Adopt a new Fusion schema            | `pnpm fusion:adopt -- --fetch`                      |
+| Ask Autodesk if the schema moved     | `pnpm fusion:check-upstream`                        |
 | Regenerate the SDKs                  | `pnpm generate`                                     |
 | Prove the generated SDKs are current | `pnpm generate:check`                               |
 | Find dead code and unused deps       | `pnpm knip`                                         |
 | Add a Changeset                      | `pnpm changeset`                                    |
 
-`pnpm check` runs `openapi:verify`, `generate:check`, `lint`, `knip`, `build`, `check-types`, and
-`test`, in that order, so the cheap contract checks fail before a build does.
+`pnpm check` runs `openapi:verify`, `fusion:verify`, `generate:check`, `lint`, `knip`, `build`,
+`check-types`, and `test`, in that order, so the cheap contract checks fail before a build does.
+
+`pnpm fusion:check-upstream` is **not** in the gate, and deliberately: it is the one check that
+calls a third party, so in `pnpm check` it would turn Autodesk's downtime into this repository's
+red build. `.github/workflows/fusion-schema.yml` runs it weekly instead. When it fails, run
+`pnpm fusion:adopt -- --fetch` — that moves `fusion/digest.json`, which fails the
+`export-fusion-schema` test until the table the exporter reads is reconciled with it. That chain
+is the point: an adopt cannot be a quiet file change.
 
 **Docker must be running for `pnpm check` and for `pnpm generate`.** `scripts/generate-sdks.mjs`
 runs the pinned `openapitools/openapi-generator-cli:v7.24.0` image, so `generate:check` fails at
@@ -138,6 +155,8 @@ judgment rule starts being violated, give it a check rather than restating it he
 | Workflow YAML style                                                       | `pnpm lint` (yamllint)                |
 | The generated SDK sources match a fresh generation                        | `pnpm generate:check`                 |
 | `openapi/openapi.json` matches its recorded hash                          | `pnpm openapi:verify`                 |
+| `fusion/digest.json` is derived, not hand-edited                          | `pnpm fusion:verify`                  |
+| The Fusion type table matches Autodesk's published schema                 | `pnpm test` (`export-fusion-schema`)  |
 | A scraper vendor adapter imports no other vendor                          | `pnpm test` (`vendor-boundary`)       |
 | Only a composition root reaches into `src/vendors/`                       | `pnpm test` (`vendor-boundary`)       |
 | Every scraper vendor directory has a `scrape.ts`                          | `pnpm test` (`vendor-boundary`)       |

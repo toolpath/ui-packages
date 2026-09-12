@@ -1,0 +1,47 @@
+name: Fusion schema
+
+# Autodesk publishes the tool-library schema that
+# `@toolpath/tool-support/export/fusion` writes against, and moves it without
+# announcement — it changed between February and September 2026. The digest in
+# `fusion/` is a copy of its rules, so something has to watch the original.
+#
+# This is deliberately not part of `pnpm check`: a gate that calls
+# cam.autodesk.com goes red when Autodesk is down rather than when this
+# repository is wrong. It runs here instead, and a failure is the prompt to run
+# `pnpm fusion:adopt -- --fetch`. The adopt moves `fusion/digest.json`, and the
+# export-fusion-schema test then fails until the table the exporter actually
+# reads is reconciled with it.
+
+on:
+  schedule:
+    # Mondays, 06:00 UTC. Detection lags a publication by at most a week, which
+    # is the price of keeping the gate hermetic.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+  # A change to the digest or to the reduction that derives it is checked
+  # against the live document before it merges.
+  pull_request:
+    paths:
+      - 'fusion/**'
+      - 'scripts/fusion-schema.mjs'
+      - 'scripts/adopt-fusion-schema.mjs'
+      - 'scripts/check-fusion-schema-upstream.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  upstream:
+    name: Autodesk tool-library schema is unchanged
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # No install: the check reads `fusion/` and fetches one URL, and both
+      # scripts import only `node:` builtins.
+      - run: node scripts/verify-fusion-schema.mjs
+      - run: node scripts/check-fusion-schema-upstream.mjs

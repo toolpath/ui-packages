@@ -12,6 +12,9 @@
   "scripts": {
     "openapi:adopt": "node scripts/adopt-openapi.mjs",
     "openapi:verify": "node scripts/verify-openapi.mjs",
+    "fusion:adopt": "node scripts/adopt-fusion-schema.mjs",
+    "fusion:verify": "node scripts/verify-fusion-schema.mjs",
+    "fusion:check-upstream": "node scripts/check-fusion-schema-upstream.mjs",
     "generate": "node scripts/generate-sdks.mjs",
     "generate:check": "pnpm generate && git diff --exit-code -- packages/sdk-typescript/src/generated packages/sdk-python/toolpath/generated packages/sdk-python/pyproject.toml",
     "package:python-sdk": "node scripts/package-python-sdk.mjs",
@@ -31,7 +34,7 @@
     "lint:js": "eslint . --max-warnings=0",
     "lint": "pnpm lint:js && uvx --from ruff==0.16.2 ruff check --ignore UP042 packages/sdk-python examples/python && uvx --from yamllint==1.38.0 yamllint .github/workflows",
     "knip": "knip --no-config-hints",
-    "check": "pnpm openapi:verify && pnpm generate:check && pnpm lint && pnpm knip && pnpm build && pnpm check-types && pnpm test",
+    "check": "pnpm openapi:verify && pnpm fusion:verify && pnpm generate:check && pnpm lint && pnpm knip && pnpm build && pnpm check-types && pnpm test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky",

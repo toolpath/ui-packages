@@ -27,6 +27,14 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./export": {
+      "types": "./dist/export/index.d.ts",
+      "import": "./dist/export/index.js"
+    },
+    "./export/fusion": {
+      "types": "./dist/export/fusion/index.d.ts",
+      "import": "./dist/export/fusion/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
