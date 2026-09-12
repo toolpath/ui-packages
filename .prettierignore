@@ -1,4 +1,7 @@
 openapi/openapi.json
+# Derived from Autodesk's tool-library schema by `pnpm fusion:adopt`, and hashed
+# by it. Reformatting changes the bytes and fails `pnpm fusion:verify`.
+fusion/digest.json
 # Captured Engine responses. Kept byte-identical to what the API returned.
 packages/viewer/fixtures/reports/
 packages/sdk-python/
