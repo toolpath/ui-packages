@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/tool-drawing",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "2D elevation drawing of a cutting tool and its holder",
   "license": "MIT",
   "engines": {

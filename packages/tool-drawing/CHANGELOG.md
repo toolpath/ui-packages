@@ -1,5 +1,12 @@
 # @toolpath/tool-drawing
 
+## 1.0.2
+
+### Patch Changes
+
+- Updated dependencies [9297409]
+  - @toolpath/tool-support@0.5.0
+
 ## 1.0.1
 
 ### Patch Changes
