@@ -35,6 +35,10 @@
       "types": "./dist/export/fusion/index.d.ts",
       "import": "./dist/export/fusion/index.js"
     },
+    "./export/mastercam": {
+      "types": "./dist/export/mastercam/index.d.ts",
+      "import": "./dist/export/mastercam/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
