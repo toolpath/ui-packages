@@ -179,6 +179,7 @@ judgment rule starts being violated, give it a check rather than restating it he
 | A Mastercam library round-trips its tools, holders and stickouts          | `pnpm test` (`export-mastercam`)        |
 | The encoder refuses two rows under one unique key                         | `pnpm test` (`sqlite-encoder`)          |
 | One tool set up in several holders is one tool row and several assemblies | `pnpm test` (`export-mastercam`)        |
+| `MCToolType` and `TlRadiusType` are paired as Mastercam pairs them        | `pnpm test` (`export-mastercam`)        |
 | The Fusion type table matches Autodesk's published schema                 | `pnpm test` (`export-fusion-schema`)    |
 | A scraper vendor adapter imports no other vendor                          | `pnpm test` (`vendor-boundary`)         |
 | Only a composition root reaches into `src/vendors/`                       | `pnpm test` (`vendor-boundary`)         |
@@ -240,6 +241,11 @@ What the sensors cannot carry:
   silhouette matches — a face mill onto a flat end mill — or skipped, and both are reported as an
   `ExportNote`. Do not add a code without a library that demonstrates it: a wrong `MCToolType` is
   not a rejected file, it is a library that loads and puts the wrong solid in a simulation.
+  **The code and `TlToolEndmill.TlRadiusType` are one decision, not two.** The reference pairs
+  them without exception — flat with none, ball with full, bull with corner, rounder with rounder —
+  so `resolveRadius` settles both together and geometry beats the catalog's word: a flat end mill
+  that states a corner radius is written as a bull nose, and a bull nose that states none is
+  written as the flat end mill its numbers describe.
 - **The Changeset check watches `src/` and not the manifests.** `scripts/check-release-intent.mjs`
   lists `packages/ui/src/`, `packages/ui/tailwind-preset.cjs`, `packages/app-support/src/`,
   `packages/viewer/src/`, `packages/tool-scraper/src/`, `packages/sdk-typescript/src/`, `openapi/`,

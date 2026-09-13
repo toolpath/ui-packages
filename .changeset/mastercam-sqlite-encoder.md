@@ -13,7 +13,9 @@ carousel position.
 
 A form Mastercam's legacy tool types have no code for is coerced onto one whose
 silhouette matches, or skipped; either way it is reported as an `ExportNote`
-rather than guessed at.
+rather than guessed at. The tool type and its radius columns are settled
+together, so a flat end mill that states a corner radius is written as the bull
+nose it is.
 
 Includes a dependency-free SQLite file encoder, since the package takes no
 runtime dependency and the format is a SQLite database.

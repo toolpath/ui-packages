@@ -194,6 +194,125 @@ const writeOpParams = (
 }
 
 /**
+ * The tool type and its radius columns, reconciled.
+ *
+ * `MCToolType` and `TlToolEndmill.TlRadiusType` are not independent. Across the
+ * reference library the pairing is fixed and exceptionless — flat with none,
+ * ball with full, bull with corner, corner-rounder with rounder — and no row
+ * pairs a flat end mill with a radius of any kind. Deriving the type from the
+ * catalog's `form` and the radius from its `RE` separately produces
+ * combinations Mastercam never writes, and one of them is what a real catalog
+ * actually hits: a flat end mill carrying a corner radius, which is a bull nose
+ * somebody named loosely.
+ *
+ * These decisions stack with the form coercion above it: a face mill reaches
+ * `Endmill1 Flat` by its silhouette and a stated corner radius then moves it on
+ * to `Endmill3 Bull`, which is two notes describing one journey. Neither names
+ * the catalog's own word for the tool, because by this point it may already
+ * have been traded away.
+ *
+ * **Geometry wins over the name.** A stated corner radius promotes a flat end
+ * mill to a bull nose; a type that cannot hold a radius drops it rather than
+ * writing one beside a `TlRadiusType` of none; and a type whose radius is its
+ * defining feature, given none, falls back to what can actually be drawn — a
+ * bull nose to a flat end mill, and a corner rounder to nothing at all, because
+ * a corner rounder is its radius and there is no cylinder to draw instead.
+ */
+const resolveRadius = (
+  mcToolType: number,
+  cuttingDiameter: number,
+  stated: number,
+):
+  | {
+      readonly kind: 'written'
+      readonly mcToolType: number
+      readonly radiusType: number
+      readonly cornerRadius: number
+      readonly note: { readonly kind: ExportNote['kind']; readonly message: string } | null
+    }
+  | { readonly kind: 'skipped'; readonly message: string } => {
+  if (mcToolType === MC_TOOL_TYPE['ball end mill']) {
+    // A ball nose's corner radius is half its diameter by definition, so it is
+    // derived and not taken: a catalog that states no `RE` still gets the
+    // radius its own type promises, rather than a full radius of zero.
+    return {
+      kind: 'written',
+      mcToolType,
+      radiusType: MC_RADIUS_TYPE.full,
+      cornerRadius: stated > 0 ? stated : cuttingDiameter / 2,
+      note: null,
+    }
+  }
+  if (mcToolType === MC_TOOL_TYPE['radius mill']) {
+    if (!(stated > 0)) {
+      return {
+        kind: 'skipped',
+        message:
+          'a corner rounder is its radius and the catalog states none, so there is no solid ' +
+          'to draw',
+      }
+    }
+    return {
+      kind: 'written',
+      mcToolType,
+      radiusType: MC_RADIUS_TYPE.rounder,
+      cornerRadius: stated,
+      note: null,
+    }
+  }
+  if (mcToolType === MC_TOOL_TYPE['bull nose end mill']) {
+    if (!(stated > 0)) {
+      return {
+        kind: 'written',
+        mcToolType: MC_TOOL_TYPE['flat end mill'],
+        radiusType: MC_RADIUS_TYPE.none,
+        cornerRadius: 0,
+        note: {
+          kind: 'coerced',
+          message:
+            'no corner radius is stated, so this is written as the flat end mill its numbers ' +
+            'describe',
+        },
+      }
+    }
+    return {
+      kind: 'written',
+      mcToolType,
+      radiusType: MC_RADIUS_TYPE.corner,
+      cornerRadius: stated,
+      note: null,
+    }
+  }
+  if (mcToolType === MC_TOOL_TYPE['flat end mill'] && stated > 0) {
+    return {
+      kind: 'written',
+      mcToolType: MC_TOOL_TYPE['bull nose end mill'],
+      radiusType: MC_RADIUS_TYPE.corner,
+      cornerRadius: stated,
+      note: {
+        kind: 'coerced',
+        message:
+          'a stated corner radius makes this a bull nose — Mastercam pairs no flat end ' +
+          'mill with a radius',
+      },
+    }
+  }
+  return {
+    kind: 'written',
+    mcToolType,
+    radiusType: MC_RADIUS_TYPE.none,
+    cornerRadius: 0,
+    note:
+      stated > 0
+        ? {
+            kind: 'dropped',
+            message: 'this tool type carries no corner radius, so the stated one is not written',
+          }
+        : null,
+  }
+}
+
+/**
  * Write one tool, or say why it could not be written.
  *
  * A tool is skipped rather than approximated when Mastercam's legacy vocabulary
@@ -210,8 +329,8 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
 
   const confirmed = (MC_TOOL_TYPE as Partial<Record<string, number>>)[tool.form]
   const coerced = MC_TOOL_TYPE_COERCED[tool.form as keyof typeof MC_TOOL_TYPE_COERCED]
-  const mcToolType = confirmed ?? coerced?.to
-  if (mcToolType === undefined) {
+  const formType = confirmed ?? coerced?.to
+  if (formType === undefined) {
     notes.push({
       subject,
       kind: 'skipped',
@@ -222,7 +341,7 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
     return { written: null, notes }
   }
   if (coerced !== undefined) {
-    note('coerced', 'MCToolType', `a ${tool.form} is written as ${coerced.because}`)
+    note('coerced', 'MCToolType', coerced.because)
   }
 
   const { DC, OAL, LCF, SFDM, NOF, RE, SIG } = tool.geometry
@@ -237,6 +356,23 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
     return { written: null, notes }
   }
 
+  // Read from the form's own type. The only promotion below is flat to bull
+  // nose, which stays in the endmill family and on the milling side, so
+  // neither of these moves with it.
+  const subtype = MC_SUBTYPE[formType]
+  const holemaking = MC_HOLEMAKING.has(formType)
+  const thread = threadPitch(tool)
+  const radius = resolveRadius(formType, DC, subtype === 'endmill' ? (RE ?? 0) : 0)
+  if (radius.kind === 'skipped') {
+    notes.push({ subject, kind: 'skipped', message: radius.message })
+    return { written: null, notes }
+  }
+  const { mcToolType, radiusType, cornerRadius } = radius
+  if (radius.note !== null) note(radius.note.kind, 'MCToolType', radius.note.message)
+
+  // Every decision that can refuse the tool is made before a single row is
+  // written: a refusal after the item row would leave an assembly item with no
+  // tool under it, which is worse than the tool being absent.
   const id = guidBytes(tool.guid)
   // `TlTool.ToolNumber`, the offsets and the legacy record can each hold one
   // number, so a tool set up in two carousel positions states the first here
@@ -251,8 +387,6 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
         `each assembly carries its own`,
     )
   }
-  const subtype = MC_SUBTYPE[mcToolType]
-  const holemaking = MC_HOLEMAKING.has(mcToolType)
 
   const materials = MASTERCAM_MATERIALS()
   let material: Uint8Array = EMPTY_GUID
@@ -325,17 +459,6 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
     Width: 0,
     Name: '',
   })
-
-  const thread = threadPitch(tool)
-  const cornerRadius = subtype === 'endmill' ? (RE ?? 0) : 0
-  const radiusType =
-    mcToolType === MC_TOOL_TYPE['ball end mill']
-      ? MC_RADIUS_TYPE.full
-      : mcToolType === MC_TOOL_TYPE['radius mill']
-        ? MC_RADIUS_TYPE.rounder
-        : cornerRadius > 0
-          ? MC_RADIUS_TYPE.corner
-          : MC_RADIUS_TYPE.none
 
   // A tapered cutter carries its included angle here; everything else carries
   // 180, which is what the reference writes for "not tapered".

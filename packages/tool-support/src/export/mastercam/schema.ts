@@ -71,17 +71,30 @@ export const MC_TOOL_TYPE = {
  *
  * Every entry here loses the tool's name and keeps its shape. The reason is
  * stated per entry because "near enough" is exactly the judgement that should
- * not be silent.
+ * not be silent, and it is a whole sentence because it is reported verbatim.
  */
 export const MC_TOOL_TYPE_COERCED: Partial<Record<ToolForm, { to: number; because: string }>> = {
-  'face mill': { to: 10, because: 'a face mill is a flat-bottomed cutter, as Endmill1 Flat is' },
-  'slot mill': { to: 10, because: 'a slot mill is a flat-bottomed cutter, as Endmill1 Flat is' },
+  'face mill': {
+    to: 10,
+    because: 'a face mill is a flat-bottomed cutter, so it is written as Endmill1 Flat',
+  },
+  'slot mill': {
+    to: 10,
+    because: 'a slot mill is a flat-bottomed cutter, so it is written as Endmill1 Flat',
+  },
   'counter bore': {
     to: 10,
-    because: 'a counter bore cuts on a flat bottom, as Endmill1 Flat does',
+    because: 'a counter bore cuts on a flat bottom, so it is written as Endmill1 Flat',
   },
-  'tapered mill': { to: 21, because: 'Engrave Tool is Mastercam’s tapered mill with a tip flat' },
-  'center drill': { to: 2, because: 'a center drill is a short stiff point, as Spot Drill is' },
+  'tapered mill': {
+    to: 21,
+    because:
+      'a tapered mill is written as Engrave Tool, Mastercam’s tapered cutter with a tip flat',
+  },
+  'center drill': {
+    to: 2,
+    because: 'a center drill is a short stiff point, so it is written as Spot Drill',
+  },
 }
 
 /**

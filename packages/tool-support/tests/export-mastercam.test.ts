@@ -20,6 +20,7 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { mastercamLibrary } from '../src/export/mastercam/index.js'
+import { MC_TOOL_TYPE_COERCED } from '../src/export/mastercam/schema.js'
 import { guidText } from '../src/export/mastercam/guid.js'
 import type { CatalogTool } from '../src/export/catalog.js'
 import type { CatalogHolder } from '../src/export/mastercam/holder.js'
@@ -235,6 +236,29 @@ describe('what does not travel', () => {
     ])
   })
 
+  it('reports a coercion as one whole sentence', () => {
+    // The note is shown to whoever has to act on it, so `because` is reported
+    // verbatim rather than wrapped in a sentence built here. A template that
+    // added its own subject produced "a face mill is written as a face mill is
+    // a flat-bottomed cutter" — which reads as nonsense and named the form
+    // twice.
+    for (const [form, entry] of Object.entries(MC_TOOL_TYPE_COERCED)) {
+      const { notes } = mastercamLibrary({
+        tools: [
+          { tool: { ...endmill, guid: guidFor('99999999'), form: form as CatalogTool['form'] } },
+        ],
+      })
+      const coercion = notes.find((note) => note.field === 'MCToolType')
+      expect(coercion, form).toBeDefined()
+      const message = coercion?.message ?? ''
+      expect(message, form).toBe(entry.because)
+      // Naming the form more than once is the shape the broken template had,
+      // and a correct message never needs to.
+      expect(message.split(form).length - 1, `${form} is named once`).toBeLessThanOrEqual(1)
+      expect(entry.because, form).toMatch(/written as/)
+    }
+  })
+
   it('coerces a form whose silhouette a confirmed code draws', () => {
     const { document, notes } = mastercamLibrary({
       tools: [{ tool: { ...endmill, guid: guidFor('bbbbbbbb'), form: 'slot mill' } }],
@@ -260,6 +284,30 @@ describe('what does not travel', () => {
     })
     expect(notes[0]?.kind).toBe('skipped')
     expect(notes[0]?.message).toContain('cutting diameter')
+  })
+
+  it('leaves nothing behind when it skips a tool', () => {
+    // Every refusal happens before the first row is written. A tool skipped
+    // after its `TlAssemblyItem` had been added would leave an item with no
+    // tool under it — a row Mastercam would show as an entry that is not
+    // anything.
+    const { document, notes } = mastercamLibrary({
+      tools: [
+        {
+          tool: {
+            ...endmill,
+            guid: guidFor('0e0e0e0e'),
+            form: 'radius mill',
+            geometry: { DC: 3, OAL: 63.5, LCF: 5, SFDM: 3, NOF: 3 },
+          },
+        },
+      ],
+    })
+    expect(notes.map((note) => note.kind)).toEqual(['skipped'])
+    const db = open(document)
+    for (const table of ['TlAssemblyItem', 'TlTool', 'TlToolMill', 'TlLocator', 'TlConnection']) {
+      expect(db.prepare(`select count(*) c from ${table}`).get(), table).toEqual({ c: 0 })
+    }
   })
 
   it('supplies a drill point angle loudly when the catalog states none', () => {
@@ -352,6 +400,109 @@ describe('rows several tools share', () => {
     const brands = db.prepare('select Name from TlManufacturer order by Name').all()
     expect(brands.map((row) => row['Name'])).toEqual(['Haas', 'Helical Solutions', 'Mastercam'])
     expect(db.prepare('select count(*) c from TlToolMill').get()).toEqual({ c: 6 })
+  })
+})
+
+describe('the tool type and its radius columns agree', () => {
+  /**
+   * Every pairing the reference library uses, and it uses no others: across
+   * 53 endmill-family rows the radius type follows from the tool type without
+   * exception. A flat end mill never carries a radius.
+   */
+  const PAIRS: Readonly<Record<number, number>> = {
+    10: 0, // Endmill1 Flat   — none
+    11: 3, // Endmill2 Sphere — full
+    12: 0, // Chamfer Mill    — none
+    15: 4, // Radius Mill     — rounder
+    19: 2, // Endmill3 Bull   — corner
+    21: 0, // Engrave Tool    — none
+  }
+
+  const exported = (tool: CatalogTool) => {
+    const { document, notes } = mastercamLibrary({ tools: [{ tool }] })
+    const db = open(document)
+    const row = db
+      .prepare(
+        `select m.MCToolType t, e.TlRadiusType r, e.CornerRadius c
+         from TlToolMill m join TlToolEndmill e on e.ID = m.ID`,
+      )
+      .get() as { t: number; r: number; c: number }
+    return { row, notes }
+  }
+
+  it('writes a flat end mill that states a corner radius as a bull nose', () => {
+    // The pairing a real catalog actually hits: a corner-radius end mill whose
+    // vendor called it flat. Writing type 10 beside a corner radius is a row
+    // Mastercam never produces.
+    const { row, notes } = exported({
+      ...endmill,
+      guid: '0a0a0a0a-1111-4222-8333-444444444444',
+      form: 'flat end mill',
+      geometry: { ...endmill.geometry, RE: 3.175 },
+    })
+    expect(row.t).toBe(19)
+    expect(row.r).toBe(2)
+    expect(row.c).toBeCloseTo(3.175 / MM_PER_INCH, 10)
+    expect(notes.map((note) => note.kind)).toContain('coerced')
+  })
+
+  it('gives a ball nose the radius its own type promises', () => {
+    // Half the diameter, by definition. A stated radius of nothing would
+    // otherwise write a full radius of zero.
+    const { row } = exported({
+      ...endmill,
+      guid: '0b0b0b0b-1111-4222-8333-444444444444',
+      form: 'ball end mill',
+      geometry: { DC: 6.35, OAL: 76.2, LCF: 19.05, SFDM: 6.35, NOF: 2 },
+    })
+    expect(row.t).toBe(11)
+    expect(row.r).toBe(3)
+    expect(row.c).toBeCloseTo(6.35 / 2 / MM_PER_INCH, 10)
+  })
+
+  it('drops a radius from a type that cannot hold one', () => {
+    const { row, notes } = exported({
+      ...endmill,
+      guid: '0c0c0c0c-1111-4222-8333-444444444444',
+      form: 'chamfer mill',
+      geometry: { ...endmill.geometry, SIG: 90, RE: 1 },
+    })
+    expect(row.t).toBe(12)
+    expect(row.r).toBe(0)
+    expect(row.c).toBe(0)
+    expect(notes.map((note) => note.kind)).toContain('dropped')
+  })
+
+  it.each([
+    ['flat end mill', undefined],
+    ['flat end mill', 3.175],
+    ['ball end mill', undefined],
+    ['ball end mill', 3.175],
+    ['bull nose end mill', 0.508],
+    ['bull nose end mill', undefined],
+    ['radius mill', 1.5748],
+    ['chamfer mill', undefined],
+    ['chamfer mill', 1],
+    ['slot mill', undefined],
+    ['slot mill', 3.175],
+    ['face mill', 3.175],
+    ['tapered mill', undefined],
+  ] as const)('pairs %s with a radius of %s the way Mastercam does', (form, cornerRadius) => {
+    const { row } = exported({
+      ...endmill,
+      guid: '0d0d0d0d-1111-4222-8333-444444444444',
+      form,
+      geometry: {
+        ...endmill.geometry,
+        SIG: 90,
+        ...(cornerRadius === undefined ? {} : { RE: cornerRadius }),
+      },
+    })
+    expect(PAIRS[row.t], `MCToolType ${row.t}`).toBeDefined()
+    expect(row.r, `MCToolType ${row.t}`).toBe(PAIRS[row.t])
+    // A radius type of none and a radius are not written together.
+    if (row.r === 0) expect(row.c).toBe(0)
+    else expect(row.c).toBeGreaterThan(0)
   })
 })
 
