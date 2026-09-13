@@ -15,6 +15,21 @@
  * the whole format with `additionalProperties: false`, so there is nowhere to
  * annotate one.
  *
+ * ## The gauge length is the stack's own height
+ *
+ * Because it is defined as the height *below the gauge line*, it is a reading of
+ * the geometry rather than a fact standing beside it. So both arms derive it
+ * from what they actually exported, and neither states a figure it did not draw:
+ * a document claiming one number while drawing another leaves Fusion to
+ * reconcile the two silently, and a machinist to find out at the spindle.
+ *
+ * A vendor's own figure can disagree, and on a V-flange holder it usually does.
+ * REGO-FIX publishes `B4`, nose to gauge line, beside `B3`, nose to the flange
+ * face, and `B4 - B3` is 48.4 mm on every BT 30 — the gauge-line-to-flange
+ * distance in the vendor's own standards table. `B3` is the one
+ * {@link fromPublished} can draw, because no vendor publishes the shape of the
+ * flange above it. That difference is reported rather than exported.
+ *
  * ## Why the measured arm is the easy one
  *
  * A CAT40 model is measured whole, and half of what comes back is the 7:24 cone
@@ -137,49 +152,71 @@ const fromProfile = (profile: HolderProfile, unit: UnitSystem): FusionSegment[] 
   return segments
 }
 
+/** A published holder's stack, and how tall it stands in millimetres. */
+interface PublishedStack {
+  readonly segments: FusionSegment[]
+  readonly reach: number
+}
+
 /**
- * A published holder as segments, nose first.
+ * A published holder as segments, nose first, and how far they reach.
  *
  * The layer model `holderSilhouette` already states — the nose, the body behind
  * it where the vendor states one, the flange at its projection — read from the
  * nose rather than from the tool tip. A vendor that publishes no nose diameter
  * has published no shape, and nothing is drawn for it.
+ *
+ * `reach` is accumulated as the steps are placed rather than summed back off
+ * them: a segment's height has already been converted into the export's unit and
+ * rounded, so adding those up would put a conversion and six decimal places
+ * between the stack and the number that is supposed to measure it.
  */
-const fromPublished = (holder: Holder, unit: UnitSystem): FusionSegment[] => {
+const fromPublished = (holder: Holder, unit: UnitSystem): PublishedStack => {
   const { noseDiameter, noseLength, bodyDiameter, bodyLength, flangeDiameter, projection } = holder
-  if (noseDiameter === null) return []
+  if (noseDiameter === null) return { segments: [], reach: 0 }
 
   const mm = (value: number) => exported(convertLength(value, 'millimeters', unit))
-  const step = (height: number, diameter: number): FusionSegment | null =>
-    height > 0
-      ? { height: mm(height), 'lower-diameter': mm(diameter), 'upper-diameter': mm(diameter) }
-      : null
-
   const segments: FusionSegment[] = []
-  const nose = step(noseLength ?? 0, noseDiameter)
-  if (nose !== null) segments.push(nose)
+  let reach = 0
+  const step = (height: number, diameter: number): void => {
+    if (!(height > 0)) return
+    segments.push({
+      height: mm(height),
+      'lower-diameter': mm(diameter),
+      'upper-diameter': mm(diameter),
+    })
+    reach += height
+  }
 
+  step(noseLength ?? 0, noseDiameter)
   if (bodyDiameter !== null) {
-    const body = step(bodyLength ?? 0, bodyDiameter)
-    if (body !== null) segments.push(body)
+    step(bodyLength ?? 0, bodyDiameter)
   }
 
   // The flange stands at the holder's projection, so what is left between the
   // steps already placed and that plane is where it starts.
   if (flangeDiameter !== null && projection !== null) {
     const placed = (noseLength ?? 0) + (bodyDiameter !== null ? (bodyLength ?? 0) : 0)
-    const flange = step(projection - placed, flangeDiameter)
-    if (flange !== null) segments.push(flange)
+    step(projection - placed, flangeDiameter)
   }
-  return segments
+  return { segments, reach }
 }
+
+/**
+ * Finer than the six places {@link exported} keeps, so only a disagreement a
+ * vendor actually published reads as one.
+ */
+const GAUGE_EPSILON = 1e-6
 
 /**
  * A holder as Fusion holds one, and an account of what did not travel.
  *
- * `gaugeLength` is written only where it is known: the last vertex's `z` on a
- * `gage-line` profile, the vendor's own figure on a published holder, and
- * nothing at all on a `nose`-datumed profile.
+ * `gaugeLength` is written only where the exported shape measures it: the last
+ * vertex's `z` on a `gage-line` profile, the height of the stack on a published
+ * holder, and nothing at all on a `nose`-datumed profile, whose silhouette is
+ * the whole holder — taper, retention knob and all — rather than the part below
+ * the gauge line. Omitting the key there puts Fusion into manual mode, which is
+ * the honest answer; a zero would read as a measurement.
  */
 export const fusionHolder = (entry: CatalogHolder): HolderResult => {
   const { holder, unit, guid } = entry
@@ -189,7 +226,9 @@ export const fusionHolder = (entry: CatalogHolder): HolderResult => {
   }
 
   const measured = isHolderProfile(holder)
-  const segments = measured ? fromProfile(holder, unit) : fromPublished(holder, unit)
+  const profile = measured ? fromProfile(holder, unit) : null
+  const published = measured ? null : fromPublished(holder, unit)
+  const segments = profile ?? published?.segments ?? []
 
   if (segments.length === 0) {
     note(
@@ -215,10 +254,23 @@ export const fusionHolder = (entry: CatalogHolder): HolderResult => {
           'Fusion is left to ask for the gauge length rather than shown a guess',
       )
     }
-  } else {
-    gaugeLength = holder.gaugeLength
-    if (gaugeLength === null) {
-      note('dropped', 'holder.gaugeLength', 'the vendor publishes no gauge length')
+  } else if (published !== null) {
+    gaugeLength = published.reach
+    const stated = holder.gaugeLength
+    if (stated === null) {
+      note(
+        'filled',
+        'holder.gaugeLength',
+        'the vendor publishes no gauge length, so this is the height of the shape exported',
+      )
+    } else if (Math.abs(stated - published.reach) > GAUGE_EPSILON) {
+      note(
+        'dropped',
+        'holder.gaugeLength',
+        `the vendor states ${exported(stated)} mm below the gauge line and its published ` +
+          `dimensions draw ${exported(published.reach)} mm of holder — Fusion is given the ` +
+          'height it can measure rather than one it cannot draw',
+      )
     }
   }
 
