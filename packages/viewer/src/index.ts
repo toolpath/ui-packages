@@ -210,7 +210,7 @@ export type {
 export type { SectionStore } from './render/section-store.js'
 export type { CapMaterial, CapUniforms } from './render/section-cap.js'
 export type { SectionToolProps } from './section-tool.js'
-export type { MeasureToolProps } from './measure-tool.js'
+export type { MeasureLabelKind, MeasureToolProps } from './measure-tool.js'
 export type {
   AngleMeasurement,
   Axis,

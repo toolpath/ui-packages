@@ -288,20 +288,20 @@ Finished measurements stay drawn over the part, each with a label, until Delete 
 one or the tool is unmounted. Escape drops the points of one in progress, and Shift holds the next
 point to an axis through the last.
 
-| Prop             | What it does                                                                                     |
-| ---------------- | ------------------------------------------------------------------------------------------------ |
-| `mode`           | `'distance'` (default) or `'angle'`. Changing it drops any points already placed.                |
-| `measurements`   | Own the list. Omit it and the tool keeps its own.                                                |
-| `onChange`       | The list changed: a measurement finished, or Delete removed the last one.                        |
-| `showDeltas`     | Show a distance's X, Y and Z parts as dashed legs in the axis colours. On by default.            |
-| `format`         | Write a length. Millimetres to two places by default; pass your own to show inches.              |
-| `labelClassName` | Added to every label, beside `toolpath-measure-label`.                                           |
-| `theme`          | Override its colours — `measure` for lines, markers and labels, `measureSnap` for the indicator. |
+| Prop             | What it does                                                                                  |
+| ---------------- | --------------------------------------------------------------------------------------------- |
+| `mode`           | `'distance'` (default) or `'angle'`. Changing it drops any points already placed.             |
+| `measurements`   | Own the list. Omit it and the tool keeps its own.                                             |
+| `onChange`       | The list changed: a measurement finished, or Delete removed the last one.                     |
+| `showDeltas`     | Show a distance's X, Y and Z parts as dashed legs in the axis colours. On by default.         |
+| `format`         | Write a length. Millimetres to two places by default; pass your own to show inches.           |
+| `labelClassName` | Added to every label, beside `toolpath-measure-label`.                                        |
+| `theme`          | Override its colours — `measure` for lines and markers, `measureSnap` for the snap indicator. |
 
-Labels are DOM elements laid over the canvas, styled inline so they read with no stylesheet.
-Restyle them through the `toolpath-measure-label` class, or `labelClassName`. While the tool is
-mounted the part reports no hovers or picks, as with `<SectionTool>`. Details are under
-[Measuring](#measuring).
+Labels are DOM elements laid over the canvas and come **unstyled**: the tool is headless, and
+what a label looks like is your stylesheet's, through the `toolpath-measure-label` class and the
+data attributes on each one — see [Measuring](#measuring) for a starting point. While the tool is
+mounted the part reports no hovers or picks, as with `<SectionTool>`.
 
 ### `<Grid>` and `<Axes>`
 
@@ -554,6 +554,38 @@ and its `points` — two for a distance, three for an angle with the vertex in t
 list, pass `measurements` too; to clear it, unmount the tool or pass `[]`. `measurementLabel(m)`
 writes an entry the way the tool does, and `distanceBetween`, `deltaBetween` and `angleAt` are the
 arithmetic behind it.
+
+**Styling the labels.** Every label is a `<div class="toolpath-measure-label">` with
+`data-measure-label` set to `distance`, `angle`, `delta` (one leg of a distance's X, Y, Z breakdown,
+with `data-axis`) or `live` (the readout that follows the pointer), and `data-measurement-id` on
+anything belonging to a finished measurement. Nothing else is set: no font, no colour, no
+background. `labelClassName` adds your own class, for Tailwind or a CSS module. A stylesheet to
+start from, which is what the example uses:
+
+```css
+.toolpath-measure-label {
+  white-space: nowrap;
+  font:
+    600 12px/1.2 system-ui,
+    sans-serif;
+  color: #fff;
+  background: rgba(20, 23, 33, 0.85);
+  border: 1px solid #4f8ef7;
+  border-radius: 4px;
+  padding: 2px 6px;
+  transform: translateY(-16px);
+}
+.toolpath-measure-label[data-measure-label='delta'] {
+  font-size: 11px;
+  transform: translateY(14px);
+}
+.toolpath-measure-label[data-axis='x'] {
+  border-color: #ff6b6b;
+}
+```
+
+Labels take no pointer events, so one lying over the part never takes a click meant for the face
+under it. The lines, markers and arc are drawn on the canvas and themed through `measure`.
 
 Lengths are written in millimetres by default. The part is in millimetres and the viewer does not
 convert, so pass `format` to show anything else:

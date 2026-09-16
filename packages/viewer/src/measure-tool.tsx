@@ -1,14 +1,6 @@
 import { Html, Line } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import {
-  type CSSProperties,
-  type ComponentRef,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { type ComponentRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Group,
   type InterleavedBufferAttribute,
@@ -24,6 +16,7 @@ import type { Vec3 } from './model/types.js'
 import { EXCLUDE_FROM_FRAME, type ViewerCamera, screenLength } from './render/camera.js'
 import {
   AXIS_COLORS,
+  type Axis,
   DELTA_DASH_PIXELS,
   MEASURE_LINE_PIXELS,
   MEASURE_MARKER_PIXELS,
@@ -55,8 +48,20 @@ import { useSectionStore } from './viewer.js'
 
 const FURNITURE = { [EXCLUDE_FROM_FRAME]: true }
 
-/** The class every label carries, for a stylesheet to find. */
+/**
+ * The class every label carries, for a stylesheet to find.
+ *
+ * The labels ship with no styling at all. Each one is a `<div>` with this
+ * class, `data-measure-label` naming what it is — `distance`, `angle`, `delta`
+ * for one leg of a distance's breakdown, or `live` for the readout that
+ * follows the pointer — `data-axis` on a leg, and `data-measurement-id` on
+ * anything belonging to a finished measurement. The README shows a stylesheet
+ * to start from.
+ */
 export const MEASURE_LABEL_CLASS = 'toolpath-measure-label'
+
+/** What a label is, for a stylesheet to tell them apart. */
+export type MeasureLabelKind = 'distance' | 'angle' | 'delta' | 'live'
 
 /** drei's fat line, whose material and geometry come from three-stdlib. */
 type FatLine = NonNullable<ComponentRef<typeof Line>>
@@ -89,7 +94,10 @@ export interface MeasureToolProps {
    * is in millimetres, and converting is the consumer's call.
    */
   format?: (mm: number) => string
-  /** Added to every label's `className`, beside {@link MEASURE_LABEL_CLASS}. */
+  /**
+   * Added to every label's `className`, beside {@link MEASURE_LABEL_CLASS} —
+   * a Tailwind utility list, or a CSS module's class.
+   */
   labelClassName?: string
   theme?: Partial<ViewerTheme>
 }
@@ -117,9 +125,13 @@ export interface MeasureToolProps {
  * WebGL line is one pixel wide whatever is asked of it and one pixel of blue
  * over a white face is not a measurement anybody can see.
  *
- * Labels are DOM elements laid over the canvas, so they are text: a stylesheet
- * can restyle them through {@link MEASURE_LABEL_CLASS}, and a test can read
- * them.
+ * Labels are DOM elements laid over the canvas, so they are text a test can
+ * read — and they are **unstyled**. This is a headless component: what a
+ * label looks like is the consumer's stylesheet's, through
+ * {@link MEASURE_LABEL_CLASS} and the data attributes on each one. The one
+ * thing set here is that the element each label is wrapped in takes no
+ * pointer events, because a label over the part that took the click meant
+ * for the face under it would be a bug rather than a look.
  */
 export const MeasureTool = ({
   mode = 'distance',
@@ -190,8 +202,7 @@ export const MeasureTool = ({
   // Nothing is sized until the part has been measured; see `useContentBox`.
   if (box.isEmpty()) return null
 
-  const labelStyle = labelStyleFor(resolved)
-  const label = { className: className(labelClassName), style: labelStyle }
+  const label = className(labelClassName)
 
   return (
     <group userData={FURNITURE}>
@@ -228,19 +239,23 @@ export const MeasureTool = ({
   )
 }
 
-interface LabelProps {
-  className: string
-  style: CSSProperties
-}
-
 interface SnapperProps {
   mode: MeasureMode
   draft: readonly Vec3[]
   onPlace: (point: Vec3) => void
   theme: ViewerTheme
   format: (mm: number) => string
-  label: LabelProps
+  /** Every label's `className`. */
+  label: string
 }
+
+/**
+ * Set on the element drei wraps each label in, and inherited by the label. A
+ * label over the part must not take the click meant for the face under it;
+ * a stylesheet that wants clickable labels can still say `pointer-events:
+ * auto` on the label itself, since nothing is set there.
+ */
+const NO_POINTER = { pointerEvents: 'none' } as const
 
 /** Where a line that has not been placed yet starts out: nowhere, hidden. */
 const NOWHERE: readonly [Vector3, Vector3] = [new Vector3(), new Vector3()]
@@ -452,11 +467,12 @@ const Snapper = ({ mode, draft, onPlace, theme, format, label }: SnapperProps) =
         raycast={() => null}
       />
       <group ref={bandLabel} visible={false}>
-        <Html center zIndexRange={[0, 0]}>
+        <Html center zIndexRange={[0, 0]} style={NO_POINTER}>
           <div
             ref={bandText}
-            className={label.className}
-            style={{ ...label.style, display: 'none' }}
+            className={label}
+            data-measure-label="live"
+            style={{ display: 'none' }}
           />
         </Html>
       </group>
@@ -531,7 +547,7 @@ interface MeasurementViewProps {
   theme: ViewerTheme
   format: (mm: number) => string
   showDeltas: boolean
-  label: LabelProps
+  label: string
 }
 
 /** One finished measurement: its lines, its markers, and its label. */
@@ -552,8 +568,10 @@ const MeasurementView = ({
         <Segment points={[a, b]} color={theme.measure} />
         <ScreenDot point={a} pixels={MEASURE_MARKER_PIXELS} color={theme.measure} />
         <ScreenDot point={b} pixels={MEASURE_MARKER_PIXELS} color={theme.measure} />
-        {showDeltas ? <DeltaLegs a={a} b={b} format={format} label={label} /> : null}
-        <Label at={anchor} text={text} {...label} />
+        {showDeltas ? (
+          <DeltaLegs a={a} b={b} id={measurement.id} format={format} label={label} />
+        ) : null}
+        <Label at={anchor} text={text} kind="distance" id={measurement.id} className={label} />
       </>
     )
   }
@@ -568,7 +586,7 @@ const MeasurementView = ({
       <ScreenDot point={a} pixels={MEASURE_MARKER_PIXELS} color={theme.measure} />
       <ScreenDot point={vertex} pixels={MEASURE_MARKER_PIXELS} color={theme.measure} />
       <ScreenDot point={b} pixels={MEASURE_MARKER_PIXELS} color={theme.measure} />
-      <Label at={anchor} text={text} {...label} />
+      <Label at={anchor} text={text} kind="angle" id={measurement.id} className={label} />
     </>
   )
 }
@@ -576,8 +594,9 @@ const MeasurementView = ({
 interface DeltaLegsProps {
   a: Vec3
   b: Vec3
+  id: number
   format: (mm: number) => string
-  label: LabelProps
+  label: string
 }
 
 /**
@@ -586,7 +605,7 @@ interface DeltaLegsProps {
  * The dash is held to a size on screen, as the markers are: a dash in world
  * units is a solid line on a plate and a dotted one on an insert.
  */
-const DeltaLegs = ({ a, b, format, label }: DeltaLegsProps) => {
+const DeltaLegs = ({ a, b, id, format, label }: DeltaLegsProps) => {
   const camera = useThree((state) => state.camera) as ViewerCamera
   const size = useThree((state) => state.size)
   const invalidate = useThree((state) => state.invalidate)
@@ -639,23 +658,36 @@ const DeltaLegs = ({ a, b, format, label }: DeltaLegsProps) => {
           key={leg.axis}
           at={midpoint(leg.from, leg.to)}
           text={`${leg.axis.toUpperCase()} ${format(leg.length)}`}
-          className={label.className}
-          style={{ ...label.style, ...legLabelStyle(AXIS_COLORS[leg.axis]) }}
+          kind="delta"
+          axis={leg.axis}
+          id={id}
+          className={label}
         />
       ))}
     </>
   )
 }
 
-interface LabelViewProps extends LabelProps {
+interface LabelViewProps {
   at: Vec3
   text: string
+  kind: MeasureLabelKind
+  id: number
+  axis?: Axis
+  className: string
 }
 
-const Label = ({ at, text, className: name, style }: LabelViewProps) => (
+/**
+ * One label, centred on a point in the scene and unstyled.
+ *
+ * `zIndexRange` is pinned to zero so a label never rises above the page's
+ * own chrome: drei's default puts it at the top of the stacking order, over
+ * any toolbar laid across the canvas.
+ */
+const Label = ({ at, text, kind, id, axis, className: name }: LabelViewProps) => (
   <group position={[at.x, at.y, at.z]}>
-    <Html center zIndexRange={[0, 0]}>
-      <div className={name} style={style}>
+    <Html center zIndexRange={[0, 0]} style={NO_POINTER}>
+      <div className={name} data-measure-label={kind} data-measurement-id={id} data-axis={axis}>
         {text}
       </div>
     </Html>
@@ -753,43 +785,4 @@ function isEditing(target: EventTarget | null): boolean {
 
 function className(extra: string | undefined): string {
   return extra ? `${MEASURE_LABEL_CLASS} ${extra}` : MEASURE_LABEL_CLASS
-}
-
-function hex(color: number): string {
-  return `#${color.toString(16).padStart(6, '0')}`
-}
-
-/**
- * How a label looks with no stylesheet: a dark pill with the measurement
- * colour for a border, lifted off the point it names. `pointer-events: none`
- * so a label over the part does not take the click meant for the face under
- * it.
- */
-function labelStyleFor(theme: ViewerTheme): CSSProperties {
-  return {
-    pointerEvents: 'none',
-    userSelect: 'none',
-    whiteSpace: 'nowrap',
-    font: '600 12px/1.2 system-ui, sans-serif',
-    color: '#ffffff',
-    background: 'rgba(20, 23, 33, 0.85)',
-    border: `1px solid ${hex(theme.measure)}`,
-    borderRadius: 4,
-    padding: '2px 6px',
-    transform: 'translateY(-16px)',
-  }
-}
-
-/**
- * A leg's label hangs below its leg where the distance's own label is lifted
- * above: the leg along the line's longest axis runs close beside the line, and
- * the two labels would otherwise sit on the same pixel.
- */
-function legLabelStyle(color: number): CSSProperties {
-  return {
-    borderColor: hex(color),
-    fontWeight: 500,
-    fontSize: 11,
-    transform: 'translateY(14px)',
-  }
 }

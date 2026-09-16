@@ -8,8 +8,10 @@ under it and shows where a click will land; two clicks measure a distance, shown
 parts as dashed legs, and three measure an angle. Finished measurements stay drawn over the part
 with a DOM label each until Delete removes the last one or the tool is unmounted; Escape drops the
 points of one in progress, and Shift holds the next point to the X, Y or Z line through the last.
-`measurements` and `onChange` make the list the consumer's, `format` writes lengths in something
-other than millimetres, and `MEASURE_LABEL_CLASS` is on every label.
+`measurements` and `onChange` make the list the consumer's, and `format` writes lengths in something
+other than millimetres. The labels are DOM elements and ship unstyled: each carries
+`MEASURE_LABEL_CLASS`, a `data-measure-label` kind, `data-axis` on a delta leg and
+`data-measurement-id` on a finished measurement, and `labelClassName` adds a class of the consumer's.
 
 While the tool is mounted, `<PartMesh>` reports no hovers or picks, as it does for `<SectionTool>`.
 The engaged flag both tools set on the section store is now counted, so the two can be mounted
