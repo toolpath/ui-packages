@@ -13,6 +13,7 @@ import type { CSSProperties, PropsWithChildren, ReactNode } from 'react'
 import { Box3, Group, Vector3 } from 'three'
 import { CadCameraControls } from './camera.js'
 import { retargetPose } from './render/retarget.js'
+import { type SectionStore, createSectionStore } from './render/section-store.js'
 import { type TapTracker, trackDoubleTaps, trackTaps } from './render/tap.js'
 import { ViewerTapProvider, useTapGuard } from './tap.js'
 import {
@@ -45,6 +46,19 @@ export const useViewerControls = (): ViewerControls => {
   const controls = useContext(ViewerControlsContext)
   if (!controls) throw new Error('useViewerControls must be used inside <Viewer>')
   return controls
+}
+
+const SectionStoreContext = createContext<SectionStore | null>(null)
+
+/**
+ * The cut this viewer holds for itself. See `render/section-store.ts` for why
+ * it is a store: `<SectionTool>` writes it and `<PartMesh>` reads it, and the
+ * two are siblings.
+ */
+export const useSectionStore = (): SectionStore => {
+  const store = useContext(SectionStoreContext)
+  if (!store) throw new Error('useSectionStore must be used inside <Viewer>')
+  return store
 }
 
 /** Re-aims the orbit, or `null` when this viewer has the gesture turned off. */
@@ -406,6 +420,8 @@ const ViewerScene = ({
 
   useEffect(() => {
     setControls({
+      // Answered by the outer proxy, which owns the store; see `Viewer`.
+      setSection: () => {},
       fit: () => {
         fitContent()
       },
@@ -613,6 +629,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
 ) {
   const actionsRef = useRef<ViewerControls | null>(null)
   const resolved = useMemo(() => resolveTheme(theme), [theme])
+  const sectionStore = useMemo(() => createSectionStore(), [])
   const proxy = useMemo<ViewerControls>(
     () => ({
       fit: () => actionsRef.current?.fit(),
@@ -620,8 +637,11 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
       setView: (view: ViewerView) => actionsRef.current?.setView(view),
       setViewDirection: (direction) => actionsRef.current?.setViewDirection(direction),
       frameBox: (box) => actionsRef.current?.frameBox(box),
+      // Straight to the store rather than through the scene: the store lives
+      // here, so this works before the scene has mounted and after it is gone.
+      setSection: (options) => sectionStore.set(options),
     }),
-    [],
+    [sectionStore],
   )
   useImperativeHandle(ref, () => proxy, [proxy])
   const setControls = useCallback((next: ViewerControls) => {
@@ -638,7 +658,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
 
   return (
     <ViewerControlsContext.Provider value={proxy}>
-      {/*
+      <SectionStoreContext.Provider value={sectionStore}>
+        {/*
         Orbiting the part does not take focus off whatever had it.
 
         Pressing on a canvas moves focus to the document body, and the lists
@@ -652,54 +673,55 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
         here needs the canvas focused — every control is a real element beside
         it.
       */}
-      <div
-        className={className}
-        ref={hold}
-        onMouseDown={(event) => {
-          if (event.target instanceof HTMLCanvasElement) event.preventDefault()
-        }}
-        style={{ height: '100%', width: '100%', ...style }}
-      >
-        <Canvas
-          key={projection}
-          orthographic={projection === 'orthographic'}
-          camera={{ fov: PERSPECTIVE_FOV, up: [0, 0, 1], position: [1, -1, 1] }}
-          dpr={[1, 2]}
-          frameloop="demand"
-          // `stencil` is off by default in three, and the section cap is a
-          // stencil trick — without it the cut still happens and the part just
-          // looks hollow. `localClippingEnabled` is what lets a material carry
-          // its own clipping plane rather than the whole scene sharing one.
-          gl={{ antialias: true, alpha: true, stencil: true, localClippingEnabled: true }}
-          // Two guards, and both are about gestures that are not a click.
-          //
-          // Only the primary button puts a selection down. R3F treats
-          // `contextmenu` as a click, and the browser sends that the instant a
-          // right button goes down — before any movement — so a pan cleared
-          // the selection at the moment it started, whatever it did next.
-          //
-          // And an orbit that ends over empty space is not somebody letting go
-          // of what they were orbiting to look at.
-          onPointerMissed={(event) => {
-            if (event.button !== 0) return
-            if (tracker.current?.isTap(event) ?? true) onPointerMissed?.()
+        <div
+          className={className}
+          ref={hold}
+          onMouseDown={(event) => {
+            if (event.target instanceof HTMLCanvasElement) event.preventDefault()
           }}
+          style={{ height: '100%', width: '100%', ...style }}
         >
-          <ViewerScene
-            setControls={setControls}
-            projection={projection}
-            scheme={controls}
-            freeOrbit={freeOrbit}
-            zoomTo={zoomTo}
-            recentreOnDoubleClick={recentreOnDoubleClick}
-            retargetOnDoubleClick={retargetOnDoubleClick}
-            showOrbitTarget={showOrbitTarget}
-            theme={resolved}
+          <Canvas
+            key={projection}
+            orthographic={projection === 'orthographic'}
+            camera={{ fov: PERSPECTIVE_FOV, up: [0, 0, 1], position: [1, -1, 1] }}
+            dpr={[1, 2]}
+            frameloop="demand"
+            // `stencil` is off by default in three, and the section cap is a
+            // stencil trick — without it the cut still happens and the part just
+            // looks hollow. `localClippingEnabled` is what lets a material carry
+            // its own clipping plane rather than the whole scene sharing one.
+            gl={{ antialias: true, alpha: true, stencil: true, localClippingEnabled: true }}
+            // Two guards, and both are about gestures that are not a click.
+            //
+            // Only the primary button puts a selection down. R3F treats
+            // `contextmenu` as a click, and the browser sends that the instant a
+            // right button goes down — before any movement — so a pan cleared
+            // the selection at the moment it started, whatever it did next.
+            //
+            // And an orbit that ends over empty space is not somebody letting go
+            // of what they were orbiting to look at.
+            onPointerMissed={(event) => {
+              if (event.button !== 0) return
+              if (tracker.current?.isTap(event) ?? true) onPointerMissed?.()
+            }}
           >
-            {children}
-          </ViewerScene>
-        </Canvas>
-      </div>
+            <ViewerScene
+              setControls={setControls}
+              projection={projection}
+              scheme={controls}
+              freeOrbit={freeOrbit}
+              zoomTo={zoomTo}
+              recentreOnDoubleClick={recentreOnDoubleClick}
+              retargetOnDoubleClick={retargetOnDoubleClick}
+              showOrbitTarget={showOrbitTarget}
+              theme={resolved}
+            >
+              {children}
+            </ViewerScene>
+          </Canvas>
+        </div>
+      </SectionStoreContext.Provider>
     </ViewerControlsContext.Provider>
   )
 })

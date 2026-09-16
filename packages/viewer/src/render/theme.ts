@@ -29,8 +29,13 @@ export interface ViewerTheme {
   /** `EdgesGeometry` line color and opacity. */
   readonly edge: number
   readonly edgeOpacity: number
-  /** The capped face of a section cut, and the cutting plane's outline. */
+  /**
+   * The capped face of a section cut: its fill, and the hatch lines drawn over
+   * it. The cap's edge takes {@link ViewerTheme.sectionHandleOutline}.
+   */
   readonly sectionCap: number
+  readonly sectionHatch: number
+  /** The cutting plane itself — the translucent sheet `<SectionTool>` draws, its outline, and the surface preview. */
   readonly sectionOutline: number
   /**
    * The arrow that drags the cut, and the shell that outlines it. Hovered it
@@ -130,7 +135,8 @@ export const DEFAULT_THEME: ViewerTheme = {
   picked: 0xf97316,
   edge: 0x000000,
   edgeOpacity: 0.5,
-  sectionCap: 0xc7cbd8,
+  sectionCap: 0xdfe2ea,
+  sectionHatch: 0x8a90a6,
   sectionOutline: 0x6bb0b3,
   sectionHandle: 0xf2f3f7,
   sectionHandleOutline: 0x3c4051,
@@ -166,6 +172,7 @@ export function themesEqual(a: ViewerTheme, b: ViewerTheme): boolean {
     a.edge === b.edge &&
     a.edgeOpacity === b.edgeOpacity &&
     a.sectionCap === b.sectionCap &&
+    a.sectionHatch === b.sectionHatch &&
     a.sectionOutline === b.sectionOutline &&
     a.sectionHandle === b.sectionHandle &&
     a.sectionHandleOutline === b.sectionHandleOutline &&

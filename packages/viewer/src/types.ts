@@ -1,5 +1,6 @@
 import type { Box3, Vector3 } from 'three'
 import type { ViewerView } from './render/camera.js'
+import type { SectionOptions } from './render/section.js'
 
 export type { ViewerView }
 
@@ -26,6 +27,14 @@ export interface ViewerControls {
    * see a wall and then asks to zoom to it wants it closer, not re-oriented.
    */
   frameBox(box: Box3): void
+  /**
+   * Sets or clears the cut the viewer holds for itself — the one `<SectionTool>`
+   * places and `<PartMesh>` follows when it is given no `section` of its own.
+   *
+   * `null` clears it. A `<PartMesh section>` is not affected: that cut is the
+   * consumer's, and this one is the viewer's.
+   */
+  setSection(options: SectionOptions | null): void
 }
 
 export interface ViewerHandle extends ViewerControls {}

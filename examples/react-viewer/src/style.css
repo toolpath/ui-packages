@@ -9,15 +9,25 @@
 body {
   margin: 0;
 }
+/*
+ * The page is exactly one viewport tall and the viewer fills its row, so the
+ * canvas is sized by the window and never by the text beside it. It used to
+ * be sized by whichever was taller, and the readout gains lines in section
+ * mode — so entering it grew the canvas by a few pixels mid-test, which under
+ * CI's fonts was enough to move a scanned click point onto a direction arrow.
+ */
 main {
-  min-height: 100vh;
+  height: 100vh;
   display: grid;
   grid-template-columns: minmax(220px, 0.35fr) 1fr;
+  grid-template-rows: minmax(0, 1fr);
   gap: 2rem;
   padding: 2rem;
 }
 section {
   max-width: 30rem;
+  min-height: 0;
+  overflow-y: auto;
 }
 .eyebrow {
   color: #83a9ff;
@@ -39,7 +49,7 @@ strong {
 }
 .viewer {
   position: relative;
-  min-height: 70vh;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid #343b4c;
   border-radius: 1rem;
@@ -64,10 +74,32 @@ strong {
 .viewer-toolbar button:hover {
   background: #303b51;
 }
+.viewer-toolbar button[aria-pressed='true'] {
+  border-color: #83a9ff;
+  background: #2b3f66;
+}
+.viewer-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #b9c0d1;
+  font-size: 0.85rem;
+}
+.viewer-hint {
+  align-self: center;
+  color: #b9c0d1;
+  font-size: 0.85rem;
+}
 @media (max-width: 760px) {
   main {
+    height: auto;
+    min-height: 100vh;
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
     padding: 1rem;
+  }
+  section {
+    overflow-y: visible;
   }
   .viewer {
     min-height: 60vh;

@@ -76,6 +76,7 @@ What each wrapper is for:
  ├─ <EnginePart>          validates the report, loads the mesh, then renders <PartMesh>
  │   └─ <PartMesh>        draws the part and handles hover, click, colours, section cuts
  ├─ <DirectionArrows>     arrows for the directions the part can be machined from
+ ├─ <SectionTool>         optional: click a face or a plane to cut the part open
  ├─ <Grid> <Axes>         reference geometry, sized to the part
  └─ <ViewCube>            the clickable orientation cube in the corner
 ```
@@ -187,15 +188,15 @@ Draws the part and handles clicks. You only use it directly when you
 
 **Interaction**
 
-| Prop              | Type                               | What it does                                                                              |
-| ----------------- | ---------------------------------- | ----------------------------------------------------------------------------------------- |
-| `onPick`          | `(pick: PartPick) => void`         | Left- or right-click on the part.                                                         |
-| `onHover`         | `(pick: PartPick \| null) => void` | The pointer moved onto a different face, or off the part (`null`).                        |
-| `activeDirection` | `number \| null`                   | Only match features machined from this direction (an index into `candidateDirections`).   |
-| `focusFeature`    | `string \| null`                   | Zoom to this feature. The camera moves each time the value changes.                       |
-| `section`         | `SectionOptions`                   | Cut the part open. See [Section view](#section-view).                                     |
-| `onSectionChange` | `(state: SectionState) => void`    | Called when the cut moves. Passing it also shows a handle users can drag to move the cut. |
-| `onAdjacency`     | `(map) => void`                    | Called once per mesh with which faces touch which.                                        |
+| Prop              | Type                               | What it does                                                                                   |
+| ----------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `onPick`          | `(pick: PartPick) => void`         | Left- or right-click on the part.                                                              |
+| `onHover`         | `(pick: PartPick \| null) => void` | The pointer moved onto a different face, or off the part (`null`).                             |
+| `activeDirection` | `number \| null`                   | Only match features machined from this direction (an index into `candidateDirections`).        |
+| `focusFeature`    | `string \| null`                   | Zoom to this feature. The camera moves each time the value changes.                            |
+| `section`         | `SectionOptions`                   | Cut the part open. Omit it to follow the viewer's own cut. See [Section view](#section-view).  |
+| `onSectionChange` | `(state: SectionState) => void`    | Called when the cut moves or goes away. With `section`, passing it also shows the drag handle. |
+| `onAdjacency`     | `(map) => void`                    | Called once per mesh with which faces touch which.                                             |
 
 Hovering over the part is handled for you. You only need `onHover` if you want to show the hovered
 feature elsewhere in your UI.
@@ -245,6 +246,29 @@ Clicking an arrow does not trigger `onPointerMissed`, so it won't clear your sel
 With the Engine, get the directions from the model:
 `const model = useMemo(() => normalizePartReport(report), [report])`.
 
+### `<SectionTool>`
+
+Cut the part open from inside the viewport. Optional: mount it next to the part when the user
+enters section mode, and unmount it when they leave.
+
+```tsx
+{
+  sectioning ? <SectionTool /> : null
+}
+```
+
+While it is up, hovering the part previews a cut through the face under the pointer and a click
+places it; three coloured planes behind the part cut along an axis instead. Once there is a cut,
+the part's own arrow drags it, an outlined sheet shows the cutting plane, and Escape clears it.
+
+| Prop    | What it does                                                           |
+| ------- | ---------------------------------------------------------------------- |
+| `theme` | Override its colours — `sectionOutline` for the sheet and the preview. |
+
+The cut it places is the viewer's own, and `<PartMesh>` follows it when given no `section` prop.
+While the tool is mounted the part reports no hovers or picks. Details and the controlled
+alternative are under [Section view](#section-view).
+
 ### `<Grid>` and `<Axes>`
 
 Reference geometry. The camera ignores both when it frames the part.
@@ -274,13 +298,14 @@ const viewer = useRef<ViewerHandle>(null)
 <Viewer ref={viewer}>…</Viewer>
 ```
 
-| Method                      | What it does                                                                 |
-| --------------------------- | ---------------------------------------------------------------------------- |
-| `fit()`                     | Fit the whole part, keeping the current angle.                               |
-| `reset()`                   | Go back to the starting view.                                                |
-| `setView(name)`             | `'top'`, `'bottom'`, `'front'`, `'back'`, `'left'`, `'right'`, `'isometric'` |
-| `setViewDirection({x,y,z})` | Look at the part from any direction (a vector pointing toward the camera).   |
-| `frameBox(box)`             | Zoom to a `THREE.Box3`, keeping the current angle.                           |
+| Method                      | What it does                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| `fit()`                     | Fit the whole part, keeping the current angle.                                 |
+| `reset()`                   | Go back to the starting view.                                                  |
+| `setView(name)`             | `'top'`, `'bottom'`, `'front'`, `'back'`, `'left'`, `'right'`, `'isometric'`   |
+| `setViewDirection({x,y,z})` | Look at the part from any direction (a vector pointing toward the camera).     |
+| `frameBox(box)`             | Zoom to a `THREE.Box3`, keeping the current angle.                             |
+| `setSection(options)`       | Set or clear (`null`) the viewer's own cut. See [Section view](#section-view). |
 
 Components rendered **inside** `<Viewer>` can get the same methods with `useViewerControls()`.
 
@@ -407,8 +432,28 @@ Changing colours is fast, even when every feature on a large part is highlighted
 
 ### Section view
 
-Cut the part with a plane to see inside it. `normal` points toward the half you keep. `offset` goes
-from `0` (whole part) to `1` (fully cut away).
+The quickest way is `<SectionTool>`. Put it inside `<Viewer>` next to the part and give `PartMesh`
+no `section` prop:
+
+```tsx
+<Viewer ref={viewer}>
+  <EnginePart report={report} />
+  {sectioning ? <SectionTool /> : null}
+</Viewer>
+```
+
+Hovering the part previews a cut through the face under the pointer; clicking places it. Three
+coloured planes stand behind the part — click one to cut along that axis, in from your side. Once
+there is a cut, an arrow drags it, an outlined sheet shows the cutting plane, and Escape clears it.
+The cut belongs to the viewer: `viewer.current.setSection(null)` clears it from a button outside
+the canvas, `setSection({ enabled: true, normal, offset })` sets one, and `onSectionChange` on
+`PartMesh` still reports every move.
+
+While the tool is mounted, the part reports no hovers or picks — clicking a face cuts through it
+without also selecting it. Unmount the tool, as above, and they come back.
+
+To drive the cut yourself instead, pass `section`. `normal` points toward the half you keep.
+`offset` goes from `0` (whole part) to `1` (fully cut away).
 
 ```tsx
 const [cutting, setCutting] = useState(false)
@@ -425,9 +470,10 @@ const [offset, setOffset] = useState(0.5)
 />
 ```
 
-The cut surface is filled in, so the part doesn't look hollow. Passing `onSectionChange` also shows
-an arrow handle users can drag. The handler is called on every drag and only when the cut actually
-changes, so it's safe to store the value in state.
+The cut surface is filled in with a hatch and outlined, so the part doesn't look hollow and the cut
+reads as a cut. Passing `onSectionChange` also shows an arrow handle users can drag. The handler is
+called on every drag and only when the cut actually changes, so it's safe to store the value in
+state; a cut going away is reported once, with `enabled: false`.
 
 **Cutting at a clicked surface.** `sectionFromPick` places the cut at the surface the user clicked.
 `depth` moves it into the part, in millimetres:
@@ -456,6 +502,10 @@ const [plane, setPlane] = useState<SectionPlacement | null>(null)
 Colours are hex numbers. Lighting goes on `<Viewer>`, part colours go on the part, and cube colours
 go on the cube. See `DEFAULT_THEME` for every key. The default part colours are tuned for the
 default lighting, so if you change one, check the other.
+
+The section cut is themed on the part too: `sectionCap` and `sectionHatch` are the cap's fill and
+hatch lines, `sectionHandle` the drag arrow, and `sectionOutline` the cutting-plane sheet and
+preview that `<SectionTool>` draws.
 
 `HIGHLIGHT_COLORS` has the standard selection colours (`default`, `toolIssue`, `geometryIssue`).
 `DIRECTION_COLORS` has the 9 direction colours, which repeat for parts with more than 9 directions.
@@ -699,11 +749,12 @@ is a complete app built this way, with no API key needed.
 
 ### Hooks
 
-| Hook                  | Use inside `<Viewer>` to…                                          |
-| --------------------- | ------------------------------------------------------------------ |
-| `useViewerControls()` | Get `fit`, `reset`, `setView`, `setViewDirection`, and `frameBox`. |
-| `useContentBox()`     | Get the part's bounding box (a `THREE.Box3`, empty until loaded).  |
-| `useTapGuard()`       | Check whether a pointer event was a click and not a drag.          |
+| Hook                  | Use inside `<Viewer>` to…                                                        |
+| --------------------- | -------------------------------------------------------------------------------- |
+| `useViewerControls()` | Get `fit`, `reset`, `setView`, `setViewDirection`, `frameBox`, and `setSection`. |
+| `useSectionStore()`   | Read, set, or subscribe to the viewer's own cut.                                 |
+| `useContentBox()`     | Get the part's bounding box (a `THREE.Box3`, empty until loaded).                |
+| `useTapGuard()`       | Check whether a pointer event was a click and not a drag.                        |
 
 ### Helpers
 
@@ -728,8 +779,8 @@ use. They're listed in `dist/index.d.ts`.
 `ViewerProps`, `ViewerHandle`, `ViewerView`, `Projection`, `ControlScheme`, `EnginePartProps`,
 `PartMeshProps`, `PartPick`, `PickModifiers`, `PartModel`, `PartModelFeature`, `PartModelRegion`,
 `FeatureTag`, `FeatureType`, `Vec3`, `FeatureHighlight`, `RegionHighlight`, `SectionOptions`,
-`SectionState`, `SectionPlacement`, `ViewerTheme`, `ViewName`, `DirectionArrowsProps`,
-`NamedDirection`, `GridProps`, `AxesProps`, `ViewCubeProps`.
+`SectionState`, `SectionPlacement`, `SectionToolProps`, `SectionStore`, `ViewerTheme`, `ViewName`,
+`DirectionArrowsProps`, `NamedDirection`, `GridProps`, `AxesProps`, `ViewCubeProps`.
 
 `FeatureType` and `ShapeKind` accept any string, because newer Engine versions add new values.
 Handle values you don't recognize.

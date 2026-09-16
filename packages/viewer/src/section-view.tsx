@@ -1,30 +1,28 @@
 import { type ThreeEvent, useFrame, useThree } from '@react-three/fiber'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlwaysStencilFunc,
-  BackSide,
   type Box3,
   type BufferGeometry,
-  DecrementWrapStencilOp,
-  DoubleSide,
-  FrontSide,
+  Color,
   Group,
-  IncrementWrapStencilOp,
-  NotEqualStencilFunc,
+  Mesh,
   Plane,
+  PlaneGeometry,
   Quaternion,
   Raycaster,
-  ReplaceStencilOp,
+  Scene,
   Vector2,
   Vector3,
 } from 'three'
-import type { Vec3 } from './model/types.js'
 import { CONE_AXIS } from './render/directions.js'
 import {
   HANDLE_PIXELS,
   SECTION_RENDER_ORDER,
-  type SectionPlacement,
+  type SectionOptions,
+  type SectionState,
+  DEFAULT_SECTION_NORMAL,
   dragPlane,
+  sectionAnchor,
   sectionBounds,
   sectionConstant,
   sectionDepth,
@@ -32,43 +30,17 @@ import {
   sectionDepthRange,
   sectionOffset,
 } from './render/section.js'
+import {
+  applyCapTheme,
+  createCapMaterial,
+  createMaskMaterial,
+  createMaskTarget,
+  createStencilMaterials,
+} from './render/section-cap.js'
 import { EXCLUDE_FROM_FRAME, type ViewerCamera, screenLength } from './render/camera.js'
 import type { ViewerTheme } from './render/theme.js'
 
-export interface SectionOptions {
-  enabled: boolean
-  /**
-   * The half-space that stays. Defaults to +Z, which keeps the top of the part
-   * and eats upward from the bottom as `offset` grows.
-   */
-  normal?: Vec3
-  /** Where the sweep sits, 0 (whole part) to 1 (gone). */
-  offset?: number
-  /** Key the cut off one surface instead, usually from `sectionFromPick`. */
-  plane?: SectionPlacement | null
-  /** How far past that surface to cut, in model units. */
-  depth?: number
-}
-
-export interface SectionState {
-  readonly enabled: boolean
-  readonly normal: Vec3
-  readonly offset: number
-  readonly constant: number
-  readonly plane: SectionPlacement | null
-  readonly depth: number | null
-  /**
-   * How far the cut can travel from its anchor, in model units, or `null` for a
-   * sweep — which is measured as a fraction of the part rather than a distance.
-   *
-   * Reported because a control that moves the cut has to be bounded by the same
-   * numbers the cut is, and only the viewer knows the part's extent along a
-   * given normal.
-   */
-  readonly depthRange: { readonly min: number; readonly max: number } | null
-}
-
-const DEFAULT_NORMAL: Vec3 = { x: 0, y: 0, z: 1 }
+export type { SectionOptions, SectionState }
 
 const FURNITURE = { [EXCLUDE_FROM_FRAME]: true }
 
@@ -82,7 +54,7 @@ export function resolveSectionPlane(
   // out the part had not loaded yet.
   if (!options?.enabled || box.isEmpty()) return null
 
-  const normal = options.plane?.normal ?? options.normal ?? DEFAULT_NORMAL
+  const normal = options.plane?.normal ?? options.normal ?? DEFAULT_SECTION_NORMAL
   const axis = new Vector3(normal.x, normal.y, normal.z)
   if (axis.lengthSq() === 0) axis.set(0, 0, 1)
   axis.normalize()
@@ -119,14 +91,22 @@ interface SectionViewProps {
   onDrag?: (constant: number) => void
 }
 
+const Z = new Vector3(0, 0, 1)
+
 /**
- * A clipping plane with a solid cap over the cut, and an arrow that drags it.
+ * A clipping plane with a hatched cap over the cut, and an arrow that drags it.
  *
  * The cap is the standard two-pass stencil trick: draw the clipped geometry's
  * back faces incrementing the stencil and its front faces decrementing it, so a
  * non-zero stencil marks exactly where the plane passes through solid material,
  * then fill that region with a quad. Without it a section shows the inside of
  * the far wall and the part reads as hollow.
+ *
+ * The fill is hatched and outlined — see `render/section-cap.ts` — which takes
+ * a pre-pass: the same stencil trick is run once more into a render target on
+ * its own, so the cap's shader can find its edge by sampling that mask. That
+ * pass draws a scene of its own holding nothing but the stencil meshes and the
+ * mask quad, at a priority ahead of R3F's own render.
  *
  * **The renderer must be created with `stencil: true`.** three defaults it to
  * false, and without it every one of those stencil operations is a silent
@@ -143,29 +123,23 @@ export const SectionView = ({
 }: SectionViewProps) => {
   const camera = useThree((state) => state.camera) as ViewerCamera
   const size = useThree((state) => state.size)
+  const dpr = useThree((state) => state.viewport.dpr)
+  const gl = useThree((state) => state.gl)
   const invalidate = useThree((state) => state.invalidate)
   const controls = useThree((state) => state.controls)
   const domElement = useThree((state) => state.gl.domElement)
 
-  const capRef = useRef<Group>(null)
   const handleRef = useRef<Group>(null)
   const [hovered, setHovered] = useState(false)
   const dragging = useRef<{ plane: Plane; from: number; constant: number } | null>(null)
 
-  const centre = useMemo(() => box.getCenter(new Vector3()), [box])
   const span = useMemo(() => box.getSize(new Vector3()).length(), [box])
   const clip = useMemo(() => [plane], [plane])
 
   // Where the cap sits: on the plane, over the part's centre.
-  const capPosition = useMemo(() => {
-    const point = centre.clone()
-    return point.addScaledVector(plane.normal, -(plane.constant + plane.normal.dot(centre)))
-  }, [centre, plane])
+  const capPosition = useMemo(() => sectionAnchor(box, plane), [box, plane])
 
-  const capQuaternion = useMemo(
-    () => new Quaternion().setFromUnitVectors(new Vector3(0, 0, 1), plane.normal),
-    [plane],
-  )
+  const capQuaternion = useMemo(() => new Quaternion().setFromUnitVectors(Z, plane.normal), [plane])
   // Aimed out of the material rather than into it. The plane's normal points
   // into the half that stays, so an arrow along it would be buried under the
   // cap it is meant to drag.
@@ -173,6 +147,70 @@ export const SectionView = ({
     () => new Quaternion().setFromUnitVectors(CONE_AXIS, plane.normal.clone().negate()),
     [plane],
   )
+
+  // The stencil materials, the mask target and the cap material are built once
+  // and updated in place: a drag moves the plane on every pointer event, and
+  // rebuilding three materials and a scene for each one is work the GPU has to
+  // undo again.
+  const stencils = useMemo(() => createStencilMaterials([]), [])
+  useEffect(() => () => stencils.forEach((material) => material.dispose()), [stencils])
+  useLayoutEffect(() => {
+    for (const material of stencils) material.clippingPlanes = clip
+  }, [clip, stencils])
+
+  const mask = useMemo(() => createMaskTarget(), [])
+  useEffect(() => () => mask.dispose(), [mask])
+
+  const cap = useMemo(() => createCapMaterial(mask.texture), [mask])
+  useEffect(() => () => cap.dispose(), [cap])
+
+  // The mask pass's own scene: the same stencil meshes over the same geometry,
+  // and a quad that paints white wherever they left the stencil set.
+  const quad = useMemo(() => new PlaneGeometry(span * 1.5, span * 1.5), [span])
+  useEffect(() => () => quad.dispose(), [quad])
+
+  const maskScene = useMemo(() => {
+    const scene = new Scene()
+    const [back, front] = stencils
+    const backMesh = new Mesh(geometry, back)
+    backMesh.renderOrder = SECTION_RENDER_ORDER.stencil
+    const frontMesh = new Mesh(geometry, front)
+    frontMesh.renderOrder = SECTION_RENDER_ORDER.stencil
+    const maskMesh = new Mesh(quad, createMaskMaterial())
+    maskMesh.renderOrder = SECTION_RENDER_ORDER.cap
+    scene.add(backMesh, frontMesh, maskMesh)
+    return { scene, maskMesh }
+  }, [geometry, quad, stencils])
+  useEffect(() => () => (maskScene.maskMesh.material as { dispose(): void }).dispose(), [maskScene])
+
+  useEffect(() => {
+    maskScene.maskMesh.position.copy(capPosition)
+    maskScene.maskMesh.quaternion.copy(capQuaternion)
+  }, [capPosition, capQuaternion, maskScene])
+
+  // Sized to the drawing buffer rather than to the CSS size: the shader
+  // measures in `gl_FragCoord`, which is device pixels. A layout effect, so the
+  // first frame the cap draws in is already themed.
+  useLayoutEffect(() => {
+    const buffer = gl.getDrawingBufferSize(new Vector2())
+    mask.setSize(buffer.x, buffer.y)
+    cap.uniforms.uResolution.value.copy(buffer)
+    applyCapTheme(cap, theme, dpr)
+    invalidate()
+  }, [cap, dpr, gl, invalidate, mask, size, theme])
+
+  // Before R3F's own render, so the mask the cap samples is this frame's.
+  const clearColor = useMemo(() => new Color(), [])
+  useFrame(({ gl: renderer, camera: eye }) => {
+    const previousAlpha = renderer.getClearAlpha()
+    renderer.getClearColor(clearColor)
+    renderer.setRenderTarget(mask)
+    renderer.setClearColor(0x000000, 1)
+    renderer.clear()
+    renderer.render(maskScene.scene, eye)
+    renderer.setRenderTarget(null)
+    renderer.setClearColor(clearColor, previousAlpha)
+  }, -1)
 
   // The handle is a control, so it holds its size on screen: in world units it
   // would be a thumbnail on a plate and a wall on an insert.
@@ -269,52 +307,29 @@ export const SectionView = ({
     <group userData={FURNITURE}>
       {/* The stencil pass. Back faces increment and front faces decrement, so
           what is left marks where the plane is inside solid material. */}
-      <mesh geometry={geometry} renderOrder={SECTION_RENDER_ORDER.stencil} raycast={() => null}>
-        <meshBasicMaterial
-          side={BackSide}
-          depthWrite={false}
-          depthTest={false}
-          colorWrite={false}
-          stencilWrite
-          stencilFunc={AlwaysStencilFunc}
-          stencilFail={IncrementWrapStencilOp}
-          stencilZFail={IncrementWrapStencilOp}
-          stencilZPass={IncrementWrapStencilOp}
-          clippingPlanes={clip}
-        />
-      </mesh>
-      <mesh geometry={geometry} renderOrder={SECTION_RENDER_ORDER.stencil} raycast={() => null}>
-        <meshBasicMaterial
-          side={FrontSide}
-          depthWrite={false}
-          depthTest={false}
-          colorWrite={false}
-          stencilWrite
-          stencilFunc={AlwaysStencilFunc}
-          stencilFail={DecrementWrapStencilOp}
-          stencilZFail={DecrementWrapStencilOp}
-          stencilZPass={DecrementWrapStencilOp}
-          clippingPlanes={clip}
-        />
-      </mesh>
+      <mesh
+        geometry={geometry}
+        material={stencils[0]}
+        renderOrder={SECTION_RENDER_ORDER.stencil}
+        raycast={() => null}
+      />
+      <mesh
+        geometry={geometry}
+        material={stencils[1]}
+        renderOrder={SECTION_RENDER_ORDER.stencil}
+        raycast={() => null}
+      />
 
       {/* The cap: a quad over the whole cut, filled only where the stencil says
           the plane is inside material. */}
-      <group ref={capRef} position={capPosition} quaternion={capQuaternion}>
-        <mesh renderOrder={SECTION_RENDER_ORDER.cap} raycast={() => null}>
-          <planeGeometry args={[span * 1.5, span * 1.5]} />
-          <meshBasicMaterial
-            color={theme.sectionCap}
-            side={DoubleSide}
-            stencilWrite
-            stencilRef={0}
-            stencilFunc={NotEqualStencilFunc}
-            stencilFail={ReplaceStencilOp}
-            stencilZFail={ReplaceStencilOp}
-            stencilZPass={ReplaceStencilOp}
-          />
-        </mesh>
-      </group>
+      <mesh
+        geometry={quad}
+        material={cap}
+        position={capPosition}
+        quaternion={capQuaternion}
+        renderOrder={SECTION_RENDER_ORDER.cap}
+        raycast={() => null}
+      />
 
       {showHandle && onDrag ? (
         <group
