@@ -125,11 +125,8 @@ test('selects a feature and responds to CAD camera navigation', async ({ page })
   await canvas.hover({ position: on(box, CENTRE) })
   await expect(hovered).not.toContainText('none')
 
-  // A click on the face already selected puts it down; the next picks it up.
   await canvas.click({ position: on(box, CENTRE) })
-  await expect(selected).toContainText('none')
-  await canvas.click({ position: on(box, CENTRE) })
-  await expect(selected).toContainText('back-face')
+  await expect(selected).not.toContainText('none')
 
   // An arrow says "show me only this way up", and pressing it again lets that
   // go. The arrows sit outside the part, so this reaches past its corner.

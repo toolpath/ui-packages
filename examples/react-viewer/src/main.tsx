@@ -320,11 +320,7 @@ const App = () => {
               if (state.enabled) setOffset(state.offset)
             }}
             onHover={(pick: PartPick | null) => setHovered(pick ? [...pick.owners] : [])}
-            // A click on the face already selected puts it down. The viewer
-            // reports every pick and never decides this itself; see `onPick`.
-            onPick={(pick: PartPick) =>
-              setSelected((held) => (sameFeatures(held, pick.ranked) ? [] : [...pick.ranked]))
-            }
+            onPick={(pick: PartPick) => setSelected([...pick.ranked])}
           />
           <DirectionArrows
             directions={cube.candidateDirections}
@@ -340,10 +336,6 @@ const App = () => {
     </main>
   )
 }
-
-/** Whether two selections name the same features in the same order. */
-const sameFeatures = (a: readonly string[], b: readonly string[]) =>
-  a.length === b.length && a.every((tag, index) => tag === b[index])
 
 /**
  * The cut the slider asks for at `t`, 0 (whole part) to 1 (gone), moved along
