@@ -23,19 +23,6 @@ Toolpath Engine. You can also give it your own geometry.
 npm install @toolpath/viewer react react-dom three @react-three/fiber @react-three/drei
 ```
 
-| Peer dependency      | Version     |
-| -------------------- | ----------- |
-| `react`, `react-dom` | `^19.0.0`   |
-| `three`              | `>=0.159.0` |
-| `@react-three/fiber` | `^9.7.0`    |
-| `@react-three/drei`  | `^10.7.8`   |
-
-Install these yourself, and install only one copy of each. **If your app ends up with two copies of
-`three`, the scene renders empty and no error tells you why.** Run `npm ls three` to check.
-
-The viewer only works in the browser. You can import it in a server-rendered app (Next.js, React
-Router, etc.), but render `<Viewer>` from a client component.
-
 ## Quick start
 
 Pass a part report from the Toolpath API to `<EnginePart>`:
