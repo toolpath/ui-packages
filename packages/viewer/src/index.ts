@@ -8,12 +8,22 @@ export { PartMesh } from './part-mesh.js'
 export { Axes, Grid, ViewCube } from './primitives.js'
 export { DirectionArrows } from './direction-arrows.js'
 export { SectionView, resolveSectionPlane } from './section-view.js'
+export { SectionTool } from './section-tool.js'
 export {
+  AXES_PLANE_OFFSET,
+  AXES_PLANE_SCALE,
+  CAP_HATCH,
+  DEFAULT_SECTION_NORMAL,
+  DISABLED_SECTION,
   HANDLE_PIXELS,
+  OUTLINE_SCALE,
   PICKED_SURFACE_LABEL,
+  PREVIEW_SCALE,
   SECTION_RENDER_ORDER,
+  axesPlanes,
   dragPlane,
   pickedStartDepth,
+  sectionAnchor,
   sectionBounds,
   sectionConstant,
   sectionDepth,
@@ -21,8 +31,18 @@ export {
   sectionDepthRange,
   sectionFromPick,
   sectionOffset,
+  sectionOptionsFromState,
   sectionPlane,
+  surfaceUnderRay,
 } from './render/section.js'
+export { createSectionStore } from './render/section-store.js'
+export {
+  applyCapTheme,
+  createCapMaterial,
+  createMaskMaterial,
+  createMaskTarget,
+  createStencilMaterials,
+} from './render/section-cap.js'
 export { arrowPlacement } from './render/directions.js'
 export { useContentBox } from './content-box.js'
 export { useTapGuard } from './tap.js'
@@ -60,6 +80,7 @@ export {
   cameraLimits,
   contentBounds,
   currentViewDirection,
+  excludedFromFrame,
   defaultBounds,
   fitDistance,
   orthographicHalfHeight,
@@ -69,7 +90,7 @@ export {
   targetBoundary,
 } from './render/camera.js'
 export { ExtendedCameraControls } from './render/controls.js'
-export { useRetarget, useViewerControls, Viewer } from './viewer.js'
+export { useRetarget, useSectionStore, useViewerControls, Viewer } from './viewer.js'
 export { PartReportFormatError, UnsupportedKernelVersionError } from './model/errors.js'
 export { buildRegionIndex } from './model/region-index.js'
 export {
@@ -147,8 +168,18 @@ export type { AxesProps, GridProps, ViewCubeProps } from './primitives.js'
 export type { CubeZone, ViewKind, ViewName } from './render/view-cube.js'
 export type { DirectionArrowsProps, NamedDirection } from './direction-arrows.js'
 export type { ArrowPlacement } from './render/directions.js'
-export type { SectionOptions, SectionState } from './section-view.js'
-export type { SectionAnchor, SectionBounds, SectionPlacement } from './render/section.js'
+export type {
+  AxesPlane,
+  SectionAnchor,
+  SectionBounds,
+  SectionOptions,
+  SectionPlacement,
+  SectionState,
+  SurfaceHit,
+} from './render/section.js'
+export type { SectionStore } from './render/section-store.js'
+export type { CapMaterial, CapUniforms } from './render/section-cap.js'
+export type { SectionToolProps } from './section-tool.js'
 export type { GridSpec } from './render/grid.js'
 export type { DoubleTapPoint, DoubleTapTracker, TapPoint, TapTracker } from './render/tap.js'
 export type { CadCameraControlsProps } from './camera.js'

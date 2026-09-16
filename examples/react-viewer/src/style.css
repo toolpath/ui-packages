@@ -64,6 +64,22 @@ strong {
 .viewer-toolbar button:hover {
   background: #303b51;
 }
+.viewer-toolbar button[aria-pressed='true'] {
+  border-color: #83a9ff;
+  background: #2b3f66;
+}
+.viewer-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #b9c0d1;
+  font-size: 0.85rem;
+}
+.viewer-hint {
+  align-self: center;
+  color: #b9c0d1;
+  font-size: 0.85rem;
+}
 @media (max-width: 760px) {
   main {
     grid-template-columns: 1fr;

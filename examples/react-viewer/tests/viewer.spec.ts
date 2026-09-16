@@ -77,24 +77,59 @@ test('the click points hit the faces the rest of this file is written about', as
 test('selects a feature and responds to CAD camera navigation', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
 
-  // The section. Driven through its slider rather than by dragging the handle
-  // in the viewport: the handle is a dozen pixels across, its position depends
-  // on the canvas size, and a drag over software WebGL on CI is slow enough to
-  // outlast the timeout. The drag's own maths are unit tested; what this covers
-  // is that a cut happens and reports itself.
+  // The section. A click on a face while the tool is up places a cut there,
+  // which is the tool's whole reason to exist. Moved through the slider rather
+  // than by dragging the handle in the viewport: the handle is a dozen pixels
+  // across, its position depends on the canvas size, and a drag over software
+  // WebGL on CI is slow enough to outlast the timeout. The drag's own maths are
+  // unit tested; what this covers is that the cut moves and reports itself.
   const cut = page.locator('p', { hasText: 'Cut:' })
-  await page.getByRole('button', { name: 'Section' }).click()
-  await expect(cut).toContainText('45%')
-  await page.getByRole('slider').fill('0.8')
-  await expect(cut).toContainText('80%')
-  await page.getByRole('button', { name: 'Section' }).click()
-  await expect(cut).toContainText('off')
-
-  await canvas.hover({ position: on(box, CENTRE) })
-  await expect(page.getByText('Hovered:', { exact: false })).not.toContainText('none')
-
+  const hovered = page.locator('p', { hasText: 'Hovered:' })
+  const selected = page.locator('p', { hasText: 'Selected:' })
+  // A selection made before section mode is put down on the way in: nothing
+  // could change it while the tool is up.
   await canvas.click({ position: on(box, CENTRE) })
-  await expect(page.getByText('Selected:', { exact: false })).not.toContainText('none')
+  await expect(selected).toContainText('back-face')
+  await page.getByRole('button', { name: 'Section' }).click()
+  await expect(cut).toContainText('none')
+  await expect(selected).toContainText('none')
+  // Nothing to move yet, so nothing to move it with.
+  await expect(page.getByRole('slider')).toHaveCount(0)
+  // The pointer is the tool's for as long as it is up: a face under it is not
+  // hovered, the click that cuts through it does not also select it, and the
+  // cut part is not picked at either.
+  await canvas.hover({ position: on(box, CENTRE) })
+  await expect(hovered).toContainText('none')
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(cut).toContainText('Part surface')
+  await expect(selected).toContainText('none')
+  await canvas.click({ position: on(box, ONE) })
+  await expect(selected).toContainText('none')
+  await expect(hovered).toContainText('none')
+  // The slider moves the cut that is there — deeper past the picked face —
+  // rather than starting a Z sweep of its own over it.
+  await page.getByRole('slider').fill('0.5')
+  await expect(cut).toContainText('Part surface')
+  await expect(cut).not.toContainText('0.22 mm')
+  await page.keyboard.press('Escape')
+  await expect(cut).toContainText('none')
+  await canvas.click({ position: on(box, CENTRE) })
+  await page.getByRole('button', { name: 'Clear cut' }).click()
+  await expect(cut).toContainText('none')
+  await page.getByRole('button', { name: 'Exit section' }).click()
+  await expect(cut).toContainText('off')
+  // ...and the selection put down on the way in is picked back up.
+  await expect(selected).toContainText('back-face')
+
+  // Leaving section mode gives the pointer back.
+  await canvas.hover({ position: on(box, CENTRE) })
+  await expect(hovered).not.toContainText('none')
+
+  // A click on the face already selected puts it down; the next picks it up.
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(selected).toContainText('none')
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(selected).toContainText('back-face')
 
   // An arrow says "show me only this way up", and pressing it again lets that
   // go. The arrows sit outside the part, so this reaches past its corner.
@@ -123,12 +158,12 @@ test('selects a feature and responds to CAD camera navigation', async ({ page })
   // edge view and must move the camera.
   const cube = { x: box.width - 80, y: 80 }
   const beforeCube = await canvas.screenshot()
-  const selected = await page.getByText('Selected:', { exact: false }).textContent()
+  const selectedText = await selected.textContent()
   await canvas.click({ position: { x: cube.x, y: cube.y + 34 } })
   await expect.poll(async () => Buffer.compare(beforeCube, await canvas.screenshot())).not.toBe(0)
   // Moving the camera is not picking a feature: if this click had fallen
   // through to the part, the selection would have changed with it.
-  await expect(page.getByText('Selected:', { exact: false })).toHaveText(selected ?? '')
+  await expect(selected).toHaveText(selectedText ?? '')
 })
 
 test('pans with either pan button, from wherever the drag starts', async ({ page }) => {

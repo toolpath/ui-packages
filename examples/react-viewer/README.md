@@ -15,7 +15,7 @@ defaults and this example's are not the same:
 
 | URL                         | What it shows                                                       |
 | --------------------------- | ------------------------------------------------------------------- |
-| `/`                         | A perspective camera. Picking, the section, panning, the view cube. |
+| `/`                         | A perspective camera. Picking, the section tool, panning, the cube. |
 | `/?projection=orthographic` | The projection `@toolpath/viewer` itself defaults to.               |
 | `/?orbitTarget=on`          | `showOrbitTarget` — two circles at the point the view turns about.  |
 

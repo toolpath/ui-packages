@@ -8,11 +8,14 @@ import {
   DirectionArrows,
   ViewCube,
   PartMesh,
+  SectionTool,
   Viewer,
   buildRegionIndex,
   type PartModel,
   type PartPick,
   type Projection,
+  type SectionOptions,
+  type SectionState,
   type ViewerHandle,
 } from '@toolpath/viewer'
 import './style.css'
@@ -153,7 +156,16 @@ const App = () => {
   const viewerRef = useRef<ViewerHandle>(null)
   const [hovered, setHovered] = useState<string[]>([])
   const [selected, setSelected] = useState<string[]>([])
-  const [cut, setCut] = useState(0.45)
+  // The selection put down on entering section mode, to pick up again on the
+  // way out. A ref rather than state: nothing renders from it.
+  const heldSelection = useRef<string[]>([])
+  /**
+   * The cut is the viewer's own: `<PartMesh>` below is given no `section`, so
+   * it follows whatever `<SectionTool>` places, the slider sets through
+   * `setSection`, and the handle drags. `cut` is only what it reports back.
+   */
+  const [cut, setCut] = useState<SectionState | null>(null)
+  const [offset, setOffset] = useState(0.45)
   const [sectioning, setSectioning] = useState(false)
   const [direction, setDirection] = useState<number | null>(null)
   const [pose, setPose] = useState<CameraState>(AT_START)
@@ -173,7 +185,9 @@ const App = () => {
         <h1>One-inch cube</h1>
         <p>
           Left-drag to orbit, middle/right-drag to pan, scroll to zoom, and click a face to select
-          it.
+          it. Press <strong>Section</strong>, then click a face to cut through it or one of the
+          three planes behind the part to cut along an axis; drag the arrow to move the cut, and
+          press Escape to clear it.
         </p>
         <p>
           <strong>Hovered:</strong> {hovered.join(', ') || 'none'}
@@ -182,7 +196,7 @@ const App = () => {
           <strong>Selected:</strong> {selected.join(', ') || 'none'}
         </p>
         <p>
-          <strong>Cut:</strong> {sectioning ? `${Math.round(cut * 100)}%` : 'off'}
+          <strong>Cut:</strong> {describeCut(sectioning, cut)}
         </p>
         <p>
           <strong>Direction:</strong> {direction === null ? 'all' : String(direction)}
@@ -220,21 +234,51 @@ const App = () => {
           <button type="button" onClick={() => viewerRef.current?.frameBox(DETAIL)}>
             Frame detail
           </button>
-          <button type="button" onClick={() => setSectioning((on) => !on)}>
-            Section
+          <button
+            type="button"
+            aria-pressed={sectioning}
+            onClick={() => {
+              // Entering section mode puts the selection down — the part
+              // reports no picks while the tool is up, so a selection left
+              // standing could not be changed — and offers a cut; the tool
+              // below is what does the offering. Leaving takes the cut with it
+              // and picks the selection back up where it was.
+              if (sectioning) {
+                viewerRef.current?.setSection(null)
+                setSelected(heldSelection.current)
+              } else {
+                heldSelection.current = selected
+                setSelected([])
+              }
+              setSectioning((on) => !on)
+            }}
+          >
+            {sectioning ? 'Exit section' : 'Section'}
           </button>
-          {sectioning ? (
-            <label>
-              <span className="sr-only">Cut depth</span>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
-                value={cut}
-                onChange={(event) => setCut(Number(event.target.value))}
-              />
-            </label>
+          {sectioning && cut ? (
+            <>
+              <label>
+                Cut depth
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={offset}
+                  onChange={(event) => {
+                    const next = Number(event.target.value)
+                    setOffset(next)
+                    viewerRef.current?.setSection(sweepTo(cut, next))
+                  }}
+                />
+              </label>
+              <button type="button" onClick={() => viewerRef.current?.setSection(null)}>
+                Clear cut
+              </button>
+            </>
+          ) : null}
+          {sectioning && !cut ? (
+            <span className="viewer-hint">Click a face or a plane · Esc clears</span>
           ) : null}
         </div>
         {/*
@@ -271,16 +315,23 @@ const App = () => {
             model={cube}
             geometry={geometry}
             selection={selected}
-            section={{ enabled: sectioning, normal: { x: 0, y: 0, z: -1 }, offset: cut }}
-            onSectionChange={(state) => setCut(state.offset)}
+            onSectionChange={(state) => {
+              setCut(state.enabled ? state : null)
+              if (state.enabled) setOffset(state.offset)
+            }}
             onHover={(pick: PartPick | null) => setHovered(pick ? [...pick.owners] : [])}
-            onPick={(pick: PartPick) => setSelected([...pick.ranked])}
+            // A click on the face already selected puts it down. The viewer
+            // reports every pick and never decides this itself; see `onPick`.
+            onPick={(pick: PartPick) =>
+              setSelected((held) => (sameFeatures(held, pick.ranked) ? [] : [...pick.ranked]))
+            }
           />
           <DirectionArrows
             directions={cube.candidateDirections}
             shownDirection={direction}
             onPickDirection={(index) => setDirection((held) => (held === index ? null : index))}
           />
+          {sectioning ? <SectionTool /> : null}
           <Grid />
           <Axes size={35} />
           <ViewCube />
@@ -288,6 +339,38 @@ const App = () => {
       </div>
     </main>
   )
+}
+
+/** Whether two selections name the same features in the same order. */
+const sameFeatures = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((tag, index) => tag === b[index])
+
+/**
+ * The cut the slider asks for at `t`, 0 (whole part) to 1 (gone), moved along
+ * the cut that is already there rather than along an axis of the slider's own.
+ *
+ * A sweep keeps its normal, so a cut started from the X plane stays an X cut.
+ * A cut placed on a face keeps its anchor and is moved by depth instead — the
+ * state reports `depthRange` for exactly this, and its `min` is the depth at
+ * which nothing is cut, so `t` maps straight onto it.
+ */
+function sweepTo(cut: SectionState, t: number): SectionOptions {
+  if (cut.plane && cut.depthRange) {
+    const { min, max } = cut.depthRange
+    return { enabled: true, plane: cut.plane, depth: min + t * (max - min) }
+  }
+  return { enabled: true, normal: cut.normal, offset: t }
+}
+
+/**
+ * The cut, in a sentence. A sweep is a fraction of the part; a cut placed on
+ * a face is a depth past that face, and says which face.
+ */
+function describeCut(sectioning: boolean, cut: SectionState | null): string {
+  if (!sectioning) return 'off'
+  if (!cut) return 'none — click a face, or a plane behind the part'
+  if (cut.plane) return `${cut.plane.label ?? 'Part surface'}, ${(cut.depth ?? 0).toFixed(2)} mm in`
+  return `${Math.round(cut.offset * 100)}%`
 }
 
 createRoot(document.getElementById('root')!).render(

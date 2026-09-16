@@ -1,5 +1,6 @@
-import { type Box3, Plane, Vector3 } from 'three'
+import { type Box3, type Object3D, Plane, type Raycaster, Vector3 } from 'three'
 import type { Vec3 } from '../model/types.js'
+import { excludedFromFrame } from './camera.js'
 
 /**
  * Render order. The stencil pass must precede the cap, and the part must draw
@@ -10,6 +11,8 @@ export const SECTION_RENDER_ORDER = {
   stencil: 1,
   cap: 2,
   handle: 6,
+  /** The tool's translucent plane and its outline, over everything but the handle. */
+  outline: 5,
 } as const
 
 /** How far past a picked surface the cut starts, as a fraction of the diagonal. */
@@ -18,8 +21,195 @@ const START_DEPTH = 0.005
 /** The handle's length on screen, in CSS pixels, whatever the zoom. */
 export const HANDLE_PIXELS = 78
 
+/**
+ * The hatch on the cap: stripe pitch and line thickness in CSS pixels, and the
+ * outline's width. Screen-space, so the cut reads the same at any zoom.
+ */
+export const CAP_HATCH = {
+  pitch: 9,
+  line: 1.25,
+  outline: 1.5,
+} as const
+
+/**
+ * The global cutting planes the tool offers: how far outside the part each one
+ * stands, and how much larger than the part it is drawn. Both are fractions of
+ * the part's largest dimension.
+ */
+export const AXES_PLANE_OFFSET = 0.55
+export const AXES_PLANE_SCALE = 1.2
+
+/** The surface preview under the pointer, as a fraction of the part's diagonal. */
+export const PREVIEW_SCALE = 0.125
+
+/** How far the tool's translucent plane extends past the part, as a fraction of the diagonal. */
+export const OUTLINE_SCALE = 1.2
+
 const EPSILON = 1e-9
 const ARROW_AXIS = new Vector3(0, 1, 0)
+
+export interface SectionOptions {
+  enabled: boolean
+  /**
+   * The half-space that stays. Defaults to +Z, which keeps the top of the part
+   * and eats upward from the bottom as `offset` grows.
+   */
+  normal?: Vec3
+  /** Where the sweep sits, 0 (whole part) to 1 (gone). */
+  offset?: number
+  /** Key the cut off one surface instead, usually from `sectionFromPick`. */
+  plane?: SectionPlacement | null
+  /** How far past that surface to cut, in model units. */
+  depth?: number
+}
+
+export interface SectionState {
+  readonly enabled: boolean
+  readonly normal: Vec3
+  readonly offset: number
+  readonly constant: number
+  readonly plane: SectionPlacement | null
+  readonly depth: number | null
+  /**
+   * How far the cut can travel from its anchor, in model units, or `null` for a
+   * sweep — which is measured as a fraction of the part rather than a distance.
+   *
+   * Reported because a control that moves the cut has to be bounded by the same
+   * numbers the cut is, and only the viewer knows the part's extent along a
+   * given normal.
+   */
+  readonly depthRange: { readonly min: number; readonly max: number } | null
+}
+
+export const DEFAULT_SECTION_NORMAL: Vec3 = { x: 0, y: 0, z: 1 }
+
+/**
+ * What is reported when a cut goes away.
+ *
+ * A state rather than `null`, so a consumer that echoes the callback into its
+ * own state never has to special-case the absence: `enabled` says it.
+ */
+export const DISABLED_SECTION: SectionState = {
+  enabled: false,
+  normal: DEFAULT_SECTION_NORMAL,
+  offset: 0,
+  constant: 0,
+  plane: null,
+  depth: null,
+  depthRange: null,
+}
+
+/**
+ * The options that would resolve to `state` again.
+ *
+ * A cut keyed off a surface keeps its anchor and is moved by depth; a sweep is
+ * moved by offset. The state carries both descriptions, and which one to keep
+ * is what makes a dragged cut stay anchored to the face it was picked from.
+ */
+export function sectionOptionsFromState(state: SectionState): SectionOptions {
+  if (state.plane) {
+    return { enabled: state.enabled, plane: state.plane, depth: state.depth ?? 0 }
+  }
+  return { enabled: state.enabled, normal: state.normal, offset: state.offset }
+}
+
+/** One of the three global cutting planes the tool offers. */
+export interface AxesPlane {
+  /** Which world axis the plane is perpendicular to. */
+  readonly axis: 'x' | 'y' | 'z'
+  /** Which side of the part the camera is on along that axis, +1 or -1. */
+  readonly sign: 1 | -1
+  /** Where to draw it: outside the part, on the side away from the camera. */
+  readonly position: Vec3
+  /** Its edge length. */
+  readonly size: number
+  /** The sweep a click on it starts: cutting in from the camera's side, halfway through. */
+  readonly options: SectionOptions
+}
+
+/**
+ * Where the three global planes stand for a camera at `eye`.
+ *
+ * They sit past the part on the side *away* from the camera, like the walls of
+ * a room the part is standing in, so the part is never hidden behind them —
+ * and each one cuts in from the camera's own side, which is the half of the
+ * part somebody looking at it can see into. A camera dead on an axis has no
+ * side along the other two; they fall to +1, so the planes still stand
+ * somewhere rather than at the part's centre.
+ */
+export function axesPlanes(box: Box3, eye: Vec3): readonly AxesPlane[] {
+  const centre = box.getCenter(new Vector3())
+  const extent = box.getSize(new Vector3())
+  const largest = Math.max(extent.x, extent.y, extent.z)
+  const size = largest * AXES_PLANE_SCALE
+  const offset = largest * AXES_PLANE_OFFSET
+
+  const side = (delta: number): 1 | -1 => (delta < 0 ? -1 : 1)
+  const sx = side(eye.x - centre.x)
+  const sy = side(eye.y - centre.y)
+  const sz = side(eye.z - centre.z)
+
+  return [
+    {
+      axis: 'x',
+      sign: sx,
+      position: { x: centre.x - sx * offset, y: centre.y, z: centre.z },
+      size,
+      options: { enabled: true, normal: { x: -sx, y: 0, z: 0 }, offset: 0.5 },
+    },
+    {
+      axis: 'y',
+      sign: sy,
+      position: { x: centre.x, y: centre.y - sy * offset, z: centre.z },
+      size,
+      options: { enabled: true, normal: { x: 0, y: -sy, z: 0 }, offset: 0.5 },
+    },
+    {
+      axis: 'z',
+      sign: sz,
+      position: { x: centre.x, y: centre.y, z: centre.z - sz * offset },
+      size,
+      options: { enabled: true, normal: { x: 0, y: 0, z: -sz }, offset: 0.5 },
+    },
+  ]
+}
+
+/** A point on the part under the pointer, with the surface's outward normal in world space. */
+export interface SurfaceHit {
+  readonly point: Vector3
+  readonly normal: Vector3
+}
+
+/**
+ * The nearest surface of the part along `raycaster`'s ray, or `null`.
+ *
+ * "The part" is whatever in the scene is a visible mesh outside an overlay —
+ * every overlay here marks its outermost group with `EXCLUDE_FROM_FRAME`, the
+ * same flag that keeps it out of the camera's framing, and the ones that are
+ * not clickable turn their own raycast off besides. What is left is the
+ * geometry the consumer put in. Used by the tool to preview a cut on a hovered
+ * face without the part having to tell it where the pointer is.
+ */
+export function surfaceUnderRay(raycaster: Raycaster, root: Object3D): SurfaceHit | null {
+  for (const hit of raycaster.intersectObjects(root.children, true)) {
+    if (!('isMesh' in hit.object) || !hit.face) continue
+    // three's raycaster does not skip hidden objects; R3F's event layer does
+    // that itself, and this ray is not R3F's.
+    if (!hit.object.visible || excludedFromFrame(hit.object, root)) continue
+    const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld)
+    return { point: hit.point, normal }
+  }
+  return null
+}
+
+/**
+ * Where the cut's plane meets the line through the part's centre along its
+ * normal — where the cap, the handle and the tool's outline all sit.
+ */
+export function sectionAnchor(box: Box3, plane: Plane, into = new Vector3()): Vector3 {
+  const centre = box.getCenter(into)
+  return centre.addScaledVector(plane.normal, -(plane.constant + plane.normal.dot(centre)))
+}
 
 export interface SectionBounds {
   /** Plane constant at which the whole part is clipped away. */
