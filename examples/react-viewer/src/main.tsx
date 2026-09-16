@@ -7,17 +7,20 @@ import {
   Grid,
   DirectionArrows,
   ViewCube,
+  MeasureTool,
   PartMesh,
   SectionTool,
   Viewer,
-  buildRegionIndex,
-  type PartModel,
+  measurementLabel,
+  type MeasureMode,
+  type Measurement,
   type PartPick,
   type Projection,
   type SectionOptions,
   type SectionState,
   type ViewerHandle,
 } from '@toolpath/viewer'
+import { MODELS, modelFromQuery } from './models'
 import './style.css'
 
 /**
@@ -37,52 +40,12 @@ const params = new URLSearchParams(window.location.search)
 const projection: Projection =
   params.get('projection') === 'orthographic' ? 'orthographic' : 'perspective'
 const showOrbitTarget = params.get('orbitTarget') === 'on'
-
 /**
- * A part the viewer can render, built by hand rather than fetched.
- *
- * A real one comes from `normalizePartReport(report)`. This is the same shape:
- * regions are half-open triangle ranges that tile the mesh completely,
- * `splitOrigin` groups regions derived from one original face, and features
- * name the regions they own. `buildRegionIndex` inverts that mapping and
- * rejects a table with a gap or an overlap.
+ * `?model=<id>` opens one of the parts in `./models.ts` — a plate with holes,
+ * a chamfered block, a pocket, a stepped boss — for the measure tool to work
+ * on. The cube is the default, and the one the browser suite is written about.
  */
-const cubeFaces = [
-  { tag: 'right-face', direction: { x: 1, y: 0, z: 0 } },
-  { tag: 'left-face', direction: { x: -1, y: 0, z: 0 } },
-  { tag: 'top-face', direction: { x: 0, y: 1, z: 0 } },
-  { tag: 'bottom-face', direction: { x: 0, y: -1, z: 0 } },
-  { tag: 'front-face', direction: { x: 0, y: 0, z: 1 } },
-  { tag: 'back-face', direction: { x: 0, y: 0, z: -1 } },
-]
-
-const regions = cubeFaces.map((_face, idx) => ({
-  idx,
-  // This example has no analysis splits, so every region is its own origin.
-  splitOrigin: idx,
-  shapeKind: 'Plane',
-  area: 25.4 * 25.4,
-  triangles: { start: idx * 2, end: idx * 2 + 2 },
-}))
-
-const features = cubeFaces.map((face, idx) => ({
-  tag: face.tag,
-  featureType: 'face',
-  machiningDirection: face.direction,
-  axis: face.direction,
-  regionIdxs: [idx],
-}))
-
-const cube: PartModel = {
-  partId: 'one-inch-cube',
-  kernelVersion: '0.3.0',
-  features,
-  regions,
-  candidateDirections: cubeFaces.map((face) => face.direction),
-  mesh: { pointCount: 36, triangleCount: 12, glbUrl: null, stlUrl: null, thumbnailUrl: null },
-  regionIndex: buildRegionIndex({ regions, features, triangleCount: 12 }),
-  warnings: [],
-}
+const startingModel = modelFromQuery(params)
 
 /** Where the camera is, as numbers rather than as pixels. */
 interface CameraState {
@@ -149,10 +112,7 @@ const CameraReadout = ({ onChange }: { onChange: (state: CameraState) => void })
 const DETAIL = new THREE.Box3(new THREE.Vector3(-1, -1, 11.7), new THREE.Vector3(1, 1, 13.7))
 
 const App = () => {
-  // Non-indexed on purpose. Highlighting is a per-vertex region attribute, and
-  // a vertex shared between two regions has no single value to carry — which is
-  // why the Engine mesh loader de-indexes too.
-  const geometry = useMemo(() => new THREE.BoxGeometry(25.4, 25.4, 25.4).toNonIndexed(), [])
+  const [part, setPart] = useState(startingModel)
   const viewerRef = useRef<ViewerHandle>(null)
   const [hovered, setHovered] = useState<string[]>([])
   const [selected, setSelected] = useState<string[]>([])
@@ -167,6 +127,15 @@ const App = () => {
   const [cut, setCut] = useState<SectionState | null>(null)
   const [offset, setOffset] = useState(0.45)
   const [sectioning, setSectioning] = useState(false)
+  /**
+   * Measuring is the same shape as sectioning: a mode the toolbar enters, with
+   * the selection put down on the way in. The list is the tool's own —
+   * `<MeasureTool>` below is given no `measurements` — and `measured` is only
+   * what it reports back, for the readout.
+   */
+  const [measuring, setMeasuring] = useState(false)
+  const [measureMode, setMeasureMode] = useState<MeasureMode>('distance')
+  const [measured, setMeasured] = useState<readonly Measurement[]>([])
   const [direction, setDirection] = useState<number | null>(null)
   const [pose, setPose] = useState<CameraState>(AT_START)
 
@@ -182,12 +151,39 @@ const App = () => {
     <main>
       <section>
         <p className="eyebrow">@toolpath/viewer</p>
-        <h1>One-inch cube</h1>
+        <h1>{part.name}</h1>
+        <label className="model-picker">
+          <select
+            value={part.id}
+            onChange={(event) => {
+              const next = MODELS.find((entry) => entry.id === event.target.value)
+              if (!next) return
+              // A new part is a new scene: the viewer is keyed on it, so it
+              // remounts, frames the new part, and drops the cut and the
+              // measurements with the tools that made them.
+              setPart(next)
+              setCut(null)
+              setMeasured([])
+              setSelected([])
+              setHovered([])
+            }}
+          >
+            {MODELS.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p>{part.hint}</p>
         <p>
           Left-drag to orbit, middle/right-drag to pan, scroll to zoom, and click a face to select
           it. Press <strong>Section</strong>, then click a face to cut through it or one of the
           three planes behind the part to cut along an axis; drag the arrow to move the cut, and
-          press Escape to clear it.
+          press Escape to clear it. Press <strong>Measure</strong>, then click two points for a
+          distance or three for an angle — the pointer snaps to corners, edges and their midpoints,
+          and Shift holds the next point to an axis. Delete removes the last measurement and Escape
+          drops one in progress.
         </p>
         <p>
           <strong>Hovered:</strong> {hovered.join(', ') || 'none'}
@@ -197,6 +193,9 @@ const App = () => {
         </p>
         <p>
           <strong>Cut:</strong> {describeCut(sectioning, cut)}
+        </p>
+        <p>
+          <strong>Measured:</strong> {describeMeasurements(measuring, measured)}
         </p>
         <p>
           <strong>Direction:</strong> {direction === null ? 'all' : String(direction)}
@@ -280,6 +279,48 @@ const App = () => {
           {sectioning && !cut ? (
             <span className="viewer-hint">Click a face or a plane · Esc clears</span>
           ) : null}
+          <button
+            type="button"
+            aria-pressed={measuring}
+            onClick={() => {
+              // The same bargain as section mode: the part reports no picks
+              // while a tool is up, so the selection is put down on the way in
+              // and picked back up on the way out. The measurements go with the
+              // tool — unmounting it is what clears them.
+              if (measuring) {
+                setMeasured([])
+                setSelected(heldSelection.current)
+              } else {
+                heldSelection.current = selected
+                setSelected([])
+              }
+              setMeasuring((on) => !on)
+            }}
+          >
+            {measuring ? 'Exit measure' : 'Measure'}
+          </button>
+          {measuring ? (
+            <>
+              <button
+                type="button"
+                aria-pressed={measureMode === 'distance'}
+                onClick={() => setMeasureMode('distance')}
+              >
+                Distance
+              </button>
+              <button
+                type="button"
+                aria-pressed={measureMode === 'angle'}
+                onClick={() => setMeasureMode('angle')}
+              >
+                Angle
+              </button>
+              <span className="viewer-hint">
+                {measureMode === 'distance' ? 'Click two points' : 'Click end, vertex, end'} · Shift
+                locks an axis · Del removes last · Esc drops
+              </span>
+            </>
+          ) : null}
         </div>
         {/*
           Perspective by default here, and the pin is the point rather than the
@@ -305,6 +346,7 @@ const App = () => {
           under `?orbitTarget=on`.
         */}
         <Viewer
+          key={part.id}
           ref={viewerRef}
           projection={projection}
           showOrbitTarget={showOrbitTarget}
@@ -312,8 +354,8 @@ const App = () => {
         >
           <CameraReadout onChange={onCamera} />
           <PartMesh
-            model={cube}
-            geometry={geometry}
+            model={part.model}
+            geometry={part.geometry}
             selection={selected}
             onSectionChange={(state) => {
               setCut(state.enabled ? state : null)
@@ -323,11 +365,12 @@ const App = () => {
             onPick={(pick: PartPick) => setSelected([...pick.ranked])}
           />
           <DirectionArrows
-            directions={cube.candidateDirections}
+            directions={part.model.candidateDirections}
             shownDirection={direction}
             onPickDirection={(index) => setDirection((held) => (held === index ? null : index))}
           />
           {sectioning ? <SectionTool /> : null}
+          {measuring ? <MeasureTool mode={measureMode} onChange={setMeasured} /> : null}
           <Grid />
           <Axes size={35} />
           <ViewCube />
@@ -363,6 +406,18 @@ function describeCut(sectioning: boolean, cut: SectionState | null): string {
   if (!cut) return 'none — click a face, or a plane behind the part'
   if (cut.plane) return `${cut.plane.label ?? 'Part surface'}, ${(cut.depth ?? 0).toFixed(2)} mm in`
   return `${Math.round(cut.offset * 100)}%`
+}
+
+/**
+ * The measurements, in a sentence: how many there are and what the last one
+ * reads, which is the one just made.
+ */
+function describeMeasurements(measuring: boolean, measured: readonly Measurement[]): string {
+  if (!measuring) return 'off'
+  const last = measured[measured.length - 1]
+  if (!last) return 'none — click two points for a distance, three for an angle'
+  const count = measured.length === 1 ? '1 measurement' : `${measured.length} measurements`
+  return `${count}, last ${measurementLabel(last)}`
 }
 
 createRoot(document.getElementById('root')!).render(

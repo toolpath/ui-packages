@@ -77,6 +77,7 @@ What each wrapper is for:
  │   └─ <PartMesh>        draws the part and handles hover, click, colours, section cuts
  ├─ <DirectionArrows>     arrows for the directions the part can be machined from
  ├─ <SectionTool>         optional: click a face or a plane to cut the part open
+ ├─ <MeasureTool>         optional: click two points for a distance, three for an angle
  ├─ <Grid> <Axes>         reference geometry, sized to the part
  └─ <ViewCube>            the clickable orientation cube in the corner
 ```
@@ -268,6 +269,39 @@ the part's own arrow drags it, an outlined sheet shows the cutting plane, and Es
 The cut it places is the viewer's own, and `<PartMesh>` follows it when given no `section` prop.
 While the tool is mounted the part reports no hovers or picks. Details and the controlled
 alternative are under [Section view](#section-view).
+
+### `<MeasureTool>`
+
+Measure the part from inside the viewport. Optional: mount it next to the part when the user
+enters measure mode, and unmount it when they leave.
+
+```tsx
+{
+  measuring ? <MeasureTool mode="distance" onChange={setMeasurements} /> : null
+}
+```
+
+The pointer snaps to what is under it — a corner first, then an edge's midpoint, then the edge,
+then the face — and a marker shows where the click will land. Two clicks measure a distance, three
+an angle (one arm's end, the vertex, the other arm's end), with a live readout between clicks.
+Finished measurements stay drawn over the part, each with a label, until Delete removes the last
+one or the tool is unmounted. Escape drops the points of one in progress, and Shift holds the next
+point to an axis through the last.
+
+| Prop             | What it does                                                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------ |
+| `mode`           | `'distance'` (default) or `'angle'`. Changing it drops any points already placed.                |
+| `measurements`   | Own the list. Omit it and the tool keeps its own.                                                |
+| `onChange`       | The list changed: a measurement finished, or Delete removed the last one.                        |
+| `showDeltas`     | Show a distance's X, Y and Z parts as dashed legs in the axis colours. On by default.            |
+| `format`         | Write a length. Millimetres to two places by default; pass your own to show inches.              |
+| `labelClassName` | Added to every label, beside `toolpath-measure-label`.                                           |
+| `theme`          | Override its colours — `measure` for lines, markers and labels, `measureSnap` for the indicator. |
+
+Labels are DOM elements laid over the canvas, styled inline so they read with no stylesheet.
+Restyle them through the `toolpath-measure-label` class, or `labelClassName`. While the tool is
+mounted the part reports no hovers or picks, as with `<SectionTool>`. Details are under
+[Measuring](#measuring).
 
 ### `<Grid>` and `<Axes>`
 
@@ -490,6 +524,51 @@ const [plane, setPlane] = useState<SectionPlacement | null>(null)
 />
 ```
 
+### Measuring
+
+Mount `<MeasureTool>` next to the part. It needs nothing else:
+
+```tsx
+const [measuring, setMeasuring] = useState(false)
+const [mode, setMode] = useState<MeasureMode>('distance')
+const [measurements, setMeasurements] = useState<readonly Measurement[]>([])
+
+<Viewer>
+  <EnginePart report={report} />
+  {measuring ? <MeasureTool mode={mode} onChange={setMeasurements} /> : null}
+</Viewer>
+```
+
+Hover the part and a marker shows where a click will land: a corner, an edge's midpoint, a point
+on an edge, or a point on the face, in that order of preference. It snaps to the edges the part
+draws — the boundaries between analytic surfaces — so a corner is a corner of the part, not of a
+mesh triangle. Click twice for a distance or three times for an angle. The line follows the pointer
+between clicks with a live readout.
+
+A distance is labelled with its length and, unless it already runs along an axis, broken into its
+X, Y and Z parts as dashed legs in the axis colours with a label each. `showDeltas={false}` turns
+the legs off. An angle draws its two arms and an arc, labelled in degrees.
+
+`onChange` reports the list whenever it changes. Each entry is a `Measurement`: `kind`, an `id`,
+and its `points` — two for a distance, three for an angle with the vertex in the middle. To own the
+list, pass `measurements` too; to clear it, unmount the tool or pass `[]`. `measurementLabel(m)`
+writes an entry the way the tool does, and `distanceBetween`, `deltaBetween` and `angleAt` are the
+arithmetic behind it.
+
+Lengths are written in millimetres by default. The part is in millimetres and the viewer does not
+convert, so pass `format` to show anything else:
+
+```tsx
+<MeasureTool format={(mm) => `${(mm / MM_PER_INCH).toFixed(3)} in`} />
+```
+
+Hold Shift to hold the next point to the X, Y or Z line through the last one — whichever axis the
+pointer is furthest along — so a length along an edge is measured square rather than slightly across
+it. The line wears that axis's colour while it is held, and the finished distance has no legs to
+show. Delete or Backspace removes the last measurement, unless focus is in a field. Escape drops the
+points of a measurement in progress. While the tool is mounted the part reports no hovers or picks;
+unmounting it hands the pointer back.
+
 ### Theming
 
 ```tsx
@@ -505,7 +584,9 @@ default lighting, so if you change one, check the other.
 
 The section cut is themed on the part too: `sectionCap` and `sectionHatch` are the cap's fill and
 hatch lines, `sectionHandle` the drag arrow, and `sectionOutline` the cutting-plane sheet and
-preview that `<SectionTool>` draws.
+preview that `<SectionTool>` draws. `measure` and `measureSnap` are `<MeasureTool>`'s lines and its
+snap indicator; a distance's X, Y, Z legs take `AXIS_COLORS`, the same hues as the section tool's
+global planes.
 
 `HIGHLIGHT_COLORS` has the standard selection colours (`default`, `toolIssue`, `geometryIssue`).
 `DIRECTION_COLORS` has the 9 direction colours, which repeat for parts with more than 9 directions.
@@ -758,18 +839,20 @@ is a complete app built this way, with no API key needed.
 
 ### Helpers
 
-| Helper                                                   | What it does                                               |
-| -------------------------------------------------------- | ---------------------------------------------------------- |
-| `normalizePartReport(report)`                            | Checks an API report and converts it to a `PartModel`.     |
-| `buildRegionIndex({ regions, features, triangleCount })` | Builds the lookups between triangles, faces, and features. |
-| `model.regionIndex.featuresForRegion(i)`                 | The features that own a face.                              |
-| `model.regionIndex.regionsForFeature(tag)`               | The faces that make up a feature.                          |
-| `focusForPick(pick, lastRegion, lastFocus)`              | Steps through a face's matches on repeated clicks.         |
-| `rankOwners` / `bestOwner`                               | The ranking `onPick` uses, if you want to run it yourself. |
-| `groupByDirection(model)`                                | Features grouped by machining direction.                   |
-| `directionLabel(v)` / `directionColor(i)`                | A direction's label and colour.                            |
-| `sectionFromPick({ point, normal })`                     | Turns a clicked surface into a section plane.              |
-| `engineGeometryCache.clear()`                            | Frees every cached mesh.                                   |
+| Helper                                                   | What it does                                                |
+| -------------------------------------------------------- | ----------------------------------------------------------- |
+| `normalizePartReport(report)`                            | Checks an API report and converts it to a `PartModel`.      |
+| `buildRegionIndex({ regions, features, triangleCount })` | Builds the lookups between triangles, faces, and features.  |
+| `model.regionIndex.featuresForRegion(i)`                 | The features that own a face.                               |
+| `model.regionIndex.regionsForFeature(tag)`               | The faces that make up a feature.                           |
+| `focusForPick(pick, lastRegion, lastFocus)`              | Steps through a face's matches on repeated clicks.          |
+| `rankOwners` / `bestOwner`                               | The ranking `onPick` uses, if you want to run it yourself.  |
+| `groupByDirection(model)`                                | Features grouped by machining direction.                    |
+| `directionLabel(v)` / `directionColor(i)`                | A direction's label and colour.                             |
+| `sectionFromPick({ point, normal })`                     | Turns a clicked surface into a section plane.               |
+| `measurementLabel(measurement, format?)`                 | Writes a measurement the way `<MeasureTool>` labels it.     |
+| `snapAt(hit, edges, camera, viewport)`                   | Where a point on the part snaps to, for a tool of your own. |
+| `engineGeometryCache.clear()`                            | Frees every cached mesh.                                    |
 
 The package also exports lower-level geometry, camera, and view-cube functions that the components
 use. They're listed in `dist/index.d.ts`.
@@ -779,8 +862,10 @@ use. They're listed in `dist/index.d.ts`.
 `ViewerProps`, `ViewerHandle`, `ViewerView`, `Projection`, `ControlScheme`, `EnginePartProps`,
 `PartMeshProps`, `PartPick`, `PickModifiers`, `PartModel`, `PartModelFeature`, `PartModelRegion`,
 `FeatureTag`, `FeatureType`, `Vec3`, `FeatureHighlight`, `RegionHighlight`, `SectionOptions`,
-`SectionState`, `SectionPlacement`, `SectionToolProps`, `SectionStore`, `ViewerTheme`, `ViewName`,
-`DirectionArrowsProps`, `NamedDirection`, `GridProps`, `AxesProps`, `ViewCubeProps`.
+`SectionState`, `SectionPlacement`, `SectionToolProps`, `SectionStore`, `MeasureToolProps`,
+`MeasureMode`, `Measurement`, `DistanceMeasurement`, `AngleMeasurement`, `Snap`, `SnapKind`,
+`ViewerTheme`, `ViewName`, `DirectionArrowsProps`, `NamedDirection`, `GridProps`, `AxesProps`,
+`ViewCubeProps`.
 
 `FeatureType` and `ShapeKind` accept any string, because newer Engine versions add new values.
 Handle values you don't recognize.

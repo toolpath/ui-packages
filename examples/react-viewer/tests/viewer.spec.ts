@@ -163,6 +163,84 @@ test('selects a feature and responds to CAD camera navigation', async ({ page })
   await expect(selected).toHaveText(selectedText ?? '')
 })
 
+/**
+ * The measure tool, driven the way somebody would drive it: two clicks on the
+ * part make a distance, and the label it puts on the page is text a person
+ * could read. The snap arithmetic is unit tested; what this covers is that a
+ * click places a point rather than selecting a face, that the measurement is
+ * reported and drawn, and that leaving the tool hands the pointer back.
+ */
+test('measures a distance between two clicks, without selecting either face', async ({ page }) => {
+  const { canvas, box } = await openViewer(page)
+
+  const measured = page.locator('p', { hasText: 'Measured:' })
+  const hovered = page.locator('p', { hasText: 'Hovered:' })
+  const selected = page.locator('p', { hasText: 'Selected:' })
+  // Visible ones: the live readout that follows the pointer is a label too,
+  // hidden between measurements rather than removed.
+  const labels = page.locator('.toolpath-measure-label').filter({ visible: true })
+
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(selected).toContainText('back-face')
+  await page.getByRole('button', { name: 'Measure', exact: true }).click()
+  await expect(measured).toContainText('none')
+  await expect(selected).toContainText('none')
+
+  // The pointer is the tool's: the face under it is not hovered, and the two
+  // clicks that measure do not select what they land on.
+  await canvas.hover({ position: on(box, CENTRE) })
+  await expect(hovered).toContainText('none')
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(measured).toContainText('none')
+  await canvas.click({ position: on(box, ONE) })
+  await expect(measured).toContainText('1 measurement, last')
+  await expect(measured).toContainText('mm')
+  await expect(selected).toContainText('none')
+
+  // The label is on the page, and says what the readout says.
+  const readout = (await measured.textContent()) ?? ''
+  const value = /last (\d+\.\d+ mm)/.exec(readout)?.[1]
+  expect(value, readout).toBeDefined()
+  await expect(labels.filter({ hasText: value! })).toHaveCount(1)
+  // Two points on two faces of a cube are not on one axis, so the distance is
+  // broken into its parts, each with a label of its own.
+  expect(await labels.count()).toBeGreaterThan(1)
+
+  // Delete takes the last measurement, and its labels, away.
+  await page.keyboard.press('Delete')
+  await expect(measured).toContainText('none')
+  await expect(labels).toHaveCount(0)
+
+  // The same two clicks with Shift held on the second: the point is held to
+  // one axis through the first, so the distance runs square and has no parts
+  // to break into — one label, not three.
+  await canvas.click({ position: on(box, CENTRE) })
+  await canvas.click({ position: on(box, ONE), modifiers: ['Shift'] })
+  await expect(measured).toContainText('1 measurement, last')
+  await expect(labels).toHaveCount(1)
+  await page.keyboard.press('Delete')
+  await expect(labels).toHaveCount(0)
+
+  // An angle is three clicks, and a mode change does not need a re-mount.
+  await page.getByRole('button', { name: 'Angle' }).click()
+  await canvas.click({ position: on(box, ONE) })
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(measured).toContainText('none')
+  await canvas.click({ position: on(box, OTHER) })
+  await expect(measured).toContainText('°')
+
+  await page.getByRole('button', { name: 'Exit measure' }).click()
+  await expect(measured).toContainText('off')
+  await expect(labels).toHaveCount(0)
+  await expect(selected).toContainText('back-face')
+
+  // Leaving gives the pointer back.
+  await canvas.hover({ position: on(box, CENTRE) })
+  await expect(hovered).not.toContainText('none')
+  await canvas.click({ position: on(box, ONE) })
+  await expect(selected).toContainText('right-face')
+})
+
 test('pans with either pan button, from wherever the drag starts', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
 

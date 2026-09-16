@@ -46,10 +46,34 @@ describe('createSectionStore', () => {
     store.setEngaged(true)
     expect(store.isEngaged()).toBe(true)
     expect(listener).toHaveBeenCalledTimes(1)
+    store.setEngaged(false)
+    expect(store.isEngaged()).toBe(false)
+    expect(listener).toHaveBeenCalledTimes(2)
+  })
+
+  /**
+   * The section tool and the measure tool can be up together, and each lets go
+   * on its own unmount. The part waits for the last of them: a boolean would
+   * have handed the pointer back the moment the first one left.
+   */
+  it('stays engaged until every tool that engaged it has let go', () => {
+    const store = createSectionStore()
+    const listener = vi.fn()
+    store.subscribe(listener)
+
+    store.setEngaged(true)
     store.setEngaged(true)
     expect(listener).toHaveBeenCalledTimes(1)
     store.setEngaged(false)
+    expect(store.isEngaged()).toBe(true)
+    expect(listener).toHaveBeenCalledTimes(1)
+    store.setEngaged(false)
+    expect(store.isEngaged()).toBe(false)
     expect(listener).toHaveBeenCalledTimes(2)
+    // A release with nothing held is not a debt the next tool inherits.
+    store.setEngaged(false)
+    store.setEngaged(true)
+    expect(store.isEngaged()).toBe(true)
   })
 
   it('stops notifying once unsubscribed', () => {
