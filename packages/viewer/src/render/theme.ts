@@ -44,6 +44,13 @@ export interface ViewerTheme {
   readonly sectionHandle: number
   readonly sectionHandleOutline: number
   /**
+   * A measurement: its lines, end markers, arc and label border, as
+   * `<MeasureTool>` draws them. The indicator that shows where the pointer
+   * will snap takes {@link ViewerTheme.measureSnap}.
+   */
+  readonly measure: number
+  readonly measureSnap: number
+  /**
    * The view cube's panels, the lines between them, and its face names. A
    * hovered panel takes {@link ViewerTheme.hover}, the same color the part uses
    * — the cube is a control, and one hover color across the viewport is one
@@ -140,6 +147,14 @@ export const DEFAULT_THEME: ViewerTheme = {
   sectionOutline: 0x6bb0b3,
   sectionHandle: 0xf2f3f7,
   sectionHandleOutline: 0x3c4051,
+  /*
+   * A cool blue, and the snap a lighter one. Warm is spoken for — hover,
+   * picked and the selection are all on that side of the wheel — and the
+   * section tool's teal is the nearest neighbour, which a measurement line
+   * crossing a cutting plane has to stay legible against.
+   */
+  measure: 0x4f8ef7,
+  measureSnap: 0xbfd7ff,
   cube: 0xd6d9e2,
   cubeEdge: 0x71768d,
   cubeLabel: 0x3c4051,
@@ -176,6 +191,8 @@ export function themesEqual(a: ViewerTheme, b: ViewerTheme): boolean {
     a.sectionOutline === b.sectionOutline &&
     a.sectionHandle === b.sectionHandle &&
     a.sectionHandleOutline === b.sectionHandleOutline &&
+    a.measure === b.measure &&
+    a.measureSnap === b.measureSnap &&
     a.cube === b.cube &&
     a.cubeEdge === b.cubeEdge &&
     a.cubeLabel === b.cubeLabel

@@ -9,6 +9,35 @@ export { Axes, Grid, ViewCube } from './primitives.js'
 export { DirectionArrows } from './direction-arrows.js'
 export { SectionView, resolveSectionPlane } from './section-view.js'
 export { SectionTool } from './section-tool.js'
+export { MEASURE_LABEL_CLASS, MeasureTool } from './measure-tool.js'
+export {
+  ANGLE_ARC_FRACTION,
+  AXIS_COLORS,
+  ANGLE_ARC_SEGMENTS,
+  DELTA_DASH_PIXELS,
+  MEASURE_LINE_PIXELS,
+  MEASURE_MARKER_PIXELS,
+  MEASURE_RENDER_ORDER,
+  POINTS_PER_MEASUREMENT,
+  SNAP_MARKER_PIXELS,
+  SNAP_PIXELS,
+  angleArc,
+  angleArcRadius,
+  angleAt,
+  deltaBetween,
+  deltaLegs,
+  distanceBetween,
+  formatDegrees,
+  formatMillimetres,
+  lockToAxis,
+  measurementFromPoints,
+  measurementLabel,
+  measurementLabelAnchor,
+  midpoint,
+  nextMeasurementId,
+  screenPoint,
+  snapAt,
+} from './render/measure.js'
 export {
   AXES_PLANE_OFFSET,
   AXES_PLANE_SCALE,
@@ -22,6 +51,7 @@ export {
   SECTION_RENDER_ORDER,
   axesPlanes,
   dragPlane,
+  hitUnderRay,
   pickedStartDepth,
   sectionAnchor,
   sectionBounds,
@@ -180,6 +210,20 @@ export type {
 export type { SectionStore } from './render/section-store.js'
 export type { CapMaterial, CapUniforms } from './render/section-cap.js'
 export type { SectionToolProps } from './section-tool.js'
+export type { MeasureLabelKind, MeasureToolProps } from './measure-tool.js'
+export type {
+  AngleMeasurement,
+  Axis,
+  AxisLock,
+  DeltaLeg,
+  DistanceMeasurement,
+  MeasureMode,
+  Measurement,
+  Snap,
+  SnapEdges,
+  SnapHit,
+  SnapKind,
+} from './render/measure.js'
 export type { GridSpec } from './render/grid.js'
 export type { DoubleTapPoint, DoubleTapTracker, TapPoint, TapTracker } from './render/tap.js'
 export type { CadCameraControlsProps } from './camera.js'

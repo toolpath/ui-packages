@@ -12,6 +12,7 @@ import {
 } from 'three'
 import { useContentBox } from './content-box.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
+import { AXIS_COLORS } from './render/measure.js'
 import {
   type AxesPlane,
   OUTLINE_SCALE,
@@ -33,12 +34,6 @@ import { useSectionStore } from './viewer.js'
 const FURNITURE = { [EXCLUDE_FROM_FRAME]: true }
 const Z = new Vector3(0, 0, 1)
 
-/**
- * The three global planes, one per axis in the hue `<Axes>` draws that axis
- * in — lightened, because a pure primary through 30% on a dark page is mud,
- * and the blue one was not there at all.
- */
-const AXIS_COLORS = { x: 0xff6b6b, y: 0x6fe08a, z: 0x6f9bff } as const
 const AXIS_ROTATIONS = {
   x: [0, Math.PI / 2, 0],
   y: [Math.PI / 2, 0, 0],

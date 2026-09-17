@@ -1,7 +1,11 @@
 # React 3D viewer
 
-A standalone, local-only Vite example for `@toolpath/viewer`. It renders a procedural one-inch
-(25.4 mm) cube, so it requires no Toolpath API key or Engine request.
+A standalone, local-only Vite example for `@toolpath/viewer`. It renders procedural parts — a
+one-inch (25.4 mm) cube by default, and a drilled plate, a chamfered block, a pocketed block and a
+stepped boss from the toolbar's model picker or `?model=plate|chamfer|pocket|boss` — so it
+requires no Toolpath API key or Engine request. The extra parts exist for the measure tool: they
+have holes, chamfers, a pocket and a bore to snap to, and each page states what its dimensions
+should measure.
 
 ```bash
 pnpm install --frozen-lockfile

@@ -1,4 +1,4 @@
-import { type Box3, type Object3D, Plane, type Raycaster, Vector3 } from 'three'
+import { type Box3, type Intersection, type Object3D, Plane, type Raycaster, Vector3 } from 'three'
 import type { Vec3 } from '../model/types.js'
 import { excludedFromFrame } from './camera.js'
 
@@ -181,25 +181,53 @@ export interface SurfaceHit {
 }
 
 /**
- * The nearest surface of the part along `raycaster`'s ray, or `null`.
+ * The nearest hit on the part along `raycaster`'s ray, or `null`.
  *
  * "The part" is whatever in the scene is a visible mesh outside an overlay —
  * every overlay here marks its outermost group with `EXCLUDE_FROM_FRAME`, the
  * same flag that keeps it out of the camera's framing, and the ones that are
  * not clickable turn their own raycast off besides. What is left is the
- * geometry the consumer put in. Used by the tool to preview a cut on a hovered
- * face without the part having to tell it where the pointer is.
+ * geometry the consumer put in.
+ *
+ * A surface a section cut has clipped away is skipped too. three's raycaster
+ * knows nothing about clipping planes, so without this a ray through the open
+ * half of a cut part lands on a face nobody can see — and a tool that previews
+ * or measures there is working on something that is not on screen.
  */
-export function surfaceUnderRay(raycaster: Raycaster, root: Object3D): SurfaceHit | null {
+export function hitUnderRay(raycaster: Raycaster, root: Object3D): Intersection | null {
   for (const hit of raycaster.intersectObjects(root.children, true)) {
     if (!('isMesh' in hit.object) || !hit.face) continue
     // three's raycaster does not skip hidden objects; R3F's event layer does
     // that itself, and this ray is not R3F's.
     if (!hit.object.visible || excludedFromFrame(hit.object, root)) continue
-    const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld)
-    return { point: hit.point, normal }
+    if (clippedAway(hit)) continue
+    return hit
   }
   return null
+}
+
+/** Whether a material's own clipping planes remove `hit` from view. */
+function clippedAway(hit: Intersection): boolean {
+  const material = (hit.object as { material?: unknown }).material
+  const materials = Array.isArray(material) ? material : [material]
+  for (const entry of materials) {
+    const planes = (entry as { clippingPlanes?: Plane[] | null } | undefined)?.clippingPlanes
+    if (!planes) continue
+    for (const plane of planes) if (plane.distanceToPoint(hit.point) < 0) return true
+  }
+  return false
+}
+
+/**
+ * The nearest surface of the part along `raycaster`'s ray, or `null`, with the
+ * surface's outward normal in world space. Used by the tool to preview a cut
+ * on a hovered face without the part having to tell it where the pointer is.
+ */
+export function surfaceUnderRay(raycaster: Raycaster, root: Object3D): SurfaceHit | null {
+  const hit = hitUnderRay(raycaster, root)
+  if (!hit?.face) return null
+  const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld)
+  return { point: hit.point, normal }
 }
 
 /**
