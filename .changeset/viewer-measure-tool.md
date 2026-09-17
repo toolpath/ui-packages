@@ -13,6 +13,11 @@ other than millimetres. The labels are DOM elements and ship unstyled: each carr
 `MEASURE_LABEL_CLASS`, a `data-measure-label` kind, `data-axis` on a delta leg and
 `data-measurement-id` on a finished measurement, and `labelClassName` adds a class of the consumer's.
 
+A cut part is measured as it is seen: the tool re-samples the part whenever a clipping plane moves,
+trimming its edges to the kept half, adding the cut's outline as an edge to snap to, and making the
+capped face a surface a point can land on. `sectionContour`, `clipSegments`, `pointInContour`,
+`capHit` and `sampleSection` are the pure functions behind it.
+
 While the tool is mounted, `<PartMesh>` reports no hovers or picks, as it does for `<SectionTool>`.
 The engaged flag both tools set on the section store is now counted, so the two can be mounted
 together and the part waits for the last to leave.
