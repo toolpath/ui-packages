@@ -1,5 +1,53 @@
 # @toolpath/viewer
 
+## 1.2.0
+
+### Minor Changes
+
+- ae738a5: Add `<MeasureTool>`, an opt-in way to measure a part from inside the viewport. Mounted beside
+  `<PartMesh>` with nothing wired, it snaps the pointer to the corner, edge midpoint, edge or face
+  under it and shows where a click will land; two clicks measure a distance, shown with its X, Y and Z
+  parts as dashed legs, and three measure an angle. Finished measurements stay drawn over the part
+  with a DOM label each until Delete removes the last one or the tool is unmounted; Escape drops the
+  points of one in progress, and Shift holds the next point to the X, Y or Z line through the last.
+  `measurements` and `onChange` make the list the consumer's, and `format` writes lengths in something
+  other than millimetres. The labels are DOM elements and ship unstyled: each carries
+  `MEASURE_LABEL_CLASS`, a `data-measure-label` kind, `data-axis` on a delta leg and
+  `data-measurement-id` on a finished measurement, and `labelClassName` adds a class of the consumer's.
+
+  While the tool is mounted, `<PartMesh>` reports no hovers or picks, as it does for `<SectionTool>`.
+  The engaged flag both tools set on the section store is now counted, so the two can be mounted
+  together and the part waits for the last to leave.
+
+  `ViewerTheme` gains `measure` for a measurement's lines, markers and label border, and
+  `measureSnap` for the snap indicator. `AXIS_COLORS`, the three axis hues the section tool's global
+  planes already wore, is exported and shared with a distance's delta legs.
+
+  `surfaceUnderRay`, and so the section tool's preview, now skips a surface a section cut has clipped
+  away rather than landing on a face nobody can see. `hitUnderRay` is the walk it shares with the
+  measure tool, and is exported.
+
+- fe65fc1: Add `<SectionTool>`, an opt-in way to cut a part open from inside the viewport. Mounted beside
+  `<PartMesh>` with nothing wired, it previews a cut on the face under the pointer and places one on
+  a click, offers three global planes behind the part to sweep along an axis, draws the cutting plane
+  as an outlined sheet once there is a cut, and clears it on Escape.
+
+  While the tool is mounted, `<PartMesh>` reports no hovers or picks and paints no hover;
+  unmounting it hands the pointer back.
+
+  The cut it places is held by `<Viewer>` itself. `<PartMesh>` follows that cut, and shows the drag
+  handle for it, whenever it is given no `section` prop of its own; a `section` prop is unchanged and
+  still takes precedence. `ViewerHandle.setSection(options | null)` sets or clears it from outside
+  the canvas, and `useSectionStore()` reads it from inside.
+
+  The section cap is now hatched and outlined rather than a flat fill, in screen space so it reads
+  the same at any zoom. `ViewerTheme` gains `sectionHatch` for the hatch lines; `sectionOutline`,
+  previously declared but unused, now colours the tool's sheet and preview.
+
+  `onSectionChange` now also reports a cut going away, once, as a state with `enabled: false`.
+  `DISABLED_SECTION` is that state. `SectionOptions` and `SectionState` are unchanged and still
+  exported from the root.
+
 ## 1.1.1
 
 ### Patch Changes
