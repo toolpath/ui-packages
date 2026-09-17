@@ -594,6 +594,13 @@ convert, so pass `format` to show anything else:
 <MeasureTool format={(mm) => `${(mm / MM_PER_INCH).toFixed(3)} in`} />
 ```
 
+**Measuring a cut part.** Mount the measure tool with a section cut in place, or beside
+`<SectionTool>`, and it measures what is on screen: the half a cut has removed is not there to snap
+to, the part's edges stop at the plane, the outline where the plane passes through solid material
+is an edge with corners of its own, and the capped face is a surface a point can land on. The
+sample follows the cut — drag the handle or set a depth and the next pointer move sees the new cut.
+It reads the plane off the part's own material, so a controlled `section` prop works the same way.
+
 Hold Shift to hold the next point to the X, Y or Z line through the last one — whichever axis the
 pointer is furthest along — so a length along an edge is measured square rather than slightly across
 it. The line wears that axis's colour while it is held, and the finished distance has no legs to

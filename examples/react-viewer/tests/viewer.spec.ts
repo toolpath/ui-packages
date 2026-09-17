@@ -241,6 +241,38 @@ test('measures a distance between two clicks, without selecting either face', as
   await expect(selected).toContainText('right-face')
 })
 
+/**
+ * A cut part is measured as it is seen. The first click lands on the capped
+ * face — there is no geometry there, only a stencil, and the face behind it
+ * has been clipped away — so without re-sampling the click places nothing and
+ * the measurement never completes.
+ */
+test('measures on the capped face of a cut part', async ({ page }) => {
+  const { canvas, box } = await openViewer(page)
+
+  const cut = page.locator('p', { hasText: 'Cut:' })
+  const measured = page.locator('p', { hasText: 'Measured:' })
+
+  await page.getByRole('button', { name: 'Section' }).click()
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(cut).toContainText('Part surface')
+
+  await page.getByRole('button', { name: 'Measure', exact: true }).click()
+  await canvas.click({ position: on(box, CENTRE) })
+  await canvas.click({ position: on(box, ONE) })
+  await expect(measured).toContainText('1 measurement, last')
+
+  // Deeper, and the cap is still where the pointer lands.
+  await page.getByRole('slider').fill('0.5')
+  await canvas.click({ position: on(box, CENTRE) })
+  await canvas.click({ position: on(box, ONE) })
+  await expect(measured).toContainText('2 measurements, last')
+
+  await page.getByRole('button', { name: 'Exit measure' }).click()
+  await page.getByRole('button', { name: 'Exit section' }).click()
+  await expect(cut).toContainText('off')
+})
+
 test('pans with either pan button, from wherever the drag starts', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
 

@@ -212,6 +212,43 @@ function steppedBoss(): ExampleModel {
 }
 
 /**
+ * A 2 × 4 toy brick: 31.8 × 15.8 × 9.6 mm, eight Ø4.8 studs 1.8 tall on an
+ * 8 mm pitch, hollow underneath with 1.2 mm walls and three Ø6.51 tubes. The
+ * studs are small round things to snap to, and the cut through the hollow is
+ * the section tool's best demonstration.
+ */
+function toyBrick(): ExampleModel {
+  const walls = rect(31.8, 15.8)
+  walls.holes.push(rect(29.4, 13.4, new THREE.Shape()))
+  const tube = (x: number) => {
+    const ring = new THREE.Shape()
+    ring.absarc(x, 0, 3.255, 0, Math.PI * 2, false)
+    ring.holes.push(circle(2.4, x, 0))
+    return extrude(ring, 8.4, 0)
+  }
+  const stud = (x: number, y: number) => {
+    const disc = new THREE.Shape()
+    disc.absarc(x, y, 2.4, 0, Math.PI * 2, false)
+    return extrude(disc, 1.8, 9.6)
+  }
+  const studs: THREE.BufferGeometry[] = []
+  for (const x of [-12, -4, 4, 12]) for (const y of [-4, 4]) studs.push(stud(x, y))
+  return partFromGeometry(
+    'brick',
+    'Toy brick',
+    'Studs are Ø4.80 mm on an 8.00 mm pitch and 1.80 mm tall; the body is 31.80 × 15.80 × 9.60 mm. Cut it open to find the Ø6.51 mm tubes.',
+    [
+      extrude(walls, 8.4, 0),
+      new THREE.BoxGeometry(31.8, 15.8, 1.2).translate(0, 0, 9),
+      tube(-8),
+      tube(0),
+      tube(8),
+      ...studs,
+    ],
+  )
+}
+
+/**
  * A part from a mesh alone: its triangles grouped into regions where they
  * meet at a shallow angle, reordered so each region is one contiguous run,
  * and named one feature per region.
@@ -383,6 +420,7 @@ export const MODELS: readonly ExampleModel[] = [
   chamferedBlock(),
   pocketedBlock(),
   steppedBoss(),
+  toyBrick(),
 ]
 
 /** The model `?model=<id>` asks for, or the cube the browser suite is written about. */
