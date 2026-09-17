@@ -2,10 +2,14 @@ import { Html, Line } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import { type ComponentRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
+  type BufferGeometry,
   Group,
   type InterleavedBufferAttribute,
   type LineSegments,
+  Matrix4,
+  type Mesh,
   type Object3D,
+  type Plane,
   Raycaster,
   SphereGeometry,
   Vector2,
@@ -13,7 +17,12 @@ import {
 } from 'three'
 import { useContentBox } from './content-box.js'
 import type { Vec3 } from './model/types.js'
-import { EXCLUDE_FROM_FRAME, type ViewerCamera, screenLength } from './render/camera.js'
+import {
+  EXCLUDE_FROM_FRAME,
+  type ViewerCamera,
+  excludedFromFrame,
+  screenLength,
+} from './render/camera.js'
 import {
   AXIS_COLORS,
   type Axis,
@@ -26,6 +35,7 @@ import {
   SNAP_MARKER_PIXELS,
   type Snap,
   type SnapEdges,
+  type SnapHit,
   angleArc,
   angleArcRadius,
   angleAt,
@@ -41,6 +51,8 @@ import {
   nextMeasurementId,
   snapAt,
 } from './render/measure.js'
+import { REGION_ATTRIBUTE } from './render/part.js'
+import { capHit, clipSegments, sectionContour } from './render/resample.js'
 import { hitUnderRay } from './render/section.js'
 import { type ViewerTheme, resolveTheme } from './render/theme.js'
 import { useTapGuard } from './tap.js'
@@ -268,6 +280,13 @@ const NOWHERE: readonly [Vector3, Vector3] = [new Vector3(), new Vector3()]
  * through React state — a pointer crossing a face is not a render. The ray is
  * this component's own, as the section tool's is, because the part does not
  * know a tool is mounted and reports nothing while one is.
+ *
+ * A cut part is re-sampled as it is measured. The ray already skips surfaces
+ * a clipping plane has removed; on top of that, the edges offered for snapping
+ * are trimmed to the kept half and joined by the cut's own outline, and the
+ * capped face is a surface the pointer can land on. The sample is keyed on
+ * the plane, so a cut that moves — the handle dragged, the depth set — is
+ * re-sampled on the next pointer move, and one that has not is not.
  */
 const Snapper = ({ mode, draft, onPlace, theme, format, label }: SnapperProps) => {
   const camera = useThree((state) => state.camera) as ViewerCamera
@@ -300,6 +319,7 @@ const Snapper = ({ mode, draft, onPlace, theme, format, label }: SnapperProps) =
   useEffect(() => {
     const raycaster = new Raycaster()
     const pointer = new Vector2()
+    const samples = new SampleCache()
 
     const hide = () => {
       if (!snap.current) return
@@ -323,19 +343,13 @@ const Snapper = ({ mode, draft, onPlace, theme, format, label }: SnapperProps) =
         -((clientY - rect.top) / rect.height) * 2 + 1,
       )
       raycaster.setFromCamera(pointer, camera)
-      const hit = hitUnderRay(raycaster, scene)
-      if (!hit?.face) {
+      const target = targetUnderRay(raycaster, scene, samples)
+      if (!target) {
         hide()
         return
       }
-      const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld)
       const { size: viewport, draft: placed, mode: kind, format: write } = current.current
-      const snapped = snapAt(
-        { point: hit.point, normal },
-        edgesBeside(hit.object),
-        camera,
-        viewport,
-      )
+      const snapped = snapAt(target, target.edges, camera, viewport)
       const from = placed[placed.length - 1]
 
       // Shift holds the point to an axis through the last one. What was
@@ -523,6 +537,83 @@ function liveLabel(
   return null
 }
 
+/** What the pointer is over, before snapping: a surface, and the edges to snap to on it. */
+interface Target extends SnapHit {
+  /** Along the ray, so a cap and a surface behind it can be ranked. */
+  readonly distance: number
+  readonly edges: SnapEdges | null
+}
+
+/**
+ * The nearest thing under the ray that can be measured: a surface of the
+ * part, or the capped face of a cut.
+ *
+ * The cap has no geometry — it is a stencil trick — so it is found by meeting
+ * the ray with the plane and asking the cut's outline whether that point is
+ * inside solid material. A cap and a surface can both be under one ray; the
+ * nearer wins, as it does on screen.
+ */
+function targetUnderRay(
+  raycaster: Raycaster,
+  scene: Object3D,
+  samples: SampleCache,
+): Target | null {
+  let best: Target | null = null
+
+  const hit = hitUnderRay(raycaster, scene)
+  if (hit?.face) {
+    best = {
+      point: hit.point,
+      normal: hit.face.normal.clone().transformDirection(hit.object.matrixWorld),
+      distance: hit.distance,
+      edges: samples.edgesFor(hit.object as Mesh),
+    }
+  }
+
+  const local = new Matrix4()
+  for (const mesh of cutMeshes(scene)) {
+    const planes = clippingPlanesOf(mesh)
+    const sample = samples.for(mesh, planes)
+    local.copy(mesh.matrixWorld).invert()
+    const ray = raycaster.ray.clone().applyMatrix4(local)
+    for (const [index, plane] of planes.entries()) {
+      const contour = sample.contours[index]
+      if (!contour) continue
+      const point = capHit(ray, plane.clone().applyMatrix4(local), contour)
+      if (!point) continue
+      // On every other plane's kept side too, or it is a cap in the air.
+      const world = point.applyMatrix4(mesh.matrixWorld)
+      if (planes.some((other, i) => i !== index && other.distanceToPoint(world) < -1e-7)) continue
+      const distance = world.distanceTo(raycaster.ray.origin)
+      if (best && distance >= best.distance) continue
+      best = {
+        point: world,
+        // The cap faces the half that was taken away.
+        normal: plane.normal.clone().negate(),
+        distance,
+        edges: { positions: sample.edges, matrixWorld: mesh.matrixWorld },
+      }
+    }
+  }
+
+  return best
+}
+
+/** Every visible part mesh a clipping plane is cutting. */
+function cutMeshes(scene: Object3D): Mesh[] {
+  const found: Mesh[] = []
+  scene.traverse((object) => {
+    if (!('isMesh' in object) || !object.visible || excludedFromFrame(object, scene)) return
+    if (clippingPlanesOf(object as Mesh).length) found.push(object as Mesh)
+  })
+  return found
+}
+
+function clippingPlanesOf(mesh: Mesh): readonly Plane[] {
+  const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material
+  return (material as { clippingPlanes?: Plane[] | null } | undefined)?.clippingPlanes ?? []
+}
+
 /**
  * The edges the part draws beside its mesh, as something to snap to.
  *
@@ -530,16 +621,99 @@ function liveLabel(
  * are the hit mesh's sibling. A consumer's own mesh with no such sibling snaps
  * to faces only, which is still a measurement.
  */
-function edgesBeside(object: Object3D): SnapEdges | null {
+function edgesBeside(object: Object3D): ArrayLike<number> | null {
   const siblings = object.parent?.children ?? []
   for (const sibling of siblings) {
     if (!('isLineSegments' in sibling)) continue
-    const geometry = (sibling as LineSegments).geometry
-    const positions = geometry.getAttribute('position')
-    if (!positions) continue
-    return { positions: positions.array, matrixWorld: sibling.matrixWorld }
+    const positions = (sibling as LineSegments).geometry.getAttribute('position')
+    if (positions) return positions.array
   }
   return null
+}
+
+/** A cut part's sample: its outline per plane, and its edges trimmed to what is left. */
+interface CutSample {
+  readonly key: string
+  readonly contours: readonly Float32Array[]
+  readonly edges: Float32Array
+}
+
+/**
+ * Re-samples cut parts, once per plane position.
+ *
+ * Keyed on the planes' numbers rather than their identity, because a drag
+ * writes the same `Plane` object over and over; and kept per mesh, because a
+ * scene may hold more than one part. A part with no cut is not sampled at
+ * all — its own edges are what the pointer snaps to.
+ */
+class SampleCache {
+  private readonly held = new Map<Mesh, CutSample>()
+  private readonly regions = new Map<BufferGeometry, Int32Array | null>()
+
+  /** The edges to snap to on `mesh`: its own, or the trimmed set with the cut's outline. */
+  edgesFor(mesh: Mesh): SnapEdges | null {
+    const planes = clippingPlanesOf(mesh)
+    if (planes.length === 0) {
+      const positions = edgesBeside(mesh)
+      return positions ? { positions, matrixWorld: mesh.matrixWorld } : null
+    }
+    return { positions: this.for(mesh, planes).edges, matrixWorld: mesh.matrixWorld }
+  }
+
+  for(mesh: Mesh, planes: readonly Plane[]): CutSample {
+    const key = planes
+      .map((plane) => `${plane.normal.x},${plane.normal.y},${plane.normal.z},${plane.constant}`)
+      .join('|')
+    const cached = this.held.get(mesh)
+    if (cached && cached.key === key) return cached
+
+    const local = new Matrix4().copy(mesh.matrixWorld).invert()
+    const localPlanes = planes.map((plane) => plane.clone().applyMatrix4(local))
+    const positions = mesh.geometry.getAttribute('position')?.array ?? []
+    const regionOf = this.regionsOf(mesh.geometry)
+
+    // Each plane's outline, trimmed by the others; the edges trimmed by all.
+    const contours = localPlanes.map((plane, index) =>
+      localPlanes.reduce(
+        (outline, other, i) => (i === index ? outline : clipSegments(outline, other)),
+        sectionContour(positions, regionOf, plane),
+      ),
+    )
+    const own = edgesBeside(mesh) ?? []
+    const trimmed = localPlanes.reduce(
+      (kept, plane) => clipSegments(kept, plane),
+      own as ArrayLike<number>,
+    )
+    const total = contours.reduce((sum, contour) => sum + contour.length, trimmed.length)
+    const edges = new Float32Array(total)
+    edges.set(trimmed, 0)
+    let offset = trimmed.length
+    for (const contour of contours) {
+      edges.set(contour, offset)
+      offset += contour.length
+    }
+
+    const sample = { key, contours, edges }
+    this.held.set(mesh, sample)
+    return sample
+  }
+
+  /**
+   * Which surface each triangle belongs to, read off the region attribute
+   * `createPart` gives the mesh. A mesh without one is sampled as a single
+   * surface, which still stitches a flat face's outline into one run.
+   */
+  private regionsOf(geometry: BufferGeometry): Int32Array | null {
+    if (this.regions.has(geometry)) return this.regions.get(geometry) ?? null
+    const attribute = geometry.getAttribute(REGION_ATTRIBUTE)
+    let regions: Int32Array | null = null
+    if (attribute && !geometry.index) {
+      regions = new Int32Array(Math.floor(attribute.count / 3))
+      for (let t = 0; t < regions.length; t += 1) regions[t] = attribute.getX(t * 3)
+    }
+    this.regions.set(geometry, regions)
+    return regions
+  }
 }
 
 interface MeasurementViewProps {

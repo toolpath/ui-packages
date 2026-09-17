@@ -67,6 +67,14 @@ export {
 } from './render/section.js'
 export { createSectionStore } from './render/section-store.js'
 export {
+  capHit,
+  clipSegments,
+  pointInContour,
+  sampleSection,
+  sectionContour,
+} from './render/resample.js'
+export type { SectionSample } from './render/resample.js'
+export {
   applyCapTheme,
   createCapMaterial,
   createMaskMaterial,
