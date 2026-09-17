@@ -18,6 +18,9 @@ export const DEFAULT_FIT_MARGIN = 1.2
 /** Marks scene furniture — grid, axes — that the camera should not frame. */
 export const EXCLUDE_FROM_FRAME = 'viewerExcludeFromFrame'
 
+/** Stock is framed with the part, but is not a surface for tools or overlays. */
+export const STOCK_OBJECT = 'viewerStock'
+
 /**
  * What the camera frames: a bounding *sphere*, not a box.
  *
@@ -102,17 +105,35 @@ export function boundsFromBox(box: Box3): SceneBounds {
  * would be a speck.
  */
 export function contentBounds(root: Object3D, into: Box3): SceneBounds {
+  return measureBounds(root, into, false)
+}
+
+/** Bounds used by part-relative overlays, independent of stock visibility. */
+export function partBounds(root: Object3D, into: Box3): SceneBounds {
+  return measureBounds(root, into, true)
+}
+
+function measureBounds(root: Object3D, into: Box3, partOnly: boolean): SceneBounds {
   into.makeEmpty()
 
   root.updateWorldMatrix(true, true)
   root.traverse((object) => {
-    if (excludedFromFrame(object, root)) return
+    if (partOnly ? excludedFromPart(object, root) : excludedFromFrame(object, root)) return
     if ('isMesh' in object || 'isLine' in object || 'isPoints' in object) {
       into.expandByObject(object)
     }
   })
 
   return boundsFromBox(into)
+}
+
+export function excludedFromPart(object: Object3D, root: Object3D): boolean {
+  let current: Object3D | null = object
+  while (current && current !== root) {
+    if (current.userData[STOCK_OBJECT]) return true
+    current = current.parent
+  }
+  return excludedFromFrame(object, root)
 }
 
 /**

@@ -24,6 +24,8 @@ export const REGION_ATTRIBUTE = 'aRegion'
 /** How much of a painted region's color also lights it from within. */
 const EMISSIVE_MIX = 0.4
 
+export type PartDisplay = 'solid' | 'wireframe'
+
 /**
  * A part on screen: one mesh, one draw call, one material.
  *
@@ -61,6 +63,8 @@ export interface PartObject {
    */
   setClippingPlanes(planes: readonly Plane[] | null): void
   setTheme(theme: ViewerTheme): void
+  /** Semantic edges only in wireframe; painted faces remain visible for interaction. */
+  setDisplay(display: PartDisplay, showEdges?: boolean): void
   dispose(): void
 }
 
@@ -174,8 +178,12 @@ export function createPart(
     polygonOffsetUnits: 1,
   })
 
+  const wireframe = { value: false }
+  let currentTheme = theme
+
   material.onBeforeCompile = (shader) => {
     shader.uniforms['uRegionState'] = { value: stateTexture }
+    shader.uniforms['uWireframe'] = wireframe
 
     shader.vertexShader = shader.vertexShader
       .replace(
@@ -195,6 +203,7 @@ export function createPart(
         '#include <common>',
         `#include <common>
         uniform sampler2D uRegionState;
+        uniform bool uWireframe;
         varying float vRegion;
         vec4 regionState;`,
       )
@@ -206,6 +215,7 @@ export function createPart(
         `#include <color_fragment>
         regionState = texelFetch(uRegionState, ivec2(int(vRegion + 0.5), 0), 0);
         diffuseColor.rgb = mix(diffuseColor.rgb, regionState.rgb, regionState.a);
+        if (uWireframe) diffuseColor.a *= regionState.a;
 `,
       )
       .replace(
@@ -321,10 +331,24 @@ export function createPart(
     },
 
     setTheme(next) {
+      currentTheme = next
       material.color.setHex(next.part)
       material.emissive.setHex(next.partEmissive)
-      edgeMaterial.color.setHex(next.edge)
-      edgeMaterial.opacity = next.edgeOpacity
+      edgeMaterial.color.setHex(wireframe.value ? next.part : next.edge)
+      edgeMaterial.opacity = wireframe.value ? 1 : next.edgeOpacity
+    },
+
+    setDisplay(display, showEdges = true) {
+      const enabled = display === 'wireframe'
+      if (wireframe.value !== enabled) {
+        wireframe.value = enabled
+        material.transparent = enabled
+        material.depthWrite = !enabled
+        material.needsUpdate = true
+      }
+      edges.visible = enabled || showEdges
+      edgeMaterial.color.setHex(enabled ? currentTheme.part : currentTheme.edge)
+      edgeMaterial.opacity = enabled ? 1 : currentTheme.edgeOpacity
     },
 
     dispose() {

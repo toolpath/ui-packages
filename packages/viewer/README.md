@@ -76,6 +76,7 @@ What each wrapper is for:
  ├─ <EnginePart>          validates the report, loads the mesh, then renders <PartMesh>
  │   └─ <PartMesh>        draws the part and handles hover, click, colours, section cuts
  ├─ <DirectionArrows>     arrows for the directions the part can be machined from
+ ├─ <Stock> <BoxStock>    translucent stock, included when fitting the camera
  ├─ <SectionTool>         optional: click a face or a plane to cut the part open
  ├─ <MeasureTool>         optional: click two points for a distance, three for an angle
  ├─ <Grid> <Axes>         reference geometry, sized to the part
@@ -119,6 +120,100 @@ fillets, then walls and faces, then profiles. Among features of the same kind, t
 machining direction points most toward the camera wins.
 
 ## Components
+
+### Stock and display controls
+
+Use `<BoxStock>` for an axis-aligned blank around a part, or `<Stock geometry={stockGeometry} />`
+for an actual stock mesh, including cylindrical or irregular blanks. Stock and part coordinates
+must use the same millimetre, Z-up frame. Both components include stock in Fit and Reset while
+keeping section tools, measurements, the grid, and direction arrows sized to the finished part.
+Stock does not intercept clicks or get clipped by the part's section plane.
+
+```tsx
+import { useMemo, useRef, useState } from 'react'
+import {
+  Axes,
+  BoxStock,
+  DirectionArrows,
+  PartMesh,
+  Viewer,
+  directionHighlights,
+} from '@toolpath/viewer'
+import type { PartModel, ViewerHandle } from '@toolpath/viewer'
+import type { BufferGeometry } from 'three'
+
+export function StockPreview({ model, geometry }: { model: PartModel; geometry: BufferGeometry }) {
+  const viewer = useRef<ViewerHandle>(null)
+  const [stock, setStock] = useState(false)
+  const [axes, setAxes] = useState(true)
+  const [directions, setDirections] = useState(false)
+  const [direction, setDirection] = useState<number | null>(null)
+  const [wireframe, setWireframe] = useState(false)
+  const colors = useMemo(
+    () => (directions ? directionHighlights(model, direction) : []),
+    [model, direction, directions],
+  )
+
+  return (
+    <>
+      <Viewer ref={viewer} style={{ height: 500 }}>
+        <PartMesh
+          model={model}
+          geometry={geometry}
+          display={wireframe ? 'wireframe' : 'solid'}
+          regionHighlights={colors}
+          activeDirection={directions ? direction : null}
+        />
+        {stock && <BoxStock partGeometry={geometry} allowance={3} />}
+        {axes && <Axes />}
+        <DirectionArrows
+          directions={model.candidateDirections}
+          visible={directions}
+          shownDirection={direction}
+          onPickDirection={(index) => setDirection((held) => (held === index ? null : index))}
+        />
+      </Viewer>
+      <button aria-pressed={stock} onClick={() => setStock(!stock)}>
+        Stock
+      </button>
+      <button aria-pressed={axes} onClick={() => setAxes(!axes)}>
+        Axes
+      </button>
+      <button aria-pressed={directions} onClick={() => setDirections(!directions)}>
+        By direction
+      </button>
+      <button aria-pressed={wireframe} onClick={() => setWireframe(!wireframe)}>
+        Wireframe
+      </button>
+      <button onClick={() => viewer.current?.fit()}>Fit</button>
+    </>
+  )
+}
+```
+
+`BoxStock.allowance` is padding **per side**, either a number or `{ x, y, z }`; it defaults to
+zero. `offset` translates the stock from the part's bounding-box centre. Both use millimetres.
+`boxStockBounds(geometry, allowance, offset)` returns the same `Box3` for displaying dimensions.
+Negative/non-finite allowances, non-finite coordinates, and empty or non-positive stock dimensions
+throw `RangeError`. The 3 mm allowance above is an example, not an automatic stock recommendation.
+
+`Stock` accepts `color`, `opacity` (default `0.2`), `edgeColor`, `edgeOpacity`, and `showEdges`.
+`BoxStock` accepts the same appearance props. Caller-provided geometry is never disposed; the
+components dispose their own materials and outlines. Conditionally mount stock to toggle it.
+Toggling stock preserves the camera; Fit/Reset then frames the visible stock together with the part.
+
+`directionHighlights(model, activeDirection?)` returns region colors in the same palette as
+`DirectionArrows`. For a face with several owners, the most specific feature wins, followed by
+candidate-direction order and feature tag. Unmatched directions are left unpainted. Hover and
+selection still paint over this wash. Scoping by direction filters ownership; it does not hide
+the rest of the model or claim that an unpainted face cannot be manufactured.
+
+Wireframe keeps the existing semantic edges, including rear edges, and keeps faces available for
+picking, measuring, and section placement. Highlighted faces and section caps remain visible.
+`showEdges` controls solid-mode outlines; wireframe always shows them. The example's bottom toolbar
+makes wireframe and direction coloring mutually exclusive and includes a direction legend and
+contextual Section/Measure controls. The toolbar is example UI; the package exports the rendering
+primitives so applications can supply their own controls.
 
 ### `<Viewer>`
 
@@ -176,16 +271,17 @@ Draws the part and handles clicks. You only use it directly when you
 
 **Colours**
 
-| Prop                | Type                   | What it does                                                   |
-| ------------------- | ---------------------- | -------------------------------------------------------------- |
-| `selection`         | `string[]`             | Feature tags to highlight as selected (orange).                |
-| `highlights`        | `FeatureHighlight[]`   | Your own colour per feature, e.g. difficulty or setup.         |
-| `regionHighlights`  | `RegionHighlight[]`    | Your own colour per face.                                      |
-| `candidates`        | `string[]`             | Other possible matches, faintly tinted by machining direction. |
-| `pickedRegions`     | `number[]`             | Faces to mark as just clicked.                                 |
-| `hoveredFeatureIds` | `string[]`             | Features to show as hovered, e.g. when hovering a list row.    |
-| `showEdges`         | `boolean` (`true`)     | Draw outlines between faces.                                   |
-| `theme`             | `Partial<ViewerTheme>` | Override the part's colours.                                   |
+| Prop                | Type                                 | What it does                                                                                          |
+| ------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `selection`         | `string[]`                           | Feature tags to highlight as selected (orange).                                                       |
+| `highlights`        | `FeatureHighlight[]`                 | Your own colour per feature, e.g. difficulty or setup.                                                |
+| `regionHighlights`  | `RegionHighlight[]`                  | Your own colour per face.                                                                             |
+| `candidates`        | `string[]`                           | Other possible matches, faintly tinted by machining direction.                                        |
+| `pickedRegions`     | `number[]`                           | Faces to mark as just clicked.                                                                        |
+| `hoveredFeatureIds` | `string[]`                           | Features to show as hovered, e.g. when hovering a list row.                                           |
+| `showEdges`         | `boolean` (`true`)                   | Draw outlines between faces.                                                                          |
+| `display`           | `'solid' \| 'wireframe'` (`'solid'`) | Wireframe draws face boundaries without triangle diagonals. Painted and hovered faces remain visible. |
+| `theme`             | `Partial<ViewerTheme>`               | Override the part's colours.                                                                          |
 
 **Interaction**
 

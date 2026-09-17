@@ -1,7 +1,7 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useRef, useState } from 'react'
 import { Box3 } from 'three'
-import { contentBounds } from './render/camera.js'
+import { partBounds } from './render/camera.js'
 
 /**
  * The bounds of the part, for the overlays that have to be sized against it.
@@ -11,7 +11,7 @@ import { contentBounds } from './render/camera.js'
  * viewer's opening frame waits. Measured once: an overlay that re-fitted itself
  * while the part was being orbited would be a grid that breathes.
  *
- * Scene furniture is excluded, so the grid and the axes do not size each other.
+ * Scene furniture and stock are excluded, so tools stay sized to the finished part.
  */
 export function useContentBox(): Box3 {
   const scene = useThree((state) => state.scene)
@@ -21,7 +21,7 @@ export function useContentBox(): Box3 {
   useFrame(() => {
     if (measured.current) return
     const next = new Box3()
-    contentBounds(scene, next)
+    partBounds(scene, next)
     if (next.isEmpty()) return
     measured.current = true
     setBox(next)

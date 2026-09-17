@@ -22,7 +22,7 @@ import {
   sectionOptionsFromState,
 } from './render/section.js'
 import { useTapGuard } from './tap.js'
-import { createPart } from './render/part.js'
+import { createPart, type PartDisplay } from './render/part.js'
 import { regionAdjacency } from './render/adjacency.js'
 import { type PartPick, buildPick, viewDirection } from './render/picking.js'
 import { trackDoubleTaps } from './render/tap.js'
@@ -120,6 +120,8 @@ export interface PartMeshProps {
   onPick?: (pick: PartPick) => void
   theme?: Partial<ViewerTheme>
   showEdges?: boolean
+  /** Wireframe shows region boundaries and any hovered/painted faces, with no triangle diagonals. */
+  display?: PartDisplay
 }
 
 /**
@@ -150,6 +152,7 @@ export const PartMesh = ({
   onPick,
   theme,
   showEdges = true,
+  display = 'solid',
 }: PartMeshProps) => {
   const { camera, controls, invalidate } = useThree()
   const viewerControls = useViewerControls()
@@ -231,9 +234,9 @@ export const PartMesh = ({
   }, [part, repaint, resolved])
 
   useLayoutEffect(() => {
-    part.edges.visible = showEdges
+    part.setDisplay(display, showEdges)
     invalidate()
-  }, [invalidate, part, showEdges])
+  }, [display, invalidate, part, showEdges])
 
   useLayoutEffect(() => {
     part.setClippingPlanes(cut ? [cut.plane] : null)

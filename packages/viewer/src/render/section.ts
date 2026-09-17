@@ -1,6 +1,6 @@
 import { type Box3, type Intersection, type Object3D, Plane, type Raycaster, Vector3 } from 'three'
 import type { Vec3 } from '../model/types.js'
-import { excludedFromFrame } from './camera.js'
+import { excludedFromPart } from './camera.js'
 
 /**
  * Render order. The stencil pass must precede the cap, and the part must draw
@@ -185,9 +185,9 @@ export interface SurfaceHit {
  *
  * "The part" is whatever in the scene is a visible mesh outside an overlay —
  * every overlay here marks its outermost group with `EXCLUDE_FROM_FRAME`, the
- * same flag that keeps it out of the camera's framing, and the ones that are
- * not clickable turn their own raycast off besides. What is left is the
- * geometry the consumer put in.
+ * same flag that keeps it out of the camera's framing. Stock has its own flag:
+ * it belongs in Fit, but not in section or measurement picks. Non-clickable
+ * overlays also turn their own raycast off.
  *
  * A surface a section cut has clipped away is skipped too. three's raycaster
  * knows nothing about clipping planes, so without this a ray through the open
@@ -199,7 +199,7 @@ export function hitUnderRay(raycaster: Raycaster, root: Object3D): Intersection 
     if (!('isMesh' in hit.object) || !hit.face) continue
     // three's raycaster does not skip hidden objects; R3F's event layer does
     // that itself, and this ray is not R3F's.
-    if (!hit.object.visible || excludedFromFrame(hit.object, root)) continue
+    if (!hit.object.visible || excludedFromPart(hit.object, root)) continue
     if (clippedAway(hit)) continue
     return hit
   }

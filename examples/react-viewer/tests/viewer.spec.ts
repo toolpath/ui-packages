@@ -68,6 +68,11 @@ test('the click points hit the faces the rest of this file is written about', as
   // The arrow is on top of the part, so it has to take the click itself. If it
   // has moved off the arrow the selection changes and the direction does not,
   // which is exactly the pair of symptoms Phase 6 produced.
+  const beforeDirections = await canvas.screenshot()
+  await page.getByRole('button', { name: 'Highlight faces by direction' }).click()
+  await expect
+    .poll(async () => Buffer.compare(beforeDirections, await canvas.screenshot()))
+    .not.toBe(0)
   const before = await selected.textContent()
   await page.mouse.click(at(box, ARROW).x, at(box, ARROW).y)
   await expect(direction).toContainText('0')
@@ -132,6 +137,11 @@ test('selects a feature and responds to CAD camera navigation', async ({ page })
   // go. The arrows sit outside the part, so this reaches past its corner.
   const direction = page.locator('p', { hasText: 'Direction:' })
   await expect(direction).toContainText('all')
+  const beforeDirections = await canvas.screenshot()
+  await page.getByRole('button', { name: 'Highlight faces by direction' }).click()
+  await expect
+    .poll(async () => Buffer.compare(beforeDirections, await canvas.screenshot()))
+    .not.toBe(0)
   const arrow = at(box, ARROW)
   await page.mouse.click(arrow.x, arrow.y)
   await expect(direction).not.toContainText('all')
