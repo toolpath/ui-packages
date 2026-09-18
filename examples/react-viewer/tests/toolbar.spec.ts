@@ -78,11 +78,11 @@ for (const projection of ['perspective', 'orthographic'] as const) {
     await canvas.click({ position: on(box, { x: 0.5, y: 0.5 }) })
     await expect(page.locator('p', { hasText: 'Cut:' })).toContainText('Part surface')
     await page.getByRole('button', { name: 'Measure', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'Section', exact: true })).toHaveAttribute(
+    await expect(page.getByRole('button', { name: 'Exit section', exact: true })).toHaveAttribute(
       'aria-pressed',
-      'false',
+      'true',
     )
-    await expect(page.locator('p', { hasText: 'Cut:' })).toContainText('off')
+    await expect(page.locator('p', { hasText: 'Cut:' })).toContainText('Part surface')
     expect(errors).toEqual([])
   })
 

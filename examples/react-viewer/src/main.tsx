@@ -371,10 +371,11 @@ const App = () => {
               setMeasured([])
               setSelected(heldSelection.current)
             } else {
-              if (!sectioning) heldSelection.current = selected
-              setSelected([])
-              viewerRef.current?.setSection(null)
-              setSectioning(false)
+              if (!sectioning) {
+                heldSelection.current = selected
+                setSelected([])
+                viewerRef.current?.setSection(null)
+              }
             }
             setMeasuring((on) => !on)
           }}

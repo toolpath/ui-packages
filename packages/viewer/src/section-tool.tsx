@@ -192,6 +192,10 @@ const Picker = ({ box, theme }: PickerProps) => {
     // The cut goes where the preview was, and a hair inside it: a plane
     // exactly on the face cuts nothing and fights the face for the pixel.
     const up = (event: PointerEvent) => {
+      // A click can arrive without a preceding pointermove (for example when
+      // a test or keyboard user activates the canvas), so sample the release
+      // position before relying on the preview's cached hover.
+      move(event)
       const hit = hover.current
       if (event.button !== 0 || !hit || !isTap(event)) return
       store.set({
