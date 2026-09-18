@@ -96,6 +96,16 @@ What each wrapper is for:
 4. **You own the state.** The viewer tells you what was clicked (`onPick`), and you tell it what to
    highlight (`selection`, `highlights`, …). It never changes your selection by itself.
 
+### Focus the current selection
+
+Pass `focus` to make selected features solid while the remainder of the part becomes translucent.
+The default outside opacity is 15%; set `opacity` for a different X-ray strength. With no selected
+features, the part stays fully opaque.
+
+```tsx
+<EnginePart report={report} selection={selection} focus={{ opacity: 0.12 }} />
+```
+
 Parts are in **millimetres** with **Z pointing up**. The camera uses the same convention.
 
 ### A click usually matches several features
@@ -999,7 +1009,7 @@ use. They're listed in `dist/index.d.ts`.
 
 `ViewerProps`, `ViewerHandle`, `ViewerView`, `Projection`, `ControlScheme`, `EnginePartProps`,
 `PartMeshProps`, `PartPick`, `PickModifiers`, `PartModel`, `PartModelFeature`, `PartModelRegion`,
-`FeatureTag`, `FeatureType`, `Vec3`, `FeatureHighlight`, `RegionHighlight`, `SectionOptions`,
+`FeatureTag`, `FeatureType`, `Vec3`, `FeatureHighlight`, `RegionHighlight`, `FocusOptions`, `SectionOptions`,
 `SectionState`, `SectionPlacement`, `SectionToolProps`, `SectionStore`, `MeasureToolProps`,
 `MeasureMode`, `Measurement`, `DistanceMeasurement`, `AngleMeasurement`, `Snap`, `SnapKind`,
 `ViewerTheme`, `ViewName`, `DirectionArrowsProps`, `NamedDirection`, `GridProps`, `AxesProps`,

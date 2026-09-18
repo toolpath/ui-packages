@@ -147,6 +147,7 @@ const App = () => {
   const [showAxes, setShowAxes] = useState(true)
   const [showGrid, setShowGrid] = useState(true)
   const [showDirections, setShowDirections] = useState(false)
+  const [focus, setFocus] = useState(false)
   const [wireframe, setWireframe] = useState(false)
   const [allowance, setAllowance] = useState(3)
   const stockSize = useMemo(
@@ -277,6 +278,7 @@ const App = () => {
           axes={showAxes}
           grid={showGrid}
           directions={showDirections}
+          focus={focus}
           wireframe={wireframe}
           sectioning={sectioning}
           measuring={measuring}
@@ -293,6 +295,7 @@ const App = () => {
             heldSelection.current = []
             setWireframe(false)
           }}
+          onFocus={() => setFocus((enabled) => !enabled)}
           onWireframe={() => {
             setWireframe((on) => !on)
             setShowDirections(false)
@@ -440,6 +443,7 @@ const App = () => {
             model={part.model}
             geometry={part.geometry}
             selection={selected}
+            focus={focus ? {} : undefined}
             display={wireframe ? 'wireframe' : 'solid'}
             regionHighlights={highlights}
             activeDirection={showDirections ? direction : null}

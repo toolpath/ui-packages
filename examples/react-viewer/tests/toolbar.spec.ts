@@ -119,6 +119,24 @@ for (const projection of ['perspective', 'orthographic'] as const) {
     )
   })
 
+  test(`focus fades geometry outside the selected feature (${projection})`, async ({ page }) => {
+    const { canvas, box } = await openViewer(page, `projection=${projection}`)
+    await canvas.click({ position: on(box, { x: 0.5, y: 0.5 }) })
+    await expect(page.locator('p', { hasText: 'Selected:' })).not.toContainText('none')
+    const selected = await canvas.screenshot()
+    const focus = page.getByRole('button', { name: 'Focus selection', exact: true })
+
+    await focus.click()
+
+    await expect(page.getByRole('button', { name: 'Show full part', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await expect.poll(async () => Buffer.compare(selected, await canvas.screenshot())).not.toBe(0)
+    await page.getByRole('button', { name: 'Show full part', exact: true }).click()
+    await expect(focus).toHaveAttribute('aria-pressed', 'false')
+  })
+
   test(`stock present on mount does not move the section midpoint (${projection})`, async ({
     page,
   }) => {

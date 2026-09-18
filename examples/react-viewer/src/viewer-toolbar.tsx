@@ -8,6 +8,7 @@ const paths = {
   axes: 'M5 19V3m0 16h16M5 19l10-10M2 6l3-3 3 3m10 10 3 3-3 3M11 9h4v4',
   grid: 'M3 8l9-5 9 5-9 5zM3 8v8l9 5 9-5V8M12 13v8M7.5 5.5v8M16.5 5.5v8',
   directions: 'M7 3v18m-4-4 4 4 4-4M17 21V3m-4 4 4-4 4 4',
+  focus: 'M4 4h16v16H4zM8 8h8v8H8zM2 12h4m12 0h4M12 2v4m0 12v4',
   wireframe: 'M4 7l8-4 8 4v10l-8 4-8-4zM4 7l8 4 8-4M12 11v10M4 17l8-4 8 4M12 3v10',
   section: 'M3 17L17 3l4 4L7 21zM4 6l2-2m3 3 2-2m2 6 2-2m2 6 2-2',
   measure: 'M3 16L16 3l5 5L8 21zM8 11l3 3m1-7 3 3m-11 5 3 3',
@@ -44,6 +45,7 @@ interface ViewerToolbarProps {
   axes: boolean
   grid: boolean
   directions: boolean
+  focus: boolean
   wireframe: boolean
   sectioning: boolean
   measuring: boolean
@@ -54,6 +56,7 @@ interface ViewerToolbarProps {
   onAxes: () => void
   onGrid: () => void
   onDirections: () => void
+  onFocus: () => void
   onWireframe: () => void
   onSection: () => void
   onMeasure: () => void
@@ -88,6 +91,12 @@ export const ViewerToolbar = (props: ViewerToolbarProps) => (
         label="Highlight faces by direction"
         pressed={props.directions}
         onClick={props.onDirections}
+      />
+      <ToolbarButton
+        icon="focus"
+        label={props.focus ? 'Show full part' : 'Focus selection'}
+        pressed={props.focus}
+        onClick={props.onFocus}
       />
       <ToolbarButton
         icon="wireframe"

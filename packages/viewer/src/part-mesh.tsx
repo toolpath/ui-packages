@@ -12,6 +12,7 @@ import { type BufferGeometry, Vector3 } from 'three'
 import type { FeatureTag, PartModel } from './model/types.js'
 import type { FeatureHighlight, RegionHighlight } from './render/paint.js'
 import { applyHighlightLayers } from './render/paint.js'
+import type { FocusOptions } from './render/focus.js'
 import {
   DISABLED_SECTION,
   type SectionOptions,
@@ -46,6 +47,11 @@ export interface PartMeshProps {
    * one-to-many and no scoping rule fixes that.
    */
   selection?: readonly FeatureTag[]
+  /**
+   * Makes selected feature regions solid and the rest of the part translucent.
+   * Omit it for the normal solid view. The application still owns selection.
+   */
+  focus?: FocusOptions
   /**
    * Every feature a click could have meant, painted faintly in each one's own
    * direction colour, under the selection.
@@ -138,6 +144,7 @@ export const PartMesh = ({
   model,
   geometry,
   selection = [],
+  focus,
   candidates = [],
   highlights = [],
   regionHighlights = [],
@@ -232,6 +239,12 @@ export const PartMesh = ({
     part.setTheme(resolved)
     repaint()
   }, [part, repaint, resolved])
+
+  const focusKey = `${focus === undefined ? '' : (focus.opacity ?? '')}|${selection.join(' ')}`
+  useLayoutEffect(() => {
+    part.setFocus(selection, focus)
+    invalidate()
+  }, [focusKey, focus, invalidate, part, selection])
 
   useLayoutEffect(() => {
     part.setDisplay(display, showEdges)
