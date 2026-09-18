@@ -273,6 +273,59 @@ test('measures on the capped face of a cut part', async ({ page }) => {
   await expect(cut).toContainText('off')
 })
 
+/**
+ * A section tool with no cut yet owns the next click on the part. The measure
+ * tool mounted beside it places nothing until the cut is chosen, and again
+ * places nothing once Escape has cleared it, so the click that picks a cut is
+ * never also the first point of a measurement. Leaving section mode hands the
+ * click back to the measure tool.
+ *
+ * A stray first point would not show in the count on its own — a draft is not
+ * a measurement — so each cut is followed by one click and a check that the
+ * count has not moved, before the click that would finish a measurement.
+ */
+test('waits for a cut to be chosen before measuring beside the section tool', async ({ page }) => {
+  const { canvas, box } = await openViewer(page)
+
+  const cut = page.locator('p', { hasText: 'Cut:' })
+  const measured = page.locator('p', { hasText: 'Measured:' })
+
+  await page.getByRole('button', { name: 'Section' }).click()
+  await page.getByRole('button', { name: 'Measure', exact: true }).click()
+  await expect(cut).toContainText('none')
+  await expect(measured).toContainText('none')
+
+  // The first click chooses the cut and is not a measurement point: the next
+  // is a first point, and only the one after that finishes a measurement.
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(cut).toContainText('Part surface')
+  await canvas.click({ position: on(box, ONE) })
+  await expect(measured).toContainText('none')
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(measured).toContainText('1 measurement, last')
+
+  // Clearing the cut puts the section tool back to offering one, and the
+  // measure tool back to waiting: this click cuts, and does not measure.
+  await page.keyboard.press('Escape')
+  await expect(cut).toContainText('none')
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(cut).toContainText('Part surface')
+  await canvas.click({ position: on(box, ONE) })
+  await expect(measured).toContainText('1 measurement, last')
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(measured).toContainText('2 measurements, last')
+
+  // With the section tool gone the measure tool has every click.
+  await page.getByRole('button', { name: 'Exit section' }).click()
+  await expect(cut).toContainText('off')
+  await canvas.click({ position: on(box, CENTRE) })
+  await canvas.click({ position: on(box, ONE) })
+  await expect(measured).toContainText('3 measurements, last')
+
+  await page.getByRole('button', { name: 'Exit measure' }).click()
+  await expect(measured).toContainText('off')
+})
+
 test('pans with either pan button, from wherever the drag starts', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
 

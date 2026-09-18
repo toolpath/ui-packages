@@ -18,6 +18,12 @@ import type { SectionOptions } from './section.js'
  * on a face is not a request to select the face — which is why the flag is a
  * count rather than a boolean: two tools up at once let go one at a time.
  *
+ * And whether a tool is **picking** — `<SectionTool>` is up with no cut in
+ * place, so the next click on the part chooses where the cut goes. That click
+ * is the section tool's alone: `<MeasureTool>` beside it offers no snap and
+ * places no point until the cut is chosen or the section tool is unmounted.
+ * Counted for the same reason as `engaged`.
+ *
  * A subscription rather than React state, so a drag re-renders the two
  * subscribers and not everything under the canvas.
  */
@@ -28,17 +34,22 @@ export interface SectionStore {
   isEngaged(): boolean
   /** Counted: a tool engages on mount and disengages on unmount, and the part waits for the last. */
   setEngaged(engaged: boolean): void
-  /** Notified on every change to either the cut or the engaged flag. */
+  /** Whether a section tool is waiting for a click to say where the cut goes. */
+  isPicking(): boolean
+  /** Counted, as `setEngaged` is: raised while a section tool offers a cut, dropped once one is placed. */
+  setPicking(picking: boolean): void
+  /** Notified on every change to the cut, the engaged flag, or the picking flag. */
   subscribe(listener: () => void): () => void
 }
 
 export function createSectionStore(): SectionStore {
   let current: SectionOptions | null = null
-  let engaged = 0
   const listeners = new Set<() => void>()
   const notify = () => {
     for (const listener of listeners) listener()
   }
+  const engaged = counted(notify)
+  const picking = counted(notify)
 
   return {
     get: () => current,
@@ -47,17 +58,32 @@ export function createSectionStore(): SectionStore {
       current = next
       notify()
     },
-    isEngaged: () => engaged > 0,
-    setEngaged: (next) => {
-      const was = engaged > 0
-      engaged = Math.max(0, engaged + (next ? 1 : -1))
-      if (engaged > 0 !== was) notify()
-    },
+    isEngaged: engaged.is,
+    setEngaged: engaged.set,
+    isPicking: picking.is,
+    setPicking: picking.set,
     subscribe: (listener) => {
       listeners.add(listener)
       return () => {
         listeners.delete(listener)
       }
+    },
+  }
+}
+
+/**
+ * A flag held by however many tools raised it, and notified only when it
+ * changes. A release with nothing held is ignored rather than owed, so a tool
+ * that lets go twice does not leave the next one raising the flag for nothing.
+ */
+function counted(notify: () => void): { is(): boolean; set(next: boolean): void } {
+  let held = 0
+  return {
+    is: () => held > 0,
+    set: (next) => {
+      const was = held > 0
+      held = Math.max(0, held + (next ? 1 : -1))
+      if (held > 0 !== was) notify()
     },
   }
 }

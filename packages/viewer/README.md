@@ -600,6 +600,9 @@ to, the part's edges stop at the plane, the outline where the plane passes throu
 is an edge with corners of its own, and the capped face is a surface a point can land on. The
 sample follows the cut — drag the handle or set a depth and the next pointer move sees the new cut.
 It reads the plane off the part's own material, so a controlled `section` prop works the same way.
+Beside a `<SectionTool>` that has no cut yet, the measure tool waits: it offers no snap and places
+no point until a cut is chosen or the section tool is unmounted, so the click that picks the cut is
+not also the first point of a measurement. Measurements already made stay up meanwhile.
 
 Hold Shift to hold the next point to the X, Y or Z line through the last one — whichever axis the
 pointer is furthest along — so a length along an edge is measured square rather than slightly across
