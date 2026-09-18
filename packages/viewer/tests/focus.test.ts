@@ -1,4 +1,4 @@
-import { MeshLambertMaterial } from 'three'
+import { Mesh, MeshLambertMaterial } from 'three'
 import { describe, expect, it } from 'vitest'
 import { parsePartGeometry } from '../src/engine/geometry.js'
 import { DEFAULT_FOCUS_OPACITY } from '../src/render/focus.js'
@@ -33,6 +33,12 @@ describe('selection-driven focus', () => {
     const material = part.mesh.material as MeshLambertMaterial
     expect(material.transparent).toBe(true)
     expect(material.depthWrite).toBe(false)
+
+    const focusMesh = part.object.children[0] as Mesh
+    const focusMaterial = focusMesh.material as MeshLambertMaterial
+    expect(focusMesh.visible).toBe(true)
+    expect(focusMaterial.transparent).toBe(false)
+    expect(focusMaterial.depthWrite).toBe(true)
   })
 
   it('returns to a fully opaque part when there is no selected feature', async () => {

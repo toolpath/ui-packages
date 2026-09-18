@@ -40,7 +40,7 @@
   "sideEffects": false,
   "scripts": {
     "build": "tsup src/index.ts src/engine/index.ts --format esm --dts --clean --external react --external react-dom --external three --external @react-three/fiber --external @react-three/drei && node scripts/copy-assets.mjs",
-    "build:watch": "tsup src/index.ts src/engine/index.ts --format esm --dts --watch --external react --external react-dom --external three --external @react-three/fiber --external @react-three/drei",
+    "build:watch": "node scripts/copy-assets.mjs && tsup src/index.ts src/engine/index.ts --format esm --dts --watch --external react --external react-dom --external three --external @react-three/fiber --external @react-three/drei",
     "check-types": "tsc --noEmit",
     "test": "vitest run"
   },

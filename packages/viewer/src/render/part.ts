@@ -177,6 +177,11 @@ export function createPart(
   const opacityTexture = new DataTexture(opacity, width, 1, RedFormat, UnsignedByteType)
   opacityTexture.needsUpdate = true
 
+  const focusState = { value: false }
+  const wireframe = { value: false }
+  let focused = false
+  let currentTheme = theme
+
   const material = new MeshLambertMaterial({
     color: theme.part,
     emissive: theme.partEmissive,
@@ -187,68 +192,72 @@ export function createPart(
     polygonOffsetUnits: 1,
   })
 
-  const wireframe = { value: false }
-  let focused = false
-  let currentTheme = theme
+  const configureShader = (target: MeshLambertMaterial, opaqueFocusPass: boolean) => {
+    target.onBeforeCompile = (shader) => {
+      shader.uniforms['uRegionState'] = { value: stateTexture }
+      shader.uniforms['uRegionOpacity'] = { value: opacityTexture }
+      shader.uniforms['uWireframe'] = wireframe
+      shader.uniforms['uFocus'] = focusState
+      shader.uniforms['uOpaqueFocusPass'] = { value: opaqueFocusPass }
 
-  const syncTransparency = () => {
-    const transparent = wireframe.value || focused
-    if (material.transparent === transparent && material.depthWrite === !transparent) return
-    material.transparent = transparent
-    material.depthWrite = !transparent
-    material.needsUpdate = true
-  }
-
-  material.onBeforeCompile = (shader) => {
-    shader.uniforms['uRegionState'] = { value: stateTexture }
-    shader.uniforms['uRegionOpacity'] = { value: opacityTexture }
-    shader.uniforms['uWireframe'] = wireframe
-
-    shader.vertexShader = shader.vertexShader
-      .replace(
-        '#include <common>',
-        `#include <common>
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
         attribute float ${REGION_ATTRIBUTE};
         varying float vRegion;`,
-      )
-      .replace(
-        '#include <begin_vertex>',
-        `#include <begin_vertex>
+        )
+        .replace(
+          '#include <begin_vertex>',
+          `#include <begin_vertex>
         vRegion = ${REGION_ATTRIBUTE};`,
-      )
+        )
 
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        '#include <common>',
-        `#include <common>
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
         uniform sampler2D uRegionState;
         uniform sampler2D uRegionOpacity;
         uniform bool uWireframe;
+        uniform bool uFocus;
+        uniform bool uOpaqueFocusPass;
         varying float vRegion;
         vec4 regionState;`,
-      )
-      // three compiles built-in materials as GLSL 3.0, so `texelFetch` is
-      // available: an exact integer lookup, with no filtering to defeat and no
-      // texture width to pass in as a second uniform.
-      .replace(
-        '#include <color_fragment>',
-        `#include <color_fragment>
+        )
+        // three compiles built-in materials as GLSL 3.0, so `texelFetch` is
+        // available: an exact integer lookup, with no filtering to defeat and no
+        // texture width to pass in as a second uniform.
+        .replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
         regionState = texelFetch(uRegionState, ivec2(int(vRegion + 0.5), 0), 0);
         diffuseColor.rgb = mix(diffuseColor.rgb, regionState.rgb, regionState.a);
-        diffuseColor.a *= texelFetch(uRegionOpacity, ivec2(int(vRegion + 0.5), 0), 0).r;
+        float regionOpacity = texelFetch(uRegionOpacity, ivec2(int(vRegion + 0.5), 0), 0).r;
+        if (uFocus && uOpaqueFocusPass && regionOpacity < 0.999) discard;
+        if (uFocus && !uOpaqueFocusPass && regionOpacity >= 0.999) discard;
+        diffuseColor.a *= regionOpacity;
         if (uWireframe) diffuseColor.a *= regionState.a;
 `,
-      )
-      .replace(
-        '#include <emissivemap_fragment>',
-        `#include <emissivemap_fragment>
+        )
+        .replace(
+          '#include <emissivemap_fragment>',
+          `#include <emissivemap_fragment>
         totalEmissiveRadiance = mix(
           totalEmissiveRadiance,
           regionState.rgb * ${EMISSIVE_MIX.toFixed(2)},
           regionState.a
         );`,
-      )
+        )
+    }
   }
+
+  const focusMaterial = new MeshLambertMaterial({
+    color: theme.part,
+    emissive: theme.partEmissive,
+  })
+  configureShader(focusMaterial, true)
+  configureShader(material, false)
 
   const mesh = new Mesh(geometry, material)
   // Leaves room below for a section's stencil pass and its cap, which would
@@ -269,8 +278,24 @@ export function createPart(
   // a line with no face index, which is not a surface anyone clicked.
   edges.raycast = () => {}
 
+  const focusMesh = new Mesh(geometry, focusMaterial)
+  focusMesh.renderOrder = 3
+  focusMesh.visible = false
+  focusMesh.raycast = () => {}
+
+  const syncTransparency = () => {
+    const transparent = wireframe.value || focused
+    if (material.transparent !== transparent || material.depthWrite !== !transparent) {
+      material.transparent = transparent
+      material.depthWrite = !transparent
+      material.needsUpdate = true
+    }
+    focusState.value = focused
+    focusMesh.visible = focused
+  }
+
   const object = new Group()
-  object.add(mesh, edges)
+  object.add(focusMesh, mesh, edges)
 
   const scratchColor = new Color()
   const scratchVector = new Vector3()
@@ -376,6 +401,7 @@ export function createPart(
     setClippingPlanes(planes) {
       const value = planes === null ? null : [...planes]
       material.clippingPlanes = value
+      focusMaterial.clippingPlanes = value
       edgeMaterial.clippingPlanes = value
     },
 
@@ -383,6 +409,8 @@ export function createPart(
       currentTheme = next
       material.color.setHex(next.part)
       material.emissive.setHex(next.partEmissive)
+      focusMaterial.color.setHex(next.part)
+      focusMaterial.emissive.setHex(next.partEmissive)
       edgeMaterial.color.setHex(wireframe.value ? next.part : next.edge)
       edgeMaterial.opacity = wireframe.value ? 1 : next.edgeOpacity
     },
@@ -406,6 +434,7 @@ export function createPart(
         geometry.deleteAttribute(REGION_ATTRIBUTE)
       }
       material.dispose()
+      focusMaterial.dispose()
       edgeGeometry.dispose()
       edgeMaterial.dispose()
       stateTexture.dispose()
