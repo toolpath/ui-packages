@@ -178,6 +178,20 @@ describe('sectionMeasurement', () => {
     expect(sectionCutDistance(box, normal, -10)).toBe(10)
     expect(sectionCutDistance(box, normal, -50)).toBe(40)
   })
+
+  it('accepts section states from older consumers without cutDistance', () => {
+    expect(
+      sectionMeasurement({
+        enabled: true,
+        normal: { x: 0, y: 0, z: 1 },
+        offset: 0.5,
+        constant: 0,
+        plane: null,
+        depth: null,
+        depthRange: null,
+      }),
+    ).toBe('0.00 mm')
+  })
 })
 
 describe('sectionDirectionColor', () => {

@@ -79,7 +79,7 @@ export interface SectionState {
    * model units. A surface-anchored cut also reports `depth`, which is its
    * more useful physical datum.
    */
-  readonly cutDistance: number
+  readonly cutDistance?: number
   /**
    * How far the cut can travel from its anchor, in model units, or `null` for a
    * sweep — which is measured as a fraction of the part rather than a distance.
@@ -117,7 +117,7 @@ export const DISABLED_SECTION: SectionState = {
  * measured from the edge of the part along the cut normal.
  */
 export function sectionMeasurement(state: SectionState): string {
-  return `${(state.depth ?? state.cutDistance).toFixed(2)} mm`
+  return `${(state.depth ?? state.cutDistance ?? 0).toFixed(2)} mm`
 }
 
 /**
