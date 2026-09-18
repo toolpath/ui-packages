@@ -53,6 +53,11 @@ describe('stock dimensions', () => {
         .getCenter(new Vector3())
         .toArray(),
     ).toEqual([0, 0, 3])
+    expect(
+      fixedBoxStockBounds(geometry, dimensions, 'model_centered', 0, { x: 4, y: -2, z: 3 })
+        .getCenter(new Vector3())
+        .toArray(),
+    ).toEqual([4, -2, 3])
   })
 
   it('rejects invalid inputs before they can produce NaN geometry', () => {

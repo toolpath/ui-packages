@@ -33,6 +33,7 @@ import {
   sectionDepthRange,
   sectionCutDistance,
   sectionDirectionColor,
+  sectionHandleColor,
   sectionOffset,
 } from './render/section.js'
 import {
@@ -93,6 +94,8 @@ interface SectionViewProps {
   box: Box3
   plane: Plane
   theme: ViewerTheme
+  /** An explicit `sectionHandle` override, if the caller supplied one. */
+  handleColor?: number
   showHandle: boolean
   onDrag?: (constant: number) => void
 }
@@ -124,6 +127,7 @@ export const SectionView = ({
   box,
   plane,
   theme,
+  handleColor,
   showHandle,
   onDrag,
 }: SectionViewProps) => {
@@ -142,6 +146,7 @@ export const SectionView = ({
   const span = useMemo(() => box.getSize(new Vector3()).length(), [box])
   const frameSize = span * SECTION_GIZMO_FRAME_SCALE
   const directionColor = useMemo(() => sectionDirectionColor(plane.normal), [plane])
+  const resolvedHandleColor = sectionHandleColor(handleColor, directionColor)
   const clip = useMemo(() => [plane], [plane])
 
   // Where the cap sits: on the plane, over the part's centre.
@@ -384,19 +389,31 @@ export const SectionView = ({
                 is what keeps that from counting as two presses. */}
             <mesh {...grab}>
               <sphereGeometry args={[0.1, 16, 12]} />
-              <meshBasicMaterial color={hovered ? theme.hover : directionColor} depthTest={false} />
+              <meshBasicMaterial
+                color={hovered ? theme.hover : resolvedHandleColor}
+                depthTest={false}
+              />
             </mesh>
             <mesh {...grab}>
               <cylinderGeometry args={[0.035, 0.035, 0.9, 12]} />
-              <meshBasicMaterial color={hovered ? theme.hover : directionColor} depthTest={false} />
+              <meshBasicMaterial
+                color={hovered ? theme.hover : resolvedHandleColor}
+                depthTest={false}
+              />
             </mesh>
             <mesh position={[0, 0.61, 0]} {...grab}>
               <coneGeometry args={[0.15, 0.3, 20]} />
-              <meshBasicMaterial color={hovered ? theme.hover : directionColor} depthTest={false} />
+              <meshBasicMaterial
+                color={hovered ? theme.hover : resolvedHandleColor}
+                depthTest={false}
+              />
             </mesh>
             <mesh position={[0, -0.61, 0]} rotation={[Math.PI, 0, 0]} {...grab}>
               <coneGeometry args={[0.15, 0.3, 20]} />
-              <meshBasicMaterial color={hovered ? theme.hover : directionColor} depthTest={false} />
+              <meshBasicMaterial
+                color={hovered ? theme.hover : resolvedHandleColor}
+                depthTest={false}
+              />
             </mesh>
           </group>
         </>

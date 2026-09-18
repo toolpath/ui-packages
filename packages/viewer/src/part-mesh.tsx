@@ -251,11 +251,15 @@ export const PartMesh = ({
     repaint()
   }, [part, repaint, resolved])
 
+  const focusRef = useRef(focus)
+  focusRef.current = focus
+  const selectionRef = useRef(selection)
+  selectionRef.current = selection
   const focusKey = `${focus === undefined ? '' : (focus.opacity ?? '')}|${selection.join(' ')}`
   useLayoutEffect(() => {
-    part.setFocus(selection, focus)
+    part.setFocus(selectionRef.current, focusRef.current)
     invalidate()
-  }, [focusKey, focus, invalidate, part, selection])
+  }, [focusKey, invalidate, part])
 
   useLayoutEffect(() => {
     part.setDisplay(display, showEdges)
@@ -504,6 +508,7 @@ export const PartMesh = ({
           box={box}
           plane={cut.plane}
           theme={resolved}
+          handleColor={theme?.sectionHandle}
           showHandle={!controlled || onSectionChange !== undefined}
           onDrag={!controlled || onSectionChange ? dragSection : undefined}
         />

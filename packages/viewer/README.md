@@ -756,10 +756,11 @@ go on the cube. See `DEFAULT_THEME` for every key. The default part colours are 
 default lighting, so if you change one, check the other.
 
 The section cut is themed on the part too: `sectionCap` and `sectionHatch` are the cap's fill and
-hatch lines, `sectionHandle` the drag arrow, and `sectionOutline` the cutting-plane sheet and
-preview that `<SectionTool>` draws. `measure` and `measureSnap` are `<MeasureTool>`'s lines and its
-snap indicator; a distance's X, Y, Z legs take `AXIS_COLORS`, the same hues as the section tool's
-global planes.
+hatch lines, `sectionHandle` overrides the drag arrow's colour, and `sectionOutline` the
+cutting-plane sheet and preview that `<SectionTool>` draws. Without a `sectionHandle` override, the
+drag arrow uses the cutting plane's direction colour. `measure` and `measureSnap` are
+`<MeasureTool>`'s lines and its snap indicator; a distance's X, Y, Z legs take `AXIS_COLORS`, the
+same hues as the section tool's global planes.
 
 `HIGHLIGHT_COLORS` has the standard selection colours (`default`, `toolIssue`, `geometryIssue`).
 `DIRECTION_COLORS` has the 9 direction colours, which repeat for parts with more than 9 directions.

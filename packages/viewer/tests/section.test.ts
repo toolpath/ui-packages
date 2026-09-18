@@ -10,6 +10,7 @@ import {
   sectionDepthConstant,
   sectionDepthRange,
   sectionDirectionColor,
+  sectionHandleColor,
   sectionFromPick,
   sectionOffset,
   sectionPlane,
@@ -203,6 +204,17 @@ describe('sectionDirectionColor', () => {
 
   it('blends the participating axis colours for tilted normals', () => {
     expect(sectionDirectionColor({ x: 1, y: 1, z: 0 })).toBe(0xb7a67b)
+  })
+})
+
+describe('sectionHandleColor', () => {
+  it('uses the direction colour when no theme override is supplied', () => {
+    expect(sectionHandleColor(undefined, 0x123456)).toBe(0x123456)
+  })
+
+  it('preserves explicit theme colours, including black', () => {
+    expect(sectionHandleColor(0, 0x123456)).toBe(0)
+    expect(sectionHandleColor(0xabcdef, 0x123456)).toBe(0xabcdef)
   })
 })
 

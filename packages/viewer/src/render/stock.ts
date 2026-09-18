@@ -26,13 +26,15 @@ export type StockPosition = 'model_centered' | 'offset_from_top' | 'offset_from_
 
 /**
  * Bounds for an explicit fixed box. X/Y are centered on the part's bounding
- * box; Z is centered, offset from the top, or offset from the bottom.
+ * box; Z is centered, offset from the top, or offset from the bottom. `offset`
+ * then translates the complete box in part coordinates.
  */
 export function fixedBoxStockBounds(
   geometry: BufferGeometry,
   dimensions: Vec3,
   position: StockPosition = 'model_centered',
   positionOffset = 0,
+  offset: Vec3 = { x: 0, y: 0, z: 0 },
 ): Box3 {
   if (
     ![dimensions.x, dimensions.y, dimensions.z].every(Number.isFinite) ||
@@ -42,6 +44,9 @@ export function fixedBoxStockBounds(
   }
   if (!Number.isFinite(positionOffset)) {
     throw new RangeError('Fixed stock position offset must be finite.')
+  }
+  if (![offset.x, offset.y, offset.z].every(Number.isFinite)) {
+    throw new RangeError('Fixed stock offset must be finite.')
   }
   const part = partBounds(geometry)
   const center = part.getCenter(new Vector3())
@@ -55,7 +60,7 @@ export function fixedBoxStockBounds(
   return new Box3(
     new Vector3(center.x, center.y, z).sub(half),
     new Vector3(center.x, center.y, z).add(half),
-  )
+  ).translate(new Vector3(offset.x, offset.y, offset.z))
 }
 
 /** Per-side allowance and centre offset in millimetres, in the part's coordinates. */

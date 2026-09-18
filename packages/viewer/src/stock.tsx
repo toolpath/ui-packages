@@ -76,7 +76,11 @@ export const BoxStock = ({
   const oz = offset?.z ?? 0
   const geometry = useMemo(() => {
     const box = dimensions
-      ? fixedBoxStockBounds(partGeometry, dimensions, position, positionOffset)
+      ? fixedBoxStockBounds(partGeometry, dimensions, position, positionOffset, {
+          x: ox,
+          y: oy,
+          z: oz,
+        })
       : boxStockBounds(partGeometry, allowance, { x: ox, y: oy, z: oz })
     const size = box.getSize(new Vector3())
     const center = box.getCenter(new Vector3())

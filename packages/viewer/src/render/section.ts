@@ -141,6 +141,11 @@ export function sectionDirectionColor(normal: Vec3): number {
   return (channel(16) << 16) | (channel(8) << 8) | channel(0)
 }
 
+/** An explicit theme colour wins; otherwise the handle identifies its plane. */
+export function sectionHandleColor(themeColor: number | undefined, directionColor: number): number {
+  return themeColor ?? directionColor
+}
+
 /**
  * The options that would resolve to `state` again.
  *
