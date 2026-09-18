@@ -18,6 +18,7 @@ import {
   type SectionOptions,
   type SectionState,
   sectionBounds,
+  sectionCutDistance,
   sectionDepth,
   sectionOffset,
   sectionOptionsFromState,
@@ -373,11 +374,14 @@ export const PartMesh = ({
     (constant: number) => {
       if (!cut) return
       const anchor = options?.plane?.point
+      const bounds = sectionBounds(box, cut.state.normal)
+      const offset = sectionOffset(bounds, constant)
       const state: SectionState = {
         ...cut.state,
         constant,
-        offset: sectionOffset(sectionBounds(box, cut.state.normal), constant),
+        offset,
         depth: anchor ? sectionDepth(cut.state.normal, anchor, constant) : null,
+        cutDistance: sectionCutDistance(box, cut.state.normal, constant),
       }
       // The viewer's own cut moves itself; a consumer's is theirs to move.
       if (!controlled) store.set(sectionOptionsFromState(state))

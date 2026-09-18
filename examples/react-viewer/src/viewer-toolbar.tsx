@@ -11,7 +11,7 @@ const paths = {
   hover: 'M4 4h16v12H9l-5 4zm4 5h8m-8 3h5',
   focus: 'M4 4h16v16H4zM8 8h8v8H8zM2 12h4m12 0h4M12 2v4m0 12v4',
   wireframe: 'M4 7l8-4 8 4v10l-8 4-8-4zM4 7l8 4 8-4M12 11v10M4 17l8-4 8 4M12 3v10',
-  section: 'M3 17L17 3l4 4L7 21zM4 6l2-2m3 3 2-2m2 6 2-2m2 6 2-2',
+  section: 'M3 6h9v12H3zM12 3v18M16 6h2m3 3v2m0 3v2m-5 3h-2',
   measure: 'M3 16L16 3l5 5L8 21zM8 11l3 3m1-7 3 3m-11 5 3 3',
 } as const
 

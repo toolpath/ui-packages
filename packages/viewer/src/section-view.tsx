@@ -4,6 +4,8 @@ import {
   type Box3,
   type BufferGeometry,
   Color,
+  DoubleSide,
+  EdgesGeometry,
   Group,
   Mesh,
   Plane,
@@ -17,6 +19,7 @@ import {
 import { CONE_AXIS } from './render/directions.js'
 import {
   HANDLE_PIXELS,
+  SECTION_GIZMO_FRAME_SCALE,
   SECTION_RENDER_ORDER,
   type SectionOptions,
   type SectionState,
@@ -28,6 +31,8 @@ import {
   sectionDepth,
   sectionDepthConstant,
   sectionDepthRange,
+  sectionCutDistance,
+  sectionDirectionColor,
   sectionOffset,
 } from './render/section.js'
 import {
@@ -77,6 +82,7 @@ export function resolveSectionPlane(
       constant,
       plane: options.plane ?? null,
       depth: anchor === null ? null : sectionDepth(normal, anchor, constant),
+      cutDistance: sectionCutDistance(box, normal, constant),
       depthRange: anchor === null ? null : sectionDepthRange(bounds, normal, anchor),
     },
   }
@@ -134,6 +140,8 @@ export const SectionView = ({
   const dragging = useRef<{ plane: Plane; from: number; constant: number } | null>(null)
 
   const span = useMemo(() => box.getSize(new Vector3()).length(), [box])
+  const frameSize = span * SECTION_GIZMO_FRAME_SCALE
+  const directionColor = useMemo(() => sectionDirectionColor(plane.normal), [plane])
   const clip = useMemo(() => [plane], [plane])
 
   // Where the cap sits: on the plane, over the part's centre.
@@ -147,6 +155,14 @@ export const SectionView = ({
     () => new Quaternion().setFromUnitVectors(CONE_AXIS, plane.normal.clone().negate()),
     [plane],
   )
+
+  // The control's frame deliberately follows the whole plane rather than the
+  // cap outline: a narrow intersection on a thin wall is still a cut plane a
+  // person needs to find and grab.
+  const frameSurface = useMemo(() => new PlaneGeometry(frameSize, frameSize), [frameSize])
+  useEffect(() => () => frameSurface.dispose(), [frameSurface])
+  const frameEdges = useMemo(() => new EdgesGeometry(frameSurface), [frameSurface])
+  useEffect(() => () => frameEdges.dispose(), [frameEdges])
 
   // The stencil materials, the mask target and the cap material are built once
   // and updated in place: a drag moves the plane on every pointer event, and
@@ -332,31 +348,58 @@ export const SectionView = ({
       />
 
       {showHandle && onDrag ? (
-        <group
-          ref={handleRef}
-          position={capPosition}
-          quaternion={handleQuaternion}
-          renderOrder={SECTION_RENDER_ORDER.handle}
-        >
-          {/* Handlers on each mesh rather than on the group. Either works —
-              R3F bubbles from the hit mesh to an ancestor — but the ray hits
-              both the head and the shaft, and stopping propagation at the mesh
-              is what keeps that from counting as two presses. */}
-          <mesh position={[0, 0.28, 0]} {...grab}>
-            <coneGeometry args={[0.16, 0.34, 20]} />
-            <meshBasicMaterial
-              color={hovered ? theme.hover : theme.sectionHandle}
-              depthTest={false}
-            />
-          </mesh>
-          <mesh position={[0, 0.08, 0]} {...grab}>
-            <cylinderGeometry args={[0.045, 0.045, 0.4, 12]} />
-            <meshBasicMaterial
-              color={hovered ? theme.hover : theme.sectionHandle}
-              depthTest={false}
-            />
-          </mesh>
-        </group>
+        <>
+          {/* A translucent frame makes the clipping plane legible even where
+              its cap is a thin sliver. It is visual only; the normal-axis
+              handle below remains the one clear drag affordance. */}
+          <group
+            position={capPosition}
+            quaternion={capQuaternion}
+            renderOrder={SECTION_RENDER_ORDER.outline}
+          >
+            <mesh geometry={frameSurface} raycast={() => null}>
+              <meshBasicMaterial
+                color={directionColor}
+                transparent
+                opacity={0.18}
+                side={DoubleSide}
+                depthTest={false}
+                depthWrite={false}
+              />
+            </mesh>
+            <lineSegments geometry={frameEdges} raycast={() => null}>
+              <lineBasicMaterial color={directionColor} depthTest={false} depthWrite={false} />
+            </lineSegments>
+          </group>
+
+          <group
+            ref={handleRef}
+            position={capPosition}
+            quaternion={handleQuaternion}
+            renderOrder={SECTION_RENDER_ORDER.handle}
+          >
+            {/* Handlers on each mesh rather than on the group. Either works —
+                R3F bubbles from the hit mesh to an ancestor — but the ray hits
+                several parts of the gizmo, and stopping propagation at the mesh
+                is what keeps that from counting as two presses. */}
+            <mesh {...grab}>
+              <sphereGeometry args={[0.1, 16, 12]} />
+              <meshBasicMaterial color={hovered ? theme.hover : directionColor} depthTest={false} />
+            </mesh>
+            <mesh {...grab}>
+              <cylinderGeometry args={[0.035, 0.035, 0.9, 12]} />
+              <meshBasicMaterial color={hovered ? theme.hover : directionColor} depthTest={false} />
+            </mesh>
+            <mesh position={[0, 0.61, 0]} {...grab}>
+              <coneGeometry args={[0.15, 0.3, 20]} />
+              <meshBasicMaterial color={hovered ? theme.hover : directionColor} depthTest={false} />
+            </mesh>
+            <mesh position={[0, -0.61, 0]} rotation={[Math.PI, 0, 0]} {...grab}>
+              <coneGeometry args={[0.15, 0.3, 20]} />
+              <meshBasicMaterial color={hovered ? theme.hover : directionColor} depthTest={false} />
+            </mesh>
+          </group>
+        </>
       ) : null}
     </group>
   )

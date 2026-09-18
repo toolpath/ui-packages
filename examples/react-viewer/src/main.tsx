@@ -18,6 +18,7 @@ import {
   SectionTool,
   Viewer,
   measurementLabel,
+  sectionMeasurement,
   type MeasureMode,
   type Measurement,
   type PartModel,
@@ -393,6 +394,9 @@ const App = () => {
                         viewerRef.current?.setSection(sweepTo(cut, next))
                       }}
                     />
+                    <output className="section-measurement" aria-label="Cut amount">
+                      {sectionMeasurement(cut)}
+                    </output>
                   </label>
                   <button type="button" onClick={() => viewerRef.current?.setSection(null)}>
                     Clear cut

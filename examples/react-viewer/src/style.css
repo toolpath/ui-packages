@@ -195,6 +195,11 @@ strong {
   align-items: center;
   gap: 0.4rem;
 }
+.section-measurement {
+  color: #eef0f6;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .direction-dot {
   display: inline-block;
   width: 0.65rem;

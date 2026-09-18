@@ -597,7 +597,10 @@ no `section` prop:
 
 Hovering the part previews a cut through the face under the pointer; clicking places it. Three
 coloured planes stand behind the part — click one to cut along that axis, in from your side. Once
-there is a cut, an arrow drags it, an outlined sheet shows the cutting plane, and Escape clears it.
+there is a cut, a framed plane and two-way normal-axis handle show exactly what will move; drag the
+handle to move it. Keep the canvas clear by presenting `sectionMeasurement(state)` beside the host
+application's section slider; it reports the depth from a picked surface, or the distance swept
+through the part bounds. Escape clears it.
 The cut belongs to the viewer: `viewer.current.setSection(null)` clears it from a button outside
 the canvas, `setSection({ enabled: true, normal, offset })` sets one, and `onSectionChange` on
 `PartMesh` still reports every move.
@@ -624,7 +627,7 @@ const [offset, setOffset] = useState(0.5)
 ```
 
 The cut surface is filled in with a hatch and outlined, so the part doesn't look hollow and the cut
-reads as a cut. Passing `onSectionChange` also shows an arrow handle users can drag. The handler is
+reads as a cut. Passing `onSectionChange` also shows the draggable plane-frame gizmo. The handler is
 called on every drag and only when the cut actually changes, so it's safe to store the value in
 state; a cut going away is reported once, with `enabled: false`.
 

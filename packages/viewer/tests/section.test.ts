@@ -5,12 +5,15 @@ import {
   dragPlane,
   sectionBounds,
   sectionConstant,
+  sectionCutDistance,
   sectionDepth,
   sectionDepthConstant,
   sectionDepthRange,
+  sectionDirectionColor,
   sectionFromPick,
   sectionOffset,
   sectionPlane,
+  sectionMeasurement,
 } from '../src/render/section.js'
 import { resolveSectionPlane } from '../src/section-view.js'
 
@@ -144,6 +147,48 @@ describe('sectionDepth', () => {
     // thickness, plus the margin at each end.
     expect(range.min).toBeLessThan(0)
     expect(range.max).toBeGreaterThan(50)
+  })
+})
+
+describe('sectionMeasurement', () => {
+  it('reports an anchored cut against its physical depth', () => {
+    const cut = resolveSectionPlane(
+      {
+        enabled: true,
+        plane: sectionFromPick({ point: { x: 0, y: 0, z: 50.8 }, normal: { x: 0, y: 0, z: 1 } }),
+        depth: 3.125,
+      },
+      cube(),
+    )
+
+    expect(sectionMeasurement(cut!.state)).toBe('3.13 mm')
+  })
+
+  it('reports a free sweep by its physical distance', () => {
+    const cut = resolveSectionPlane({ enabled: true, offset: 0.456 }, cube())
+
+    expect(sectionMeasurement({ ...cut!.state, cutDistance: 12.34 })).toBe('12.34 mm')
+  })
+
+  it('clamps a sweep measurement to the part bounds', () => {
+    const box = new Box3(new Vector3(0, 0, 0), new Vector3(40, 20, 10))
+    const normal = { x: 1, y: 0, z: 0 }
+
+    expect(sectionCutDistance(box, normal, 10)).toBe(0)
+    expect(sectionCutDistance(box, normal, -10)).toBe(10)
+    expect(sectionCutDistance(box, normal, -50)).toBe(40)
+  })
+})
+
+describe('sectionDirectionColor', () => {
+  it('uses the axis colour for cardinal normals', () => {
+    expect(sectionDirectionColor({ x: 1, y: 0, z: 0 })).toBe(0xff6b6b)
+    expect(sectionDirectionColor({ x: 0, y: -1, z: 0 })).toBe(0x6fe08a)
+    expect(sectionDirectionColor({ x: 0, y: 0, z: 1 })).toBe(0x6f9bff)
+  })
+
+  it('blends the participating axis colours for tilted normals', () => {
+    expect(sectionDirectionColor({ x: 1, y: 1, z: 0 })).toBe(0xb7a67b)
   })
 })
 
