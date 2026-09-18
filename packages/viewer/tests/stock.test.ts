@@ -11,7 +11,7 @@ import {
 import { describe, expect, it, vi } from 'vitest'
 import { contentBounds, partBounds } from '../src/render/camera.js'
 import { hitUnderRay } from '../src/render/section.js'
-import { boxStockBounds, createStock } from '../src/render/stock.js'
+import { boxStockBounds, createStock, fixedBoxStockBounds } from '../src/render/stock.js'
 
 describe('stock dimensions', () => {
   it('adds allowance on both sides and offsets from an off-origin part centre', () => {
@@ -28,6 +28,31 @@ describe('stock dimensions', () => {
     const geometry = new BoxGeometry(20, 30, 10)
     expect(boxStockBounds(geometry, 3).getSize(new Vector3()).toArray()).toEqual([26, 36, 16])
     expect(boxStockBounds(geometry).getSize(new Vector3()).toArray()).toEqual([20, 30, 10])
+  })
+
+  it('maps wall leave to X/Y and floor leave to Z', () => {
+    const geometry = new BoxGeometry(20, 30, 10)
+    expect(
+      boxStockBounds(geometry, { wall: 0.254, floor: 0.508 }).getSize(new Vector3()).toArray(),
+    ).toEqual([20.508, 30.508, 11.016])
+  })
+
+  it('positions fixed box stock from the model center or top/bottom', () => {
+    const geometry = new BoxGeometry(20, 30, 10)
+    const dimensions = { x: 40, y: 50, z: 20 }
+    expect(fixedBoxStockBounds(geometry, dimensions).getCenter(new Vector3()).toArray()).toEqual([
+      0, 0, 0,
+    ])
+    expect(
+      fixedBoxStockBounds(geometry, dimensions, 'offset_from_top', 2)
+        .getCenter(new Vector3())
+        .toArray(),
+    ).toEqual([0, 0, -3])
+    expect(
+      fixedBoxStockBounds(geometry, dimensions, 'offset_from_bottom', 2)
+        .getCenter(new Vector3())
+        .toArray(),
+    ).toEqual([0, 0, 3])
   })
 
   it('rejects invalid inputs before they can produce NaN geometry', () => {

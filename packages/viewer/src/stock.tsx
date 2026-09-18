@@ -2,7 +2,13 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo } from 'react'
 import { type BufferGeometry, BoxGeometry, Vector3 } from 'three'
 import type { Vec3 } from './model/types.js'
-import { boxStockBounds, createStock } from './render/stock.js'
+import {
+  boxStockBounds,
+  createStock,
+  fixedBoxStockBounds,
+  type StockAllowance,
+  type StockPosition,
+} from './render/stock.js'
 
 export interface StockProps {
   /** Caller-owned stock mesh in the same millimetre, Z-up coordinates as the part. */
@@ -39,26 +45,43 @@ export const Stock = ({
 
 export interface BoxStockProps extends Omit<StockProps, 'geometry'> {
   partGeometry: BufferGeometry
-  /** Padding on each side, in millimetres. Defaults to zero. */
-  allowance?: number | Vec3
+  /** Explicit X/Y/Z dimensions, in millimetres, for fixed-box stock. */
+  dimensions?: Vec3
+  /** Position mode for explicit fixed-box stock. Defaults to model-centered. */
+  position?: StockPosition
+  /** Distance from the selected top/bottom part bound, in millimetres. */
+  positionOffset?: number
+  /**
+   * Stock left around the part, in millimetres. In the `{ wall, floor }` form,
+   * wall applies to X/Y and floor applies to Z. Number and `{ x, y, z }` forms
+   * are retained for compatibility. Defaults to zero.
+   */
+  allowance?: StockAllowance
   /** Translation from the part's bounding-box centre, in millimetres. */
   offset?: Vec3
 }
 
 /** An axis-aligned blank around the part. Use Stock for an arbitrary stock mesh. */
-export const BoxStock = ({ partGeometry, allowance = 0, offset, ...props }: BoxStockProps) => {
-  const x = typeof allowance === 'number' ? allowance : allowance.x
-  const y = typeof allowance === 'number' ? allowance : allowance.y
-  const z = typeof allowance === 'number' ? allowance : allowance.z
+export const BoxStock = ({
+  partGeometry,
+  dimensions,
+  position = 'model_centered',
+  positionOffset = 0,
+  allowance = 0,
+  offset,
+  ...props
+}: BoxStockProps) => {
   const ox = offset?.x ?? 0
   const oy = offset?.y ?? 0
   const oz = offset?.z ?? 0
   const geometry = useMemo(() => {
-    const box = boxStockBounds(partGeometry, { x, y, z }, { x: ox, y: oy, z: oz })
+    const box = dimensions
+      ? fixedBoxStockBounds(partGeometry, dimensions, position, positionOffset)
+      : boxStockBounds(partGeometry, allowance, { x: ox, y: oy, z: oz })
     const size = box.getSize(new Vector3())
     const center = box.getCenter(new Vector3())
     return new BoxGeometry(size.x, size.y, size.z).translate(center.x, center.y, center.z)
-  }, [ox, oy, oz, partGeometry, x, y, z])
+  }, [allowance, dimensions, ox, oy, oz, partGeometry, position, positionOffset])
   useEffect(() => () => geometry.dispose(), [geometry])
   return <Stock geometry={geometry} {...props} />
 }

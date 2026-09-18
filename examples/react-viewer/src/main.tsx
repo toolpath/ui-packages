@@ -6,7 +6,7 @@ import {
   Axes,
   Banana,
   BoxStock,
-  boxStockBounds,
+  fixedBoxStockBounds,
   directionHighlights,
   directionLabel,
   directionColor,
@@ -27,6 +27,7 @@ import {
   type Projection,
   type SectionOptions,
   type SectionState,
+  type StockPosition,
   type ViewerHandle,
 } from '@toolpath/viewer'
 import { MODELS, modelFromQuery } from './models'
@@ -195,10 +196,18 @@ const App = () => {
   const [showDirections, setShowDirections] = useState(false)
   const [focus, setFocus] = useState(false)
   const [wireframe, setWireframe] = useState(false)
-  const [allowance, setAllowance] = useState(3)
+  const [stockDimensions, setStockDimensions] = useState({ x: 25.908, y: 25.908, z: 25.908 })
+  const [stockPosition, setStockPosition] = useState<StockPosition>('model_centered')
+  const [stockPositionOffset, setStockPositionOffset] = useState(0)
   const stockSize = useMemo(
-    () => boxStockBounds(part.geometry, allowance).getSize(new THREE.Vector3()),
-    [allowance, part.geometry],
+    () =>
+      fixedBoxStockBounds(
+        part.geometry,
+        stockDimensions,
+        stockPosition,
+        stockPositionOffset,
+      ).getSize(new THREE.Vector3()),
+    [part.geometry, stockDimensions, stockPosition, stockPositionOffset],
   )
   const highlights = useMemo(
     () => (showDirections ? directionHighlights(part.model, direction) : []),
@@ -254,20 +263,81 @@ const App = () => {
           mm (X × Y × Z)
         </p>
         <label className="stock-allowance">
-          Allowance per side (mm)
+          Stock X dimension (mm)
           <input
             type="number"
             min="0"
             max="100"
             step="0.5"
-            value={allowance}
+            value={stockDimensions.x}
             onChange={(event) => {
               const value = event.target.valueAsNumber
-              if (Number.isFinite(value) && value >= 0 && value <= 100) setAllowance(value)
+              if (Number.isFinite(value) && value > 0 && value <= 1000)
+                setStockDimensions((current) => ({ ...current, x: value }))
             }}
           />
         </label>
-        <p className="small-note">Demo box stock; adjust the allowance for your setup.</p>
+        <label className="stock-allowance">
+          Stock Y dimension (mm)
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="0.5"
+            value={stockDimensions.y}
+            onChange={(event) => {
+              const value = event.target.valueAsNumber
+              if (Number.isFinite(value) && value > 0 && value <= 1000)
+                setStockDimensions((current) => ({ ...current, y: value }))
+            }}
+          />
+        </label>
+        <label className="stock-allowance">
+          Stock Z dimension (mm)
+          <input
+            type="number"
+            min="0.01"
+            max="1000"
+            step="0.01"
+            value={stockDimensions.z}
+            onChange={(event) => {
+              const value = event.target.valueAsNumber
+              if (Number.isFinite(value) && value > 0 && value <= 1000)
+                setStockDimensions((current) => ({ ...current, z: value }))
+            }}
+          />
+        </label>
+        <label className="stock-allowance">
+          Stock position
+          <select
+            value={stockPosition}
+            onChange={(event) => setStockPosition(event.target.value as StockPosition)}
+          >
+            <option value="model_centered">Model centered</option>
+            <option value="offset_from_top">Offset from top</option>
+            <option value="offset_from_bottom">Offset from bottom</option>
+          </select>
+        </label>
+        {stockPosition !== 'model_centered' ? (
+          <label className="stock-allowance">
+            Position offset (mm)
+            <input
+              type="number"
+              min="0"
+              max="1000"
+              step="0.01"
+              value={stockPositionOffset}
+              onChange={(event) => {
+                const value = event.target.valueAsNumber
+                if (Number.isFinite(value) && value >= 0 && value <= 1000)
+                  setStockPositionOffset(value)
+              }}
+            />
+          </label>
+        ) : null}
+        <p className="small-note">
+          Fixed box stock dimensions and position. Values are millimetres.
+        </p>
         <button
           className="detail-button"
           type="button"
@@ -515,7 +585,14 @@ const App = () => {
             }}
             onPick={(pick: PartPick) => setSelected([...pick.ranked])}
           />
-          {showStock ? <BoxStock partGeometry={part.geometry} allowance={allowance} /> : null}
+          {showStock ? (
+            <BoxStock
+              partGeometry={part.geometry}
+              dimensions={stockDimensions}
+              position={stockPosition}
+              positionOffset={stockPositionOffset}
+            />
+          ) : null}
           <DirectionArrows
             visible={showDirections && !sectioning && !measuring}
             directions={part.model.candidateDirections}

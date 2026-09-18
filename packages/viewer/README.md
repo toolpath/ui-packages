@@ -186,7 +186,7 @@ export function StockPreview({ model, geometry }: { model: PartModel; geometry: 
           regionHighlights={colors}
           activeDirection={directions ? direction : null}
         />
-        {stock && <BoxStock partGeometry={geometry} allowance={3} />}
+        {stock && <BoxStock partGeometry={geometry} allowance={{ wall: 3, floor: 3 }} />}
         {axes && <Axes />}
         <DirectionArrows
           directions={model.candidateDirections}
@@ -213,9 +213,17 @@ export function StockPreview({ model, geometry }: { model: PartModel; geometry: 
 }
 ```
 
-`BoxStock.allowance` is padding **per side**, either a number or `{ x, y, z }`; it defaults to
-zero. `offset` translates the stock from the part's bounding-box centre. Both use millimetres.
-`boxStockBounds(geometry, allowance, offset)` returns the same `Box3` for displaying dimensions.
+`BoxStock.allowance` is padding **per side**, in millimetres. The preferred form is
+`{ wall, floor }`: wall stock expands X/Y and floor stock expands Z, matching the wall/floor
+roughing-stock distinction used by machining settings. A number or `{ x, y, z }` remains accepted
+for uniform or axis-specific padding. It defaults to zero. `offset` translates the stock from the
+part's bounding-box centre. `boxStockBounds(geometry, allowance, offset)` returns the same `Box3`
+for displaying dimensions.
+
+For fixed-box stock, pass `dimensions={{ x, y, z }}` instead. `position` accepts
+`model_centered`, `offset_from_top`, or `offset_from_bottom`, and `positionOffset` is the distance
+from the selected top or bottom bound. All fixed-box values use millimetres and the part's Z-up
+coordinate frame.
 Negative/non-finite allowances, non-finite coordinates, and empty or non-positive stock dimensions
 throw `RangeError`. The 3 mm allowance above is an example, not an automatic stock recommendation.
 

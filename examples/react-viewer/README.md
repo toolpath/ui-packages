@@ -8,9 +8,9 @@ have holes, chamfers, a pocket and a bore to snap to, and each page states what 
 should measure.
 
 The bottom toolbar offers stock, axes, grid, direction coloring, wireframe, Section, Measure, Fit,
-Reset, and Top view. Stock is a box with an adjustable allowance (initially 3 mm per side);
-its X × Y × Z dimensions appear in the sidebar. Use Fit after showing or resizing stock to
-frame the whole blank. This allowance is a demonstration setting, not a recommended cutting allowance.
+Reset, and Top view. Stock is a fixed box with editable X/Y/Z dimensions and centered/top/bottom
+positioning; its X × Y × Z dimensions appear in the sidebar. Use Fit after showing or resizing stock
+to frame the whole blank. These values are a demonstration setting, not a machine-stock recommendation.
 
 Direction mode colors the model and shows matching arrows and a clickable legend. Choosing a
 direction scopes face picks; All clears that scope. Wireframe shows CAD face boundaries with

@@ -41,7 +41,7 @@ for (const projection of ['perspective', 'orthographic'] as const) {
       .poll(async () => Buffer.compare(beforeStock, await canvas.screenshot()))
       .not.toBe(0)
     expect((await readCamera(page)).distance).toBeCloseTo(before.distance, 5)
-    await expect(page.locator('p', { hasText: 'Stock:' })).toContainText('31.40 × 31.40 × 31.40')
+    await expect(page.locator('p', { hasText: 'Stock:' })).toContainText('25.91 × 25.91 × 25.91')
     await canvas.click({ position: on(box, { x: 0.5, y: 0.5 }) })
     await expect(page.locator('p', { hasText: 'Selected:' })).toContainText(
       projection === 'perspective' ? 'back-face' : 'front-face',
@@ -52,7 +52,9 @@ for (const projection of ['perspective', 'orthographic'] as const) {
       .poll(async () => (await readCamera(page)).distance)
       .toBeGreaterThan(before.distance)
     const fittedStock = await readCamera(page)
-    await page.getByRole('spinbutton', { name: 'Allowance per side (mm)' }).fill('6')
+    await page.getByRole('spinbutton', { name: 'Stock X dimension (mm)' }).fill('37.4')
+    await page.getByRole('spinbutton', { name: 'Stock Y dimension (mm)' }).fill('37.4')
+    await page.getByRole('spinbutton', { name: 'Stock Z dimension (mm)' }).fill('37.4')
     await expect(page.locator('p', { hasText: 'Stock:' })).toContainText('37.40 × 37.40 × 37.40')
     await page.getByRole('button', { name: 'Fit', exact: true }).click()
     await expect
@@ -106,7 +108,7 @@ for (const projection of ['perspective', 'orthographic'] as const) {
     await expect(page.locator('p', { hasText: 'Selected:' })).toContainText(
       projection === 'perspective' ? 'back-face' : 'front-face',
     )
-    await page.getByRole('combobox').selectOption('plate')
+    await page.getByRole('combobox').first().selectOption('plate')
     await expect(page.locator('p', { hasText: 'Direction:' })).toContainText('all')
     await expect(page.locator('p', { hasText: 'Selected:' })).toContainText('none')
     await page.getByRole('button', { name: 'Wireframe', exact: true }).click()
