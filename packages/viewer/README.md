@@ -133,8 +133,8 @@ machining direction points most toward the camera wins.
 `onHover` receives the same `PartPick` shape. Use the optional `pointer` location yourself, or
 wrap application content in `<HoverCard pick={hoverPick}>`; it follows the cursor while that
 region remains hovered. The viewer intentionally leaves card content and actions to the application.
-Pass `hover={false}` to stop both the face feedback and `onHover` callbacks while preserving clicks;
-that makes an application toolbar's feature-hover toggle unambiguous.
+Hover feedback is off by default; pass `hover` to enable both face feedback and `onHover` callbacks
+while preserving clicks. That makes an application toolbar's feature-hover toggle unambiguous.
 
 The normalized model contains feature identity, type, directions, face shape, and analytic area.
 An Engine DFM card can join `pick.best` to the part's detailed feature data and render its own

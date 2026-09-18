@@ -156,7 +156,7 @@ export const PartMesh = ({
   regionHighlights = [],
   pickedRegions = [],
   hoveredFeatureIds = [],
-  hover = true,
+  hover = false,
   activeDirection = null,
   section,
   onSectionChange,

@@ -1,9 +1,10 @@
-import { StrictMode, useCallback, useMemo, useRef, useState } from 'react'
+import { StrictMode, Suspense, useCallback, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import {
   Axes,
+  Banana,
   BoxStock,
   boxStockBounds,
   directionHighlights,
@@ -164,7 +165,7 @@ const App = () => {
   const viewerRef = useRef<ViewerHandle>(null)
   const [hovered, setHovered] = useState<string[]>([])
   const [hoverPick, setHoverPick] = useState<PartPick | null>(null)
-  const [featureHover, setFeatureHover] = useState(true)
+  const [featureHover, setFeatureHover] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
   // The selection put down on entering section mode, to pick up again on the
   // way out. A ref rather than state: nothing renders from it.
@@ -190,6 +191,7 @@ const App = () => {
   const [showStock, setShowStock] = useState(params.get('stock') === 'on')
   const [showAxes, setShowAxes] = useState(true)
   const [showGrid, setShowGrid] = useState(true)
+  const [banana, setBanana] = useState(false)
   const [showDirections, setShowDirections] = useState(false)
   const [focus, setFocus] = useState(false)
   const [wireframe, setWireframe] = useState(false)
@@ -211,7 +213,6 @@ const App = () => {
     (next: CameraState) => setPose((held) => (sameCamera(held, next) ? held : next)),
     [],
   )
-
   return (
     <main>
       <section>
@@ -325,6 +326,7 @@ const App = () => {
           stock={showStock}
           axes={showAxes}
           grid={showGrid}
+          banana={banana}
           directions={showDirections}
           hover={featureHover}
           focus={focus}
@@ -337,6 +339,7 @@ const App = () => {
           onStock={() => setShowStock((on) => !on)}
           onAxes={() => setShowAxes((on) => !on)}
           onGrid={() => setShowGrid((on) => !on)}
+          onBanana={() => setBanana((shown) => !shown)}
           onDirections={() => {
             setShowDirections((on) => !on)
             setDirection(null)
@@ -521,6 +524,11 @@ const App = () => {
           {sectioning ? <SectionTool /> : null}
           {measuring ? <MeasureTool mode={measureMode} onChange={setMeasured} /> : null}
           {showGrid ? <Grid /> : null}
+          {banana ? (
+            <Suspense fallback={null}>
+              <Banana />
+            </Suspense>
+          ) : null}
           {showAxes ? <Axes size={35} /> : null}
           <ViewCube />
         </Viewer>

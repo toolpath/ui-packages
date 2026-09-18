@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { at, on, openViewer } from './canvas.js'
+import { at, on, openViewer, readCamera } from './canvas.js'
 
 /**
  * The example viewer, driven the way somebody would drive it.
@@ -82,6 +82,7 @@ test('the click points hit the faces the rest of this file is written about', as
 test('hovering a face exposes an application-owned card at the pointer', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
 
+  await page.getByRole('button', { name: 'Enable feature hover' }).click()
   await canvas.hover({ position: on(box, CENTRE) })
   await expect(page.getByRole('tooltip')).toContainText('Feature')
   await expect(page.getByRole('tooltip')).toContainText('Surface area')
@@ -91,27 +92,40 @@ test('hovering a face exposes an application-owned card at the pointer', async (
 
 test('feature hover can be toggled without disabling face picks', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
-  const toggle = page.getByRole('button', { name: 'Disable feature hover' })
+  const toggle = page.getByRole('button', { name: 'Enable feature hover' })
   const selected = page.locator('p', { hasText: 'Selected:' })
 
-  await toggle.click()
-  await expect(page.getByRole('button', { name: 'Enable feature hover' })).toHaveAttribute(
-    'aria-pressed',
-    'false',
-  )
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
   await canvas.hover({ position: on(box, CENTRE) })
   await expect(page.getByRole('tooltip')).toHaveCount(0)
 
   await canvas.click({ position: on(box, CENTRE) })
   await expect(selected).toContainText('back-face')
 
-  await page.getByRole('button', { name: 'Enable feature hover' }).click()
+  await toggle.click()
   await canvas.hover({ position: on(box, CENTRE) })
   await expect(page.getByRole('tooltip')).toContainText('Feature')
 })
 
+test('loads a banana for scale only when its toolbar button is enabled', async ({ page }) => {
+  await openViewer(page)
+  const before = await readCamera(page)
+  const model = page.waitForResponse((response) => response.url().endsWith('.glb') && response.ok())
+
+  await page.getByRole('button', { name: 'Banana for scale' }).click()
+  await model
+  await expect(page.getByRole('button', { name: 'Banana for scale (on)' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  const after = await readCamera(page)
+  expect(after.distance).toBeCloseTo(before.distance, 3)
+  expect(after.zoom).toBeCloseTo(before.zoom, 3)
+})
+
 test('selects a feature and responds to CAD camera navigation', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
+  await page.getByRole('button', { name: 'Enable feature hover' }).click()
 
   // The section. A click on a face while the tool is up places a cut there,
   // which is the tool's whole reason to exist. Moved through the slider rather
@@ -215,6 +229,7 @@ test('selects a feature and responds to CAD camera navigation', async ({ page })
  */
 test('measures a distance between two clicks, without selecting either face', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
+  await page.getByRole('button', { name: 'Enable feature hover' }).click()
 
   const measured = page.locator('p', { hasText: 'Measured:' })
   const hovered = page.locator('p', { hasText: 'Hovered:' })
@@ -412,6 +427,7 @@ test('pans with either pan button, from wherever the drag starts', async ({ page
 
 test('finishing a drag over a face is not a request to select it', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
+  await page.getByRole('button', { name: 'Enable feature hover' }).click()
 
   const selected = page.locator('p', { hasText: 'Selected:' })
   const hovered = page.locator('p', { hasText: 'Hovered:' })
