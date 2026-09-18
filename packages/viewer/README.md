@@ -114,20 +114,32 @@ The same face is usually owned by **5–8 features at once**, even on a plain cu
 `face` when cut from one direction, a `wall` when cut from another, and part of every `profile`
 around it. So a click gives you every match, and you decide which to use:
 
-| Field            | What it contains                                                    |
-| ---------------- | ------------------------------------------------------------------- |
-| `pick.best`      | The most likely feature, or `null`                                  |
-| `pick.ranked`    | Every matching feature, most likely first                           |
-| `pick.owners`    | Every matching feature, in report order                             |
-| `pick.region`    | The index of the face that was clicked                              |
-| `pick.point`     | Where the click hit, as `[x, y, z]`                                 |
-| `pick.normal`    | The direction the clicked surface faces, as `[x, y, z]`             |
-| `pick.modifiers` | `{ alt, ctrl, meta, shift, secondary }`: keys held, and right-click |
-| `pick.doubled`   | `true` if this click was the second half of a double-click          |
+| Field            | What it contains                                                      |
+| ---------------- | --------------------------------------------------------------------- |
+| `pick.best`      | The most likely feature, or `null`                                    |
+| `pick.ranked`    | Every matching feature, most likely first                             |
+| `pick.owners`    | Every matching feature, in report order                               |
+| `pick.region`    | The index of the face that was clicked                                |
+| `pick.point`     | Where the click hit, as `[x, y, z]`                                   |
+| `pick.normal`    | The direction the clicked surface faces, as `[x, y, z]`               |
+| `pick.pointer`   | Browser coordinates for an application-owned hover card, when present |
+| `pick.modifiers` | `{ alt, ctrl, meta, shift, secondary }`: keys held, and right-click   |
+| `pick.doubled`   | `true` if this click was the second half of a double-click            |
 
 The ranking puts specific features first: holes, then pockets and bosses, then chamfers and
 fillets, then walls and faces, then profiles. Among features of the same kind, the one whose
 machining direction points most toward the camera wins.
+
+`onHover` receives the same `PartPick` shape. Use the optional `pointer` location yourself, or
+wrap application content in `<HoverCard pick={hoverPick}>`; it follows the cursor while that
+region remains hovered. The viewer intentionally leaves card content and actions to the application.
+Pass `hover={false}` to stop both the face feedback and `onHover` callbacks while preserving clicks;
+that makes an application toolbar's feature-hover toggle unambiguous.
+
+The normalized model contains feature identity, type, directions, face shape, and analytic area.
+An Engine DFM card can join `pick.best` to the part's detailed feature data and render its own
+depth, clearance-diameter, or L/D rows inside `HoverCard`; setup labels remain application or plan
+context rather than a fact of the part surface.
 
 ## Components
 
@@ -295,15 +307,16 @@ Draws the part and handles clicks. You only use it directly when you
 
 **Interaction**
 
-| Prop              | Type                               | What it does                                                                                   |
-| ----------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `onPick`          | `(pick: PartPick) => void`         | Left- or right-click on the part.                                                              |
-| `onHover`         | `(pick: PartPick \| null) => void` | The pointer moved onto a different face, or off the part (`null`).                             |
-| `activeDirection` | `number \| null`                   | Only match features machined from this direction (an index into `candidateDirections`).        |
-| `focusFeature`    | `string \| null`                   | Zoom to this feature. The camera moves each time the value changes.                            |
-| `section`         | `SectionOptions`                   | Cut the part open. Omit it to follow the viewer's own cut. See [Section view](#section-view).  |
-| `onSectionChange` | `(state: SectionState) => void`    | Called when the cut moves or goes away. With `section`, passing it also shows the drag handle. |
-| `onAdjacency`     | `(map) => void`                    | Called once per mesh with which faces touch which.                                             |
+| Prop              | Type                               | What it does                                                                                    |
+| ----------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `onPick`          | `(pick: PartPick) => void`         | Left- or right-click on the part.                                                               |
+| `onHover`         | `(pick: PartPick \| null) => void` | The pointer moved onto a different face, or off the part (`null`).                              |
+| `hover`           | `boolean` (`true`)                 | Paint and report faces under the pointer. `false` leaves click picking on and clears any hover. |
+| `activeDirection` | `number \| null`                   | Only match features machined from this direction (an index into `candidateDirections`).         |
+| `focusFeature`    | `string \| null`                   | Zoom to this feature. The camera moves each time the value changes.                             |
+| `section`         | `SectionOptions`                   | Cut the part open. Omit it to follow the viewer's own cut. See [Section view](#section-view).   |
+| `onSectionChange` | `(state: SectionState) => void`    | Called when the cut moves or goes away. With `section`, passing it also shows the drag handle.  |
+| `onAdjacency`     | `(map) => void`                    | Called once per mesh with which faces touch which.                                              |
 
 Hovering over the part is handled for you. You only need `onHover` if you want to show the hovered
 feature elsewhere in your UI.

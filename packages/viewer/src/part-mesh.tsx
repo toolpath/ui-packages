@@ -74,6 +74,11 @@ export interface PartMeshProps {
    */
   hoveredFeatureIds?: readonly FeatureTag[]
   /**
+   * Whether moving across the part paints and reports a hovered face. Turn it
+   * off for an application-level "feature hover" control; picks still work.
+   */
+  hover?: boolean
+  /**
    * Scopes a pick to one machining direction, as an index into the model's
    * `candidateDirections`. A face that direction cannot reach then picks to
    * nothing, which is a real answer rather than a missed click.
@@ -150,6 +155,7 @@ export const PartMesh = ({
   regionHighlights = [],
   pickedRegions = [],
   hoveredFeatureIds = [],
+  hover = true,
   activeDirection = null,
   section,
   onSectionChange,
@@ -170,6 +176,10 @@ export const PartMesh = ({
   currentTheme.current = resolved
   const part = useMemo(() => createPart(model, geometry, currentTheme.current), [geometry, model])
   const hoverRegion = useRef<number | null>(null)
+  // Read from effects that must clear a card after its callback changes, while
+  // keeping the pointer handlers stable enough to avoid a React round-trip.
+  const onHoverRef = useRef(onHover)
+  onHoverRef.current = onHover
   const box = useContentBox()
   // Controlled when `section` is given, whatever its value; the viewer's own
   // cut is only consulted when the consumer has said nothing.
@@ -315,6 +325,7 @@ export const PartMesh = ({
       triangleIndex,
       point: [event.point.x, event.point.y, event.point.z],
       normal: [normal.x, normal.y, normal.z],
+      pointer: { clientX: source.clientX, clientY: source.clientY },
       activeDirection,
       doubled,
       viewDirection: viewDirection(camera, target),
@@ -339,10 +350,18 @@ export const PartMesh = ({
     onHover?.(next)
   }
 
+  // A hover toggle must make the current feedback go away immediately — not
+  // leave a painted face and an application card around until the pointer next
+  // crosses a region boundary.
+  useLayoutEffect(() => {
+    if (hover || hoverRegion.current === null) return
+    hoverRegion.current = null
+    repaint()
+    onHoverRef.current?.(null)
+  }, [hover, repaint])
+
   // A tool taking the pointer takes the hover with it, or the face under the
   // pointer at that moment would stay painted until the pointer left the part.
-  const onHoverRef = useRef(onHover)
-  onHoverRef.current = onHover
   useLayoutEffect(() => {
     if (!engaged || hoverRegion.current === null) return
     hoverRegion.current = null
@@ -375,7 +394,7 @@ export const PartMesh = ({
           pressedWhileEngaged.current = engaged
         }}
         onPointerMove={(event: ThreeEvent<PointerEvent>) => {
-          if (!engaged) emitHover(pickFor(event))
+          if (!engaged && hover) emitHover(pickFor(event))
         }}
         onPointerOut={() => {
           emitHover(null)

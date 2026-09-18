@@ -79,6 +79,37 @@ test('the click points hit the faces the rest of this file is written about', as
   await expect(selected).toHaveText(before ?? '')
 })
 
+test('hovering a face exposes an application-owned card at the pointer', async ({ page }) => {
+  const { canvas, box } = await openViewer(page)
+
+  await canvas.hover({ position: on(box, CENTRE) })
+  await expect(page.getByRole('tooltip')).toContainText('Feature')
+  await expect(page.getByRole('tooltip')).toContainText('Surface area')
+  await page.mouse.move(box.x + 5, box.y + 5)
+  await expect(page.getByRole('tooltip')).toHaveCount(0)
+})
+
+test('feature hover can be toggled without disabling face picks', async ({ page }) => {
+  const { canvas, box } = await openViewer(page)
+  const toggle = page.getByRole('button', { name: 'Disable feature hover' })
+  const selected = page.locator('p', { hasText: 'Selected:' })
+
+  await toggle.click()
+  await expect(page.getByRole('button', { name: 'Enable feature hover' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
+  await canvas.hover({ position: on(box, CENTRE) })
+  await expect(page.getByRole('tooltip')).toHaveCount(0)
+
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(selected).toContainText('back-face')
+
+  await page.getByRole('button', { name: 'Enable feature hover' }).click()
+  await canvas.hover({ position: on(box, CENTRE) })
+  await expect(page.getByRole('tooltip')).toContainText('Feature')
+})
+
 test('selects a feature and responds to CAD camera navigation', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
 

@@ -63,6 +63,53 @@ strong {
   border-radius: 1rem;
   background: radial-gradient(circle at 40% 30%, #283347, #171a24 65%);
 }
+.viewer-hover-card {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 13.5rem;
+  max-width: 18rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #526078;
+  border-radius: 0.4rem;
+  background: #101522ee;
+  color: #b9c0d1;
+  pointer-events: none;
+  box-shadow: 0 3px 14px #0005;
+  font-size: 0.8rem;
+}
+.viewer-hover-card strong {
+  font-size: 0.95rem;
+}
+.viewer-hover-eyebrow {
+  margin: 0;
+  color: #83a9ff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.viewer-hover-card dl {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.1rem 0 0;
+}
+.viewer-hover-card dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.viewer-hover-card dt,
+.viewer-hover-card dd {
+  margin: 0;
+}
+.viewer-hover-card dt {
+  color: #9ba4b8;
+}
+.viewer-hover-card dd {
+  color: #e8eaf0;
+  font-weight: 600;
+  text-align: right;
+}
 .viewer-toolbar-stack {
   position: absolute;
   bottom: 1.25rem;

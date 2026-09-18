@@ -10,6 +10,7 @@ import {
   directionLabel,
   directionColor,
   Grid,
+  HoverCard,
   DirectionArrows,
   ViewCube,
   MeasureTool,
@@ -19,6 +20,7 @@ import {
   measurementLabel,
   type MeasureMode,
   type Measurement,
+  type PartModel,
   type PartPick,
   type Projection,
   type SectionOptions,
@@ -117,10 +119,51 @@ const CameraReadout = ({ onChange }: { onChange: (state: CameraState) => void })
  */
 const DETAIL = new THREE.Box3(new THREE.Vector3(-1, -1, 11.7), new THREE.Vector3(1, 1, 13.7))
 
+const featureLabel = (featureType: string) =>
+  featureType
+    .split('_')
+    .map((word) => word[0]?.toUpperCase() + word.slice(1))
+    .join(' ')
+
+/** What every normalized part report can say without a DFM datasheet. */
+const HoverDetails = ({ pick, model }: { pick: PartPick; model: PartModel }) => {
+  const feature = pick.best ? model.features.find(({ tag }) => tag === pick.best) : undefined
+  const region = model.regions.find(({ idx }) => idx === pick.region)
+  const direction = feature
+    ? model.candidateDirections.findIndex(
+        (candidate) =>
+          candidate.x === feature.machiningDirection.x &&
+          candidate.y === feature.machiningDirection.y &&
+          candidate.z === feature.machiningDirection.z,
+      )
+    : -1
+
+  return (
+    <>
+      <p className="viewer-hover-eyebrow">Feature</p>
+      <strong>{feature ? featureLabel(feature.featureType) : 'Shared surface'}</strong>
+      <dl>
+        <div>
+          <dt>Surface area</dt>
+          <dd>{region ? `${region.area.toFixed(1)} mm²` : 'Unknown'}</dd>
+        </div>
+        <div>
+          <dt>Machining direction</dt>
+          <dd>
+            {direction >= 0 ? directionLabel(model.candidateDirections[direction]) : 'Unknown'}
+          </dd>
+        </div>
+      </dl>
+    </>
+  )
+}
+
 const App = () => {
   const [part, setPart] = useState(startingModel)
   const viewerRef = useRef<ViewerHandle>(null)
   const [hovered, setHovered] = useState<string[]>([])
+  const [hoverPick, setHoverPick] = useState<PartPick | null>(null)
+  const [featureHover, setFeatureHover] = useState(true)
   const [selected, setSelected] = useState<string[]>([])
   // The selection put down on entering section mode, to pick up again on the
   // way out. A ref rather than state: nothing renders from it.
@@ -187,6 +230,7 @@ const App = () => {
               setMeasured([])
               setSelected([])
               setHovered([])
+              setHoverPick(null)
               heldSelection.current = []
               setDirection(null)
             }}
@@ -273,11 +317,15 @@ const App = () => {
         </p>
       </section>
       <div className="viewer">
+        <HoverCard pick={hoverPick} className="viewer-hover-card">
+          {(pick) => <HoverDetails pick={pick} model={part.model} />}
+        </HoverCard>
         <ViewerToolbar
           stock={showStock}
           axes={showAxes}
           grid={showGrid}
           directions={showDirections}
+          hover={featureHover}
           focus={focus}
           wireframe={wireframe}
           sectioning={sectioning}
@@ -295,6 +343,7 @@ const App = () => {
             heldSelection.current = []
             setWireframe(false)
           }}
+          onHover={() => setFeatureHover((enabled) => !enabled)}
           onFocus={() => setFocus((enabled) => !enabled)}
           onWireframe={() => {
             setWireframe((on) => !on)
@@ -446,12 +495,16 @@ const App = () => {
             focus={focus ? {} : undefined}
             display={wireframe ? 'wireframe' : 'solid'}
             regionHighlights={highlights}
+            hover={featureHover}
             activeDirection={showDirections ? direction : null}
             onSectionChange={(state) => {
               setCut(state.enabled ? state : null)
               if (state.enabled) setOffset(state.offset)
             }}
-            onHover={(pick: PartPick | null) => setHovered(pick ? [...pick.owners] : [])}
+            onHover={(pick: PartPick | null) => {
+              setHovered(pick ? [...pick.owners] : [])
+              setHoverPick(pick)
+            }}
             onPick={(pick: PartPick) => setSelected([...pick.ranked])}
           />
           {showStock ? <BoxStock partGeometry={part.geometry} allowance={allowance} /> : null}

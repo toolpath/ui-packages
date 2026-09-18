@@ -5,6 +5,7 @@
 export { EnginePart, normalizePartReport, smoothRegionNormals } from './engine/index.js'
 export { regionAdjacency } from './render/adjacency.js'
 export { PartMesh } from './part-mesh.js'
+export { HoverCard } from './hover-card.js'
 export { Stock, BoxStock } from './stock.js'
 export type { StockProps, BoxStockProps } from './stock.js'
 export { boxStockBounds } from './render/stock.js'
@@ -184,7 +185,7 @@ export {
   ORBIT_TARGET_RING_WIDTH,
   orbitTargetOpacity,
 } from './render/target.js'
-export type { BuildPickInput, PartPick, PickModifiers } from './render/picking.js'
+export type { BuildPickInput, PartPick, PickModifiers, PointerLocation } from './render/picking.js'
 export type { ViewerControls, ViewerHandle, ViewerView } from './types.js'
 export type {
   FeatureTag,
@@ -208,6 +209,7 @@ export type { FeatureHighlight, HighlightLayers, RegionHighlight } from './rende
 export type { FocusOptions } from './render/focus.js'
 export type { ViewerTheme } from './render/theme.js'
 export type { PartMeshProps } from './part-mesh.js'
+export type { HoverCardProps } from './hover-card.js'
 export type { AxesProps, GridProps, ViewCubeProps } from './primitives.js'
 export type { CubeZone, ViewKind, ViewName } from './render/view-cube.js'
 export type { DirectionArrowsProps, NamedDirection } from './direction-arrows.js'
