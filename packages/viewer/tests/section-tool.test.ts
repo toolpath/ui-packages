@@ -76,6 +76,35 @@ describe('createSectionStore', () => {
     expect(store.isEngaged()).toBe(true)
   })
 
+  /**
+   * The picker raises it while it offers a cut and drops it once one is
+   * placed; the measure tool reads it to keep its hands off the click that
+   * chooses the cut. Same counting as `engaged`, on the same subscription.
+   */
+  it('carries the picking flag, counted, on the same subscription', () => {
+    const store = createSectionStore()
+    const listener = vi.fn()
+    store.subscribe(listener)
+
+    expect(store.isPicking()).toBe(false)
+    store.setPicking(true)
+    expect(store.isPicking()).toBe(true)
+    expect(listener).toHaveBeenCalledTimes(1)
+    store.setPicking(true)
+    expect(listener).toHaveBeenCalledTimes(1)
+    store.setPicking(false)
+    expect(store.isPicking()).toBe(true)
+    store.setPicking(false)
+    expect(store.isPicking()).toBe(false)
+    expect(listener).toHaveBeenCalledTimes(2)
+    // A release with nothing held is not a debt the next tool inherits.
+    store.setPicking(false)
+    store.setPicking(true)
+    expect(store.isPicking()).toBe(true)
+    // ...and it is its own flag, not the engaged one.
+    expect(store.isEngaged()).toBe(false)
+  })
+
   it('stops notifying once unsubscribed', () => {
     const store = createSectionStore()
     const listener = vi.fn()

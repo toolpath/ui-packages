@@ -1,6 +1,14 @@
 import { Html, Line } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { type ComponentRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  type ComponentRef,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import {
   type BufferGeometry,
   Group,
@@ -129,7 +137,12 @@ export interface MeasureToolProps {
  *
  * Nothing needs wiring. While it is mounted the part reports no hovers or
  * picks — a click that places a point is not a click that selects a face — and
- * unmounting it hands the pointer back. It snaps to the edges the part draws,
+ * unmounting it hands the pointer back. Beside a `<SectionTool>` that has no
+ * cut yet it waits: no snap is offered and no click places a point until the
+ * cut is chosen or the section tool is unmounted, and the click that chooses
+ * the cut — the one it wakes on — places nothing either: a click counts only
+ * when it was pressed as well as released while the tool was taking points.
+ * Measurements already made stay up meanwhile. It snaps to the edges the part draws,
  * which are the boundaries between analytic surfaces rather than the mesh's
  * triangles, so a corner is a corner of the part and not of a facet.
  *
@@ -157,6 +170,8 @@ export const MeasureTool = ({
   const store = useSectionStore()
   const box = useContentBox()
   const resolved = useMemo(() => resolveTheme(theme), [theme])
+  // A section tool waiting for its cut has the next click. See `render/section-store.ts`.
+  const picking = useSyncExternalStore(store.subscribe, store.isPicking, store.isPicking)
 
   const [held, setHeld] = useState<readonly Measurement[]>([])
   const controlled = measurements !== undefined
@@ -218,14 +233,16 @@ export const MeasureTool = ({
 
   return (
     <group userData={FURNITURE}>
-      <Snapper
-        mode={mode}
-        draft={draft}
-        onPlace={place}
-        theme={resolved}
-        format={format}
-        label={label}
-      />
+      {picking ? null : (
+        <Snapper
+          mode={mode}
+          draft={draft}
+          onPlace={place}
+          theme={resolved}
+          format={format}
+          label={label}
+        />
+      )}
       {draft.map((point, index) => (
         <ScreenDot
           key={index}
@@ -407,8 +424,22 @@ const Snapper = ({ mode, draft, onPlace, theme, format, label }: SnapperProps) =
       update(last.x, last.y, event.type === 'keydown')
     }
 
+    /**
+     * Whether the press under way began after this listener was up. The tool
+     * mounts on the click that chooses a section cut — the store changes on
+     * its `pointerup`, and the render that follows lands inside the same
+     * dispatch — so that release can arrive here with its press never seen.
+     * A release places a point only when its press was.
+     */
+    let pressed = false
+    const down = () => {
+      pressed = true
+    }
+
     const up = (event: PointerEvent) => {
-      if (event.button !== 0 || !isTap(event)) return
+      const seen = pressed
+      pressed = false
+      if (!seen || event.button !== 0 || !isTap(event)) return
       // Judged with the modifier the click itself carries, so a Shift that
       // came down with the button counts.
       update(event.clientX, event.clientY, event.shiftKey)
@@ -424,12 +455,14 @@ const Snapper = ({ mode, draft, onPlace, theme, format, label }: SnapperProps) =
 
     domElement.addEventListener('pointermove', move)
     domElement.addEventListener('pointerleave', leave)
+    domElement.addEventListener('pointerdown', down)
     domElement.addEventListener('pointerup', up)
     window.addEventListener('keydown', key)
     window.addEventListener('keyup', key)
     return () => {
       domElement.removeEventListener('pointermove', move)
       domElement.removeEventListener('pointerleave', leave)
+      domElement.removeEventListener('pointerdown', down)
       domElement.removeEventListener('pointerup', up)
       window.removeEventListener('keydown', key)
       window.removeEventListener('keyup', key)

@@ -64,7 +64,9 @@ export interface SectionToolProps {
  * the way to set or clear it from outside the canvas. While this is mounted
  * the part reports no hovers or picks: a click on a face cuts through it
  * without also selecting it, and a cut part is looked at rather than picked
- * at. Unmounting it hands the pointer back.
+ * at. Unmounting it hands the pointer back. While it is offering a cut — up,
+ * with none placed yet — a `<MeasureTool>` beside it waits too, so the click
+ * that chooses the cut does not also place a measurement point.
  */
 export const SectionTool = ({ theme }: SectionToolProps) => {
   const store = useSectionStore()
@@ -147,6 +149,13 @@ const Picker = ({ box, theme }: PickerProps) => {
   const span = useMemo(() => box.getSize(new Vector3()).length(), [box])
   const centre = useMemo(() => box.getCenter(new Vector3()), [box])
   const previewSize = span * PREVIEW_SCALE
+
+  // For as long as a cut is being offered, the next click on the part is this
+  // component's: a measure tool up beside it waits. See `render/section-store.ts`.
+  useEffect(() => {
+    store.setPicking(true)
+    return () => store.setPicking(false)
+  }, [store])
 
   useEffect(() => {
     const raycaster = new Raycaster()
