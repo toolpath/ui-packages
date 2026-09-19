@@ -1,3 +1,5 @@
+@import '@toolpath/viewer/toolbar.css';
+
 :root {
   color: #e8eaf0;
   background: #141721;
@@ -110,36 +112,6 @@ strong {
   font-weight: 600;
   text-align: right;
 }
-.viewer-toolbar-stack {
-  position: absolute;
-  bottom: 1.25rem;
-  left: 0;
-  width: 100%;
-  padding: 0 0.75rem;
-  z-index: 2;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.6rem;
-}
-.viewer-toolbar,
-.viewer-tool-options {
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  max-width: 100%;
-  padding: 0.4rem;
-  border: 1px solid #52607880;
-  border-radius: 0.6rem;
-  background: #202737df;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 3px 14px #0003;
-}
-.viewer-toolbar-stack button,
 .detail-button {
   border: 1px solid #526078;
   border-radius: 0.4rem;
@@ -147,53 +119,6 @@ strong {
   color: #eef0f6;
   cursor: pointer;
   padding: 0.45rem 0.65rem;
-}
-.viewer-toolbar button {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 2.2rem;
-  height: 2.2rem;
-  padding: 0.4rem;
-  border-color: transparent;
-  background: transparent;
-}
-.viewer-toolbar svg {
-  width: 1.3rem;
-  height: 1.3rem;
-}
-.toolbar-divider {
-  width: 1px;
-  height: 1.4rem;
-  margin: 0 0.2rem;
-  background: #526078;
-}
-.toolbar-tooltip {
-  display: none;
-  position: absolute;
-  bottom: calc(100% + 0.75rem);
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  background: #101522;
-  padding: 0.4rem 0.6rem;
-  border-radius: 0.3rem;
-  pointer-events: none;
-  font-size: 0.75rem;
-  z-index: 3;
-}
-.viewer-toolbar button:hover .toolbar-tooltip,
-.viewer-toolbar button:focus-visible .toolbar-tooltip {
-  display: block;
-}
-.viewer-tool-options {
-  gap: 0.5rem;
-  padding: 0.6rem;
-}
-.viewer-tool-options label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
 }
 .section-measurement {
   color: #eef0f6;
@@ -231,11 +156,9 @@ strong {
  * default ring is drawn on click too, and on a dark toolbar it reads as a
  * stuck highlight on whatever was last pressed.
  */
-.viewer-toolbar-stack button:focus,
 .model-picker select:focus {
   outline: none;
 }
-.viewer-toolbar-stack button:focus-visible,
 .stock-allowance input:focus-visible,
 .detail-button:focus-visible,
 .viewer-tool-options input:focus-visible,
@@ -266,25 +189,6 @@ strong {
 }
 .model-picker select:hover {
   background-color: #303b51;
-}
-.viewer-toolbar-stack button:hover {
-  background: #303b51;
-}
-.viewer-toolbar-stack button[aria-pressed='true'] {
-  border-color: #83a9ff;
-  background: #2b3f66;
-}
-.viewer-toolbar label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: #b9c0d1;
-  font-size: 0.85rem;
-}
-.viewer-hint {
-  align-self: center;
-  color: #b9c0d1;
-  font-size: 0.85rem;
 }
 @media (max-width: 760px) {
   main {

@@ -6,6 +6,8 @@ export { EnginePart, normalizePartReport, smoothRegionNormals } from './engine/i
 export { regionAdjacency } from './render/adjacency.js'
 export { PartMesh } from './part-mesh.js'
 export { HoverCard } from './hover-card.js'
+export { BananaButton, ViewerToolbar } from './viewer-toolbar.js'
+export type { BananaButtonProps, ViewerToolbarProps } from './viewer-toolbar.js'
 export { Stock, BoxStock } from './stock.js'
 export type { StockProps, BoxStockProps } from './stock.js'
 export { Banana, BANANA_MODEL_URL } from './banana.js'

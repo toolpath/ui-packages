@@ -30,7 +30,8 @@
     "./engine": {
       "types": "./dist/engine/index.d.ts",
       "import": "./dist/engine/index.js"
-    }
+    },
+    "./toolbar.css": "./dist/toolbar.css"
   },
   "files": [
     "dist",

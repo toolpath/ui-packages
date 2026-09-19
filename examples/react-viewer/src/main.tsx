@@ -14,6 +14,7 @@ import {
   HoverCard,
   DirectionArrows,
   ViewCube,
+  ViewerToolbar,
   MeasureTool,
   PartMesh,
   SectionTool,
@@ -31,7 +32,6 @@ import {
   type ViewerHandle,
 } from '@toolpath/viewer'
 import { MODELS, modelFromQuery } from './models'
-import { ViewerToolbar } from './viewer-toolbar'
 import './style.css'
 
 /**

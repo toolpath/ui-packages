@@ -243,8 +243,21 @@ Wireframe keeps the existing semantic edges, including rear edges, and keeps fac
 picking, measuring, and section placement. Highlighted faces and section caps remain visible.
 `showEdges` controls solid-mode outlines; wireframe always shows them. The example's bottom toolbar
 makes wireframe and direction coloring mutually exclusive and includes a direction legend and
-contextual Section/Measure controls. The toolbar is example UI; the package exports the rendering
-primitives so applications can supply their own controls.
+contextual Section/Measure controls.
+
+### `<ViewerToolbar>`
+
+`ViewerToolbar` is the standard controlled toolbar for the viewer's camera, stock, display, section,
+and measurement controls. Import its stylesheet alongside your application stylesheet:
+
+```tsx
+import '@toolpath/viewer/toolbar.css'
+import { ViewerToolbar } from '@toolpath/viewer'
+```
+
+The toolbar owns no application state; pass the current values and callbacks from the host app. Its
+`children` are rendered above the standard controls for app-specific options. `BananaButton` is
+also exported for applications that want the bundled banana-for-scale control elsewhere.
 
 ### `<Viewer>`
 
@@ -1039,7 +1052,7 @@ use. They're listed in `dist/index.d.ts`.
 `SectionState`, `SectionPlacement`, `SectionToolProps`, `SectionStore`, `MeasureToolProps`,
 `MeasureMode`, `Measurement`, `DistanceMeasurement`, `AngleMeasurement`, `Snap`, `SnapKind`,
 `ViewerTheme`, `ViewName`, `DirectionArrowsProps`, `NamedDirection`, `GridProps`, `AxesProps`,
-`ViewCubeProps`.
+`ViewCubeProps`, `ViewerToolbarProps`, `BananaButtonProps`.
 
 `FeatureType` and `ShapeKind` accept any string, because newer Engine versions add new values.
 Handle values you don't recognize.

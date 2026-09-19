@@ -1,6 +1,5 @@
 ---
 '@toolpath/viewer': minor
-'@toolpath/ui': minor
 ---
 
-Add a banana-for-scale model and shared toggle button while preserving feature hover by default.
+Add a bundled banana-for-scale model while preserving feature hover by default.
