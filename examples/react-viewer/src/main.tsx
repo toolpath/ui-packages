@@ -1,23 +1,34 @@
-import { StrictMode, useCallback, useMemo, useRef, useState } from 'react'
+import { StrictMode, Suspense, useCallback, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import {
   Axes,
+  Banana,
+  BoxStock,
+  fixedBoxStockBounds,
+  directionHighlights,
+  directionLabel,
+  directionColor,
   Grid,
+  HoverCard,
   DirectionArrows,
   ViewCube,
+  ViewerToolbar,
   MeasureTool,
   PartMesh,
   SectionTool,
   Viewer,
   measurementLabel,
+  sectionMeasurement,
   type MeasureMode,
   type Measurement,
+  type PartModel,
   type PartPick,
   type Projection,
   type SectionOptions,
   type SectionState,
+  type StockPosition,
   type ViewerHandle,
 } from '@toolpath/viewer'
 import { MODELS, modelFromQuery } from './models'
@@ -111,10 +122,51 @@ const CameraReadout = ({ onChange }: { onChange: (state: CameraState) => void })
  */
 const DETAIL = new THREE.Box3(new THREE.Vector3(-1, -1, 11.7), new THREE.Vector3(1, 1, 13.7))
 
+const featureLabel = (featureType: string) =>
+  featureType
+    .split('_')
+    .map((word) => word[0]?.toUpperCase() + word.slice(1))
+    .join(' ')
+
+/** What every normalized part report can say without a DFM datasheet. */
+const HoverDetails = ({ pick, model }: { pick: PartPick; model: PartModel }) => {
+  const feature = pick.best ? model.features.find(({ tag }) => tag === pick.best) : undefined
+  const region = model.regions.find(({ idx }) => idx === pick.region)
+  const direction = feature
+    ? model.candidateDirections.findIndex(
+        (candidate) =>
+          candidate.x === feature.machiningDirection.x &&
+          candidate.y === feature.machiningDirection.y &&
+          candidate.z === feature.machiningDirection.z,
+      )
+    : -1
+
+  return (
+    <>
+      <p className="viewer-hover-eyebrow">Feature</p>
+      <strong>{feature ? featureLabel(feature.featureType) : 'Shared surface'}</strong>
+      <dl>
+        <div>
+          <dt>Surface area</dt>
+          <dd>{region ? `${region.area.toFixed(1)} mm²` : 'Unknown'}</dd>
+        </div>
+        <div>
+          <dt>Machining direction</dt>
+          <dd>
+            {direction >= 0 ? directionLabel(model.candidateDirections[direction]) : 'Unknown'}
+          </dd>
+        </div>
+      </dl>
+    </>
+  )
+}
+
 const App = () => {
   const [part, setPart] = useState(startingModel)
   const viewerRef = useRef<ViewerHandle>(null)
   const [hovered, setHovered] = useState<string[]>([])
+  const [hoverPick, setHoverPick] = useState<PartPick | null>(null)
+  const [featureHover, setFeatureHover] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
   // The selection put down on entering section mode, to pick up again on the
   // way out. A ref rather than state: nothing renders from it.
@@ -137,6 +189,30 @@ const App = () => {
   const [measureMode, setMeasureMode] = useState<MeasureMode>('distance')
   const [measured, setMeasured] = useState<readonly Measurement[]>([])
   const [direction, setDirection] = useState<number | null>(null)
+  const [showStock, setShowStock] = useState(params.get('stock') === 'on')
+  const [showAxes, setShowAxes] = useState(true)
+  const [showGrid, setShowGrid] = useState(true)
+  const [banana, setBanana] = useState(false)
+  const [showDirections, setShowDirections] = useState(false)
+  const [focus, setFocus] = useState(false)
+  const [wireframe, setWireframe] = useState(false)
+  const [stockDimensions, setStockDimensions] = useState({ x: 25.908, y: 25.908, z: 25.908 })
+  const [stockPosition, setStockPosition] = useState<StockPosition>('model_centered')
+  const [stockPositionOffset, setStockPositionOffset] = useState(0)
+  const stockSize = useMemo(
+    () =>
+      fixedBoxStockBounds(
+        part.geometry,
+        stockDimensions,
+        stockPosition,
+        stockPositionOffset,
+      ).getSize(new THREE.Vector3()),
+    [part.geometry, stockDimensions, stockPosition, stockPositionOffset],
+  )
+  const highlights = useMemo(
+    () => (showDirections ? directionHighlights(part.model, direction) : []),
+    [direction, part.model, showDirections],
+  )
   const [pose, setPose] = useState<CameraState>(AT_START)
 
   // Called from a frame, so it runs whether or not anything changed. Holding
@@ -146,7 +222,6 @@ const App = () => {
     (next: CameraState) => setPose((held) => (sameCamera(held, next) ? held : next)),
     [],
   )
-
   return (
     <main>
       <section>
@@ -166,6 +241,9 @@ const App = () => {
               setMeasured([])
               setSelected([])
               setHovered([])
+              setHoverPick(null)
+              heldSelection.current = []
+              setDirection(null)
             }}
           >
             {MODELS.map((entry) => (
@@ -176,6 +254,97 @@ const App = () => {
           </select>
         </label>
         <p>{part.hint}</p>
+        <p>
+          <strong>Stock:</strong>{' '}
+          {stockSize
+            .toArray()
+            .map((value) => value.toFixed(2))
+            .join(' × ')}{' '}
+          mm (X × Y × Z)
+        </p>
+        <label className="stock-allowance">
+          Stock X dimension (mm)
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="0.5"
+            value={stockDimensions.x}
+            onChange={(event) => {
+              const value = event.target.valueAsNumber
+              if (Number.isFinite(value) && value > 0 && value <= 1000)
+                setStockDimensions((current) => ({ ...current, x: value }))
+            }}
+          />
+        </label>
+        <label className="stock-allowance">
+          Stock Y dimension (mm)
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="0.5"
+            value={stockDimensions.y}
+            onChange={(event) => {
+              const value = event.target.valueAsNumber
+              if (Number.isFinite(value) && value > 0 && value <= 1000)
+                setStockDimensions((current) => ({ ...current, y: value }))
+            }}
+          />
+        </label>
+        <label className="stock-allowance">
+          Stock Z dimension (mm)
+          <input
+            type="number"
+            min="0.01"
+            max="1000"
+            step="0.01"
+            value={stockDimensions.z}
+            onChange={(event) => {
+              const value = event.target.valueAsNumber
+              if (Number.isFinite(value) && value > 0 && value <= 1000)
+                setStockDimensions((current) => ({ ...current, z: value }))
+            }}
+          />
+        </label>
+        <label className="stock-allowance">
+          Stock position
+          <select
+            value={stockPosition}
+            onChange={(event) => setStockPosition(event.target.value as StockPosition)}
+          >
+            <option value="model_centered">Model centered</option>
+            <option value="offset_from_top">Offset from top</option>
+            <option value="offset_from_bottom">Offset from bottom</option>
+          </select>
+        </label>
+        {stockPosition !== 'model_centered' ? (
+          <label className="stock-allowance">
+            Position offset (mm)
+            <input
+              type="number"
+              min="0"
+              max="1000"
+              step="0.01"
+              value={stockPositionOffset}
+              onChange={(event) => {
+                const value = event.target.valueAsNumber
+                if (Number.isFinite(value) && value >= 0 && value <= 1000)
+                  setStockPositionOffset(value)
+              }}
+            />
+          </label>
+        ) : null}
+        <p className="small-note">
+          Fixed box stock dimensions and position. Values are millimetres.
+        </p>
+        <button
+          className="detail-button"
+          type="button"
+          onClick={() => viewerRef.current?.frameBox(DETAIL)}
+        >
+          Frame detail
+        </button>
         <p>
           Left-drag to orbit, middle/right-drag to pan, scroll to zoom, and click a face to select
           it. Press <strong>Section</strong>, then click a face to cut through it or one of the
@@ -220,87 +389,100 @@ const App = () => {
         </p>
       </section>
       <div className="viewer">
-        <div className="viewer-toolbar" aria-label="Viewer controls">
-          <button type="button" onClick={() => viewerRef.current?.fit()}>
-            Fit
-          </button>
-          <button type="button" onClick={() => viewerRef.current?.reset()}>
-            Reset
-          </button>
-          <button type="button" onClick={() => viewerRef.current?.setView('top')}>
-            Top view
-          </button>
-          <button type="button" onClick={() => viewerRef.current?.frameBox(DETAIL)}>
-            Frame detail
-          </button>
-          <button
-            type="button"
-            aria-pressed={sectioning}
-            onClick={() => {
-              // Entering section mode puts the selection down — the part
-              // reports no picks while the tool is up, so a selection left
-              // standing could not be changed — and offers a cut; the tool
-              // below is what does the offering. Leaving takes the cut with it
-              // and picks the selection back up where it was.
-              if (sectioning) {
+        <HoverCard pick={hoverPick} className="viewer-hover-card">
+          {(pick) => <HoverDetails pick={pick} model={part.model} />}
+        </HoverCard>
+        <ViewerToolbar
+          stock={showStock}
+          axes={showAxes}
+          grid={showGrid}
+          banana={banana}
+          directions={showDirections}
+          hover={featureHover}
+          focus={focus}
+          wireframe={wireframe}
+          sectioning={sectioning}
+          measuring={measuring}
+          onFit={() => viewerRef.current?.fit()}
+          onReset={() => viewerRef.current?.reset()}
+          onTop={() => viewerRef.current?.setView('top')}
+          onStock={() => setShowStock((on) => !on)}
+          onAxes={() => setShowAxes((on) => !on)}
+          onGrid={() => setShowGrid((on) => !on)}
+          onBanana={() => setBanana((shown) => !shown)}
+          onDirections={() => {
+            setShowDirections((on) => !on)
+            setDirection(null)
+            setSelected([])
+            heldSelection.current = []
+            setWireframe(false)
+          }}
+          onHover={() => setFeatureHover((enabled) => !enabled)}
+          onFocus={() => setFocus((enabled) => !enabled)}
+          onWireframe={() => {
+            setWireframe((on) => !on)
+            setShowDirections(false)
+            setDirection(null)
+          }}
+          onSection={() => {
+            if (sectioning) {
+              viewerRef.current?.setSection(null)
+              setSelected(heldSelection.current)
+            } else {
+              if (!measuring) heldSelection.current = selected
+              setSelected([])
+              setMeasuring(false)
+              setMeasured([])
+            }
+            setSectioning((on) => !on)
+          }}
+          onMeasure={() => {
+            if (measuring) {
+              setMeasured([])
+              setSelected(heldSelection.current)
+            } else {
+              if (!sectioning) {
+                heldSelection.current = selected
+                setSelected([])
                 viewerRef.current?.setSection(null)
-                setSelected(heldSelection.current)
-              } else {
-                heldSelection.current = selected
-                setSelected([])
               }
-              setSectioning((on) => !on)
-            }}
-          >
-            {sectioning ? 'Exit section' : 'Section'}
-          </button>
-          {sectioning && cut ? (
-            <>
-              <label>
-                Cut depth
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={offset}
-                  onChange={(event) => {
-                    const next = Number(event.target.value)
-                    setOffset(next)
-                    viewerRef.current?.setSection(sweepTo(cut, next))
-                  }}
-                />
-              </label>
-              <button type="button" onClick={() => viewerRef.current?.setSection(null)}>
-                Clear cut
-              </button>
-            </>
+            }
+            setMeasuring((on) => !on)
+          }}
+        >
+          {sectioning ? (
+            <div className="viewer-tool-options" role="group" aria-label="Section options">
+              {cut ? (
+                <>
+                  <label>
+                    Cut depth
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={offset}
+                      onChange={(event) => {
+                        const next = Number(event.target.value)
+                        setOffset(next)
+                        viewerRef.current?.setSection(sweepTo(cut, next))
+                      }}
+                    />
+                    <output className="section-measurement" aria-label="Cut amount">
+                      {sectionMeasurement(cut)}
+                    </output>
+                  </label>
+                  <button type="button" onClick={() => viewerRef.current?.setSection(null)}>
+                    Clear cut
+                  </button>
+                </>
+              ) : (
+                <span className="viewer-hint">Click a face or a plane · Esc clears</span>
+              )}
+            </div>
           ) : null}
-          {sectioning && !cut ? (
-            <span className="viewer-hint">Click a face or a plane · Esc clears</span>
-          ) : null}
-          <button
-            type="button"
-            aria-pressed={measuring}
-            onClick={() => {
-              // The same bargain as section mode: the part reports no picks
-              // while a tool is up, so the selection is put down on the way in
-              // and picked back up on the way out. The measurements go with the
-              // tool — unmounting it is what clears them.
-              if (measuring) {
-                setMeasured([])
-                setSelected(heldSelection.current)
-              } else {
-                heldSelection.current = selected
-                setSelected([])
-              }
-              setMeasuring((on) => !on)
-            }}
-          >
-            {measuring ? 'Exit measure' : 'Measure'}
-          </button>
           {measuring ? (
-            <>
+            <div className="viewer-tool-options" role="group" aria-label="Measure options">
               <button
                 type="button"
                 aria-pressed={measureMode === 'distance'}
@@ -319,9 +501,40 @@ const App = () => {
                 {measureMode === 'distance' ? 'Click two points' : 'Click end, vertex, end'} · Shift
                 locks an axis · Del removes last · Esc drops
               </span>
-            </>
+            </div>
           ) : null}
-        </div>
+          {showDirections && !sectioning && !measuring ? (
+            <div
+              className="viewer-tool-options direction-legend"
+              role="group"
+              aria-label="Machining directions"
+            >
+              <button
+                type="button"
+                aria-pressed={direction === null}
+                onClick={() => setDirection(null)}
+              >
+                All
+              </button>
+              {part.model.candidateDirections.map((axis, index) => (
+                <button
+                  type="button"
+                  key={index}
+                  aria-pressed={direction === index}
+                  onClick={() => setDirection((held) => (held === index ? null : index))}
+                >
+                  <span
+                    className="direction-dot"
+                    style={{
+                      background: '#' + directionColor(index).toString(16).padStart(6, '0'),
+                    }}
+                  />
+                  {directionLabel(axis)}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </ViewerToolbar>
         {/*
           Perspective by default here, and the pin is the point rather than the
           value.
@@ -357,22 +570,44 @@ const App = () => {
             model={part.model}
             geometry={part.geometry}
             selection={selected}
+            focus={focus ? {} : undefined}
+            display={wireframe ? 'wireframe' : 'solid'}
+            regionHighlights={highlights}
+            hover={featureHover}
+            activeDirection={showDirections ? direction : null}
             onSectionChange={(state) => {
               setCut(state.enabled ? state : null)
               if (state.enabled) setOffset(state.offset)
             }}
-            onHover={(pick: PartPick | null) => setHovered(pick ? [...pick.owners] : [])}
+            onHover={(pick: PartPick | null) => {
+              setHovered(pick ? [...pick.owners] : [])
+              setHoverPick(pick)
+            }}
             onPick={(pick: PartPick) => setSelected([...pick.ranked])}
           />
+          {showStock ? (
+            <BoxStock
+              partGeometry={part.geometry}
+              dimensions={stockDimensions}
+              position={stockPosition}
+              positionOffset={stockPositionOffset}
+            />
+          ) : null}
           <DirectionArrows
+            visible={showDirections && !sectioning && !measuring}
             directions={part.model.candidateDirections}
             shownDirection={direction}
             onPickDirection={(index) => setDirection((held) => (held === index ? null : index))}
           />
           {sectioning ? <SectionTool /> : null}
           {measuring ? <MeasureTool mode={measureMode} onChange={setMeasured} /> : null}
-          <Grid />
-          <Axes size={35} />
+          {showGrid ? <Grid /> : null}
+          {banana ? (
+            <Suspense fallback={null}>
+              <Banana />
+            </Suspense>
+          ) : null}
+          {showAxes ? <Axes size={35} /> : null}
           <ViewCube />
         </Viewer>
       </div>

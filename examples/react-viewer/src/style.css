@@ -1,3 +1,5 @@
+@import '@toolpath/viewer/toolbar.css';
+
 :root {
   color: #e8eaf0;
   background: #141721;
@@ -63,18 +65,54 @@ strong {
   border-radius: 1rem;
   background: radial-gradient(circle at 40% 30%, #283347, #171a24 65%);
 }
-.viewer-toolbar {
-  position: absolute;
-  top: 1rem;
-  left: 1rem;
-  right: 6rem;
-  z-index: 1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
+.viewer-hover-card {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 13.5rem;
+  max-width: 18rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #526078;
+  border-radius: 0.4rem;
+  background: #101522ee;
+  color: #b9c0d1;
+  pointer-events: none;
+  box-shadow: 0 3px 14px #0005;
+  font-size: 0.8rem;
 }
-.viewer-toolbar button {
+.viewer-hover-card strong {
+  font-size: 0.95rem;
+}
+.viewer-hover-eyebrow {
+  margin: 0;
+  color: #83a9ff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.viewer-hover-card dl {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.1rem 0 0;
+}
+.viewer-hover-card dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.viewer-hover-card dt,
+.viewer-hover-card dd {
+  margin: 0;
+}
+.viewer-hover-card dt {
+  color: #9ba4b8;
+}
+.viewer-hover-card dd {
+  color: #e8eaf0;
+  font-weight: 600;
+  text-align: right;
+}
+.detail-button {
   border: 1px solid #526078;
   border-radius: 0.4rem;
   background: #202737;
@@ -82,17 +120,48 @@ strong {
   cursor: pointer;
   padding: 0.45rem 0.65rem;
 }
+.section-measurement {
+  color: #eef0f6;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.direction-dot {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  margin-right: 0.4rem;
+}
+.stock-allowance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.85rem;
+}
+.stock-allowance input {
+  width: 4.5rem;
+  padding: 0.35rem;
+  color: inherit;
+  background: #202737;
+  border: 1px solid #526078;
+  border-radius: 0.3rem;
+}
+.small-note {
+  font-size: 0.8rem;
+}
 /*
  * One focus ring for every control, in the accent blue the eyebrow and a
  * pressed button already use, and only for keyboard focus: the browser's
  * default ring is drawn on click too, and on a dark toolbar it reads as a
  * stuck highlight on whatever was last pressed.
  */
-.viewer-toolbar button:focus,
 .model-picker select:focus {
   outline: none;
 }
-.viewer-toolbar button:focus-visible,
+.stock-allowance input:focus-visible,
+.detail-button:focus-visible,
+.viewer-tool-options input:focus-visible,
 .model-picker select:focus-visible {
   outline: 2px solid #83a9ff;
   outline-offset: 2px;
@@ -120,25 +189,6 @@ strong {
 }
 .model-picker select:hover {
   background-color: #303b51;
-}
-.viewer-toolbar button:hover {
-  background: #303b51;
-}
-.viewer-toolbar button[aria-pressed='true'] {
-  border-color: #83a9ff;
-  background: #2b3f66;
-}
-.viewer-toolbar label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: #b9c0d1;
-  font-size: 0.85rem;
-}
-.viewer-hint {
-  align-self: center;
-  color: #b9c0d1;
-  font-size: 0.85rem;
 }
 @media (max-width: 760px) {
   main {

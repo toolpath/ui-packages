@@ -5,6 +5,16 @@
 export { EnginePart, normalizePartReport, smoothRegionNormals } from './engine/index.js'
 export { regionAdjacency } from './render/adjacency.js'
 export { PartMesh } from './part-mesh.js'
+export { HoverCard } from './hover-card.js'
+export { BananaButton, ViewerToolbar } from './viewer-toolbar.js'
+export type { BananaButtonProps, ViewerToolbarProps } from './viewer-toolbar.js'
+export { Stock, BoxStock } from './stock.js'
+export type { StockProps, BoxStockProps } from './stock.js'
+export { Banana, BANANA_MODEL_URL } from './banana.js'
+export { boxStockBounds, fixedBoxStockBounds } from './render/stock.js'
+export type { StockAllowance, StockPosition } from './render/stock.js'
+export { directionHighlights } from './render/direction-highlights.js'
+export type { PartDisplay } from './render/part.js'
 export { Axes, Grid, ViewCube } from './primitives.js'
 export { DirectionArrows } from './direction-arrows.js'
 export { SectionView, resolveSectionPlane } from './section-view.js'
@@ -49,6 +59,7 @@ export {
   PICKED_SURFACE_LABEL,
   PREVIEW_SCALE,
   SECTION_RENDER_ORDER,
+  SECTION_GIZMO_FRAME_SCALE,
   axesPlanes,
   dragPlane,
   hitUnderRay,
@@ -61,6 +72,7 @@ export {
   sectionDepthRange,
   sectionFromPick,
   sectionOffset,
+  sectionMeasurement,
   sectionOptionsFromState,
   sectionPlane,
   surfaceUnderRay,
@@ -100,6 +112,7 @@ export {
   viewVector,
 } from './render/view-cube.js'
 export { gridGeometry, gridSpec } from './render/grid.js'
+export { BANANA_GAP, bananaFrameBounds, bananaPosition } from './render/banana.js'
 export { regionEdgesGeometry } from './render/edges.js'
 export { visualSurfaces } from './model/surfaces.js'
 export { CadCameraControls } from './camera.js'
@@ -179,7 +192,7 @@ export {
   ORBIT_TARGET_RING_WIDTH,
   orbitTargetOpacity,
 } from './render/target.js'
-export type { BuildPickInput, PartPick, PickModifiers } from './render/picking.js'
+export type { BuildPickInput, PartPick, PickModifiers, PointerLocation } from './render/picking.js'
 export type { ViewerControls, ViewerHandle, ViewerView } from './types.js'
 export type {
   FeatureTag,
@@ -200,8 +213,11 @@ export type { SurfaceOf } from './model/surfaces.js'
 export type { RankingContext } from './render/selection.js'
 export type { PartObject, RegionPaint } from './render/part.js'
 export type { FeatureHighlight, HighlightLayers, RegionHighlight } from './render/paint.js'
+export type { FocusOptions } from './render/focus.js'
 export type { ViewerTheme } from './render/theme.js'
 export type { PartMeshProps } from './part-mesh.js'
+export type { BananaProps } from './banana.js'
+export type { HoverCardProps } from './hover-card.js'
 export type { AxesProps, GridProps, ViewCubeProps } from './primitives.js'
 export type { CubeZone, ViewKind, ViewName } from './render/view-cube.js'
 export type { DirectionArrowsProps, NamedDirection } from './direction-arrows.js'

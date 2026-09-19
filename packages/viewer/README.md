@@ -76,6 +76,7 @@ What each wrapper is for:
  ├─ <EnginePart>          validates the report, loads the mesh, then renders <PartMesh>
  │   └─ <PartMesh>        draws the part and handles hover, click, colours, section cuts
  ├─ <DirectionArrows>     arrows for the directions the part can be machined from
+ ├─ <Stock> <BoxStock>    translucent stock, included when fitting the camera
  ├─ <SectionTool>         optional: click a face or a plane to cut the part open
  ├─ <MeasureTool>         optional: click two points for a distance, three for an angle
  ├─ <Grid> <Axes>         reference geometry, sized to the part
@@ -95,6 +96,16 @@ What each wrapper is for:
 4. **You own the state.** The viewer tells you what was clicked (`onPick`), and you tell it what to
    highlight (`selection`, `highlights`, …). It never changes your selection by itself.
 
+### Focus the current selection
+
+Pass `focus` to make selected features solid while the remainder of the part becomes translucent.
+The default outside opacity is 15%; set `opacity` for a different X-ray strength. With no selected
+features, the part stays fully opaque.
+
+```tsx
+<EnginePart report={report} selection={selection} focus={{ opacity: 0.12 }} />
+```
+
 Parts are in **millimetres** with **Z pointing up**. The camera uses the same convention.
 
 ### A click usually matches several features
@@ -103,22 +114,150 @@ The same face is usually owned by **5–8 features at once**, even on a plain cu
 `face` when cut from one direction, a `wall` when cut from another, and part of every `profile`
 around it. So a click gives you every match, and you decide which to use:
 
-| Field            | What it contains                                                    |
-| ---------------- | ------------------------------------------------------------------- |
-| `pick.best`      | The most likely feature, or `null`                                  |
-| `pick.ranked`    | Every matching feature, most likely first                           |
-| `pick.owners`    | Every matching feature, in report order                             |
-| `pick.region`    | The index of the face that was clicked                              |
-| `pick.point`     | Where the click hit, as `[x, y, z]`                                 |
-| `pick.normal`    | The direction the clicked surface faces, as `[x, y, z]`             |
-| `pick.modifiers` | `{ alt, ctrl, meta, shift, secondary }`: keys held, and right-click |
-| `pick.doubled`   | `true` if this click was the second half of a double-click          |
+| Field            | What it contains                                                      |
+| ---------------- | --------------------------------------------------------------------- |
+| `pick.best`      | The most likely feature, or `null`                                    |
+| `pick.ranked`    | Every matching feature, most likely first                             |
+| `pick.owners`    | Every matching feature, in report order                               |
+| `pick.region`    | The index of the face that was clicked                                |
+| `pick.point`     | Where the click hit, as `[x, y, z]`                                   |
+| `pick.normal`    | The direction the clicked surface faces, as `[x, y, z]`               |
+| `pick.pointer`   | Browser coordinates for an application-owned hover card, when present |
+| `pick.modifiers` | `{ alt, ctrl, meta, shift, secondary }`: keys held, and right-click   |
+| `pick.doubled`   | `true` if this click was the second half of a double-click            |
 
 The ranking puts specific features first: holes, then pockets and bosses, then chamfers and
 fillets, then walls and faces, then profiles. Among features of the same kind, the one whose
 machining direction points most toward the camera wins.
 
+`onHover` receives the same `PartPick` shape. Use the optional `pointer` location yourself, or
+wrap application content in `<HoverCard pick={hoverPick}>`; it follows the cursor while that
+region remains hovered. The viewer intentionally leaves card content and actions to the application.
+Hover feedback is on by default; pass `hover={false}` to disable both face feedback and `onHover`
+callbacks while preserving clicks. That makes an application toolbar's feature-hover toggle
+unambiguous.
+
+The normalized model contains feature identity, type, directions, face shape, and analytic area.
+An Engine DFM card can join `pick.best` to the part's detailed feature data and render its own
+depth, clearance-diameter, or L/D rows inside `HoverCard`; setup labels remain application or plan
+context rather than a fact of the part surface.
+
 ## Components
+
+### Stock and display controls
+
+Use `<BoxStock>` for an axis-aligned blank around a part, or `<Stock geometry={stockGeometry} />`
+for an actual stock mesh, including cylindrical or irregular blanks. Stock and part coordinates
+must use the same millimetre, Z-up frame. Both components include stock in Fit and Reset while
+keeping section tools, measurements, the grid, and direction arrows sized to the finished part.
+Stock does not intercept clicks or get clipped by the part's section plane.
+
+```tsx
+import { useMemo, useRef, useState } from 'react'
+import {
+  Axes,
+  BoxStock,
+  DirectionArrows,
+  PartMesh,
+  Viewer,
+  directionHighlights,
+} from '@toolpath/viewer'
+import type { PartModel, ViewerHandle } from '@toolpath/viewer'
+import type { BufferGeometry } from 'three'
+
+export function StockPreview({ model, geometry }: { model: PartModel; geometry: BufferGeometry }) {
+  const viewer = useRef<ViewerHandle>(null)
+  const [stock, setStock] = useState(false)
+  const [axes, setAxes] = useState(true)
+  const [directions, setDirections] = useState(false)
+  const [direction, setDirection] = useState<number | null>(null)
+  const [wireframe, setWireframe] = useState(false)
+  const colors = useMemo(
+    () => (directions ? directionHighlights(model, direction) : []),
+    [model, direction, directions],
+  )
+
+  return (
+    <>
+      <Viewer ref={viewer} style={{ height: 500 }}>
+        <PartMesh
+          model={model}
+          geometry={geometry}
+          display={wireframe ? 'wireframe' : 'solid'}
+          regionHighlights={colors}
+          activeDirection={directions ? direction : null}
+        />
+        {stock && <BoxStock partGeometry={geometry} allowance={{ wall: 3, floor: 3 }} />}
+        {axes && <Axes />}
+        <DirectionArrows
+          directions={model.candidateDirections}
+          visible={directions}
+          shownDirection={direction}
+          onPickDirection={(index) => setDirection((held) => (held === index ? null : index))}
+        />
+      </Viewer>
+      <button aria-pressed={stock} onClick={() => setStock(!stock)}>
+        Stock
+      </button>
+      <button aria-pressed={axes} onClick={() => setAxes(!axes)}>
+        Axes
+      </button>
+      <button aria-pressed={directions} onClick={() => setDirections(!directions)}>
+        By direction
+      </button>
+      <button aria-pressed={wireframe} onClick={() => setWireframe(!wireframe)}>
+        Wireframe
+      </button>
+      <button onClick={() => viewer.current?.fit()}>Fit</button>
+    </>
+  )
+}
+```
+
+`BoxStock.allowance` is padding **per side**, in millimetres. The preferred form is
+`{ wall, floor }`: wall stock expands X/Y and floor stock expands Z, matching the wall/floor
+roughing-stock distinction used by machining settings. A number or `{ x, y, z }` remains accepted
+for uniform or axis-specific padding. It defaults to zero. `offset` translates the stock from the
+part's bounding-box centre. `boxStockBounds(geometry, allowance, offset)` returns the same `Box3`
+for displaying dimensions.
+
+For fixed-box stock, pass `dimensions={{ x, y, z }}` instead. `position` accepts
+`model_centered`, `offset_from_top`, or `offset_from_bottom`, and `positionOffset` is the distance
+from the selected top or bottom bound. All fixed-box values use millimetres and the part's Z-up
+coordinate frame.
+Negative/non-finite allowances, non-finite coordinates, and empty or non-positive stock dimensions
+throw `RangeError`. The 3 mm allowance above is an example, not an automatic stock recommendation.
+
+`Stock` accepts `color`, `opacity` (default `0.2`), `edgeColor`, `edgeOpacity`, and `showEdges`.
+`BoxStock` accepts the same appearance props. Caller-provided geometry is never disposed; the
+components dispose their own materials and outlines. Conditionally mount stock to toggle it.
+Toggling stock preserves the camera; Fit/Reset then frames the visible stock together with the part.
+
+`directionHighlights(model, activeDirection?)` returns region colors in the same palette as
+`DirectionArrows`. For a face with several owners, the most specific feature wins, followed by
+candidate-direction order and feature tag. Unmatched directions are left unpainted. Hover and
+selection still paint over this wash. Scoping by direction filters ownership; it does not hide
+the rest of the model or claim that an unpainted face cannot be manufactured.
+
+Wireframe keeps the existing semantic edges, including rear edges, and keeps faces available for
+picking, measuring, and section placement. Highlighted faces and section caps remain visible.
+`showEdges` controls solid-mode outlines; wireframe always shows them. The example's bottom toolbar
+makes wireframe and direction coloring mutually exclusive and includes a direction legend and
+contextual Section/Measure controls.
+
+### `<ViewerToolbar>`
+
+`ViewerToolbar` is the standard controlled toolbar for the viewer's camera, stock, display, section,
+and measurement controls. Import its stylesheet alongside your application stylesheet:
+
+```tsx
+import '@toolpath/viewer/toolbar.css'
+import { ViewerToolbar } from '@toolpath/viewer'
+```
+
+The toolbar owns no application state; pass the current values and callbacks from the host app. Its
+`children` are rendered above the standard controls for app-specific options. `BananaButton` is
+also exported for applications that want the bundled banana-for-scale control elsewhere.
 
 ### `<Viewer>`
 
@@ -176,28 +315,30 @@ Draws the part and handles clicks. You only use it directly when you
 
 **Colours**
 
-| Prop                | Type                   | What it does                                                   |
-| ------------------- | ---------------------- | -------------------------------------------------------------- |
-| `selection`         | `string[]`             | Feature tags to highlight as selected (orange).                |
-| `highlights`        | `FeatureHighlight[]`   | Your own colour per feature, e.g. difficulty or setup.         |
-| `regionHighlights`  | `RegionHighlight[]`    | Your own colour per face.                                      |
-| `candidates`        | `string[]`             | Other possible matches, faintly tinted by machining direction. |
-| `pickedRegions`     | `number[]`             | Faces to mark as just clicked.                                 |
-| `hoveredFeatureIds` | `string[]`             | Features to show as hovered, e.g. when hovering a list row.    |
-| `showEdges`         | `boolean` (`true`)     | Draw outlines between faces.                                   |
-| `theme`             | `Partial<ViewerTheme>` | Override the part's colours.                                   |
+| Prop                | Type                                 | What it does                                                                                          |
+| ------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `selection`         | `string[]`                           | Feature tags to highlight as selected (orange).                                                       |
+| `highlights`        | `FeatureHighlight[]`                 | Your own colour per feature, e.g. difficulty or setup.                                                |
+| `regionHighlights`  | `RegionHighlight[]`                  | Your own colour per face.                                                                             |
+| `candidates`        | `string[]`                           | Other possible matches, faintly tinted by machining direction.                                        |
+| `pickedRegions`     | `number[]`                           | Faces to mark as just clicked.                                                                        |
+| `hoveredFeatureIds` | `string[]`                           | Features to show as hovered, e.g. when hovering a list row.                                           |
+| `showEdges`         | `boolean` (`true`)                   | Draw outlines between faces.                                                                          |
+| `display`           | `'solid' \| 'wireframe'` (`'solid'`) | Wireframe draws face boundaries without triangle diagonals. Painted and hovered faces remain visible. |
+| `theme`             | `Partial<ViewerTheme>`               | Override the part's colours.                                                                          |
 
 **Interaction**
 
-| Prop              | Type                               | What it does                                                                                   |
-| ----------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `onPick`          | `(pick: PartPick) => void`         | Left- or right-click on the part.                                                              |
-| `onHover`         | `(pick: PartPick \| null) => void` | The pointer moved onto a different face, or off the part (`null`).                             |
-| `activeDirection` | `number \| null`                   | Only match features machined from this direction (an index into `candidateDirections`).        |
-| `focusFeature`    | `string \| null`                   | Zoom to this feature. The camera moves each time the value changes.                            |
-| `section`         | `SectionOptions`                   | Cut the part open. Omit it to follow the viewer's own cut. See [Section view](#section-view).  |
-| `onSectionChange` | `(state: SectionState) => void`    | Called when the cut moves or goes away. With `section`, passing it also shows the drag handle. |
-| `onAdjacency`     | `(map) => void`                    | Called once per mesh with which faces touch which.                                             |
+| Prop              | Type                               | What it does                                                                                    |
+| ----------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `onPick`          | `(pick: PartPick) => void`         | Left- or right-click on the part.                                                               |
+| `onHover`         | `(pick: PartPick \| null) => void` | The pointer moved onto a different face, or off the part (`null`).                              |
+| `hover`           | `boolean` (`true`)                 | Paint and report faces under the pointer. `false` leaves click picking on and clears any hover. |
+| `activeDirection` | `number \| null`                   | Only match features machined from this direction (an index into `candidateDirections`).         |
+| `focusFeature`    | `string \| null`                   | Zoom to this feature. The camera moves each time the value changes.                             |
+| `section`         | `SectionOptions`                   | Cut the part open. Omit it to follow the viewer's own cut. See [Section view](#section-view).   |
+| `onSectionChange` | `(state: SectionState) => void`    | Called when the cut moves or goes away. With `section`, passing it also shows the drag handle.  |
+| `onAdjacency`     | `(map) => void`                    | Called once per mesh with which faces touch which.                                              |
 
 Hovering over the part is handled for you. You only need `onHover` if you want to show the hovered
 feature elsewhere in your UI.
@@ -478,7 +619,10 @@ no `section` prop:
 
 Hovering the part previews a cut through the face under the pointer; clicking places it. Three
 coloured planes stand behind the part — click one to cut along that axis, in from your side. Once
-there is a cut, an arrow drags it, an outlined sheet shows the cutting plane, and Escape clears it.
+there is a cut, a framed plane and two-way normal-axis handle show exactly what will move; drag the
+handle to move it. Keep the canvas clear by presenting `sectionMeasurement(state)` beside the host
+application's section slider; it reports the depth from a picked surface, or the distance swept
+through the part bounds. Escape clears it.
 The cut belongs to the viewer: `viewer.current.setSection(null)` clears it from a button outside
 the canvas, `setSection({ enabled: true, normal, offset })` sets one, and `onSectionChange` on
 `PartMesh` still reports every move.
@@ -505,7 +649,7 @@ const [offset, setOffset] = useState(0.5)
 ```
 
 The cut surface is filled in with a hatch and outlined, so the part doesn't look hollow and the cut
-reads as a cut. Passing `onSectionChange` also shows an arrow handle users can drag. The handler is
+reads as a cut. Passing `onSectionChange` also shows the draggable plane-frame gizmo. The handler is
 called on every drag and only when the cut actually changes, so it's safe to store the value in
 state; a cut going away is reported once, with `enabled: false`.
 
@@ -625,10 +769,11 @@ go on the cube. See `DEFAULT_THEME` for every key. The default part colours are 
 default lighting, so if you change one, check the other.
 
 The section cut is themed on the part too: `sectionCap` and `sectionHatch` are the cap's fill and
-hatch lines, `sectionHandle` the drag arrow, and `sectionOutline` the cutting-plane sheet and
-preview that `<SectionTool>` draws. `measure` and `measureSnap` are `<MeasureTool>`'s lines and its
-snap indicator; a distance's X, Y, Z legs take `AXIS_COLORS`, the same hues as the section tool's
-global planes.
+hatch lines, `sectionHandle` overrides the drag arrow's colour, and `sectionOutline` the
+cutting-plane sheet and preview that `<SectionTool>` draws. Without a `sectionHandle` override, the
+drag arrow uses the cutting plane's direction colour. `measure` and `measureSnap` are
+`<MeasureTool>`'s lines and its snap indicator; a distance's X, Y, Z legs take `AXIS_COLORS`, the
+same hues as the section tool's global planes.
 
 `HIGHLIGHT_COLORS` has the standard selection colours (`default`, `toolIssue`, `geometryIssue`).
 `DIRECTION_COLORS` has the 9 direction colours, which repeat for parts with more than 9 directions.
@@ -903,11 +1048,11 @@ use. They're listed in `dist/index.d.ts`.
 
 `ViewerProps`, `ViewerHandle`, `ViewerView`, `Projection`, `ControlScheme`, `EnginePartProps`,
 `PartMeshProps`, `PartPick`, `PickModifiers`, `PartModel`, `PartModelFeature`, `PartModelRegion`,
-`FeatureTag`, `FeatureType`, `Vec3`, `FeatureHighlight`, `RegionHighlight`, `SectionOptions`,
+`FeatureTag`, `FeatureType`, `Vec3`, `FeatureHighlight`, `RegionHighlight`, `FocusOptions`, `SectionOptions`,
 `SectionState`, `SectionPlacement`, `SectionToolProps`, `SectionStore`, `MeasureToolProps`,
 `MeasureMode`, `Measurement`, `DistanceMeasurement`, `AngleMeasurement`, `Snap`, `SnapKind`,
 `ViewerTheme`, `ViewName`, `DirectionArrowsProps`, `NamedDirection`, `GridProps`, `AxesProps`,
-`ViewCubeProps`.
+`ViewCubeProps`, `ViewerToolbarProps`, `BananaButtonProps`.
 
 `FeatureType` and `ShapeKind` accept any string, because newer Engine versions add new values.
 Handle values you don't recognize.

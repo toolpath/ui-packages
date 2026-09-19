@@ -80,6 +80,7 @@ test('the orthographic click points hit the faces the rest of this file is writt
  */
 test('a double click on a face aims the orbit at the point that was clicked', async ({ page }) => {
   const { canvas, box } = await openViewer(page, ORTHOGRAPHIC)
+  await page.getByRole('button', { name: 'Enable feature hover' }).click()
 
   expectPivot(await readCamera(page), ORIGIN)
 

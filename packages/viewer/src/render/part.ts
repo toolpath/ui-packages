@@ -10,12 +10,14 @@ import {
   Mesh,
   MeshLambertMaterial,
   type Plane,
+  RedFormat,
   RGBAFormat,
   UnsignedByteType,
   Vector3,
 } from 'three'
 import type { FeatureTag, PartModel } from '../model/types.js'
 import { regionEdgesGeometry } from './edges.js'
+import { focusOpacity, focusedRegions, type FocusOptions } from './focus.js'
 import type { ViewerTheme } from './theme.js'
 
 /** The vertex attribute carrying each vertex's column in the state texture. */
@@ -23,6 +25,8 @@ export const REGION_ATTRIBUTE = 'aRegion'
 
 /** How much of a painted region's color also lights it from within. */
 const EMISSIVE_MIX = 0.4
+
+export type PartDisplay = 'solid' | 'wireframe'
 
 /**
  * A part on screen: one mesh, one draw call, one material.
@@ -52,6 +56,10 @@ export interface PartObject {
   /** Paints every region the feature explicitly owns. */
   paintFeature(tag: FeatureTag, color: number, weight: number): void
   clearPaint(): void
+  /** Makes selected features solid and the rest of the part translucent. */
+  setFocus(selection: readonly FeatureTag[], focus?: FocusOptions): void
+  /** The current opacity of one region, or `null` if it does not exist. */
+  regionOpacity(region: number): number | null
   /** A feature's bounds in part space, for framing. `null` if it has none. */
   boxForFeature(tag: FeatureTag): Box3 | null
   /**
@@ -61,6 +69,8 @@ export interface PartObject {
    */
   setClippingPlanes(planes: readonly Plane[] | null): void
   setTheme(theme: ViewerTheme): void
+  /** Semantic edges only in wireframe; painted faces remain visible for interaction. */
+  setDisplay(display: PartDisplay, showEdges?: boolean): void
   dispose(): void
 }
 
@@ -163,6 +173,14 @@ export function createPart(
   const state = new Uint8Array(width * 4)
   const stateTexture = new DataTexture(state, width, 1, RGBAFormat, UnsignedByteType)
   stateTexture.needsUpdate = true
+  const opacity = new Uint8Array(width).fill(255)
+  const opacityTexture = new DataTexture(opacity, width, 1, RedFormat, UnsignedByteType)
+  opacityTexture.needsUpdate = true
+
+  const focusState = { value: false }
+  const wireframe = { value: false }
+  let focused = false
+  let currentTheme = theme
 
   const material = new MeshLambertMaterial({
     color: theme.part,
@@ -174,50 +192,72 @@ export function createPart(
     polygonOffsetUnits: 1,
   })
 
-  material.onBeforeCompile = (shader) => {
-    shader.uniforms['uRegionState'] = { value: stateTexture }
+  const configureShader = (target: MeshLambertMaterial, opaqueFocusPass: boolean) => {
+    target.onBeforeCompile = (shader) => {
+      shader.uniforms['uRegionState'] = { value: stateTexture }
+      shader.uniforms['uRegionOpacity'] = { value: opacityTexture }
+      shader.uniforms['uWireframe'] = wireframe
+      shader.uniforms['uFocus'] = focusState
+      shader.uniforms['uOpaqueFocusPass'] = { value: opaqueFocusPass }
 
-    shader.vertexShader = shader.vertexShader
-      .replace(
-        '#include <common>',
-        `#include <common>
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
         attribute float ${REGION_ATTRIBUTE};
         varying float vRegion;`,
-      )
-      .replace(
-        '#include <begin_vertex>',
-        `#include <begin_vertex>
+        )
+        .replace(
+          '#include <begin_vertex>',
+          `#include <begin_vertex>
         vRegion = ${REGION_ATTRIBUTE};`,
-      )
+        )
 
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        '#include <common>',
-        `#include <common>
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
         uniform sampler2D uRegionState;
+        uniform sampler2D uRegionOpacity;
+        uniform bool uWireframe;
+        uniform bool uFocus;
+        uniform bool uOpaqueFocusPass;
         varying float vRegion;
         vec4 regionState;`,
-      )
-      // three compiles built-in materials as GLSL 3.0, so `texelFetch` is
-      // available: an exact integer lookup, with no filtering to defeat and no
-      // texture width to pass in as a second uniform.
-      .replace(
-        '#include <color_fragment>',
-        `#include <color_fragment>
+        )
+        // three compiles built-in materials as GLSL 3.0, so `texelFetch` is
+        // available: an exact integer lookup, with no filtering to defeat and no
+        // texture width to pass in as a second uniform.
+        .replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
         regionState = texelFetch(uRegionState, ivec2(int(vRegion + 0.5), 0), 0);
         diffuseColor.rgb = mix(diffuseColor.rgb, regionState.rgb, regionState.a);
+        float regionOpacity = texelFetch(uRegionOpacity, ivec2(int(vRegion + 0.5), 0), 0).r;
+        if (uFocus && uOpaqueFocusPass && regionOpacity < 0.999) discard;
+        if (uFocus && !uOpaqueFocusPass && regionOpacity >= 0.999) discard;
+        diffuseColor.a *= regionOpacity;
+        if (uWireframe) diffuseColor.a *= regionState.a;
 `,
-      )
-      .replace(
-        '#include <emissivemap_fragment>',
-        `#include <emissivemap_fragment>
+        )
+        .replace(
+          '#include <emissivemap_fragment>',
+          `#include <emissivemap_fragment>
         totalEmissiveRadiance = mix(
           totalEmissiveRadiance,
           regionState.rgb * ${EMISSIVE_MIX.toFixed(2)},
           regionState.a
         );`,
-      )
+        )
+    }
   }
+
+  const focusMaterial = new MeshLambertMaterial({
+    color: theme.part,
+    emissive: theme.partEmissive,
+  })
+  configureShader(focusMaterial, true)
+  configureShader(material, false)
 
   const mesh = new Mesh(geometry, material)
   // Leaves room below for a section's stencil pass and its cap, which would
@@ -238,8 +278,24 @@ export function createPart(
   // a line with no face index, which is not a surface anyone clicked.
   edges.raycast = () => {}
 
+  const focusMesh = new Mesh(geometry, focusMaterial)
+  focusMesh.renderOrder = 3
+  focusMesh.visible = false
+  focusMesh.raycast = () => {}
+
+  const syncTransparency = () => {
+    const transparent = wireframe.value || focused
+    if (material.transparent !== transparent || material.depthWrite !== !transparent) {
+      material.transparent = transparent
+      material.depthWrite = !transparent
+      material.needsUpdate = true
+    }
+    focusState.value = focused
+    focusMesh.visible = focused
+  }
+
   const object = new Group()
-  object.add(mesh, edges)
+  object.add(focusMesh, mesh, edges)
 
   const scratchColor = new Color()
   const scratchVector = new Vector3()
@@ -292,6 +348,34 @@ export function createPart(
       stateTexture.needsUpdate = true
     },
 
+    setFocus(selection, focus) {
+      const regions = focus === undefined ? null : focusedRegions(model, selection)
+      const outside = focusOpacity(focus)
+      let changed = false
+      let hasTransparency = false
+
+      for (const [region, column] of texels) {
+        const value =
+          regions === null || regions.size === 0 || regions.has(region)
+            ? 255
+            : Math.round(outside * 255)
+        if (opacity[column] !== value) {
+          opacity[column] = value
+          changed = true
+        }
+        hasTransparency ||= value < 255
+      }
+
+      focused = hasTransparency
+      syncTransparency()
+      if (changed) opacityTexture.needsUpdate = true
+    },
+
+    regionOpacity(region) {
+      const column = texels.get(region)
+      return column === undefined ? null : (opacity[column] ?? 0) / 255
+    },
+
     boxForFeature(tag) {
       const regions = model.regionIndex.regionsForFeature(tag)
       if (regions.length === 0) return null
@@ -317,14 +401,29 @@ export function createPart(
     setClippingPlanes(planes) {
       const value = planes === null ? null : [...planes]
       material.clippingPlanes = value
+      focusMaterial.clippingPlanes = value
       edgeMaterial.clippingPlanes = value
     },
 
     setTheme(next) {
+      currentTheme = next
       material.color.setHex(next.part)
       material.emissive.setHex(next.partEmissive)
-      edgeMaterial.color.setHex(next.edge)
-      edgeMaterial.opacity = next.edgeOpacity
+      focusMaterial.color.setHex(next.part)
+      focusMaterial.emissive.setHex(next.partEmissive)
+      edgeMaterial.color.setHex(wireframe.value ? next.part : next.edge)
+      edgeMaterial.opacity = wireframe.value ? 1 : next.edgeOpacity
+    },
+
+    setDisplay(display, showEdges = true) {
+      const enabled = display === 'wireframe'
+      if (wireframe.value !== enabled) {
+        wireframe.value = enabled
+        syncTransparency()
+      }
+      edges.visible = enabled || showEdges
+      edgeMaterial.color.setHex(enabled ? currentTheme.part : currentTheme.edge)
+      edgeMaterial.opacity = enabled ? 1 : currentTheme.edgeOpacity
     },
 
     dispose() {
@@ -335,9 +434,11 @@ export function createPart(
         geometry.deleteAttribute(REGION_ATTRIBUTE)
       }
       material.dispose()
+      focusMaterial.dispose()
       edgeGeometry.dispose()
       edgeMaterial.dispose()
       stateTexture.dispose()
+      opacityTexture.dispose()
     },
   }
 }
