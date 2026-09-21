@@ -247,17 +247,45 @@ contextual Section/Measure controls.
 
 ### `<ViewerToolbar>`
 
-`ViewerToolbar` is the standard controlled toolbar for the viewer's camera, stock, display, section,
-and measurement controls. Import its stylesheet alongside your application stylesheet:
+`ViewerToolbar` is a composable, viewer-scoped toolbar for camera, display, section, and measurement
+controls. Import its stylesheet alongside your application stylesheet:
 
 ```tsx
 import '@toolpath/viewer/toolbar.css'
-import { ViewerToolbar } from '@toolpath/viewer'
+import { ViewerToolbar, ViewerToolbarProvider } from '@toolpath/viewer'
 ```
 
-The toolbar owns no application state; pass the current values and callbacks from the host app. Its
-`children` are rendered above the standard controls for app-specific options. `BananaButton` is
-also exported for applications that want the bundled banana-for-scale control elsewhere.
+Give `ViewerToolbarProvider` the current values and callbacks from the host app, then place the
+toolbar and viewer inside it. The toolbar owns no application state or behavior: it only reads the
+provider. Omit `children` for every configured control in the standard order, or compose the
+individual buttons to use only the controls and order your application needs.
+
+```tsx
+<ViewerToolbarProvider
+  controls={{
+    stock: { pressed: showStock, onClick: () => setShowStock((shown) => !shown) },
+    measure: { pressed: measuring, onClick: toggleMeasuring },
+    fit: { onClick: () => viewer.current?.fit() },
+  }}
+>
+  <ViewerToolbar>
+    <ViewerToolbar.Controls>
+      <ViewerToolbar.MeasureButton />
+      <ViewerToolbar.Divider />
+      <ViewerToolbar.StockButton />
+      <ViewerToolbar.FitButton />
+    </ViewerToolbar.Controls>
+  </ViewerToolbar>
+  <Viewer ref={viewer}>…</Viewer>
+</ViewerToolbarProvider>
+```
+
+`ViewerToolbar.Controls`, `Divider`, and the thirteen `*Button` components are available on
+`ViewerToolbar`: `StockButton`, `AxesButton`, `GridButton`, `BananaButton`, `DirectionsButton`,
+`HoverButton`, `FocusButton`, `WireframeButton`, `SectionButton`, `MeasureButton`, `FitButton`,
+`ResetButton`, and `TopButton`. A rendered button requires its matching provider control. For an
+application-specific toolbar component, `useViewerToolbar()` reads the same controls from inside
+the provider.
 
 #### Styling hooks
 
@@ -266,19 +294,19 @@ Every viewer, hover-card, and toolbar DOM boundary has a stable class name. Your
 replaces the hook. The toolbar stylesheet uses the same names, so import it for the default look or
 override any of these selectors in your application stylesheet.
 
-| Component         | Class                     | Element                                             |
-| ----------------- | ------------------------- | --------------------------------------------------- |
-| `<Viewer>`        | `viewer-root`             | Wrapper around the canvas                           |
-| `<Viewer>`        | `viewer-canvas-container` | R3F canvas event container                          |
-| `<Viewer>`        | `viewer-canvas-frame`     | R3F's canvas-sizing frame                           |
-| `<Viewer>`        | `viewer-canvas`           | The `<canvas>` itself                               |
-| `<HoverCard>`     | `viewer-hover-card`       | Cursor-following tooltip shell                      |
-| `<ViewerToolbar>` | `viewer-toolbar-stack`    | Outer stack, including app-supplied option children |
-| `<ViewerToolbar>` | `viewer-toolbar`          | Standard-controls group                             |
-| `<ViewerToolbar>` | `viewer-toolbar-button`   | Each standard control button                        |
-| `<ViewerToolbar>` | `viewer-toolbar-icon`     | SVG within a standard control                       |
-| `<ViewerToolbar>` | `viewer-toolbar-tooltip`  | Label shown on button hover/focus                   |
-| `<ViewerToolbar>` | `viewer-toolbar-divider`  | Separator between control groups                    |
+| Component         | Class                     | Element                           |
+| ----------------- | ------------------------- | --------------------------------- |
+| `<Viewer>`        | `viewer-root`             | Wrapper around the canvas         |
+| `<Viewer>`        | `viewer-canvas-container` | R3F canvas event container        |
+| `<Viewer>`        | `viewer-canvas-frame`     | R3F's canvas-sizing frame         |
+| `<Viewer>`        | `viewer-canvas`           | The `<canvas>` itself             |
+| `<HoverCard>`     | `viewer-hover-card`       | Cursor-following tooltip shell    |
+| `<ViewerToolbar>` | `viewer-toolbar-stack`    | Outer toolbar stack               |
+| `<ViewerToolbar>` | `viewer-toolbar`          | Controls group                    |
+| `<ViewerToolbar>` | `viewer-toolbar-button`   | Each standard control button      |
+| `<ViewerToolbar>` | `viewer-toolbar-icon`     | SVG within a standard control     |
+| `<ViewerToolbar>` | `viewer-toolbar-tooltip`  | Label shown on button hover/focus |
+| `<ViewerToolbar>` | `viewer-toolbar-divider`  | Separator between control groups  |
 
 The following `data-*` attributes identify generated elements without depending on labels, which
 can change with state or localization:
@@ -291,7 +319,7 @@ can change with state or localization:
 | `data-viewer-canvas="true"`           | The `<canvas>` itself                                                                                                                           |
 | `data-viewer-hover-card="true"`       | `<HoverCard>` shell                                                                                                                             |
 | `data-viewer-toolbar="true"`          | Toolbar stack                                                                                                                                   |
-| `data-viewer-toolbar-controls="true"` | Standard-controls group                                                                                                                         |
+| `data-viewer-toolbar-controls="true"` | Controls group                                                                                                                                  |
 | `data-viewer-toolbar-action`          | Standard button: `stock`, `axes`, `grid`, `banana`, `directions`, `hover`, `focus`, `wireframe`, `section`, `measure`, `fit`, `reset`, or `top` |
 | `data-viewer-toolbar-icon="true"`     | Standard button SVG                                                                                                                             |
 | `data-viewer-toolbar-tooltip="true"`  | Standard button tooltip                                                                                                                         |
@@ -1074,12 +1102,13 @@ is a complete app built this way, with no API key needed.
 
 ### Hooks
 
-| Hook                  | Use inside `<Viewer>` to…                                                        |
-| --------------------- | -------------------------------------------------------------------------------- |
-| `useViewerControls()` | Get `fit`, `reset`, `setView`, `setViewDirection`, `frameBox`, and `setSection`. |
-| `useSectionStore()`   | Read, set, or subscribe to the viewer's own cut.                                 |
-| `useContentBox()`     | Get the part's bounding box (a `THREE.Box3`, empty until loaded).                |
-| `useTapGuard()`       | Check whether a pointer event was a click and not a drag.                        |
+| Hook                  | Where                            | What it does                                                                     |
+| --------------------- | -------------------------------- | -------------------------------------------------------------------------------- |
+| `useViewerControls()` | Inside `<Viewer>`                | Get `fit`, `reset`, `setView`, `setViewDirection`, `frameBox`, and `setSection`. |
+| `useViewerToolbar()`  | Inside `<ViewerToolbarProvider>` | Get the actions and state supplied to the provider.                              |
+| `useSectionStore()`   | Inside `<Viewer>`                | Read, set, or subscribe to the viewer's own cut.                                 |
+| `useContentBox()`     | Inside `<Viewer>`                | Get the part's bounding box (a `THREE.Box3`, empty until loaded).                |
+| `useTapGuard()`       | Inside `<Viewer>`                | Check whether a pointer event was a click and not a drag.                        |
 
 ### Helpers
 
@@ -1109,7 +1138,8 @@ use. They're listed in `dist/index.d.ts`.
 `SectionState`, `SectionPlacement`, `SectionToolProps`, `SectionStore`, `MeasureToolProps`,
 `MeasureMode`, `Measurement`, `DistanceMeasurement`, `AngleMeasurement`, `Snap`, `SnapKind`,
 `ViewerTheme`, `ViewName`, `DirectionArrowsProps`, `NamedDirection`, `GridProps`, `AxesProps`,
-`ViewCubeProps`, `ViewerToolbarProps`, `BananaButtonProps`.
+`ViewCubeProps`, `ViewerToolbarProps`, `ViewerToolbarControlsProps`, `ViewerToolbarControls`,
+`ViewerToolbarControl`.
 
 `FeatureType` and `ShapeKind` accept any string, because newer Engine versions add new values.
 Handle values you don't recognize.

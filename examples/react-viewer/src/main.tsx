@@ -15,6 +15,7 @@ import {
   DirectionArrows,
   ViewCube,
   ViewerToolbar,
+  ViewerToolbarProvider,
   MeasureTool,
   PartMesh,
   SectionTool,
@@ -31,6 +32,7 @@ import {
   type SectionState,
   type StockPosition,
   type ViewerHandle,
+  type ViewerToolbarControls,
 } from '@toolpath/viewer'
 import { AnalysisOptions } from './analysis-options'
 import { MODELS, modelFromQuery } from './models'
@@ -239,6 +241,63 @@ const App = () => {
     (next: CameraState) => setPose((held) => (sameCamera(held, next) ? held : next)),
     [],
   )
+  const toolbarControls: ViewerToolbarControls = {
+    fit: { onClick: () => viewerRef.current?.fit() },
+    reset: { onClick: () => viewerRef.current?.reset() },
+    top: { onClick: () => viewerRef.current?.setView('top') },
+    stock: { pressed: showStock, onClick: () => setShowStock((on) => !on) },
+    axes: { pressed: showAxes, onClick: () => setShowAxes((on) => !on) },
+    grid: { pressed: showGrid, onClick: () => setShowGrid((on) => !on) },
+    banana: { pressed: banana, onClick: () => setBanana((shown) => !shown) },
+    directions: {
+      pressed: showDirections,
+      onClick: () => {
+        setShowDirections((on) => !on)
+        setDirection(null)
+        setSelected([])
+        heldSelection.current = []
+        setWireframe(false)
+      },
+    },
+    hover: { pressed: featureHover, onClick: () => setFeatureHover((enabled) => !enabled) },
+    focus: { pressed: focus, onClick: () => setFocus((enabled) => !enabled) },
+    wireframe: {
+      pressed: wireframe,
+      onClick: () => {
+        setWireframe((on) => !on)
+        setShowDirections(false)
+        setDirection(null)
+      },
+    },
+    section: {
+      pressed: sectioning,
+      onClick: () => {
+        if (sectioning) {
+          viewerRef.current?.setSection(null)
+          setSelected(heldSelection.current)
+        } else {
+          if (!measuring) heldSelection.current = selected
+          setSelected([])
+          if (!measuring) setMeasured([])
+        }
+        setSectioning((on) => !on)
+      },
+    },
+    measure: {
+      pressed: measuring,
+      onClick: () => {
+        if (measuring) {
+          setMeasured([])
+          setSelected(heldSelection.current)
+        } else if (!sectioning) {
+          heldSelection.current = selected
+          setSelected([])
+          viewerRef.current?.setSection(null)
+        }
+        setMeasuring((on) => !on)
+      },
+    },
+  }
   return (
     <main>
       <section>
@@ -424,116 +483,78 @@ const App = () => {
         </p>
       </section>
       <div className="viewer">
-        <HoverCard pick={hoverPick} className="viewer-hover-card">
-          {(pick) => <HoverDetails pick={pick} model={part.model} />}
-        </HoverCard>
-        <ViewerToolbar
-          stock={showStock}
-          axes={showAxes}
-          grid={showGrid}
-          banana={banana}
-          directions={showDirections}
-          hover={featureHover}
-          focus={focus}
-          wireframe={wireframe}
-          sectioning={sectioning}
-          measuring={measuring}
-          onFit={() => viewerRef.current?.fit()}
-          onReset={() => viewerRef.current?.reset()}
-          onTop={() => viewerRef.current?.setView('top')}
-          onStock={() => setShowStock((on) => !on)}
-          onAxes={() => setShowAxes((on) => !on)}
-          onGrid={() => setShowGrid((on) => !on)}
-          onBanana={() => setBanana((shown) => !shown)}
-          onDirections={() => {
-            setShowDirections((on) => !on)
-            setDirection(null)
-            setSelected([])
-            heldSelection.current = []
-            setWireframe(false)
-          }}
-          onHover={() => setFeatureHover((enabled) => !enabled)}
-          onFocus={() => setFocus((enabled) => !enabled)}
-          onWireframe={() => {
-            setWireframe((on) => !on)
-            setShowDirections(false)
-            setDirection(null)
-          }}
-          onSection={() => {
-            if (sectioning) {
-              viewerRef.current?.setSection(null)
-              setSelected(heldSelection.current)
-            } else {
-              if (!measuring) heldSelection.current = selected
-              setSelected([])
-              if (!measuring) setMeasured([])
-            }
-            setSectioning((on) => !on)
-          }}
-          onMeasure={() => {
-            if (measuring) {
-              setMeasured([])
-              setSelected(heldSelection.current)
-            } else {
-              if (!sectioning) {
-                heldSelection.current = selected
-                setSelected([])
-                viewerRef.current?.setSection(null)
-              }
-            }
-            setMeasuring((on) => !on)
-          }}
-        >
-          <AnalysisOptions
-            sectioning={sectioning}
-            measuring={measuring}
-            cut={cut}
-            offset={offset}
-            measureMode={measureMode}
-            onOffsetChange={(next) => {
-              setOffset(next)
-              if (cut) viewerRef.current?.setSection(sweepTo(cut, next))
-            }}
-            onClearCut={() => viewerRef.current?.setSection(null)}
-            onMeasureModeChange={setMeasureMode}
-            onClearMeasurements={() => {
-              setMeasured([])
-              setMeasureInstance((instance) => instance + 1)
-            }}
-          />
-          {showDirections && !sectioning && !measuring ? (
-            <div
-              className="viewer-tool-options direction-legend"
-              role="group"
-              aria-label="Machining directions"
-            >
-              <button
-                type="button"
-                aria-pressed={direction === null}
-                onClick={() => setDirection(null)}
+        <ViewerToolbarProvider controls={toolbarControls}>
+          <HoverCard pick={hoverPick} className="viewer-hover-card">
+            {(pick) => <HoverDetails pick={pick} model={part.model} />}
+          </HoverCard>
+          <ViewerToolbar>
+            <AnalysisOptions
+              sectioning={sectioning}
+              measuring={measuring}
+              cut={cut}
+              offset={offset}
+              measureMode={measureMode}
+              onOffsetChange={(next) => {
+                setOffset(next)
+                if (cut) viewerRef.current?.setSection(sweepTo(cut, next))
+              }}
+              onClearCut={() => viewerRef.current?.setSection(null)}
+              onMeasureModeChange={setMeasureMode}
+              onClearMeasurements={() => {
+                setMeasured([])
+                setMeasureInstance((instance) => instance + 1)
+              }}
+            />
+            {showDirections && !sectioning && !measuring ? (
+              <div
+                className="viewer-tool-options direction-legend"
+                role="group"
+                aria-label="Machining directions"
               >
-                All
-              </button>
-              {part.model.candidateDirections.map((axis, index) => (
                 <button
                   type="button"
-                  key={index}
-                  aria-pressed={direction === index}
-                  onClick={() => setDirection((held) => (held === index ? null : index))}
+                  aria-pressed={direction === null}
+                  onClick={() => setDirection(null)}
                 >
-                  <span
-                    className="direction-dot"
-                    style={{
-                      background: '#' + directionColor(index).toString(16).padStart(6, '0'),
-                    }}
-                  />
-                  {directionLabel(axis)}
+                  All
                 </button>
-              ))}
-            </div>
-          ) : null}
-        </ViewerToolbar>
-        {/*
+                {part.model.candidateDirections.map((axis, index) => (
+                  <button
+                    type="button"
+                    key={index}
+                    aria-pressed={direction === index}
+                    onClick={() => setDirection((held) => (held === index ? null : index))}
+                  >
+                    <span
+                      className="direction-dot"
+                      style={{
+                        background: '#' + directionColor(index).toString(16).padStart(6, '0'),
+                      }}
+                    />
+                    {directionLabel(axis)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <ViewerToolbar.Controls>
+              <ViewerToolbar.StockButton />
+              <ViewerToolbar.AxesButton />
+              <ViewerToolbar.GridButton />
+              <ViewerToolbar.BananaButton />
+              <ViewerToolbar.Divider />
+              <ViewerToolbar.DirectionsButton />
+              <ViewerToolbar.HoverButton />
+              <ViewerToolbar.FocusButton />
+              <ViewerToolbar.WireframeButton />
+              <ViewerToolbar.SectionButton />
+              <ViewerToolbar.MeasureButton />
+              <ViewerToolbar.Divider />
+              <ViewerToolbar.FitButton />
+              <ViewerToolbar.ResetButton />
+              <ViewerToolbar.TopButton />
+            </ViewerToolbar.Controls>
+          </ViewerToolbar>
+          {/*
           Perspective by default here, and the pin is the point rather than the
           value.
 
@@ -556,66 +577,67 @@ const App = () => {
           that are on with it: the double-click re-target, and the pivot marker
           under `?orbitTarget=on`.
         */}
-        <Viewer
-          key={part.id}
-          ref={viewerRef}
-          projection={projection}
-          controls={controls}
-          showOrbitTarget={showOrbitTarget}
-          onPointerMissed={() => setSelected([])}
-        >
-          <CameraReadout onChange={onCamera} />
-          <PartMesh
-            model={part.model}
-            geometry={part.geometry}
-            selection={selected}
-            focus={focus ? {} : undefined}
-            display={wireframe ? 'wireframe' : 'solid'}
-            regionHighlights={highlights}
-            hover={featureHover}
-            activeDirection={showDirections ? direction : null}
-            onSectionChange={(state) => {
-              setCut(state.enabled ? state : null)
-              if (state.enabled) setOffset(state.offset)
-            }}
-            onHover={(pick: PartPick | null) => {
-              setHovered(pick ? [...pick.owners] : [])
-              setHoverPick(pick)
-            }}
-            onPick={(pick: PartPick) => setSelected([...pick.ranked])}
-          />
-          {showStock ? (
-            <BoxStock
-              partGeometry={part.geometry}
-              dimensions={stockDimensions}
-              position={stockPosition}
-              positionOffset={stockPositionOffset}
+          <Viewer
+            key={part.id}
+            ref={viewerRef}
+            projection={projection}
+            controls={controls}
+            showOrbitTarget={showOrbitTarget}
+            onPointerMissed={() => setSelected([])}
+          >
+            <CameraReadout onChange={onCamera} />
+            <PartMesh
+              model={part.model}
+              geometry={part.geometry}
+              selection={selected}
+              focus={focus ? {} : undefined}
+              display={wireframe ? 'wireframe' : 'solid'}
+              regionHighlights={highlights}
+              hover={featureHover}
+              activeDirection={showDirections ? direction : null}
+              onSectionChange={(state) => {
+                setCut(state.enabled ? state : null)
+                if (state.enabled) setOffset(state.offset)
+              }}
+              onHover={(pick: PartPick | null) => {
+                setHovered(pick ? [...pick.owners] : [])
+                setHoverPick(pick)
+              }}
+              onPick={(pick: PartPick) => setSelected([...pick.ranked])}
             />
-          ) : null}
-          <DirectionArrows
-            visible={showDirections && !sectioning && !measuring}
-            directions={part.model.candidateDirections}
-            shownDirection={direction}
-            onPickDirection={(index) => setDirection((held) => (held === index ? null : index))}
-          />
-          {sectioning ? <SectionTool /> : null}
-          {measuring ? (
-            <MeasureTool
-              key={measureInstance}
-              mode={measureMode}
-              measurements={measured}
-              onChange={setMeasured}
+            {showStock ? (
+              <BoxStock
+                partGeometry={part.geometry}
+                dimensions={stockDimensions}
+                position={stockPosition}
+                positionOffset={stockPositionOffset}
+              />
+            ) : null}
+            <DirectionArrows
+              visible={showDirections && !sectioning && !measuring}
+              directions={part.model.candidateDirections}
+              shownDirection={direction}
+              onPickDirection={(index) => setDirection((held) => (held === index ? null : index))}
             />
-          ) : null}
-          {showGrid ? <Grid /> : null}
-          {banana ? (
-            <Suspense fallback={null}>
-              <Banana />
-            </Suspense>
-          ) : null}
-          {showAxes ? <Axes size={35} /> : null}
-          <ViewCube />
-        </Viewer>
+            {sectioning ? <SectionTool /> : null}
+            {measuring ? (
+              <MeasureTool
+                key={measureInstance}
+                mode={measureMode}
+                measurements={measured}
+                onChange={setMeasured}
+              />
+            ) : null}
+            {showGrid ? <Grid /> : null}
+            {banana ? (
+              <Suspense fallback={null}>
+                <Banana />
+              </Suspense>
+            ) : null}
+            {showAxes ? <Axes size={35} /> : null}
+            <ViewCube />
+          </Viewer>
+        </ViewerToolbarProvider>
       </div>
     </main>
   )

@@ -1,35 +1,30 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { HoverCard } from '../src/hover-card.js'
-import { ViewerToolbar } from '../src/viewer-toolbar.js'
+import { ViewerToolbar, ViewerToolbarProvider } from '../src/viewer-toolbar.js'
 
 describe('viewer styling hooks', () => {
   it('keeps stable toolbar classes and action identifiers beside a caller class', () => {
     const markup = renderToStaticMarkup(
-      <ViewerToolbar
-        className="app-toolbar"
-        stock={false}
-        axes={false}
-        grid={false}
-        directions={false}
-        hover={false}
-        focus={false}
-        wireframe={false}
-        sectioning={false}
-        measuring={false}
-        onFit={() => {}}
-        onReset={() => {}}
-        onTop={() => {}}
-        onStock={() => {}}
-        onAxes={() => {}}
-        onGrid={() => {}}
-        onDirections={() => {}}
-        onHover={() => {}}
-        onFocus={() => {}}
-        onWireframe={() => {}}
-        onSection={() => {}}
-        onMeasure={() => {}}
-      />,
+      <ViewerToolbarProvider
+        controls={{
+          stock: { pressed: false, onClick: () => {} },
+          axes: { pressed: false, onClick: () => {} },
+          grid: { pressed: false, onClick: () => {} },
+          banana: { pressed: false, onClick: () => {} },
+          directions: { pressed: false, onClick: () => {} },
+          hover: { pressed: false, onClick: () => {} },
+          focus: { pressed: false, onClick: () => {} },
+          wireframe: { pressed: false, onClick: () => {} },
+          section: { pressed: false, onClick: () => {} },
+          measure: { pressed: false, onClick: () => {} },
+          fit: { onClick: () => {} },
+          reset: { onClick: () => {} },
+          top: { onClick: () => {} },
+        }}
+      >
+        <ViewerToolbar className="app-toolbar" />
+      </ViewerToolbarProvider>,
     )
 
     expect(markup).toContain('class="viewer-toolbar-stack app-toolbar"')
@@ -39,6 +34,39 @@ describe('viewer styling hooks', () => {
     expect(markup).toContain('class="viewer-toolbar-icon"')
     expect(markup).toContain('class="viewer-toolbar-tooltip"')
     expect(markup).toContain('class="viewer-toolbar-divider"')
+  })
+
+  it('allows an application to render only its chosen controls in its chosen order', () => {
+    const markup = renderToStaticMarkup(
+      <ViewerToolbarProvider
+        controls={{
+          fit: { onClick: () => {} },
+          banana: { pressed: true, onClick: () => {} },
+        }}
+      >
+        <ViewerToolbar>
+          <ViewerToolbar.Controls>
+            <ViewerToolbar.FitButton />
+            <ViewerToolbar.BananaButton />
+          </ViewerToolbar.Controls>
+        </ViewerToolbar>
+      </ViewerToolbarProvider>,
+    )
+
+    const fit = markup.indexOf('data-viewer-toolbar-action="fit"')
+    const banana = markup.indexOf('data-viewer-toolbar-action="banana"')
+    expect(fit).toBeGreaterThan(-1)
+    expect(banana).toBeGreaterThan(fit)
+    expect(markup).not.toContain('data-viewer-toolbar-action="stock"')
+    expect(markup).not.toContain('aria-pressed="false"')
+    expect(markup).toContain('data-viewer-toolbar-action="banana"')
+    expect(markup).toContain('aria-pressed="true"')
+  })
+
+  it('requires a provider for compound toolbar controls', () => {
+    expect(() => renderToStaticMarkup(<ViewerToolbar.StockButton />)).toThrow(
+      'useViewerToolbar must be used inside <ViewerToolbarProvider>',
+    )
   })
 
   it('gives hover cards a default class without replacing a caller class', () => {
