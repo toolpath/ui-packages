@@ -674,7 +674,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
         it.
       */}
         <div
-          className={className}
+          className={['viewer-root', className].filter(Boolean).join(' ')}
+          data-viewer-root="true"
           ref={hold}
           onMouseDown={(event) => {
             if (event.target instanceof HTMLCanvasElement) event.preventDefault()
@@ -682,6 +683,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
           style={{ height: '100%', width: '100%', ...style }}
         >
           <Canvas
+            className="viewer-canvas-container"
+            data-viewer-canvas-container="true"
             key={projection}
             orthographic={projection === 'orthographic'}
             camera={{ fov: PERSPECTIVE_FOV, up: [0, 0, 1], position: [1, -1, 1] }}
@@ -692,6 +695,13 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
             // looks hollow. `localClippingEnabled` is what lets a material carry
             // its own clipping plane rather than the whole scene sharing one.
             gl={{ antialias: true, alpha: true, stencil: true, localClippingEnabled: true }}
+            onCreated={({ gl }) => {
+              const canvas = gl.domElement
+              canvas.classList.add('viewer-canvas')
+              canvas.dataset.viewerCanvas = 'true'
+              canvas.parentElement?.classList.add('viewer-canvas-frame')
+              canvas.parentElement?.setAttribute('data-viewer-canvas-frame', 'true')
+            }}
             // Two guards, and both are about gestures that are not a click.
             //
             // Only the primary button puts a selection down. R3F treats

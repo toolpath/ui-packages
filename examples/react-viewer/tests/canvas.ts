@@ -85,6 +85,7 @@ export interface CameraPose {
   zoom: number
   distance: number
   target: readonly [number, number, number]
+  position: readonly [number, number, number]
 }
 
 /**
@@ -100,11 +101,18 @@ export const readCamera = async (page: Page): Promise<CameraPose> => {
   const zoom = await readout.getAttribute('data-zoom')
   const distance = await readout.getAttribute('data-distance')
   const target = await readout.getAttribute('data-target')
-  if (zoom === null || distance === null || target === null) {
+  const position = await readout.getAttribute('data-position')
+  if (zoom === null || distance === null || target === null || position === null) {
     throw new Error('The example is not reporting its camera')
   }
   const [x, y, z] = target.split(' ').map(Number)
-  return { zoom: Number(zoom), distance: Number(distance), target: [x, y, z] }
+  const [positionX, positionY, positionZ] = position.split(' ').map(Number)
+  return {
+    zoom: Number(zoom),
+    distance: Number(distance),
+    target: [x, y, z],
+    position: [positionX, positionY, positionZ],
+  }
 }
 
 /**

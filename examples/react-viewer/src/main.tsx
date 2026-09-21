@@ -1,25 +1,40 @@
-import { StrictMode, useCallback, useMemo, useRef, useState } from 'react'
+import { StrictMode, Suspense, useCallback, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import {
   Axes,
+  Banana,
+  BoxStock,
+  fixedBoxStockBounds,
+  directionHighlights,
+  directionLabel,
+  directionColor,
   Grid,
+  HoverCard,
   DirectionArrows,
   ViewCube,
+  ViewerToolbar,
+  ViewerToolbarProvider,
   MeasureTool,
   PartMesh,
   SectionTool,
   Viewer,
+  CONTROL_SCHEME_OPTIONS,
   measurementLabel,
   type MeasureMode,
   type Measurement,
+  type PartModel,
   type PartPick,
   type Projection,
+  type ControlScheme,
   type SectionOptions,
   type SectionState,
+  type StockPosition,
   type ViewerHandle,
+  type ViewerToolbarControls,
 } from '@toolpath/viewer'
+import { AnalysisOptions } from './analysis-options'
 import { MODELS, modelFromQuery } from './models'
 import './style.css'
 
@@ -40,6 +55,12 @@ const params = new URLSearchParams(window.location.search)
 const projection: Projection =
   params.get('projection') === 'orthographic' ? 'orthographic' : 'perspective'
 const showOrbitTarget = params.get('orbitTarget') === 'on'
+const requestedControls = params.get('controls')
+const initialControls: ControlScheme = CONTROL_SCHEME_OPTIONS.some(
+  (option) => option.value === requestedControls,
+)
+  ? (requestedControls as ControlScheme)
+  : 'toolpath'
 /**
  * `?model=<id>` opens one of the parts in `./models.ts` — a plate with holes,
  * a chamfered block, a pocket, a stepped boss — for the measure tool to work
@@ -55,16 +76,21 @@ interface CameraState {
   distance: number
   /** The orbit target — the point the view turns and zooms about. */
   target: readonly [number, number, number]
+  /** Camera position, used only by the example's navigation smoke tests. */
+  position: readonly [number, number, number]
 }
 
-const AT_START: CameraState = { zoom: 1, distance: 0, target: [0, 0, 0] }
+const AT_START: CameraState = { zoom: 1, distance: 0, target: [0, 0, 0], position: [0, 0, 0] }
 
 const sameCamera = (a: CameraState, b: CameraState) =>
   a.zoom === b.zoom &&
   a.distance === b.distance &&
   a.target[0] === b.target[0] &&
   a.target[1] === b.target[1] &&
-  a.target[2] === b.target[2]
+  a.target[2] === b.target[2] &&
+  a.position[0] === b.position[0] &&
+  a.position[1] === b.position[1] &&
+  a.position[2] === b.position[2]
 
 /**
  * The camera's own numbers, put on the page.
@@ -94,6 +120,7 @@ const CameraReadout = ({ onChange }: { onChange: (state: CameraState) => void })
       zoom: camera.zoom,
       distance: camera.position.distanceTo(target),
       target: [target.x, target.y, target.z],
+      position: [camera.position.x, camera.position.y, camera.position.z],
     })
   })
 
@@ -111,10 +138,54 @@ const CameraReadout = ({ onChange }: { onChange: (state: CameraState) => void })
  */
 const DETAIL = new THREE.Box3(new THREE.Vector3(-1, -1, 11.7), new THREE.Vector3(1, 1, 13.7))
 
+const featureLabel = (featureType: string) =>
+  featureType
+    .split('_')
+    .map((word) => word[0]?.toUpperCase() + word.slice(1))
+    .join(' ')
+
+/** What every normalized part report can say without a DFM datasheet. */
+const HoverDetails = ({ pick, model }: { pick: PartPick; model: PartModel }) => {
+  const feature = pick.best ? model.features.find(({ tag }) => tag === pick.best) : undefined
+  const region = model.regions.find(({ idx }) => idx === pick.region)
+  const direction = feature
+    ? model.candidateDirections.findIndex(
+        (candidate) =>
+          candidate.x === feature.machiningDirection.x &&
+          candidate.y === feature.machiningDirection.y &&
+          candidate.z === feature.machiningDirection.z,
+      )
+    : -1
+
+  return (
+    <>
+      <p className="viewer-hover-eyebrow">Feature</p>
+      <strong>{feature ? featureLabel(feature.featureType) : 'Shared surface'}</strong>
+      <dl>
+        <div>
+          <dt>Surface area</dt>
+          <dd>{region ? `${region.area.toFixed(1)} mm²` : 'Unknown'}</dd>
+        </div>
+        <div>
+          <dt>Machining direction</dt>
+          <dd>
+            {direction >= 0 ? directionLabel(model.candidateDirections[direction]) : 'Unknown'}
+          </dd>
+        </div>
+      </dl>
+    </>
+  )
+}
+
 const App = () => {
   const [part, setPart] = useState(startingModel)
+  // Query params select the opening preset for browser coverage; the picker
+  // below changes the live controls without remounting the viewer.
+  const [controls, setControls] = useState<ControlScheme>(initialControls)
   const viewerRef = useRef<ViewerHandle>(null)
   const [hovered, setHovered] = useState<string[]>([])
+  const [hoverPick, setHoverPick] = useState<PartPick | null>(null)
+  const [featureHover, setFeatureHover] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
   // The selection put down on entering section mode, to pick up again on the
   // way out. A ref rather than state: nothing renders from it.
@@ -129,14 +200,38 @@ const App = () => {
   const [sectioning, setSectioning] = useState(false)
   /**
    * Measuring is the same shape as sectioning: a mode the toolbar enters, with
-   * the selection put down on the way in. The list is the tool's own —
-   * `<MeasureTool>` below is given no `measurements` — and `measured` is only
-   * what it reports back, for the readout.
+   * the selection put down on the way in. The list is controlled here so the
+   * panel can clear it with its trash button.
    */
   const [measuring, setMeasuring] = useState(false)
   const [measureMode, setMeasureMode] = useState<MeasureMode>('distance')
   const [measured, setMeasured] = useState<readonly Measurement[]>([])
+  const [measureInstance, setMeasureInstance] = useState(0)
   const [direction, setDirection] = useState<number | null>(null)
+  const [showStock, setShowStock] = useState(params.get('stock') === 'on')
+  const [showAxes, setShowAxes] = useState(true)
+  const [showGrid, setShowGrid] = useState(true)
+  const [banana, setBanana] = useState(false)
+  const [showDirections, setShowDirections] = useState(false)
+  const [focus, setFocus] = useState(false)
+  const [wireframe, setWireframe] = useState(false)
+  const [stockDimensions, setStockDimensions] = useState({ x: 25.908, y: 25.908, z: 25.908 })
+  const [stockPosition, setStockPosition] = useState<StockPosition>('model_centered')
+  const [stockPositionOffset, setStockPositionOffset] = useState(0)
+  const stockSize = useMemo(
+    () =>
+      fixedBoxStockBounds(
+        part.geometry,
+        stockDimensions,
+        stockPosition,
+        stockPositionOffset,
+      ).getSize(new THREE.Vector3()),
+    [part.geometry, stockDimensions, stockPosition, stockPositionOffset],
+  )
+  const highlights = useMemo(
+    () => (showDirections ? directionHighlights(part.model, direction) : []),
+    [direction, part.model, showDirections],
+  )
   const [pose, setPose] = useState<CameraState>(AT_START)
 
   // Called from a frame, so it runs whether or not anything changed. Holding
@@ -146,13 +241,70 @@ const App = () => {
     (next: CameraState) => setPose((held) => (sameCamera(held, next) ? held : next)),
     [],
   )
-
+  const toolbarControls: ViewerToolbarControls = {
+    fit: { onClick: () => viewerRef.current?.fit() },
+    reset: { onClick: () => viewerRef.current?.reset() },
+    top: { onClick: () => viewerRef.current?.setView('top') },
+    stock: { pressed: showStock, onClick: () => setShowStock((on) => !on) },
+    axes: { pressed: showAxes, onClick: () => setShowAxes((on) => !on) },
+    grid: { pressed: showGrid, onClick: () => setShowGrid((on) => !on) },
+    banana: { pressed: banana, onClick: () => setBanana((shown) => !shown) },
+    directions: {
+      pressed: showDirections,
+      onClick: () => {
+        setShowDirections((on) => !on)
+        setDirection(null)
+        setSelected([])
+        heldSelection.current = []
+        setWireframe(false)
+      },
+    },
+    hover: { pressed: featureHover, onClick: () => setFeatureHover((enabled) => !enabled) },
+    focus: { pressed: focus, onClick: () => setFocus((enabled) => !enabled) },
+    wireframe: {
+      pressed: wireframe,
+      onClick: () => {
+        setWireframe((on) => !on)
+        setShowDirections(false)
+        setDirection(null)
+      },
+    },
+    section: {
+      pressed: sectioning,
+      onClick: () => {
+        if (sectioning) {
+          viewerRef.current?.setSection(null)
+          setSelected(heldSelection.current)
+        } else {
+          if (!measuring) heldSelection.current = selected
+          setSelected([])
+          if (!measuring) setMeasured([])
+        }
+        setSectioning((on) => !on)
+      },
+    },
+    measure: {
+      pressed: measuring,
+      onClick: () => {
+        if (measuring) {
+          setMeasured([])
+          setSelected(heldSelection.current)
+        } else if (!sectioning) {
+          heldSelection.current = selected
+          setSelected([])
+          viewerRef.current?.setSection(null)
+        }
+        setMeasuring((on) => !on)
+      },
+    },
+  }
   return (
     <main>
       <section>
         <p className="eyebrow">@toolpath/viewer</p>
         <h1>{part.name}</h1>
         <label className="model-picker">
+          Model
           <select
             value={part.id}
             onChange={(event) => {
@@ -166,6 +318,9 @@ const App = () => {
               setMeasured([])
               setSelected([])
               setHovered([])
+              setHoverPick(null)
+              heldSelection.current = []
+              setDirection(null)
             }}
           >
             {MODELS.map((entry) => (
@@ -175,15 +330,119 @@ const App = () => {
             ))}
           </select>
         </label>
+        <label className="model-picker">
+          3D controls
+          <select
+            value={controls}
+            onChange={(event) => setControls(event.target.value as ControlScheme)}
+          >
+            {CONTROL_SCHEME_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <p>{part.hint}</p>
         <p>
-          Left-drag to orbit, middle/right-drag to pan, scroll to zoom, and click a face to select
-          it. Press <strong>Section</strong>, then click a face to cut through it or one of the
-          three planes behind the part to cut along an axis; drag the arrow to move the cut, and
-          press Escape to clear it. Press <strong>Measure</strong>, then click two points for a
-          distance or three for an angle — the pointer snaps to corners, edges and their midpoints,
-          and Shift holds the next point to an axis. Delete removes the last measurement and Escape
-          drops one in progress.
+          <strong>Stock:</strong>{' '}
+          {stockSize
+            .toArray()
+            .map((value) => value.toFixed(2))
+            .join(' × ')}{' '}
+          mm (X × Y × Z)
+        </p>
+        <label className="stock-allowance">
+          Stock X dimension (mm)
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="0.5"
+            value={stockDimensions.x}
+            onChange={(event) => {
+              const value = event.target.valueAsNumber
+              if (Number.isFinite(value) && value > 0 && value <= 1000)
+                setStockDimensions((current) => ({ ...current, x: value }))
+            }}
+          />
+        </label>
+        <label className="stock-allowance">
+          Stock Y dimension (mm)
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="0.5"
+            value={stockDimensions.y}
+            onChange={(event) => {
+              const value = event.target.valueAsNumber
+              if (Number.isFinite(value) && value > 0 && value <= 1000)
+                setStockDimensions((current) => ({ ...current, y: value }))
+            }}
+          />
+        </label>
+        <label className="stock-allowance">
+          Stock Z dimension (mm)
+          <input
+            type="number"
+            min="0.01"
+            max="1000"
+            step="0.01"
+            value={stockDimensions.z}
+            onChange={(event) => {
+              const value = event.target.valueAsNumber
+              if (Number.isFinite(value) && value > 0 && value <= 1000)
+                setStockDimensions((current) => ({ ...current, z: value }))
+            }}
+          />
+        </label>
+        <label className="stock-allowance">
+          Stock position
+          <select
+            value={stockPosition}
+            onChange={(event) => setStockPosition(event.target.value as StockPosition)}
+          >
+            <option value="model_centered">Model centered</option>
+            <option value="offset_from_top">Offset from top</option>
+            <option value="offset_from_bottom">Offset from bottom</option>
+          </select>
+        </label>
+        {stockPosition !== 'model_centered' ? (
+          <label className="stock-allowance">
+            Position offset (mm)
+            <input
+              type="number"
+              min="0"
+              max="1000"
+              step="0.01"
+              value={stockPositionOffset}
+              onChange={(event) => {
+                const value = event.target.valueAsNumber
+                if (Number.isFinite(value) && value >= 0 && value <= 1000)
+                  setStockPositionOffset(value)
+              }}
+            />
+          </label>
+        ) : null}
+        <p className="small-note">
+          Fixed box stock dimensions and position. Values are millimetres.
+        </p>
+        <button
+          className="detail-button"
+          type="button"
+          onClick={() => viewerRef.current?.frameBox(DETAIL)}
+        >
+          Frame detail
+        </button>
+        <p>
+          Left-drag to orbit, right-drag to pan, scroll to zoom, and click a face to select it.
+          Press <strong>Section</strong>, then click a face to cut through it or one of the three
+          planes behind the part to cut along an axis; drag the arrow to move the cut, and press
+          Escape to clear it. Press <strong>Measure</strong>, then click two points for a distance
+          or three for an angle — the pointer snaps to corners, edges and their midpoints, and Shift
+          holds the next point to an axis. Delete removes the last measurement and Escape drops one
+          in progress.
         </p>
         <p>
           <strong>Hovered:</strong> {hovered.join(', ') || 'none'}
@@ -203,6 +462,9 @@ const App = () => {
         <p>
           <strong>Projection:</strong> {projection}
         </p>
+        <p>
+          <strong>Controls:</strong> {controls}
+        </p>
         {/*
           The attributes are what the browser suite reads; the sentence is what
           a person reads. Both come off the same frame, and the attributes carry
@@ -214,115 +476,85 @@ const App = () => {
           data-zoom={pose.zoom}
           data-distance={pose.distance}
           data-target={pose.target.join(' ')}
+          data-position={pose.position.join(' ')}
         >
           <strong>Camera:</strong> zoom {pose.zoom.toFixed(2)}, distance {pose.distance.toFixed(1)}{' '}
           mm, target {pose.target.map((axis) => axis.toFixed(1)).join(', ')}
         </p>
       </section>
       <div className="viewer">
-        <div className="viewer-toolbar" aria-label="Viewer controls">
-          <button type="button" onClick={() => viewerRef.current?.fit()}>
-            Fit
-          </button>
-          <button type="button" onClick={() => viewerRef.current?.reset()}>
-            Reset
-          </button>
-          <button type="button" onClick={() => viewerRef.current?.setView('top')}>
-            Top view
-          </button>
-          <button type="button" onClick={() => viewerRef.current?.frameBox(DETAIL)}>
-            Frame detail
-          </button>
-          <button
-            type="button"
-            aria-pressed={sectioning}
-            onClick={() => {
-              // Entering section mode puts the selection down — the part
-              // reports no picks while the tool is up, so a selection left
-              // standing could not be changed — and offers a cut; the tool
-              // below is what does the offering. Leaving takes the cut with it
-              // and picks the selection back up where it was.
-              if (sectioning) {
-                viewerRef.current?.setSection(null)
-                setSelected(heldSelection.current)
-              } else {
-                heldSelection.current = selected
-                setSelected([])
-              }
-              setSectioning((on) => !on)
-            }}
-          >
-            {sectioning ? 'Exit section' : 'Section'}
-          </button>
-          {sectioning && cut ? (
-            <>
-              <label>
-                Cut depth
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={offset}
-                  onChange={(event) => {
-                    const next = Number(event.target.value)
-                    setOffset(next)
-                    viewerRef.current?.setSection(sweepTo(cut, next))
-                  }}
-                />
-              </label>
-              <button type="button" onClick={() => viewerRef.current?.setSection(null)}>
-                Clear cut
-              </button>
-            </>
-          ) : null}
-          {sectioning && !cut ? (
-            <span className="viewer-hint">Click a face or a plane · Esc clears</span>
-          ) : null}
-          <button
-            type="button"
-            aria-pressed={measuring}
-            onClick={() => {
-              // The same bargain as section mode: the part reports no picks
-              // while a tool is up, so the selection is put down on the way in
-              // and picked back up on the way out. The measurements go with the
-              // tool — unmounting it is what clears them.
-              if (measuring) {
+        <ViewerToolbarProvider controls={toolbarControls}>
+          <HoverCard pick={hoverPick} className="viewer-hover-card">
+            {(pick) => <HoverDetails pick={pick} model={part.model} />}
+          </HoverCard>
+          <ViewerToolbar>
+            <AnalysisOptions
+              sectioning={sectioning}
+              measuring={measuring}
+              cut={cut}
+              offset={offset}
+              measureMode={measureMode}
+              onOffsetChange={(next) => {
+                setOffset(next)
+                if (cut) viewerRef.current?.setSection(sweepTo(cut, next))
+              }}
+              onClearCut={() => viewerRef.current?.setSection(null)}
+              onMeasureModeChange={setMeasureMode}
+              onClearMeasurements={() => {
                 setMeasured([])
-                setSelected(heldSelection.current)
-              } else {
-                heldSelection.current = selected
-                setSelected([])
-              }
-              setMeasuring((on) => !on)
-            }}
-          >
-            {measuring ? 'Exit measure' : 'Measure'}
-          </button>
-          {measuring ? (
-            <>
-              <button
-                type="button"
-                aria-pressed={measureMode === 'distance'}
-                onClick={() => setMeasureMode('distance')}
+                setMeasureInstance((instance) => instance + 1)
+              }}
+            />
+            {showDirections && !sectioning && !measuring ? (
+              <div
+                className="viewer-tool-options direction-legend"
+                role="group"
+                aria-label="Machining directions"
               >
-                Distance
-              </button>
-              <button
-                type="button"
-                aria-pressed={measureMode === 'angle'}
-                onClick={() => setMeasureMode('angle')}
-              >
-                Angle
-              </button>
-              <span className="viewer-hint">
-                {measureMode === 'distance' ? 'Click two points' : 'Click end, vertex, end'} · Shift
-                locks an axis · Del removes last · Esc drops
-              </span>
-            </>
-          ) : null}
-        </div>
-        {/*
+                <button
+                  type="button"
+                  aria-pressed={direction === null}
+                  onClick={() => setDirection(null)}
+                >
+                  All
+                </button>
+                {part.model.candidateDirections.map((axis, index) => (
+                  <button
+                    type="button"
+                    key={index}
+                    aria-pressed={direction === index}
+                    onClick={() => setDirection((held) => (held === index ? null : index))}
+                  >
+                    <span
+                      className="direction-dot"
+                      style={{
+                        background: '#' + directionColor(index).toString(16).padStart(6, '0'),
+                      }}
+                    />
+                    {directionLabel(axis)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <ViewerToolbar.Controls>
+              <ViewerToolbar.StockButton />
+              <ViewerToolbar.AxesButton />
+              <ViewerToolbar.GridButton />
+              <ViewerToolbar.BananaButton />
+              <ViewerToolbar.Divider />
+              <ViewerToolbar.DirectionsButton />
+              <ViewerToolbar.HoverButton />
+              <ViewerToolbar.FocusButton />
+              <ViewerToolbar.WireframeButton />
+              <ViewerToolbar.SectionButton />
+              <ViewerToolbar.MeasureButton />
+              <ViewerToolbar.Divider />
+              <ViewerToolbar.FitButton />
+              <ViewerToolbar.ResetButton />
+              <ViewerToolbar.TopButton />
+            </ViewerToolbar.Controls>
+          </ViewerToolbar>
+          {/*
           Perspective by default here, and the pin is the point rather than the
           value.
 
@@ -345,36 +577,67 @@ const App = () => {
           that are on with it: the double-click re-target, and the pivot marker
           under `?orbitTarget=on`.
         */}
-        <Viewer
-          key={part.id}
-          ref={viewerRef}
-          projection={projection}
-          showOrbitTarget={showOrbitTarget}
-          onPointerMissed={() => setSelected([])}
-        >
-          <CameraReadout onChange={onCamera} />
-          <PartMesh
-            model={part.model}
-            geometry={part.geometry}
-            selection={selected}
-            onSectionChange={(state) => {
-              setCut(state.enabled ? state : null)
-              if (state.enabled) setOffset(state.offset)
-            }}
-            onHover={(pick: PartPick | null) => setHovered(pick ? [...pick.owners] : [])}
-            onPick={(pick: PartPick) => setSelected([...pick.ranked])}
-          />
-          <DirectionArrows
-            directions={part.model.candidateDirections}
-            shownDirection={direction}
-            onPickDirection={(index) => setDirection((held) => (held === index ? null : index))}
-          />
-          {sectioning ? <SectionTool /> : null}
-          {measuring ? <MeasureTool mode={measureMode} onChange={setMeasured} /> : null}
-          <Grid />
-          <Axes size={35} />
-          <ViewCube />
-        </Viewer>
+          <Viewer
+            key={part.id}
+            ref={viewerRef}
+            projection={projection}
+            controls={controls}
+            showOrbitTarget={showOrbitTarget}
+            onPointerMissed={() => setSelected([])}
+          >
+            <CameraReadout onChange={onCamera} />
+            <PartMesh
+              model={part.model}
+              geometry={part.geometry}
+              selection={selected}
+              focus={focus ? {} : undefined}
+              display={wireframe ? 'wireframe' : 'solid'}
+              regionHighlights={highlights}
+              hover={featureHover}
+              activeDirection={showDirections ? direction : null}
+              onSectionChange={(state) => {
+                setCut(state.enabled ? state : null)
+                if (state.enabled) setOffset(state.offset)
+              }}
+              onHover={(pick: PartPick | null) => {
+                setHovered(pick ? [...pick.owners] : [])
+                setHoverPick(pick)
+              }}
+              onPick={(pick: PartPick) => setSelected([...pick.ranked])}
+            />
+            {showStock ? (
+              <BoxStock
+                partGeometry={part.geometry}
+                dimensions={stockDimensions}
+                position={stockPosition}
+                positionOffset={stockPositionOffset}
+              />
+            ) : null}
+            <DirectionArrows
+              visible={showDirections && !sectioning && !measuring}
+              directions={part.model.candidateDirections}
+              shownDirection={direction}
+              onPickDirection={(index) => setDirection((held) => (held === index ? null : index))}
+            />
+            {sectioning ? <SectionTool /> : null}
+            {measuring ? (
+              <MeasureTool
+                key={measureInstance}
+                mode={measureMode}
+                measurements={measured}
+                onChange={setMeasured}
+              />
+            ) : null}
+            {showGrid ? <Grid /> : null}
+            {banana ? (
+              <Suspense fallback={null}>
+                <Banana />
+              </Suspense>
+            ) : null}
+            {showAxes ? <Axes size={35} /> : null}
+            <ViewCube />
+          </Viewer>
+        </ViewerToolbarProvider>
       </div>
     </main>
   )

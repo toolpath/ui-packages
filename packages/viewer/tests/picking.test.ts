@@ -45,6 +45,12 @@ describe('buildPick', () => {
     expect(new Set(pick.ranked)).toEqual(new Set(pick.owners))
   })
 
+  it('preserves a browser pointer location when a caller supplies one', () => {
+    const pick = pickOn(cubeModel(), 3, { pointer: { clientX: 120, clientY: 48 } })
+
+    expect(pick.pointer).toEqual({ clientX: 120, clientY: 48 })
+  })
+
   it('resolves a face to the reading that faces the camera', () => {
     const model = cubeModel()
 
