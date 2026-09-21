@@ -266,7 +266,7 @@ The canvas that holds everything. Import it from `@toolpath/viewer`.
 | Prop                    | Default          | What it does                                                                                                |
 | ----------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------- |
 | `projection`            | `'orthographic'` | `'orthographic'` keeps parallel lines parallel. `'perspective'` gives depth, which helps with deep pockets. |
-| `controls`              | `'toolpath'`     | Mouse mapping. See [Mouse controls](#mouse-controls).                                                       |
+| `controls`              | `'toolpath'`     | CAD navigation preset. See [CAD controls](#cad-controls).                                                   |
 | `zoomTo`                | `'cursor'`       | Zoom toward the pointer, or toward `'centre'` (often easier on a trackpad).                                 |
 | `freeOrbit`             | `true`           | Let the view keep rotating past straight-up and straight-down.                                              |
 | `retargetOnDoubleClick` | `true`           | Double-click the part to rotate around that point.                                                          |
@@ -281,20 +281,35 @@ Changing `projection` rebuilds the canvas and returns the camera to its starting
 
 The canvas is transparent. To set a background colour, style the wrapper or its parent.
 
-#### Mouse controls
+#### CAD controls
 
-| Action                | `controls="toolpath"` (default) | `controls="fusion"` (like Fusion 360)      |
-| --------------------- | ------------------------------- | ------------------------------------------ |
-| Rotate                | Left-drag                       | Shift + middle-drag, or Shift + scroll     |
-| Pan                   | Right-drag or middle-drag       | Middle-drag, or scroll / two-finger scroll |
-| Zoom                  | Scroll wheel                    | Trackpad pinch                             |
-| Rotate around a point | Double-click the part           | Double-click the part                      |
-| Fit whole part        | Double middle-click             | Double middle-click                        |
+`controls` changes only the navigation gestures. It does not choose a projection: the viewer stays
+orthographic by default, and `projection="perspective"` remains an independent opt-in.
 
-In `fusion` mode, left-drag doesn't move the camera, and the scroll wheel pans instead of zooming.
-On touch screens, one finger rotates and two fingers pinch and pan.
+| Value          | Label      | Rotate                                | Pan                                       | Zoom                                |
+| -------------- | ---------- | ------------------------------------- | ----------------------------------------- | ----------------------------------- |
+| `'toolpath'`   | Toolpath   | Left-drag                             | Right-drag                                | Scroll wheel                        |
+| `'fusion'`     | Fusion     | Shift + middle-drag or Shift + scroll | Middle-drag, scroll, or two-finger scroll | Trackpad pinch                      |
+| `'alias'`      | Alias      | Left-drag                             | Middle-drag                               | Scroll wheel                        |
+| `'inventor'`   | Inventor   | Shift + middle-drag or Shift + scroll | Middle-drag, scroll, or two-finger scroll | Trackpad pinch                      |
+| `'solidworks'` | SolidWorks | Middle-drag                           | Ctrl + middle-drag                        | Shift + middle-drag or scroll wheel |
+| `'tinkercad'`  | Tinkercad  | Right-drag                            | Shift + right-drag                        | Scroll wheel                        |
+| `'powermill'`  | PowerMill  | Middle-drag                           | Shift + middle-drag                       | Scroll wheel                        |
+| `'onshape'`    | Onshape    | Right-drag                            | Middle-drag                               | Scroll wheel                        |
 
-Dragging never selects anything. A click only counts if the pointer barely moved.
+Fusion and Inventor treat a two-finger scroll as pan, Shift + two-finger scroll as orbit, and a
+pinch (a wheel event with Ctrl set by the browser) as zoom. Other schemes use one-finger rotate,
+two-finger pinch-and-pan, and three-finger pan on touch screens.
+
+All schemes support double-clicking the part to rotate around that point and double-clicking the
+middle mouse button to fit the whole part. Dragging never selects anything; a click only counts if
+the pointer barely moved.
+
+The package exports `CONTROL_SCHEME_OPTIONS`, `ControlScheme`, and `ControlSchemeOption` for a host
+application's settings UI. It deliberately stores no preferences: pass the selected `controls`,
+`freeOrbit`, and `zoomTo` values to `<Viewer>` from your own state or persistence layer.
+
+`'toolpath'`, `freeOrbit={true}`, and `zoomTo="cursor"` are the defaults.
 
 ### `<EnginePart>`
 

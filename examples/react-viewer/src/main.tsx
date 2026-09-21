@@ -19,6 +19,7 @@ import {
   PartMesh,
   SectionTool,
   Viewer,
+  CONTROL_SCHEME_OPTIONS,
   measurementLabel,
   sectionMeasurement,
   type MeasureMode,
@@ -26,6 +27,7 @@ import {
   type PartModel,
   type PartPick,
   type Projection,
+  type ControlScheme,
   type SectionOptions,
   type SectionState,
   type StockPosition,
@@ -51,6 +53,12 @@ const params = new URLSearchParams(window.location.search)
 const projection: Projection =
   params.get('projection') === 'orthographic' ? 'orthographic' : 'perspective'
 const showOrbitTarget = params.get('orbitTarget') === 'on'
+const requestedControls = params.get('controls')
+const initialControls: ControlScheme = CONTROL_SCHEME_OPTIONS.some(
+  (option) => option.value === requestedControls,
+)
+  ? (requestedControls as ControlScheme)
+  : 'toolpath'
 /**
  * `?model=<id>` opens one of the parts in `./models.ts` — a plate with holes,
  * a chamfered block, a pocket, a stepped boss — for the measure tool to work
@@ -66,16 +74,21 @@ interface CameraState {
   distance: number
   /** The orbit target — the point the view turns and zooms about. */
   target: readonly [number, number, number]
+  /** Camera position, used only by the example's navigation smoke tests. */
+  position: readonly [number, number, number]
 }
 
-const AT_START: CameraState = { zoom: 1, distance: 0, target: [0, 0, 0] }
+const AT_START: CameraState = { zoom: 1, distance: 0, target: [0, 0, 0], position: [0, 0, 0] }
 
 const sameCamera = (a: CameraState, b: CameraState) =>
   a.zoom === b.zoom &&
   a.distance === b.distance &&
   a.target[0] === b.target[0] &&
   a.target[1] === b.target[1] &&
-  a.target[2] === b.target[2]
+  a.target[2] === b.target[2] &&
+  a.position[0] === b.position[0] &&
+  a.position[1] === b.position[1] &&
+  a.position[2] === b.position[2]
 
 /**
  * The camera's own numbers, put on the page.
@@ -105,6 +118,7 @@ const CameraReadout = ({ onChange }: { onChange: (state: CameraState) => void })
       zoom: camera.zoom,
       distance: camera.position.distanceTo(target),
       target: [target.x, target.y, target.z],
+      position: [camera.position.x, camera.position.y, camera.position.z],
     })
   })
 
@@ -163,6 +177,9 @@ const HoverDetails = ({ pick, model }: { pick: PartPick; model: PartModel }) => 
 
 const App = () => {
   const [part, setPart] = useState(startingModel)
+  // Query params select the opening preset for browser coverage; the picker
+  // below changes the live controls without remounting the viewer.
+  const [controls, setControls] = useState<ControlScheme>(initialControls)
   const viewerRef = useRef<ViewerHandle>(null)
   const [hovered, setHovered] = useState<string[]>([])
   const [hoverPick, setHoverPick] = useState<PartPick | null>(null)
@@ -228,6 +245,7 @@ const App = () => {
         <p className="eyebrow">@toolpath/viewer</p>
         <h1>{part.name}</h1>
         <label className="model-picker">
+          Model
           <select
             value={part.id}
             onChange={(event) => {
@@ -249,6 +267,19 @@ const App = () => {
             {MODELS.map((entry) => (
               <option key={entry.id} value={entry.id}>
                 {entry.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="model-picker">
+          3D controls
+          <select
+            value={controls}
+            onChange={(event) => setControls(event.target.value as ControlScheme)}
+          >
+            {CONTROL_SCHEME_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
@@ -346,13 +377,13 @@ const App = () => {
           Frame detail
         </button>
         <p>
-          Left-drag to orbit, middle/right-drag to pan, scroll to zoom, and click a face to select
-          it. Press <strong>Section</strong>, then click a face to cut through it or one of the
-          three planes behind the part to cut along an axis; drag the arrow to move the cut, and
-          press Escape to clear it. Press <strong>Measure</strong>, then click two points for a
-          distance or three for an angle — the pointer snaps to corners, edges and their midpoints,
-          and Shift holds the next point to an axis. Delete removes the last measurement and Escape
-          drops one in progress.
+          Left-drag to orbit, right-drag to pan, scroll to zoom, and click a face to select it.
+          Press <strong>Section</strong>, then click a face to cut through it or one of the three
+          planes behind the part to cut along an axis; drag the arrow to move the cut, and press
+          Escape to clear it. Press <strong>Measure</strong>, then click two points for a distance
+          or three for an angle — the pointer snaps to corners, edges and their midpoints, and Shift
+          holds the next point to an axis. Delete removes the last measurement and Escape drops one
+          in progress.
         </p>
         <p>
           <strong>Hovered:</strong> {hovered.join(', ') || 'none'}
@@ -372,6 +403,9 @@ const App = () => {
         <p>
           <strong>Projection:</strong> {projection}
         </p>
+        <p>
+          <strong>Controls:</strong> {controls}
+        </p>
         {/*
           The attributes are what the browser suite reads; the sentence is what
           a person reads. Both come off the same frame, and the attributes carry
@@ -383,6 +417,7 @@ const App = () => {
           data-zoom={pose.zoom}
           data-distance={pose.distance}
           data-target={pose.target.join(' ')}
+          data-position={pose.position.join(' ')}
         >
           <strong>Camera:</strong> zoom {pose.zoom.toFixed(2)}, distance {pose.distance.toFixed(1)}{' '}
           mm, target {pose.target.map((axis) => axis.toFixed(1)).join(', ')}
@@ -562,6 +597,7 @@ const App = () => {
           key={part.id}
           ref={viewerRef}
           projection={projection}
+          controls={controls}
           showOrbitTarget={showOrbitTarget}
           onPointerMissed={() => setSelected([])}
         >

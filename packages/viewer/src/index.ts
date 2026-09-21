@@ -141,6 +141,7 @@ export {
   targetBoundary,
 } from './render/camera.js'
 export { ExtendedCameraControls } from './render/controls.js'
+export { CONTROL_SCHEME_OPTIONS } from './render/control-schemes.js'
 export { useRetarget, useSectionStore, useViewerControls, Viewer } from './viewer.js'
 export { PartReportFormatError, UnsupportedKernelVersionError } from './model/errors.js'
 export { buildRegionIndex } from './model/region-index.js'
@@ -258,5 +259,6 @@ export type {
   ViewerCamera,
   ViewportSize,
 } from './render/camera.js'
-export type { ControlScheme, ExtendedCameraControlsOptions } from './render/controls.js'
+export type { ExtendedCameraControlsOptions } from './render/controls.js'
+export type { ControlScheme, ControlSchemeOption } from './render/control-schemes.js'
 export type { Retarget, ViewerProps } from './viewer.js'

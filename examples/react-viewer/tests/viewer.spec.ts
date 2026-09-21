@@ -384,7 +384,7 @@ test('waits for a cut to be chosen before measuring beside the section tool', as
   await expect(measured).toContainText('off')
 })
 
-test('pans with either pan button, from wherever the drag starts', async ({ page }) => {
+test('Toolpath pans with the right button, from wherever the drag starts', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
 
   // The <p>, not the <strong> inside it: `getByText('Selected:')` matches the
@@ -397,32 +397,28 @@ test('pans with either pan button, from wherever the drag starts', async ({ page
   // as the viewport gets, and clear of the toolbar in the top-left. A pan that
   // needs the pointer over the part is a pan that stops working on exactly the
   // view somebody was trying to fix.
-  const panFromCorner = async (button: 'right' | 'middle') => {
+  const panFromCorner = async () => {
     const from = { x: box.x + 40, y: box.y + box.height - 40 }
     await page.mouse.move(from.x, from.y)
-    await page.mouse.down({ button })
+    await page.mouse.down({ button: 'right' })
     for (let step = 1; step <= 10; step += 1) {
       await page.mouse.move(from.x + step * (box.width * 0.15), from.y)
     }
-    await page.mouse.up({ button })
+    await page.mouse.up({ button: 'right' })
     await page.waitForTimeout(300)
   }
 
-  for (const button of ['right', 'middle'] as const) {
-    await page.getByRole('button', { name: 'Fit' }).click()
-    await page.waitForTimeout(300)
-    await canvas.click({ position: centre })
-    await expect(selected).not.toContainText('none')
+  await canvas.click({ position: centre })
+  await expect(selected).not.toContainText('none')
 
-    await panFromCorner(button)
+  await panFromCorner()
 
-    // The part has left the middle of the view, which a pan does and an orbit
-    // does not: an orbit turns the part about that point and leaves it there.
-    // Clicking where it was now hits nothing, which is what puts the selection
-    // down.
-    await canvas.click({ position: centre })
-    await expect(selected).toContainText('none')
-  }
+  // The part has left the middle of the view, which a pan does and an orbit
+  // does not: an orbit turns the part about that point and leaves it there.
+  // Clicking where it was now hits nothing, which is what puts the selection
+  // down.
+  await canvas.click({ position: centre })
+  await expect(selected).toContainText('none')
 })
 
 test('finishing a drag over a face is not a request to select it', async ({ page }) => {
@@ -507,8 +503,10 @@ test('panning over empty space keeps the selection', async ({ page }) => {
  * The left button has had this guard on the mesh all along; this is the middle
  * one getting it too.
  */
-test('two middle-button pans released in the same place do not re-frame', async ({ page }) => {
-  const { canvas, box } = await openViewer(page)
+test('two Onshape middle-button pans released in the same place do not re-frame', async ({
+  page,
+}) => {
+  const { canvas, box } = await openViewer(page, 'controls=onshape')
 
   const selected = page.locator('p', { hasText: 'Selected:' })
   const centre = on(box, CENTRE)

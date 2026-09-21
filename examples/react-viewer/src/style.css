@@ -54,6 +54,9 @@ p {
   color: #b9c0d1;
   line-height: 1.55;
 }
+section > p {
+  margin: 0 0 1rem;
+}
 strong {
   color: #eef0f6;
 }
@@ -133,19 +136,24 @@ strong {
   margin-right: 0.4rem;
 }
 .stock-allowance {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(8rem, 10rem);
   gap: 0.5rem;
   align-items: center;
+  width: 100%;
+  margin: 0 0 0.5rem;
   font-size: 0.85rem;
 }
-.stock-allowance input {
-  width: 4.5rem;
+.stock-allowance input,
+.stock-allowance select {
+  width: 100%;
+  min-width: 0;
   padding: 0.35rem;
   color: inherit;
   background: #202737;
   border: 1px solid #526078;
   border-radius: 0.3rem;
+  font: inherit;
 }
 .small-note {
   font-size: 0.8rem;
@@ -156,10 +164,12 @@ strong {
  * default ring is drawn on click too, and on a dark toolbar it reads as a
  * stuck highlight on whatever was last pressed.
  */
-.model-picker select:focus {
+.model-picker select:focus,
+.stock-allowance select:focus {
   outline: none;
 }
 .stock-allowance input:focus-visible,
+.stock-allowance select:focus-visible,
 .detail-button:focus-visible,
 .viewer-tool-options input:focus-visible,
 .model-picker select:focus-visible {
@@ -167,15 +177,16 @@ strong {
   outline-offset: 2px;
 }
 .model-picker {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 1rem;
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+  margin: 0 0 0.75rem;
   color: #b9c0d1;
   font-size: 0.85rem;
 }
 /* The caret is Phosphor's `CaretUpDown`, regular weight, inlined so the example adds no dependency. */
-.model-picker select {
+.model-picker select,
+.stock-allowance select {
   appearance: none;
   border: 1px solid #526078;
   border-radius: 0.4rem;
@@ -187,7 +198,8 @@ strong {
   font: inherit;
   padding: 0.3rem 1.7rem 0.3rem 0.6rem;
 }
-.model-picker select:hover {
+.model-picker select:hover,
+.stock-allowance select:hover {
   background-color: #303b51;
 }
 @media (max-width: 760px) {
