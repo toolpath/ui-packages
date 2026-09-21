@@ -8,6 +8,8 @@ interface SvgIconProps {
 
 const SvgIcon = ({ viewBox = '0 0 24 24', fill = 'none', children }: SvgIconProps) => (
   <svg
+    className="viewer-toolbar-icon"
+    data-viewer-toolbar-icon="true"
     viewBox={viewBox}
     fill={fill}
     stroke={fill === 'none' ? 'currentColor' : 'none'}

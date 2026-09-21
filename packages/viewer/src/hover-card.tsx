@@ -6,6 +6,7 @@ export interface HoverCardProps {
   pick: PartPick | null
   /** Card content belongs to the application that understands the feature data. */
   children: (pick: PartPick) => ReactNode
+  /** Added beside the stable `viewer-hover-card` class. */
   className?: string
   offset?: number
 }
@@ -35,7 +36,12 @@ export const HoverCard = ({ pick, children, className, offset = 16 }: HoverCardP
   }
 
   return (
-    <div className={className} role="tooltip" style={style}>
+    <div
+      className={['viewer-hover-card', className].filter(Boolean).join(' ')}
+      data-viewer-hover-card="true"
+      role="tooltip"
+      style={style}
+    >
       {children(pick)}
     </div>
   )

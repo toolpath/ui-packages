@@ -9,7 +9,27 @@ for (const projection of ['perspective', 'orthographic'] as const) {
       if (message.type() === 'error') errors.push(message.text())
     })
     const { canvas, box } = await openViewer(page, `projection=${projection}`)
+    await expect(page.locator('.viewer-root')).toHaveAttribute('data-viewer-root', 'true')
+    await expect(page.locator('.viewer-canvas-container')).toHaveAttribute(
+      'data-viewer-canvas-container',
+      'true',
+    )
+    await expect(page.locator('.viewer-canvas-frame')).toHaveAttribute(
+      'data-viewer-canvas-frame',
+      'true',
+    )
+    await expect(canvas).toHaveClass('viewer-canvas')
+    await expect(canvas).toHaveAttribute('data-viewer-canvas', 'true')
     const controls = page.getByRole('group', { name: 'Viewer controls', exact: true })
+    await expect(controls).toHaveAttribute('data-viewer-toolbar-controls', 'true')
+    await expect(page.locator('.viewer-toolbar-stack')).toHaveAttribute(
+      'data-viewer-toolbar',
+      'true',
+    )
+    await expect(page.getByRole('button', { name: 'Show stock', exact: true })).toHaveAttribute(
+      'data-viewer-toolbar-action',
+      'stock',
+    )
     const toolbarBox = await controls.boundingBox()
     expect(toolbarBox!.y).toBeGreaterThan(box.y + box.height * 0.75)
     const original = await canvas.screenshot()

@@ -259,6 +259,48 @@ The toolbar owns no application state; pass the current values and callbacks fro
 `children` are rendered above the standard controls for app-specific options. `BananaButton` is
 also exported for applications that want the bundled banana-for-scale control elsewhere.
 
+#### Styling hooks
+
+Every viewer, hover-card, and toolbar DOM boundary has a stable class name. Your `className` on
+`<Viewer>`, `<ViewerToolbar>`, or `<HoverCard>` is appended to the component's own class; it never
+replaces the hook. The toolbar stylesheet uses the same names, so import it for the default look or
+override any of these selectors in your application stylesheet.
+
+| Component         | Class                     | Element                                             |
+| ----------------- | ------------------------- | --------------------------------------------------- |
+| `<Viewer>`        | `viewer-root`             | Wrapper around the canvas                           |
+| `<Viewer>`        | `viewer-canvas-container` | R3F canvas event container                          |
+| `<Viewer>`        | `viewer-canvas-frame`     | R3F's canvas-sizing frame                           |
+| `<Viewer>`        | `viewer-canvas`           | The `<canvas>` itself                               |
+| `<HoverCard>`     | `viewer-hover-card`       | Cursor-following tooltip shell                      |
+| `<ViewerToolbar>` | `viewer-toolbar-stack`    | Outer stack, including app-supplied option children |
+| `<ViewerToolbar>` | `viewer-toolbar`          | Standard-controls group                             |
+| `<ViewerToolbar>` | `viewer-toolbar-button`   | Each standard control button                        |
+| `<ViewerToolbar>` | `viewer-toolbar-icon`     | SVG within a standard control                       |
+| `<ViewerToolbar>` | `viewer-toolbar-tooltip`  | Label shown on button hover/focus                   |
+| `<ViewerToolbar>` | `viewer-toolbar-divider`  | Separator between control groups                    |
+
+The following `data-*` attributes identify generated elements without depending on labels, which
+can change with state or localization:
+
+| Attribute                             | Element and values                                                                                                                              |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data-viewer-root="true"`             | `<Viewer>` wrapper                                                                                                                              |
+| `data-viewer-canvas-container="true"` | R3F canvas event container                                                                                                                      |
+| `data-viewer-canvas-frame="true"`     | R3F canvas-sizing frame                                                                                                                         |
+| `data-viewer-canvas="true"`           | The `<canvas>` itself                                                                                                                           |
+| `data-viewer-hover-card="true"`       | `<HoverCard>` shell                                                                                                                             |
+| `data-viewer-toolbar="true"`          | Toolbar stack                                                                                                                                   |
+| `data-viewer-toolbar-controls="true"` | Standard-controls group                                                                                                                         |
+| `data-viewer-toolbar-action`          | Standard button: `stock`, `axes`, `grid`, `banana`, `directions`, `hover`, `focus`, `wireframe`, `section`, `measure`, `fit`, `reset`, or `top` |
+| `data-viewer-toolbar-icon="true"`     | Standard button SVG                                                                                                                             |
+| `data-viewer-toolbar-tooltip="true"`  | Standard button tooltip                                                                                                                         |
+| `data-viewer-toolbar-divider="true"`  | Toolbar separator                                                                                                                               |
+
+Toggle buttons also carry standard `aria-pressed="true"` or `"false"`; use that to style their
+current state. `Fit`, `Reset`, and `Top view` are actions rather than toggles, so they omit the
+attribute.
+
 ### `<Viewer>`
 
 The canvas that holds everything. Import it from `@toolpath/viewer`.

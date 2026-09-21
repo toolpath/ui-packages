@@ -9,9 +9,16 @@ interface ToolbarButtonProps {
 }
 
 const ToolbarButton = ({ icon, label, pressed, onClick }: ToolbarButtonProps) => (
-  <button type="button" aria-label={label} aria-pressed={pressed} onClick={onClick}>
+  <button
+    className="viewer-toolbar-button"
+    data-viewer-toolbar-action={icon}
+    type="button"
+    aria-label={label}
+    aria-pressed={pressed}
+    onClick={onClick}
+  >
     <ToolbarIcon name={icon} />
-    <span className="toolbar-tooltip" role="tooltip">
+    <span className="viewer-toolbar-tooltip" data-viewer-toolbar-tooltip="true" role="tooltip">
       {label}
     </span>
   </button>
@@ -34,6 +41,8 @@ export const BananaButton = ({ shown, onClick }: BananaButtonProps) => (
 )
 
 export interface ViewerToolbarProps {
+  /** Added to the outer toolbar stack, beside `viewer-toolbar-stack`. */
+  className?: string
   stock: boolean
   axes: boolean
   grid: boolean
@@ -62,9 +71,17 @@ export interface ViewerToolbarProps {
 
 /** The standard toolbar for the viewer's camera, display, and analysis controls. */
 export const ViewerToolbar = (props: ViewerToolbarProps) => (
-  <div className="viewer-toolbar-stack">
+  <div
+    className={['viewer-toolbar-stack', props.className].filter(Boolean).join(' ')}
+    data-viewer-toolbar="true"
+  >
     {props.children}
-    <div className="viewer-toolbar" role="group" aria-label="Viewer controls">
+    <div
+      className="viewer-toolbar"
+      data-viewer-toolbar-controls="true"
+      role="group"
+      aria-label="Viewer controls"
+    >
       <ToolbarButton
         icon="stock"
         label={props.stock ? 'Hide stock' : 'Show stock'}
@@ -86,7 +103,7 @@ export const ViewerToolbar = (props: ViewerToolbarProps) => (
       {props.onBanana ? (
         <BananaButton shown={props.banana ?? false} onClick={props.onBanana} />
       ) : null}
-      <span className="toolbar-divider" />
+      <span className="viewer-toolbar-divider" data-viewer-toolbar-divider="true" />
       <ToolbarButton
         icon="directions"
         label="Highlight faces by direction"
@@ -123,7 +140,7 @@ export const ViewerToolbar = (props: ViewerToolbarProps) => (
         pressed={props.measuring}
         onClick={props.onMeasure}
       />
-      <span className="toolbar-divider" />
+      <span className="viewer-toolbar-divider" data-viewer-toolbar-divider="true" />
       <ToolbarButton icon="fit" label="Fit" onClick={props.onFit} />
       <ToolbarButton icon="reset" label="Reset" onClick={props.onReset} />
       <ToolbarButton icon="top" label="Top view" onClick={props.onTop} />
