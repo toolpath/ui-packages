@@ -21,7 +21,6 @@ import {
   Viewer,
   CONTROL_SCHEME_OPTIONS,
   measurementLabel,
-  sectionMeasurement,
   type MeasureMode,
   type Measurement,
   type PartModel,
@@ -33,6 +32,7 @@ import {
   type StockPosition,
   type ViewerHandle,
 } from '@toolpath/viewer'
+import { AnalysisOptions } from './analysis-options'
 import { MODELS, modelFromQuery } from './models'
 import './style.css'
 
@@ -198,13 +198,13 @@ const App = () => {
   const [sectioning, setSectioning] = useState(false)
   /**
    * Measuring is the same shape as sectioning: a mode the toolbar enters, with
-   * the selection put down on the way in. The list is the tool's own —
-   * `<MeasureTool>` below is given no `measurements` — and `measured` is only
-   * what it reports back, for the readout.
+   * the selection put down on the way in. The list is controlled here so the
+   * panel can clear it with its trash button.
    */
   const [measuring, setMeasuring] = useState(false)
   const [measureMode, setMeasureMode] = useState<MeasureMode>('distance')
   const [measured, setMeasured] = useState<readonly Measurement[]>([])
+  const [measureInstance, setMeasureInstance] = useState(0)
   const [direction, setDirection] = useState<number | null>(null)
   const [showStock, setShowStock] = useState(params.get('stock') === 'on')
   const [showAxes, setShowAxes] = useState(true)
@@ -466,8 +466,7 @@ const App = () => {
             } else {
               if (!measuring) heldSelection.current = selected
               setSelected([])
-              setMeasuring(false)
-              setMeasured([])
+              if (!measuring) setMeasured([])
             }
             setSectioning((on) => !on)
           }}
@@ -485,59 +484,23 @@ const App = () => {
             setMeasuring((on) => !on)
           }}
         >
-          {sectioning ? (
-            <div className="viewer-tool-options" role="group" aria-label="Section options">
-              {cut ? (
-                <>
-                  <label>
-                    Cut depth
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.01}
-                      value={offset}
-                      onChange={(event) => {
-                        const next = Number(event.target.value)
-                        setOffset(next)
-                        viewerRef.current?.setSection(sweepTo(cut, next))
-                      }}
-                    />
-                    <output className="section-measurement" aria-label="Cut amount">
-                      {sectionMeasurement(cut)}
-                    </output>
-                  </label>
-                  <button type="button" onClick={() => viewerRef.current?.setSection(null)}>
-                    Clear cut
-                  </button>
-                </>
-              ) : (
-                <span className="viewer-hint">Click a face or a plane · Esc clears</span>
-              )}
-            </div>
-          ) : null}
-          {measuring ? (
-            <div className="viewer-tool-options" role="group" aria-label="Measure options">
-              <button
-                type="button"
-                aria-pressed={measureMode === 'distance'}
-                onClick={() => setMeasureMode('distance')}
-              >
-                Distance
-              </button>
-              <button
-                type="button"
-                aria-pressed={measureMode === 'angle'}
-                onClick={() => setMeasureMode('angle')}
-              >
-                Angle
-              </button>
-              <span className="viewer-hint">
-                {measureMode === 'distance' ? 'Click two points' : 'Click end, vertex, end'} · Shift
-                locks an axis · Del removes last · Esc drops
-              </span>
-            </div>
-          ) : null}
+          <AnalysisOptions
+            sectioning={sectioning}
+            measuring={measuring}
+            cut={cut}
+            offset={offset}
+            measureMode={measureMode}
+            onOffsetChange={(next) => {
+              setOffset(next)
+              if (cut) viewerRef.current?.setSection(sweepTo(cut, next))
+            }}
+            onClearCut={() => viewerRef.current?.setSection(null)}
+            onMeasureModeChange={setMeasureMode}
+            onClearMeasurements={() => {
+              setMeasured([])
+              setMeasureInstance((instance) => instance + 1)
+            }}
+          />
           {showDirections && !sectioning && !measuring ? (
             <div
               className="viewer-tool-options direction-legend"
@@ -636,7 +599,14 @@ const App = () => {
             onPickDirection={(index) => setDirection((held) => (held === index ? null : index))}
           />
           {sectioning ? <SectionTool /> : null}
-          {measuring ? <MeasureTool mode={measureMode} onChange={setMeasured} /> : null}
+          {measuring ? (
+            <MeasureTool
+              key={measureInstance}
+              mode={measureMode}
+              measurements={measured}
+              onChange={setMeasured}
+            />
+          ) : null}
           {showGrid ? <Grid /> : null}
           {banana ? (
             <Suspense fallback={null}>

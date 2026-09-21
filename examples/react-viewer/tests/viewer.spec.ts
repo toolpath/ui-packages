@@ -152,7 +152,7 @@ test('selects a feature and responds to CAD camera navigation', async ({ page })
   await expect(hovered).toContainText('none')
   await canvas.click({ position: on(box, CENTRE) })
   await expect(cut).toContainText('Part surface')
-  await expect(page.getByLabel('Cut amount')).toHaveText(/^\d+\.\d{2} mm$/)
+  await expect(page.getByText('Cut depth', { exact: true })).toHaveCount(0)
   await expect(selected).toContainText('none')
   await canvas.click({ position: on(box, ONE) })
   await expect(selected).toContainText('none')
@@ -162,7 +162,6 @@ test('selects a feature and responds to CAD camera navigation', async ({ page })
   await page.getByRole('slider').fill('0.5')
   await expect(cut).toContainText('Part surface')
   await expect(cut).not.toContainText('0.22 mm')
-  await expect(page.getByLabel('Cut amount')).not.toHaveText('0.22 mm')
   await page.keyboard.press('Escape')
   await expect(cut).toContainText('none')
   await canvas.click({ position: on(box, CENTRE) })
@@ -287,6 +286,10 @@ test('measures a distance between two clicks, without selecting either face', as
   await canvas.click({ position: on(box, OTHER) })
   await expect(measured).toContainText('°')
 
+  await page.getByRole('button', { name: 'Clear measurements' }).click()
+  await expect(measured).toContainText('none')
+  await expect(labels).toHaveCount(0)
+
   await page.getByRole('button', { name: 'Exit measure' }).click()
   await expect(measured).toContainText('off')
   await expect(labels).toHaveCount(0)
@@ -350,6 +353,9 @@ test('waits for a cut to be chosen before measuring beside the section tool', as
 
   await page.getByRole('button', { name: 'Section' }).click()
   await page.getByRole('button', { name: 'Measure', exact: true }).click()
+  await expect(
+    page.getByRole('group', { name: 'Section and measure options', exact: true }),
+  ).toHaveCount(1)
   await expect(cut).toContainText('none')
   await expect(measured).toContainText('none')
 
@@ -382,6 +388,26 @@ test('waits for a cut to be chosen before measuring beside the section tool', as
 
   await page.getByRole('button', { name: 'Exit measure' }).click()
   await expect(measured).toContainText('off')
+})
+
+test('merges the analysis panel regardless of which tool is entered first', async ({ page }) => {
+  await openViewer(page)
+
+  await page.getByRole('button', { name: 'Measure', exact: true }).click()
+  await page.getByRole('button', { name: 'Section', exact: true }).click()
+
+  await expect(
+    page.getByRole('group', { name: 'Section and measure options', exact: true }),
+  ).toHaveCount(1)
+  await expect(page.getByRole('group', { name: 'Measurement type', exact: true })).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Exit measure', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await expect(page.getByRole('button', { name: 'Exit section', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
 })
 
 test('Toolpath pans with the right button, from wherever the drag starts', async ({ page }) => {
