@@ -1,7 +1,7 @@
-import { Mesh, MeshLambertMaterial } from 'three'
+import { DoubleSide, Mesh, MeshLambertMaterial } from 'three'
 import { describe, expect, it } from 'vitest'
 import { parsePartGeometry } from '../src/engine/geometry.js'
-import { DEFAULT_FOCUS_OPACITY } from '../src/render/focus.js'
+import { DEFAULT_FOCUS_OPACITY, focusStateKey } from '../src/render/focus.js'
 import { createPart } from '../src/render/part.js'
 import { DEFAULT_THEME } from '../src/render/theme.js'
 import { cubeModel, loadMeshFixture } from './fixtures.js'
@@ -21,6 +21,10 @@ function faceOn(model: ReturnType<typeof cubeModel>, z: 1 | -1) {
 }
 
 describe('selection-driven focus', () => {
+  it('changes the render effect key when default focus is turned off', () => {
+    expect(focusStateKey({}, ['bottom-face'])).not.toBe(focusStateKey(undefined, ['bottom-face']))
+  })
+
   it('keeps selected regions solid and fades every other region', async () => {
     const { model, part } = await loadCube()
     const top = faceOn(model, 1)
@@ -39,6 +43,7 @@ describe('selection-driven focus', () => {
     expect(focusMesh.visible).toBe(true)
     expect(focusMaterial.transparent).toBe(false)
     expect(focusMaterial.depthWrite).toBe(true)
+    expect(focusMaterial.side).toBe(DoubleSide)
   })
 
   it('returns to a fully opaque part when there is no selected feature', async () => {

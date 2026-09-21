@@ -12,7 +12,7 @@ import { type BufferGeometry, Vector3 } from 'three'
 import type { FeatureTag, PartModel } from './model/types.js'
 import type { FeatureHighlight, RegionHighlight } from './render/paint.js'
 import { applyHighlightLayers } from './render/paint.js'
-import type { FocusOptions } from './render/focus.js'
+import { focusStateKey, type FocusOptions } from './render/focus.js'
 import {
   DISABLED_SECTION,
   type SectionOptions,
@@ -255,7 +255,7 @@ export const PartMesh = ({
   focusRef.current = focus
   const selectionRef = useRef(selection)
   selectionRef.current = selection
-  const focusKey = `${focus === undefined ? '' : (focus.opacity ?? '')}|${selection.join(' ')}`
+  const focusKey = focusStateKey(focus, selection)
   useLayoutEffect(() => {
     part.setFocus(selectionRef.current, focusRef.current)
     invalidate()

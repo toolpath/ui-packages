@@ -3,6 +3,7 @@ import {
   type BufferGeometry,
   Color,
   DataTexture,
+  DoubleSide,
   Float32BufferAttribute,
   Group,
   LineBasicMaterial,
@@ -255,6 +256,9 @@ export function createPart(
   const focusMaterial = new MeshLambertMaterial({
     color: theme.part,
     emissive: theme.partEmissive,
+    // A selected face can be viewed through the part from the side its normal
+    // faces away from.
+    side: DoubleSide,
   })
   configureShader(focusMaterial, true)
   configureShader(material, false)

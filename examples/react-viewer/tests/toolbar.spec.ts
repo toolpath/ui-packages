@@ -135,8 +135,10 @@ for (const projection of ['perspective', 'orthographic'] as const) {
       'true',
     )
     await expect.poll(async () => Buffer.compare(selected, await canvas.screenshot())).not.toBe(0)
+    const focused = await canvas.screenshot()
     await page.getByRole('button', { name: 'Show full part', exact: true }).click()
     await expect(focus).toHaveAttribute('aria-pressed', 'false')
+    await expect.poll(async () => Buffer.compare(focused, await canvas.screenshot())).not.toBe(0)
   })
 
   test(`stock present on mount does not move the section midpoint (${projection})`, async ({

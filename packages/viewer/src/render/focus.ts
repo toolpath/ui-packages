@@ -14,6 +14,14 @@ export function focusOpacity(options: FocusOptions | undefined): number {
   return Math.min(Math.max(options?.opacity ?? DEFAULT_FOCUS_OPACITY, 0), 1)
 }
 
+/** A stable effect key that distinguishes disabled focus from its default mode. */
+export function focusStateKey(
+  options: FocusOptions | undefined,
+  selection: readonly FeatureTag[],
+): string {
+  return `${options === undefined ? 'off' : `on:${options.opacity ?? ''}`}|${selection.join(' ')}`
+}
+
 /** The union of regions owned by the selected features. */
 export function focusedRegions(
   model: PartModel,
