@@ -1,5 +1,27 @@
 # @toolpath/viewer
 
+## 1.5.0
+
+### Minor Changes
+
+- 321a9e1: Add a bundled banana-for-scale model while preserving feature hover by default.
+- aec1aaa: Support explicit fixed-box dimensions and top/bottom positioning for box stock.
+- 233a800: Add translucent stock meshes and allowance-based box stock, a semantic-edge wireframe display, and deterministic machining-direction face highlights. Fit includes stock while part-relative tools and overlays remain sized to the finished part.
+- aec1aaa: Support separate wall and floor stock-to-leave values for box stock.
+- e3082e3: Add CAD navigation presets for Alias, Fusion, Inventor, Onshape, PowerMill, SolidWorks, and Tinkercad.
+- 649db22: Add a cursor-following hover-card primitive, browser pointer coordinates on part picks, and a
+  hover toggle that preserves face picking.
+- ce60e14: Add a visible section-plane gizmo with direction-coloured handles, a two-way drag handle, and
+  physical cut measurement. A custom `sectionHandle` theme colour still overrides the direction
+  colour.
+- ba19c5e: Add a viewer-scoped, composable toolbar with camera, display, analysis, and banana-for-scale controls.
+- ec853b8: Add opt-in selection-driven X-ray focus rendering for part meshes.
+
+### Patch Changes
+
+- d72ab8b: Keep focused feature regions opaque in X-ray rendering and copy the bundled banana asset in watch builds.
+- 781178c: Keep far-side focused geometry visible through the faded part.
+
 ## 1.4.0
 
 ### Minor Changes
