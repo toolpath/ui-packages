@@ -14,6 +14,8 @@ import {
 
 import { adaptedUp } from './camera.js'
 import type { CameraLimits, ViewerCamera } from './camera.js'
+import { resolveControlScheme } from './control-schemes.js'
+import type { ControlScheme, ControlSchemeMapping } from './control-schemes.js'
 
 /**
  * `camera-controls` needs the three classes it constructs injected once, and
@@ -37,16 +39,7 @@ CameraControls.install({
   },
 })
 
-/**
- * Mouse and trackpad presets.
- *
- * - `toolpath` — left-drag orbits, right- and middle-drag pan. The product
- *   default.
- * - `fusion` — middle-drag and two-finger scroll pan, shift makes them orbit,
- *   pinch zooms. Matches Fusion 360, which is what most of our users have open
- *   in the other window.
- */
-export type ControlScheme = 'toolpath' | 'fusion'
+export type { ControlScheme } from './control-schemes.js'
 
 export type ExtendedCameraControlsOptions = {
   /**
@@ -106,8 +99,8 @@ const DOLLY_SPEED = 1.15
 const REST_THRESHOLD = 0.005
 
 /**
- * `CameraControls` with free orbit, camera-relative up, and the Fusion wheel
- * scheme.
+ * `CameraControls` with free orbit, camera-relative up, and CAD navigation
+ * schemes.
  *
  * Two departures from the legacy implementation, both deliberate:
  *
@@ -128,6 +121,7 @@ export class ExtendedCameraControls extends CameraControls {
   #attached = false
   #autoUpEnabled = false
   #shiftPressed = false
+  #ctrlPressed = false
   #wheelHandler: ((event: WheelEvent) => void) | null = null
 
   // Scratch objects — `#onPointerMove` and `#adaptUpVector` run at pointer and
@@ -200,7 +194,7 @@ export class ExtendedCameraControls extends CameraControls {
     view?.addEventListener('keydown', this.#onModifierChange)
     view?.addEventListener('keyup', this.#onModifierChange)
     // A window that loses focus never delivers the matching keyup, which would
-    // otherwise leave the Fusion scheme stuck in its shift variant.
+    // otherwise leave a modifier-aware scheme stuck in its shifted variant.
     view?.addEventListener('blur', this.#onWindowBlur)
 
     if (this.#freeOrbit) {
@@ -224,7 +218,7 @@ export class ExtendedCameraControls extends CameraControls {
     view?.removeEventListener('blur', this.#onWindowBlur)
 
     this.#disableAutoUp()
-    this.#disableFusionWheel()
+    this.#disableCadWheel()
   }
 
   override dispose(): void {
@@ -239,52 +233,45 @@ export class ExtendedCameraControls extends CameraControls {
    */
   applyScheme(scheme: ControlScheme): void {
     this.#scheme = scheme
+    const mapping = resolveControlScheme(scheme, {
+      orthographic: this.camera instanceof OrthographicCamera,
+      modifiers: { shift: this.#shiftPressed, ctrl: this.#ctrlPressed },
+    })
 
-    this.mouseButtons.left = CameraControls.ACTION.NONE
-    this.mouseButtons.middle = CameraControls.ACTION.NONE
-    this.mouseButtons.right = CameraControls.ACTION.NONE
-    this.mouseButtons.wheel = CameraControls.ACTION.NONE
+    this.#applyMapping(mapping)
+  }
 
-    this.touches.one = CameraControls.ACTION.TOUCH_ROTATE
-    this.touches.two = CameraControls.ACTION.TOUCH_DOLLY_TRUCK
-    this.touches.three = CameraControls.ACTION.TOUCH_TRUCK
+  #applyMapping(mapping: ControlSchemeMapping): void {
+    const action = {
+      none: CameraControls.ACTION.NONE,
+      rotate: CameraControls.ACTION.ROTATE,
+      truck: CameraControls.ACTION.TRUCK,
+      zoom: CameraControls.ACTION.ZOOM,
+      dolly: CameraControls.ACTION.DOLLY,
+    } as const
+    const touchAction = {
+      rotate: CameraControls.ACTION.TOUCH_ROTATE,
+      truck: CameraControls.ACTION.TOUCH_TRUCK,
+      'dolly-truck': CameraControls.ACTION.TOUCH_DOLLY_TRUCK,
+    } as const
 
-    this.smoothTime = DEFAULT_SMOOTH_TIME
-    this.draggingSmoothTime = DEFAULT_SMOOTH_TIME
+    this.#disableCadWheel()
 
-    this.#disableFusionWheel()
+    this.mouseButtons.left = action[mapping.mouse.left]
+    this.mouseButtons.middle = action[mapping.mouse.middle]
+    this.mouseButtons.right = action[mapping.mouse.right]
+    this.mouseButtons.wheel = action[mapping.mouse.wheel]
 
-    if (scheme === 'fusion') {
-      // Shift turns the pan gestures into orbit gestures, matching Fusion.
-      const rotating = this.#shiftPressed
+    this.touches.one = touchAction[mapping.touches.one]
+    this.touches.two = touchAction[mapping.touches.two]
+    this.touches.three = touchAction[mapping.touches.three]
 
-      this.mouseButtons.middle = rotating
-        ? CameraControls.ACTION.ROTATE
-        : CameraControls.ACTION.TRUCK
-      this.touches.two = rotating
-        ? CameraControls.ACTION.TOUCH_ROTATE
-        : CameraControls.ACTION.TOUCH_TRUCK
+    this.smoothTime = mapping.immediate ? 0 : DEFAULT_SMOOTH_TIME
+    this.draggingSmoothTime = mapping.immediate ? 0 : DEFAULT_SMOOTH_TIME
 
-      // Fusion feels wrong with damping; the view has to track the trackpad.
-      this.smoothTime = 0
-      this.draggingSmoothTime = 0
-      this.#enableFusionWheel()
-
-      return
+    if (mapping.usesCadWheel) {
+      this.#enableCadWheel()
     }
-
-    this.mouseButtons.left = CameraControls.ACTION.ROTATE
-    this.mouseButtons.right = CameraControls.ACTION.TRUCK
-    // Middle-drag pans too. It is the pan gesture in SolidWorks, Fusion and
-    // Onshape, so somebody arriving from any of them reaches for it first —
-    // and a gesture that does nothing reads as a viewport that has hung.
-    this.mouseButtons.middle = CameraControls.ACTION.TRUCK
-    // Dollying an orthographic camera moves it without changing what the
-    // frustum covers, so the wheel has to scale the frustum instead.
-    this.mouseButtons.wheel =
-      this.camera instanceof OrthographicCamera
-        ? CameraControls.ACTION.ZOOM
-        : CameraControls.ACTION.DOLLY
   }
 
   setFreeOrbit(freeOrbit: boolean): void {
@@ -333,14 +320,18 @@ export class ExtendedCameraControls extends CameraControls {
     this.removeEventListener('update', this.#adaptUpVector)
   }
 
-  #enableFusionWheel(): void {
-    this.#wheelHandler = (event: WheelEvent) => this.#onFusionWheel(event)
+  #enableCadWheel(): void {
+    if (!this.#attached || this.#wheelHandler) {
+      return
+    }
+
+    this.#wheelHandler = (event: WheelEvent) => this.#onCadWheel(event)
     this.#domElement.addEventListener('wheel', this.#wheelHandler, {
       passive: false,
     })
   }
 
-  #disableFusionWheel(): void {
+  #disableCadWheel(): void {
     if (!this.#wheelHandler) {
       return
     }
@@ -399,7 +390,7 @@ export class ExtendedCameraControls extends CameraControls {
     this.update(0)
   }
 
-  #onFusionWheel = (event: WheelEvent): void => {
+  #onCadWheel = (event: WheelEvent): void => {
     event.preventDefault()
 
     if (event.ctrlKey) {
@@ -423,23 +414,20 @@ export class ExtendedCameraControls extends CameraControls {
   }
 
   #onModifierChange = (event: KeyboardEvent): void => {
-    this.#setShiftPressed(event.shiftKey)
+    this.#setModifiers(event.shiftKey, event.ctrlKey)
   }
 
   #onWindowBlur = (): void => {
-    this.#setShiftPressed(false)
+    this.#setModifiers(false, false)
   }
 
-  #setShiftPressed(pressed: boolean): void {
-    if (this.#shiftPressed === pressed) {
+  #setModifiers(shift: boolean, ctrl: boolean): void {
+    if (this.#shiftPressed === shift && this.#ctrlPressed === ctrl) {
       return
     }
 
-    this.#shiftPressed = pressed
-
-    // Only the Fusion scheme reads the modifier, so nothing else has to churn.
-    if (this.#scheme === 'fusion') {
-      this.applyScheme(this.#scheme)
-    }
+    this.#shiftPressed = shift
+    this.#ctrlPressed = ctrl
+    this.applyScheme(this.#scheme)
   }
 }

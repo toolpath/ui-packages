@@ -49,6 +49,9 @@ importers:
 
   examples/react-viewer:
     dependencies:
+      '@phosphor-icons/react':
+        specifier: 2.1.10
+        version: 2.1.10(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@react-three/drei':
         specifier: 10.7.8
         version: 10.7.8(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(three@0.185.1))(@types/react@19.2.18)(@types/three@0.185.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(three@0.185.1)
@@ -6906,6 +6909,11 @@ snapshots:
     dependencies:
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
+
+  '@phosphor-icons/react@2.1.10(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+    dependencies:
+      react: 19.2.0
+      react-dom: 19.2.0(react@19.2.0)
 
   '@playwright/test@1.59.1':
     dependencies:

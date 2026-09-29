@@ -38,7 +38,8 @@ export interface ViewerTheme {
   /** The cutting plane itself — the translucent sheet `<SectionTool>` draws, its outline, and the surface preview. */
   readonly sectionOutline: number
   /**
-   * The arrow that drags the cut, and the shell that outlines it. Hovered it
+   * The arrow that drags the cut when overridden. When omitted from a theme
+   * override, the handle uses the cutting plane's direction colour. Hovered it
    * takes {@link ViewerTheme.hover}, like every other control here.
    */
   readonly sectionHandle: number

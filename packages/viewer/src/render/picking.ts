@@ -26,6 +26,12 @@ export const NO_MODIFIERS: PickModifiers = {
   secondary: false,
 }
 
+/** A browser-viewport point, for placing an application-owned hover card. */
+export interface PointerLocation {
+  readonly clientX: number
+  readonly clientY: number
+}
+
 /**
  * A pointer event on the part, resolved to the face it landed on and the
  * features that own it.
@@ -47,6 +53,8 @@ export interface PartPick {
   readonly point: readonly [number, number, number]
   /** The surface's outward normal in world space — the plane under the cursor. */
   readonly normal: readonly [number, number, number]
+  /** Browser coordinates when the pick came from `<PartMesh>`. */
+  readonly pointer?: PointerLocation
   readonly modifiers: PickModifiers
   /**
    * Whether this click completed a double click on the part.
@@ -83,6 +91,7 @@ export interface BuildPickInput {
   readonly triangleIndex: number
   readonly point: readonly [number, number, number]
   readonly normal: readonly [number, number, number]
+  readonly pointer?: PointerLocation
   readonly modifiers?: PickModifiers
   /**
    * The machining direction the pick is scoped to, as an index into
@@ -115,6 +124,7 @@ export function buildPick(input: BuildPickInput): PartPick {
     triangleIndex: input.triangleIndex,
     point: input.point,
     normal: input.normal,
+    ...(input.pointer === undefined ? {} : { pointer: input.pointer }),
     modifiers: input.modifiers ?? NO_MODIFIERS,
     doubled: input.doubled ?? false,
   }

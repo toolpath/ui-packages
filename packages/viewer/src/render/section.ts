@@ -1,6 +1,7 @@
 import { type Box3, type Intersection, type Object3D, Plane, type Raycaster, Vector3 } from 'three'
 import type { Vec3 } from '../model/types.js'
-import { excludedFromFrame } from './camera.js'
+import { excludedFromPart } from './camera.js'
+import { AXIS_COLORS } from './measure.js'
 
 /**
  * Render order. The stencil pass must precede the cap, and the part must draw
@@ -20,6 +21,9 @@ const START_DEPTH = 0.005
 
 /** The handle's length on screen, in CSS pixels, whatever the zoom. */
 export const HANDLE_PIXELS = 78
+
+/** The viewer-space span of the visible section-plane frame, relative to the part diagonal. */
+export const SECTION_GIZMO_FRAME_SCALE = 1.1
 
 /**
  * The hatch on the cap: stripe pitch and line thickness in CSS pixels, and the
@@ -71,6 +75,12 @@ export interface SectionState {
   readonly plane: SectionPlacement | null
   readonly depth: number | null
   /**
+   * Distance swept from the edge of the part into its projected bounds, in
+   * model units. A surface-anchored cut also reports `depth`, which is its
+   * more useful physical datum.
+   */
+  readonly cutDistance?: number
+  /**
    * How far the cut can travel from its anchor, in model units, or `null` for a
    * sweep — which is measured as a fraction of the part rather than a distance.
    *
@@ -96,7 +106,44 @@ export const DISABLED_SECTION: SectionState = {
   constant: 0,
   plane: null,
   depth: null,
+  cutDistance: 0,
   depthRange: null,
+}
+
+/**
+ * A concise physical measurement for a host application's section control.
+ *
+ * A cut placed from a surface is measured from that surface. A free sweep is
+ * measured from the edge of the part along the cut normal.
+ */
+export function sectionMeasurement(state: SectionState): string {
+  return `${(state.depth ?? state.cutDistance ?? 0).toFixed(2)} mm`
+}
+
+/**
+ * A section plane's direction colour. Cardinal normals match the X/Y/Z axis
+ * colours used by the directional arrows; tilted normals blend those colours
+ * by their absolute axis contributions.
+ */
+export function sectionDirectionColor(normal: Vec3): number {
+  const x = Math.abs(normal.x)
+  const y = Math.abs(normal.y)
+  const z = Math.abs(normal.z)
+  const total = x + y + z || 1
+  const channel = (shift: number) =>
+    Math.round(
+      (((AXIS_COLORS.x >> shift) & 0xff) * x +
+        ((AXIS_COLORS.y >> shift) & 0xff) * y +
+        ((AXIS_COLORS.z >> shift) & 0xff) * z) /
+        total,
+    )
+
+  return (channel(16) << 16) | (channel(8) << 8) | channel(0)
+}
+
+/** An explicit theme colour wins; otherwise the handle identifies its plane. */
+export function sectionHandleColor(themeColor: number | undefined, directionColor: number): number {
+  return themeColor ?? directionColor
 }
 
 /**
@@ -185,9 +232,9 @@ export interface SurfaceHit {
  *
  * "The part" is whatever in the scene is a visible mesh outside an overlay —
  * every overlay here marks its outermost group with `EXCLUDE_FROM_FRAME`, the
- * same flag that keeps it out of the camera's framing, and the ones that are
- * not clickable turn their own raycast off besides. What is left is the
- * geometry the consumer put in.
+ * same flag that keeps it out of the camera's framing. Stock has its own flag:
+ * it belongs in Fit, but not in section or measurement picks. Non-clickable
+ * overlays also turn their own raycast off.
  *
  * A surface a section cut has clipped away is skipped too. three's raycaster
  * knows nothing about clipping planes, so without this a ray through the open
@@ -199,7 +246,7 @@ export function hitUnderRay(raycaster: Raycaster, root: Object3D): Intersection 
     if (!('isMesh' in hit.object) || !hit.face) continue
     // three's raycaster does not skip hidden objects; R3F's event layer does
     // that itself, and this ray is not R3F's.
-    if (!hit.object.visible || excludedFromFrame(hit.object, root)) continue
+    if (!hit.object.visible || excludedFromPart(hit.object, root)) continue
     if (clippedAway(hit)) continue
     return hit
   }
@@ -289,7 +336,7 @@ function clamp01(value: number): number {
  * constant clips less. `min` and `max` are named for the constant, not for how
  * much they remove.
  */
-export function sectionBounds(box: Box3, normal: Vec3): SectionBounds {
+function projectedBounds(box: Box3, normal: Vec3): { low: number; high: number } {
   const axis = unit(normal)
 
   const corner = new Vector3()
@@ -307,6 +354,12 @@ export function sectionBounds(box: Box3, normal: Vec3): SectionBounds {
     high = Math.max(high, distance)
   }
 
+  return { low, high }
+}
+
+export function sectionBounds(box: Box3, normal: Vec3): SectionBounds {
+  const { low, high } = projectedBounds(box, normal)
+
   // Widen both ends slightly. Without it the extreme corner lies exactly *on*
   // the plane at `t = 0` and `t = 1`, and `Plane` keeps the half-space where the
   // distance is strictly positive — so "uncut" would already have shaved the
@@ -314,6 +367,15 @@ export function sectionBounds(box: Box3, normal: Vec3): SectionBounds {
   const margin = Math.max((high - low) * 0.005, 1e-6)
 
   return { min: -(high + margin), max: -(low - margin) }
+}
+
+/**
+ * The distance actually cut through the part, excluding the off-part margin
+ * that makes the clipping plane reliably start and finish outside the mesh.
+ */
+export function sectionCutDistance(box: Box3, normal: Vec3, constant: number): number {
+  const { low, high } = projectedBounds(box, normal)
+  return Math.max(0, Math.min(high - low, -constant - low))
 }
 
 /** The plane constant at `t`, from 0 (uncut) to 1 (fully cut away). */
