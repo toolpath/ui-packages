@@ -76,7 +76,8 @@ What each wrapper is for:
  ├─ <EnginePart>          validates the report, loads the mesh, then renders <PartMesh>
  │   └─ <PartMesh>        draws the part and handles hover, click, colours, section cuts
  ├─ <DirectionArrows>     arrows for the directions the part can be machined from
- ├─ <Stock> <BoxStock>    translucent stock, included when fitting the camera
+ ├─ <Stock> <BoxStock> <CylinderStock> <OrientedBoxStock>
+ │                        translucent stock, included when fitting the camera
  ├─ <SectionTool>         optional: click a face or a plane to cut the part open
  ├─ <MeasureTool>         optional: click two points for a distance, three for an angle
  ├─ <Grid> <Axes>         reference geometry, sized to the part
@@ -146,8 +147,10 @@ context rather than a fact of the part surface.
 
 ### Stock and display controls
 
-Use `<BoxStock>` for an axis-aligned blank around a part, or `<Stock geometry={stockGeometry} />`
-for an actual stock mesh, including cylindrical or irregular blanks. Stock and part coordinates
+Use `<BoxStock>` for an axis-aligned blank around a part, `<CylinderStock>` for round stock,
+`<OrientedBoxStock>` for a block squared to a frame of its own, or
+`<Stock geometry={stockGeometry} />` for an actual stock mesh, such as irregular or in-process
+stock. Stock and part coordinates
 must use the same millimetre, Z-up frame. Both components include stock in Fit and Reset while
 keeping section tools, measurements, the grid, and direction arrows sized to the finished part.
 Stock does not intercept clicks or get clipped by the part's section plane.
@@ -228,8 +231,30 @@ coordinate frame.
 Negative/non-finite allowances, non-finite coordinates, and empty or non-positive stock dimensions
 throw `RangeError`. The 3 mm allowance above is an example, not an automatic stock recommendation.
 
+`<CylinderStock origin={…} axis={…} diameter={…} length={…} />` draws round stock along any axis:
+`origin` is the centre of its base and `axis` points from the base toward its far end, in part
+coordinates. `fixedCylinderStock(geometry, { diameter, length }, position, positionOffset)` returns
+that figure for a fixed-cylinder preview, standing along the part's Z, centred on the part's
+bounding box, and placed along Z by the same `position` rule as fixed-box stock — so
+`<CylinderStock {...fixedCylinderStock(geometry, size)} />` previews it. Memoise the figure: it reads
+every vertex of the part. It is a preview; the kernel centres fixed round stock on the part's
+smallest enclosing circle about the first setup's cutting direction, so render the resolved stock
+once a job is planned.
+
+`<OrientedBoxStock frame={…} lower={…} upper={…} />` draws a block whose corners are given in a frame
+of `location`, `axis` and `refDirection`: a point `(x, y, z)` sits at
+`location + x·refDirection + y·(axis × refDirection) + z·axis`. That is the shape of an Engine plan's
+`stock` box, which is squared to the setup rather than to the part.
+
+`CylinderStock` and `OrientedBoxStock` rebuild their mesh only when the figure's numbers change, so
+a figure read off a fresh API response does not rebuild the same stock. Figures that cannot make a
+solid — a zero axis, a non-positive size, a frame whose axis and reference direction are parallel —
+throw `RangeError`.
+
 `Stock` accepts `color`, `opacity` (default `0.2`), `edgeColor`, `edgeOpacity`, and `showEdges`.
-`BoxStock` accepts the same appearance props. Caller-provided geometry is never disposed; the
+The outline is built the first time it is shown, so a large stock mesh with `showEdges={false}`
+costs no edge pass. `BoxStock`, `CylinderStock` and `OrientedBoxStock` accept the same appearance
+props. Caller-provided geometry is never disposed; the
 components dispose their own materials and outlines. Conditionally mount stock to toggle it.
 Toggling stock preserves the camera; Fit/Reset then frames the visible stock together with the part.
 

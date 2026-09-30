@@ -6,7 +6,9 @@ import {
   Axes,
   Banana,
   BoxStock,
+  CylinderStock,
   fixedBoxStockBounds,
+  fixedCylinderStock,
   directionHighlights,
   directionLabel,
   directionColor,
@@ -215,7 +217,11 @@ const App = () => {
   const [showDirections, setShowDirections] = useState(false)
   const [focus, setFocus] = useState(false)
   const [wireframe, setWireframe] = useState(false)
+  const [stockShape, setStockShape] = useState<'box' | 'cylinder'>(
+    params.get('stockShape') === 'cylinder' ? 'cylinder' : 'box',
+  )
   const [stockDimensions, setStockDimensions] = useState({ x: 25.908, y: 25.908, z: 25.908 })
+  const [stockCylinder, setStockCylinder] = useState({ diameter: 38.1, length: 25.908 })
   const [stockPosition, setStockPosition] = useState<StockPosition>('model_centered')
   const [stockPositionOffset, setStockPositionOffset] = useState(0)
   const stockSize = useMemo(
@@ -227,6 +233,10 @@ const App = () => {
         stockPositionOffset,
       ).getSize(new THREE.Vector3()),
     [part.geometry, stockDimensions, stockPosition, stockPositionOffset],
+  )
+  const cylinderFigure = useMemo(
+    () => fixedCylinderStock(part.geometry, stockCylinder, stockPosition, stockPositionOffset),
+    [part.geometry, stockCylinder, stockPosition, stockPositionOffset],
   )
   const highlights = useMemo(
     () => (showDirections ? directionHighlights(part.model, direction) : []),
@@ -346,57 +356,106 @@ const App = () => {
         <p>{part.hint}</p>
         <p>
           <strong>Stock:</strong>{' '}
-          {stockSize
-            .toArray()
-            .map((value) => value.toFixed(2))
-            .join(' × ')}{' '}
-          mm (X × Y × Z)
+          {stockShape === 'cylinder'
+            ? `⌀${cylinderFigure.diameter.toFixed(2)} × ${cylinderFigure.length.toFixed(2)} mm (diameter × length)`
+            : `${stockSize
+                .toArray()
+                .map((value) => value.toFixed(2))
+                .join(' × ')} mm (X × Y × Z)`}
         </p>
         <label className="stock-allowance">
-          Stock X dimension (mm)
-          <input
-            type="number"
-            min="0"
-            max="100"
-            step="0.5"
-            value={stockDimensions.x}
-            onChange={(event) => {
-              const value = event.target.valueAsNumber
-              if (Number.isFinite(value) && value > 0 && value <= 1000)
-                setStockDimensions((current) => ({ ...current, x: value }))
-            }}
-          />
+          Stock shape
+          <select
+            value={stockShape}
+            onChange={(event) => setStockShape(event.target.value as 'box' | 'cylinder')}
+          >
+            <option value="box">Box</option>
+            <option value="cylinder">Cylinder</option>
+          </select>
         </label>
-        <label className="stock-allowance">
-          Stock Y dimension (mm)
-          <input
-            type="number"
-            min="0"
-            max="100"
-            step="0.5"
-            value={stockDimensions.y}
-            onChange={(event) => {
-              const value = event.target.valueAsNumber
-              if (Number.isFinite(value) && value > 0 && value <= 1000)
-                setStockDimensions((current) => ({ ...current, y: value }))
-            }}
-          />
-        </label>
-        <label className="stock-allowance">
-          Stock Z dimension (mm)
-          <input
-            type="number"
-            min="0.01"
-            max="1000"
-            step="0.01"
-            value={stockDimensions.z}
-            onChange={(event) => {
-              const value = event.target.valueAsNumber
-              if (Number.isFinite(value) && value > 0 && value <= 1000)
-                setStockDimensions((current) => ({ ...current, z: value }))
-            }}
-          />
-        </label>
+        {stockShape === 'cylinder' ? (
+          <>
+            <label className="stock-allowance">
+              Stock diameter (mm)
+              <input
+                type="number"
+                min="0.01"
+                max="1000"
+                step="0.01"
+                value={stockCylinder.diameter}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockCylinder((current) => ({ ...current, diameter: value }))
+                }}
+              />
+            </label>
+            <label className="stock-allowance">
+              Stock length (mm)
+              <input
+                type="number"
+                min="0.01"
+                max="1000"
+                step="0.01"
+                value={stockCylinder.length}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockCylinder((current) => ({ ...current, length: value }))
+                }}
+              />
+            </label>
+          </>
+        ) : null}
+        {stockShape === 'box' ? (
+          <>
+            <label className="stock-allowance">
+              Stock X dimension (mm)
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={stockDimensions.x}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockDimensions((current) => ({ ...current, x: value }))
+                }}
+              />
+            </label>
+            <label className="stock-allowance">
+              Stock Y dimension (mm)
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={stockDimensions.y}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockDimensions((current) => ({ ...current, y: value }))
+                }}
+              />
+            </label>
+            <label className="stock-allowance">
+              Stock Z dimension (mm)
+              <input
+                type="number"
+                min="0.01"
+                max="1000"
+                step="0.01"
+                value={stockDimensions.z}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockDimensions((current) => ({ ...current, z: value }))
+                }}
+              />
+            </label>
+          </>
+        ) : null}
         <label className="stock-allowance">
           Stock position
           <select
@@ -426,7 +485,7 @@ const App = () => {
           </label>
         ) : null}
         <p className="small-note">
-          Fixed box stock dimensions and position. Values are millimetres.
+          Fixed stock shape, dimensions and position. Values are millimetres.
         </p>
         <button
           className="detail-button"
@@ -605,7 +664,8 @@ const App = () => {
               }}
               onPick={(pick: PartPick) => setSelected([...pick.ranked])}
             />
-            {showStock ? (
+            {showStock && stockShape === 'cylinder' ? <CylinderStock {...cylinderFigure} /> : null}
+            {showStock && stockShape === 'box' ? (
               <BoxStock
                 partGeometry={part.geometry}
                 dimensions={stockDimensions}

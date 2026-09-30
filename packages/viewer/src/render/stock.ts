@@ -1,12 +1,16 @@
 import {
   Box3,
+  BoxGeometry,
   type BufferGeometry,
+  CylinderGeometry,
   EdgesGeometry,
   Group,
   LineBasicMaterial,
   LineSegments,
+  Matrix4,
   Mesh,
   MeshLambertMaterial,
+  Quaternion,
   Vector3,
 } from 'three'
 import type { Vec3 } from '../model/types.js'
@@ -21,8 +25,42 @@ import { STOCK_OBJECT } from './camera.js'
  */
 export type StockAllowance = number | Vec3 | { wall: number; floor: number }
 
-/** How an explicit box is positioned relative to the part's Z bounds. */
+/** How explicit fixed stock is positioned relative to the part's Z bounds. */
 export type StockPosition = 'model_centered' | 'offset_from_top' | 'offset_from_bottom'
+
+/**
+ * Round stock in part coordinates, in millimetres: the centre of its base, the
+ * direction from the base toward its far end, and its size. The Engine's
+ * resolved `StockCylinder` carries the same four figures.
+ */
+export interface CylinderStockFigure {
+  origin: Vec3
+  axis: Vec3
+  diameter: number
+  length: number
+}
+
+/**
+ * A block squared to a frame of its own rather than to the part, in
+ * millimetres. `lower` and `upper` are corners in `frame`, whose point
+ * `(x, y, z)` sits at `location + x·refDirection + y·(axis × refDirection) + z·axis`
+ * in part coordinates. This is the shape of the Engine's plan `StockBox`, which
+ * is squared to the setup.
+ */
+export interface OrientedBoxStockFigure {
+  frame: { location: Vec3; axis: Vec3; refDirection: Vec3 }
+  lower: Vec3
+  upper: Vec3
+}
+
+/**
+ * Sides on a cylinder's rings. Adjacent sides meet at under 6°, well inside the
+ * outline's 15° crease, so the outline draws the two rims and no facet lines.
+ */
+const CYLINDER_SEGMENTS = 64
+
+/** three.js builds a cylinder about +Y, centred on the origin. */
+const CYLINDER_AXIS = new Vector3(0, 1, 0)
 
 /**
  * Bounds for an explicit fixed box. X/Y are centered on the part's bounding
@@ -50,17 +88,117 @@ export function fixedBoxStockBounds(
   }
   const part = partBounds(geometry)
   const center = part.getCenter(new Vector3())
-  const z =
-    position === 'offset_from_top'
-      ? part.max.z + positionOffset - dimensions.z / 2
-      : position === 'offset_from_bottom'
-        ? part.min.z - positionOffset + dimensions.z / 2
-        : center.z
-  const half = new Vector3(dimensions.x / 2, dimensions.y / 2, dimensions.z / 2)
+  const z = fixedStockLowerZ(part, dimensions.z, position, positionOffset)
   return new Box3(
-    new Vector3(center.x, center.y, z).sub(half),
-    new Vector3(center.x, center.y, z).add(half),
+    new Vector3(center.x - dimensions.x / 2, center.y - dimensions.y / 2, z),
+    new Vector3(center.x + dimensions.x / 2, center.y + dimensions.y / 2, z + dimensions.z),
   ).translate(new Vector3(offset.x, offset.y, offset.z))
+}
+
+/**
+ * A preview of fixed round stock: `diameter` across and `length` long, standing
+ * along the part's Z, centred on the part's bounding box across it, and placed
+ * along it by the same position rule as {@link fixedBoxStockBounds}.
+ *
+ * It is a preview, as the legacy app's was. The kernel stands fixed round stock
+ * along the first setup's cutting direction and centres it on the part's
+ * smallest enclosing circle, which the bounding-box centre only approximates.
+ * Once a job is planned, render the stock it resolved instead.
+ */
+export function fixedCylinderStock(
+  geometry: BufferGeometry,
+  size: { diameter: number; length: number },
+  position: StockPosition = 'model_centered',
+  positionOffset = 0,
+): CylinderStockFigure {
+  if (![size.diameter, size.length].every((value) => Number.isFinite(value) && value > 0)) {
+    throw new RangeError('Fixed stock diameter and length must be finite and positive.')
+  }
+  if (!Number.isFinite(positionOffset)) {
+    throw new RangeError('Fixed stock position offset must be finite.')
+  }
+  const part = partBounds(geometry)
+  const center = part.getCenter(new Vector3())
+  return {
+    origin: {
+      x: center.x,
+      y: center.y,
+      z: fixedStockLowerZ(part, size.length, position, positionOffset),
+    },
+    axis: { x: 0, y: 0, z: 1 },
+    diameter: size.diameter,
+    length: size.length,
+  }
+}
+
+/**
+ * Where fixed stock `length` long starts along Z. Centred splits the extra
+ * length evenly and ignores the offset; from the top puts the stock's top
+ * `positionOffset` above the part's; from the bottom puts its bottom
+ * `positionOffset` below the part's. The kernel places both fixed shapes by
+ * this one rule, so both previews share it too.
+ */
+function fixedStockLowerZ(
+  part: Box3,
+  length: number,
+  position: StockPosition,
+  positionOffset: number,
+): number {
+  if (position === 'offset_from_top') return part.max.z + positionOffset - length
+  if (position === 'offset_from_bottom') return part.min.z - positionOffset
+  return (part.min.z + part.max.z - length) / 2
+}
+
+/** A closed cylinder for `figure`, in part coordinates. */
+export function cylinderStockGeometry(figure: CylinderStockFigure): BufferGeometry {
+  const { origin, diameter, length } = figure
+  if (![origin.x, origin.y, origin.z].every(Number.isFinite)) {
+    throw new RangeError('Cylinder stock origin must be finite.')
+  }
+  if (![diameter, length].every((value) => Number.isFinite(value) && value > 0)) {
+    throw new RangeError('Cylinder stock diameter and length must be finite and positive.')
+  }
+  const axis = new Vector3(figure.axis.x, figure.axis.y, figure.axis.z)
+  const norm = axis.length()
+  if (!Number.isFinite(norm) || norm === 0) {
+    throw new RangeError('Cylinder stock axis must be finite and non-zero.')
+  }
+  axis.divideScalar(norm)
+  const center = axis
+    .clone()
+    .multiplyScalar(length / 2)
+    .add(new Vector3(origin.x, origin.y, origin.z))
+  return new CylinderGeometry(diameter / 2, diameter / 2, length, CYLINDER_SEGMENTS)
+    .applyQuaternion(new Quaternion().setFromUnitVectors(CYLINDER_AXIS, axis))
+    .translate(center.x, center.y, center.z)
+}
+
+/** A closed block for `figure`, in part coordinates. */
+export function orientedBoxStockGeometry(figure: OrientedBoxStockFigure): BufferGeometry {
+  const { frame, lower, upper } = figure
+  const { location, axis, refDirection } = frame
+  if (
+    ![location, axis, refDirection, lower, upper].every((vector) =>
+      [vector.x, vector.y, vector.z].every(Number.isFinite),
+    )
+  ) {
+    throw new RangeError('Box stock frame and corners must be finite.')
+  }
+  const size = new Vector3(upper.x - lower.x, upper.y - lower.y, upper.z - lower.z)
+  if (size.toArray().some((value) => !(value > 0))) {
+    throw new RangeError('Box stock upper corner must be above its lower corner on every axis.')
+  }
+  const x = new Vector3(refDirection.x, refDirection.y, refDirection.z)
+  const z = new Vector3(axis.x, axis.y, axis.z)
+  const y = new Vector3().crossVectors(z, x)
+  if (!(y.length() > 0)) {
+    throw new RangeError(
+      'Box stock frame axis and reference direction must be non-zero and not parallel.',
+    )
+  }
+  return new BoxGeometry(size.x, size.y, size.z)
+    .translate((lower.x + upper.x) / 2, (lower.y + upper.y) / 2, (lower.z + upper.z) / 2)
+    .applyMatrix4(new Matrix4().makeBasis(x, y, z).setPosition(location.x, location.y, location.z))
 }
 
 /** Per-side allowance and centre offset in millimetres, in the part's coordinates. */
@@ -111,24 +249,34 @@ export function createStock(geometry: BufferGeometry) {
   const material = new MeshLambertMaterial({ transparent: true, depthWrite: false })
   const edgeMaterial = new LineBasicMaterial({ transparent: true, depthWrite: false })
   const mesh = new Mesh(geometry, material)
-  const edgeGeometry = new EdgesGeometry(geometry, 15)
-  const edges = new LineSegments(edgeGeometry, edgeMaterial)
   const object = new Group()
   object.userData[STOCK_OBJECT] = true
   mesh.renderOrder = 5
-  edges.renderOrder = 6
   mesh.raycast = () => {}
-  edges.raycast = () => {}
-  object.add(mesh, edges)
+  object.add(mesh)
+  let edges: LineSegments<EdgesGeometry, LineBasicMaterial> | null = null
   return {
     object,
     material,
     edgeMaterial,
-    edges,
+    /**
+     * Shows or hides the outline, building it the first time it is shown: the
+     * edge pass reads every triangle, and stock cut by a toolpath has a great
+     * many of them.
+     */
+    showEdges(show: boolean) {
+      if (show && !edges) {
+        edges = new LineSegments(new EdgesGeometry(geometry, 15), edgeMaterial)
+        edges.renderOrder = 6
+        edges.raycast = () => {}
+        object.add(edges)
+      }
+      if (edges) edges.visible = show
+    },
     dispose() {
       material.dispose()
       edgeMaterial.dispose()
-      edgeGeometry.dispose()
+      edges?.geometry.dispose()
     },
   }
 }

@@ -5,7 +5,11 @@ import type { Vec3 } from './model/types.js'
 import {
   boxStockBounds,
   createStock,
+  cylinderStockGeometry,
+  type CylinderStockFigure,
   fixedBoxStockBounds,
+  orientedBoxStockGeometry,
+  type OrientedBoxStockFigure,
   type StockAllowance,
   type StockPosition,
 } from './render/stock.js'
@@ -37,7 +41,7 @@ export const Stock = ({
     stock.material.opacity = opacity
     stock.edgeMaterial.color.setHex(edgeColor)
     stock.edgeMaterial.opacity = edgeOpacity
-    stock.edges.visible = showEdges
+    stock.showEdges(showEdges)
     invalidate()
   }, [color, edgeColor, edgeOpacity, invalidate, opacity, showEdges, stock])
   return <primitive object={stock.object} dispose={null} />
@@ -86,6 +90,45 @@ export const BoxStock = ({
     const center = box.getCenter(new Vector3())
     return new BoxGeometry(size.x, size.y, size.z).translate(center.x, center.y, center.z)
   }, [allowance, dimensions, ox, oy, oz, partGeometry, position, positionOffset])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  return <Stock geometry={geometry} {...props} />
+}
+
+export interface CylinderStockProps extends Omit<StockProps, 'geometry'>, CylinderStockFigure {}
+
+/**
+ * Round stock along any axis, from its base centre, axis, diameter and length
+ * in part coordinates. Pass `fixedCylinderStock`'s figure for a preview,
+ * or a planned job's resolved cylinder for the stock it was cut from.
+ */
+export const CylinderStock = ({ origin, axis, diameter, length, ...props }: CylinderStockProps) => {
+  // Keyed on the figure's numbers rather than its identity: a figure read off
+  // an API response is a new object on every fetch, and the same stock should
+  // not rebuild its mesh.
+  const figure = JSON.stringify({ origin, axis, diameter, length })
+  const geometry = useMemo(
+    () => cylinderStockGeometry(JSON.parse(figure) as CylinderStockFigure),
+    [figure],
+  )
+  useEffect(() => () => geometry.dispose(), [geometry])
+  return <Stock geometry={geometry} {...props} />
+}
+
+export interface OrientedBoxStockProps
+  extends Omit<StockProps, 'geometry'>,
+    OrientedBoxStockFigure {}
+
+/**
+ * A block squared to its own frame rather than to the part, such as a planned
+ * job's stock box, which is squared to the setup. Use BoxStock for a block
+ * squared to the part.
+ */
+export const OrientedBoxStock = ({ frame, lower, upper, ...props }: OrientedBoxStockProps) => {
+  const figure = JSON.stringify({ frame, lower, upper })
+  const geometry = useMemo(
+    () => orientedBoxStockGeometry(JSON.parse(figure) as OrientedBoxStockFigure),
+    [figure],
+  )
   useEffect(() => () => geometry.dispose(), [geometry])
   return <Stock geometry={geometry} {...props} />
 }

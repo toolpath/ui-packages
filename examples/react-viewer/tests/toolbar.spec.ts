@@ -161,6 +161,24 @@ for (const projection of ['perspective', 'orthographic'] as const) {
     await expect.poll(async () => Buffer.compare(focused, await canvas.screenshot())).not.toBe(0)
   })
 
+  test(`cylinder stock mounts cleanly and fits with the part (${projection})`, async ({ page }) => {
+    const { canvas } = await openViewer(
+      page,
+      `projection=${projection}&stock=on&stockShape=cylinder`,
+    )
+    const stock = page.locator('p', { hasText: 'Stock:' })
+    await expect(stock).toContainText('⌀38.10 × 25.91')
+    const before = await readCamera(page)
+    const narrow = await canvas.screenshot()
+    await page.getByRole('spinbutton', { name: 'Stock diameter (mm)' }).fill('60')
+    await expect(stock).toContainText('⌀60.00 × 25.91')
+    await expect.poll(async () => Buffer.compare(narrow, await canvas.screenshot())).not.toBe(0)
+    await page.getByRole('button', { name: 'Fit', exact: true }).click()
+    await expect
+      .poll(async () => (await readCamera(page)).distance)
+      .toBeGreaterThan(before.distance)
+  })
+
   test(`stock present on mount does not move the section midpoint (${projection})`, async ({
     page,
   }) => {
