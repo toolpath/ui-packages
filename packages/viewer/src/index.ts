@@ -16,6 +16,8 @@ export type {
 export { Stock, BoxStock, CylinderStock, OrientedBoxStock } from './stock.js'
 export type {
   StockProps,
+  StockSource,
+  StockAppearanceProps,
   BoxStockProps,
   CylinderStockProps,
   OrientedBoxStockProps,

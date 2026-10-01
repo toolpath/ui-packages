@@ -7,6 +7,7 @@ import {
   Banana,
   BoxStock,
   CylinderStock,
+  Stock,
   fixedBoxStockBounds,
   fixedCylinderStock,
   directionHighlights,
@@ -38,6 +39,7 @@ import {
 } from '@toolpath/viewer'
 import { AnalysisOptions } from './analysis-options'
 import { MODELS, modelFromQuery } from './models'
+import stockMeshFixture from '../../../packages/viewer/fixtures/mesh/stock-box.json'
 import './style.css'
 
 /**
@@ -57,6 +59,14 @@ const params = new URLSearchParams(window.location.search)
 const projection: Projection =
   params.get('projection') === 'orthographic' ? 'orthographic' : 'perspective'
 const showOrbitTarget = params.get('orbitTarget') === 'on'
+const STOCK_GLB_BYTES = Uint8Array.from(atob(stockMeshFixture.base64), (char) =>
+  char.charCodeAt(0),
+).buffer
+const LARGE_STOCK_GLB_BYTES = Uint8Array.from(atob(stockMeshFixture.largeBase64), (char) =>
+  char.charCodeAt(0),
+).buffer
+type StockShape = 'box' | 'cylinder'
+type StockSource = 'geometry' | 'glb'
 const requestedControls = params.get('controls')
 const initialControls: ControlScheme = CONTROL_SCHEME_OPTIONS.some(
   (option) => option.value === requestedControls,
@@ -217,11 +227,15 @@ const App = () => {
   const [showDirections, setShowDirections] = useState(false)
   const [focus, setFocus] = useState(false)
   const [wireframe, setWireframe] = useState(false)
-  const [stockShape, setStockShape] = useState<'box' | 'cylinder'>(
+  const [stockShape, setStockShape] = useState<StockShape>(
     params.get('stockShape') === 'cylinder' ? 'cylinder' : 'box',
+  )
+  const [stockSource, setStockSource] = useState<StockSource>(
+    params.get('stockSource') === 'glb' ? 'glb' : 'geometry',
   )
   const [stockDimensions, setStockDimensions] = useState({ x: 25.908, y: 25.908, z: 25.908 })
   const [stockCylinder, setStockCylinder] = useState({ diameter: 38.1, length: 25.908 })
+  const [stockMeshSize, setStockMeshSize] = useState('40')
   const [stockPosition, setStockPosition] = useState<StockPosition>('model_centered')
   const [stockPositionOffset, setStockPositionOffset] = useState(0)
   const stockSize = useMemo(
@@ -356,24 +370,50 @@ const App = () => {
         <p>{part.hint}</p>
         <p>
           <strong>Stock:</strong>{' '}
-          {stockShape === 'cylinder'
-            ? `⌀${cylinderFigure.diameter.toFixed(2)} × ${cylinderFigure.length.toFixed(2)} mm (diameter × length)`
-            : `${stockSize
-                .toArray()
-                .map((value) => value.toFixed(2))
-                .join(' × ')} mm (X × Y × Z)`}
+          {stockSource === 'glb'
+            ? `${stockMeshSize}.00 × ${stockMeshSize}.00 × ${stockMeshSize}.00 mm (services-encoded GLB blank)`
+            : stockShape === 'cylinder'
+              ? `⌀${cylinderFigure.diameter.toFixed(2)} × ${cylinderFigure.length.toFixed(2)} mm (diameter × length)`
+              : `${stockSize
+                  .toArray()
+                  .map((value) => value.toFixed(2))
+                  .join(' × ')} mm (X × Y × Z)`}
         </p>
         <label className="stock-allowance">
-          Stock shape
+          Stock source
           <select
-            value={stockShape}
-            onChange={(event) => setStockShape(event.target.value as 'box' | 'cylinder')}
+            value={stockSource}
+            onChange={(event) => setStockSource(event.target.value as StockSource)}
           >
-            <option value="box">Box</option>
-            <option value="cylinder">Cylinder</option>
+            <option value="geometry">Shape preview</option>
+            <option value="glb">GLB fixture</option>
           </select>
         </label>
-        {stockShape === 'cylinder' ? (
+        {stockSource === 'geometry' ? (
+          <label className="stock-allowance">
+            Stock shape
+            <select
+              value={stockShape}
+              onChange={(event) => setStockShape(event.target.value as StockShape)}
+            >
+              <option value="box">Box</option>
+              <option value="cylinder">Cylinder</option>
+            </select>
+          </label>
+        ) : null}
+        {stockSource === 'glb' ? (
+          <label className="stock-allowance">
+            GLB blank
+            <select
+              value={stockMeshSize}
+              onChange={(event) => setStockMeshSize(event.target.value)}
+            >
+              <option value="40">40 mm box</option>
+              <option value="60">60 mm box</option>
+            </select>
+          </label>
+        ) : null}
+        {stockSource === 'geometry' && stockShape === 'cylinder' ? (
           <>
             <label className="stock-allowance">
               Stock diameter (mm)
@@ -407,7 +447,7 @@ const App = () => {
             </label>
           </>
         ) : null}
-        {stockShape === 'box' ? (
+        {stockSource === 'geometry' && stockShape === 'box' ? (
           <>
             <label className="stock-allowance">
               Stock X dimension (mm)
@@ -456,18 +496,20 @@ const App = () => {
             </label>
           </>
         ) : null}
-        <label className="stock-allowance">
-          Stock position
-          <select
-            value={stockPosition}
-            onChange={(event) => setStockPosition(event.target.value as StockPosition)}
-          >
-            <option value="model_centered">Model centered</option>
-            <option value="offset_from_top">Offset from top</option>
-            <option value="offset_from_bottom">Offset from bottom</option>
-          </select>
-        </label>
-        {stockPosition !== 'model_centered' ? (
+        {stockSource === 'geometry' ? (
+          <label className="stock-allowance">
+            Stock position
+            <select
+              value={stockPosition}
+              onChange={(event) => setStockPosition(event.target.value as StockPosition)}
+            >
+              <option value="model_centered">Model centered</option>
+              <option value="offset_from_top">Offset from top</option>
+              <option value="offset_from_bottom">Offset from bottom</option>
+            </select>
+          </label>
+        ) : null}
+        {stockSource === 'geometry' && stockPosition !== 'model_centered' ? (
           <label className="stock-allowance">
             Position offset (mm)
             <input
@@ -485,7 +527,9 @@ const App = () => {
           </label>
         ) : null}
         <p className="small-note">
-          Fixed stock shape, dimensions and position. Values are millimetres.
+          {stockSource === 'glb'
+            ? 'Synthetic initial stock encoded by the services GLB writer, in part coordinates.'
+            : 'Fixed stock shape, dimensions and position. Values are millimetres.'}
         </p>
         <button
           className="detail-button"
@@ -664,8 +708,13 @@ const App = () => {
               }}
               onPick={(pick: PartPick) => setSelected([...pick.ranked])}
             />
-            {showStock && stockShape === 'cylinder' ? <CylinderStock {...cylinderFigure} /> : null}
-            {showStock && stockShape === 'box' ? (
+            {showStock && stockSource === 'geometry' && stockShape === 'cylinder' ? (
+              <CylinderStock {...cylinderFigure} />
+            ) : null}
+            {showStock && stockSource === 'glb' ? (
+              <Stock glb={stockMeshSize === '40' ? STOCK_GLB_BYTES : LARGE_STOCK_GLB_BYTES} />
+            ) : null}
+            {showStock && stockSource === 'geometry' && stockShape === 'box' ? (
               <BoxStock
                 partGeometry={part.geometry}
                 dimensions={stockDimensions}

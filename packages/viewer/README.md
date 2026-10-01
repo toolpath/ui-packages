@@ -251,6 +251,35 @@ a figure read off a fresh API response does not rebuild the same stock. Figures 
 solid — a zero axis, a non-positive size, a frame whose axis and reference direction are parallel —
 throw `RangeError`.
 
+`Stock` accepts exactly one source: caller-owned `BufferGeometry`, or initial-stock/in-process-stock
+GLB bytes as an `ArrayBuffer`:
+
+```tsx
+<Stock geometry={geometry} showEdges={false} />
+// Or:
+<Stock glb={glbBytes} showEdges={false} />
+```
+
+`geometry` and `glb` are mutually exclusive in `StockProps`. With `geometry`, the caller owns its
+lifetime and disposal. With `glb`, `Stock` decodes the bytes internally and disposes decoded
+geometry when the bytes change or the component unmounts. Keep the same `ArrayBuffer` reference
+while displaying the same artifact to avoid decoding it again on ordinary renders.
+It renders nothing while decoding and throws decoding failures to the nearest error boundary.
+Changing the source immediately hides the previous stock; late results from an earlier decode
+are discarded and cleaned up.
+
+The component does not fetch, cache or store artifacts. The caller supplies the bytes.
+GLB node transforms are applied without centering, rescaling or changing axes:
+Engine stock artifacts are already in part coordinates, millimetres and Z-up. Indexed geometry
+stays indexed; missing normals are computed without requiring a part report. The parser cleans up
+its temporary scene after preparing the returned geometry.
+
+Engine stock files are plain GLB served with HTTP gzip, which the browser handles automatically;
+no meshopt decoder is needed. Authentication, durable artifact copies, action selection and
+missing-artifact fallback and artifact caching belong to the application. The example's
+**Stock source → GLB fixture** option exercises synthetic blanks encoded by the services stock
+writer. **Shape preview** exposes the separate box/cylinder shape controls.
+
 `Stock` accepts `color`, `opacity` (default `0.2`), `edgeColor`, `edgeOpacity`, and `showEdges`.
 The outline is built the first time it is shown, so a large stock mesh with `showEdges={false}`
 costs no edge pass. `BoxStock`, `CylinderStock` and `OrientedBoxStock` accept the same appearance

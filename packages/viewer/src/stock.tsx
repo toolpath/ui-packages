@@ -1,7 +1,8 @@
 import { useThree } from '@react-three/fiber'
-import { useEffect, useLayoutEffect, useMemo } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { type BufferGeometry, BoxGeometry, Vector3 } from 'three'
 import type { Vec3 } from './model/types.js'
+import { parseStockGlb } from './render/stock-mesh.js'
 import {
   boxStockBounds,
   createStock,
@@ -14,9 +15,7 @@ import {
   type StockPosition,
 } from './render/stock.js'
 
-export interface StockProps {
-  /** Caller-owned stock mesh in the same millimetre, Z-up coordinates as the part. */
-  geometry: BufferGeometry
+export interface StockAppearanceProps {
   color?: number
   opacity?: number
   edgeColor?: number
@@ -24,15 +23,38 @@ export interface StockProps {
   showEdges?: boolean
 }
 
+/** Exactly one source, in the same millimetre, Z-up coordinates as the part. */
+export type StockSource =
+  | {
+      /** Caller-owned geometry; Stock never disposes it. */
+      geometry: BufferGeometry
+      glb?: never
+    }
+  | {
+      /** Caller-provided GLB bytes; Stock owns and cleans up the decoded geometry. */
+      glb: ArrayBuffer
+      geometry?: never
+    }
+
+export type StockProps = StockAppearanceProps & StockSource
+
 /** Translucent stock, included in Fit but ignored by picking, sections and measurements. */
-export const Stock = ({
+export const Stock = ({ geometry, glb, ...appearance }: StockProps) =>
+  geometry ? (
+    <GeometryStock geometry={geometry} {...appearance} />
+  ) : (
+    <GlbStock glb={glb!} {...appearance} />
+  )
+
+/** One renderer for caller-owned geometry and internally decoded GLB meshes. */
+const GeometryStock = ({
   geometry,
   color = 0xb9cbe2,
   opacity = 0.2,
   edgeColor = 0xa8bdd8,
   edgeOpacity = 0.75,
   showEdges = true,
-}: StockProps) => {
+}: StockAppearanceProps & { geometry: BufferGeometry }) => {
   const invalidate = useThree((state) => state.invalidate)
   const stock = useMemo(() => createStock(geometry), [geometry])
   useEffect(() => () => stock.dispose(), [stock])
@@ -47,7 +69,49 @@ export const Stock = ({
   return <primitive object={stock.object} dispose={null} />
 }
 
-export interface BoxStockProps extends Omit<StockProps, 'geometry'> {
+const GlbStock = ({ glb, ...appearance }: StockAppearanceProps & { glb: ArrayBuffer }) => {
+  const [decoded, setDecoded] = useState<{
+    source: ArrayBuffer
+    geometries?: BufferGeometry[]
+    error?: Error
+  } | null>(null)
+
+  useEffect(() => {
+    let active = true
+    let owned: BufferGeometry[] = []
+    parseStockGlb(glb).then(
+      (geometries) => {
+        if (!active) {
+          geometries.forEach((geometry) => geometry.dispose())
+          return
+        }
+        owned = geometries
+        setDecoded({ source: glb, geometries })
+      },
+      (cause: unknown) => {
+        if (active) {
+          setDecoded({
+            source: glb,
+            error: cause instanceof Error ? cause : new Error(String(cause)),
+          })
+        }
+      },
+    )
+    return () => {
+      active = false
+      owned.forEach((geometry) => geometry.dispose())
+    }
+  }, [glb])
+
+  // A changed source must not display the preceding action while it decodes.
+  if (decoded?.source !== glb) return null
+  if (decoded.error) throw decoded.error
+  return decoded.geometries?.map((geometry) => (
+    <GeometryStock key={geometry.uuid} geometry={geometry} {...appearance} />
+  ))
+}
+
+export interface BoxStockProps extends StockAppearanceProps {
   partGeometry: BufferGeometry
   /** Explicit X/Y/Z dimensions, in millimetres, for fixed-box stock. */
   dimensions?: Vec3
@@ -94,7 +158,7 @@ export const BoxStock = ({
   return <Stock geometry={geometry} {...props} />
 }
 
-export interface CylinderStockProps extends Omit<StockProps, 'geometry'>, CylinderStockFigure {}
+export interface CylinderStockProps extends StockAppearanceProps, CylinderStockFigure {}
 
 /**
  * Round stock along any axis, from its base centre, axis, diameter and length
@@ -114,9 +178,7 @@ export const CylinderStock = ({ origin, axis, diameter, length, ...props }: Cyli
   return <Stock geometry={geometry} {...props} />
 }
 
-export interface OrientedBoxStockProps
-  extends Omit<StockProps, 'geometry'>,
-    OrientedBoxStockFigure {}
+export interface OrientedBoxStockProps extends StockAppearanceProps, OrientedBoxStockFigure {}
 
 /**
  * A block squared to its own frame rather than to the part, such as a planned
