@@ -1,5 +1,7 @@
 ---
-'@toolpath/viewer': minor
+'@toolpath/viewer': major
 ---
 
-Add `CylinderStock` for round stock along any axis, `fixedCylinderStock` for a fixed-cylinder preview placed by the same position rule as fixed-box stock, and `OrientedBoxStock` for a block squared to a frame of its own, such as a plan's setup-squared stock box. `Stock` now accepts either caller-owned `geometry` or initial/in-process stock GLB bytes through `glb`, without fetching or caching artifacts. Stock outlines are now built only when shown.
+Consolidate stock rendering into `Stock`, accepting exactly one of `geometry`, `glb`, `box`, or `cylinder`. Box and cylinder inputs accept either resolved placement or part-relative preview options, with placement calculated internally. Resolved box figures support optional setup frames; resolved cylinder figures support arbitrary axes. Fetching, caching and artifact storage remain caller-owned. Stock outlines are built only when shown.
+
+Remove `BoxStock` and `BoxStockProps`. Replace `<BoxStock partGeometry={geometry} allowance={allowance} />` with `<Stock box={{ partGeometry: geometry, allowance }} />`; for explicit dimensions use `<Stock box={{ partGeometry: geometry, dimensions, position, positionOffset, offset }} />`. Preview builders are internal, and inline options do not cause repeated part scans on ordinary renders. Existing `<Stock geometry={geometry} />` usage is unchanged.

@@ -5,11 +5,8 @@ import * as THREE from 'three'
 import {
   Axes,
   Banana,
-  BoxStock,
-  CylinderStock,
   Stock,
   fixedBoxStockBounds,
-  fixedCylinderStock,
   directionHighlights,
   directionLabel,
   directionColor,
@@ -248,10 +245,6 @@ const App = () => {
       ).getSize(new THREE.Vector3()),
     [part.geometry, stockDimensions, stockPosition, stockPositionOffset],
   )
-  const cylinderFigure = useMemo(
-    () => fixedCylinderStock(part.geometry, stockCylinder, stockPosition, stockPositionOffset),
-    [part.geometry, stockCylinder, stockPosition, stockPositionOffset],
-  )
   const highlights = useMemo(
     () => (showDirections ? directionHighlights(part.model, direction) : []),
     [direction, part.model, showDirections],
@@ -373,7 +366,7 @@ const App = () => {
           {stockSource === 'glb'
             ? `${stockMeshSize}.00 × ${stockMeshSize}.00 × ${stockMeshSize}.00 mm (services-encoded GLB blank)`
             : stockShape === 'cylinder'
-              ? `⌀${cylinderFigure.diameter.toFixed(2)} × ${cylinderFigure.length.toFixed(2)} mm (diameter × length)`
+              ? `⌀${stockCylinder.diameter.toFixed(2)} × ${stockCylinder.length.toFixed(2)} mm (diameter × length)`
               : `${stockSize
                   .toArray()
                   .map((value) => value.toFixed(2))
@@ -709,17 +702,26 @@ const App = () => {
               onPick={(pick: PartPick) => setSelected([...pick.ranked])}
             />
             {showStock && stockSource === 'geometry' && stockShape === 'cylinder' ? (
-              <CylinderStock {...cylinderFigure} />
+              <Stock
+                cylinder={{
+                  partGeometry: part.geometry,
+                  ...stockCylinder,
+                  position: stockPosition,
+                  positionOffset: stockPositionOffset,
+                }}
+              />
             ) : null}
             {showStock && stockSource === 'glb' ? (
               <Stock glb={stockMeshSize === '40' ? STOCK_GLB_BYTES : LARGE_STOCK_GLB_BYTES} />
             ) : null}
             {showStock && stockSource === 'geometry' && stockShape === 'box' ? (
-              <BoxStock
-                partGeometry={part.geometry}
-                dimensions={stockDimensions}
-                position={stockPosition}
-                positionOffset={stockPositionOffset}
+              <Stock
+                box={{
+                  partGeometry: part.geometry,
+                  dimensions: stockDimensions,
+                  position: stockPosition,
+                  positionOffset: stockPositionOffset,
+                }}
               />
             ) : null}
             <DirectionArrows

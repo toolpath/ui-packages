@@ -1,18 +1,13 @@
 import { useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { type BufferGeometry, BoxGeometry, Vector3 } from 'three'
-import type { Vec3 } from './model/types.js'
+import type { BufferGeometry } from 'three'
 import { parseStockGlb } from './render/stock-mesh.js'
 import {
-  boxStockBounds,
+  type BoxStockInput,
+  boxStockGeometry,
   createStock,
   cylinderStockGeometry,
-  type CylinderStockFigure,
-  fixedBoxStockBounds,
-  orientedBoxStockGeometry,
-  type OrientedBoxStockFigure,
-  type StockAllowance,
-  type StockPosition,
+  type CylinderStockInput,
 } from './render/stock.js'
 
 export interface StockAppearanceProps {
@@ -23,27 +18,33 @@ export interface StockAppearanceProps {
   showEdges?: boolean
 }
 
+interface StockSources {
+  /** Caller-owned geometry; Stock never disposes it. */
+  geometry: BufferGeometry
+  /** Caller-provided GLB bytes; Stock owns and cleans up the decoded geometry. */
+  glb: ArrayBuffer
+  /** Resolved box corners/frame, or part-relative box preview options. */
+  box: BoxStockInput
+  /** Resolved cylinder placement, or part-relative cylinder preview options. */
+  cylinder: CylinderStockInput
+}
+
 /** Exactly one source, in the same millimetre, Z-up coordinates as the part. */
-export type StockSource =
-  | {
-      /** Caller-owned geometry; Stock never disposes it. */
-      geometry: BufferGeometry
-      glb?: never
-    }
-  | {
-      /** Caller-provided GLB bytes; Stock owns and cleans up the decoded geometry. */
-      glb: ArrayBuffer
-      geometry?: never
-    }
+export type StockSource = {
+  [K in keyof StockSources]: Pick<StockSources, K> &
+    Partial<Record<Exclude<keyof StockSources, K>, never>>
+}[keyof StockSources]
 
 export type StockProps = StockAppearanceProps & StockSource
 
 /** Translucent stock, included in Fit but ignored by picking, sections and measurements. */
-export const Stock = ({ geometry, glb, ...appearance }: StockProps) =>
+export const Stock = ({ geometry, glb, box, cylinder, ...appearance }: StockProps) =>
   geometry ? (
     <GeometryStock geometry={geometry} {...appearance} />
+  ) : glb ? (
+    <GlbStock glb={glb} {...appearance} />
   ) : (
-    <GlbStock glb={glb!} {...appearance} />
+    <ShapeStock box={box} cylinder={cylinder} {...appearance} />
   )
 
 /** One renderer for caller-owned geometry and internally decoded GLB meshes. */
@@ -111,86 +112,49 @@ const GlbStock = ({ glb, ...appearance }: StockAppearanceProps & { glb: ArrayBuf
   ))
 }
 
-export interface BoxStockProps extends StockAppearanceProps {
-  partGeometry: BufferGeometry
-  /** Explicit X/Y/Z dimensions, in millimetres, for fixed-box stock. */
-  dimensions?: Vec3
-  /** Position mode for explicit fixed-box stock. Defaults to model-centered. */
-  position?: StockPosition
-  /** Distance from the selected top/bottom part bound, in millimetres. */
-  positionOffset?: number
-  /**
-   * Stock left around the part, in millimetres. In the `{ wall, floor }` form,
-   * wall applies to X/Y and floor applies to Z. Number and `{ x, y, z }` forms
-   * are retained for compatibility. Defaults to zero.
-   */
-  allowance?: StockAllowance
-  /** Translation from the part's bounding-box centre, in millimetres. */
-  offset?: Vec3
-}
-
-/** An axis-aligned blank around the part. Use Stock for an arbitrary stock mesh. */
-export const BoxStock = ({
-  partGeometry,
-  dimensions,
-  position = 'model_centered',
-  positionOffset = 0,
-  allowance = 0,
-  offset,
-  ...props
-}: BoxStockProps) => {
-  const ox = offset?.x ?? 0
-  const oy = offset?.y ?? 0
-  const oz = offset?.z ?? 0
+/** Figure geometry is owned here; equivalent figures do not rebuild it. */
+const ShapeStock = ({
+  box,
+  cylinder,
+  ...appearance
+}: StockAppearanceProps & {
+  box?: BoxStockInput
+  cylinder?: CylinderStockInput
+}) => {
+  const isBox = box !== undefined
+  const partGeometry = box?.partGeometry ?? cylinder?.partGeometry
+  const figure = JSON.stringify(
+    box
+      ? box.partGeometry
+        ? {
+            dimensions: box.dimensions,
+            allowance: box.allowance,
+            offset: box.offset,
+            position: box.position,
+            positionOffset: box.positionOffset,
+          }
+        : { frame: box.frame, lower: box.lower, upper: box.upper }
+      : cylinder!.partGeometry
+        ? {
+            diameter: cylinder!.diameter,
+            length: cylinder!.length,
+            position: cylinder!.position,
+            positionOffset: cylinder!.positionOffset,
+          }
+        : {
+            origin: cylinder!.origin,
+            axis: cylinder!.axis,
+            diameter: cylinder!.diameter,
+            length: cylinder!.length,
+          },
+  )
   const geometry = useMemo(() => {
-    const box = dimensions
-      ? fixedBoxStockBounds(partGeometry, dimensions, position, positionOffset, {
-          x: ox,
-          y: oy,
-          z: oz,
-        })
-      : boxStockBounds(partGeometry, allowance, { x: ox, y: oy, z: oz })
-    const size = box.getSize(new Vector3())
-    const center = box.getCenter(new Vector3())
-    return new BoxGeometry(size.x, size.y, size.z).translate(center.x, center.y, center.z)
-  }, [allowance, dimensions, ox, oy, oz, partGeometry, position, positionOffset])
+    const options = JSON.parse(figure)
+    const input = partGeometry ? { ...options, partGeometry } : options
+    return isBox
+      ? boxStockGeometry(input as BoxStockInput)
+      : cylinderStockGeometry(input as CylinderStockInput)
+  }, [figure, isBox, partGeometry])
   useEffect(() => () => geometry.dispose(), [geometry])
-  return <Stock geometry={geometry} {...props} />
-}
-
-export interface CylinderStockProps extends StockAppearanceProps, CylinderStockFigure {}
-
-/**
- * Round stock along any axis, from its base centre, axis, diameter and length
- * in part coordinates. Pass `fixedCylinderStock`'s figure for a preview,
- * or a planned job's resolved cylinder for the stock it was cut from.
- */
-export const CylinderStock = ({ origin, axis, diameter, length, ...props }: CylinderStockProps) => {
-  // Keyed on the figure's numbers rather than its identity: a figure read off
-  // an API response is a new object on every fetch, and the same stock should
-  // not rebuild its mesh.
-  const figure = JSON.stringify({ origin, axis, diameter, length })
-  const geometry = useMemo(
-    () => cylinderStockGeometry(JSON.parse(figure) as CylinderStockFigure),
-    [figure],
-  )
-  useEffect(() => () => geometry.dispose(), [geometry])
-  return <Stock geometry={geometry} {...props} />
-}
-
-export interface OrientedBoxStockProps extends StockAppearanceProps, OrientedBoxStockFigure {}
-
-/**
- * A block squared to its own frame rather than to the part, such as a planned
- * job's stock box, which is squared to the setup. Use BoxStock for a block
- * squared to the part.
- */
-export const OrientedBoxStock = ({ frame, lower, upper, ...props }: OrientedBoxStockProps) => {
-  const figure = JSON.stringify({ frame, lower, upper })
-  const geometry = useMemo(
-    () => orientedBoxStockGeometry(JSON.parse(figure) as OrientedBoxStockFigure),
-    [figure],
-  )
-  useEffect(() => () => geometry.dispose(), [geometry])
-  return <Stock geometry={geometry} {...props} />
+  return <GeometryStock geometry={geometry} {...appearance} />
 }

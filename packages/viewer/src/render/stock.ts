@@ -47,10 +47,46 @@ export interface CylinderStockFigure {
  * in part coordinates. This is the shape of the Engine's plan `StockBox`, which
  * is squared to the setup.
  */
-export interface OrientedBoxStockFigure {
-  frame: { location: Vec3; axis: Vec3; refDirection: Vec3 }
+export interface BoxStockFigure {
+  /** Omit for a box whose corners are already in part coordinates. */
+  frame?: { location: Vec3; axis: Vec3; refDirection: Vec3 }
   lower: Vec3
   upper: Vec3
+}
+
+/** Box preview around the part: explicit dimensions or per-side allowance. */
+export type BoxStockPreview = {
+  partGeometry: BufferGeometry
+  offset?: Vec3
+} & (
+  | { dimensions: Vec3; position?: StockPosition; positionOffset?: number; allowance?: never }
+  | { allowance?: StockAllowance; dimensions?: never; position?: never; positionOffset?: never }
+)
+
+/** Resolved corners or part-relative preview options, never both. */
+export type BoxStockInput =
+  | (BoxStockFigure & { partGeometry?: never })
+  | (BoxStockPreview & { lower?: never; upper?: never; frame?: never })
+
+/** Upright cylinder preview centered on the part's bounding box. */
+export interface CylinderStockPreview {
+  partGeometry: BufferGeometry
+  diameter: number
+  length: number
+  position?: StockPosition
+  positionOffset?: number
+}
+
+/** Resolved cylinder placement or part-relative preview options, never both. */
+export type CylinderStockInput =
+  | (CylinderStockFigure & { partGeometry?: never; position?: never; positionOffset?: never })
+  | (CylinderStockPreview & { origin?: never; axis?: never })
+
+function boxFigure(bounds: Box3): BoxStockFigure {
+  return {
+    lower: { x: bounds.min.x, y: bounds.min.y, z: bounds.min.z },
+    upper: { x: bounds.max.x, y: bounds.max.y, z: bounds.max.z },
+  }
 }
 
 /**
@@ -105,7 +141,7 @@ export function fixedBoxStockBounds(
  * smallest enclosing circle, which the bounding-box centre only approximates.
  * Once a job is planned, render the stock it resolved instead.
  */
-export function fixedCylinderStock(
+function fixedCylinderStock(
   geometry: BufferGeometry,
   size: { diameter: number; length: number },
   position: StockPosition = 'model_centered',
@@ -150,7 +186,10 @@ function fixedStockLowerZ(
 }
 
 /** A closed cylinder for `figure`, in part coordinates. */
-export function cylinderStockGeometry(figure: CylinderStockFigure): BufferGeometry {
+export function cylinderStockGeometry(input: CylinderStockInput): BufferGeometry {
+  const figure: CylinderStockFigure = input.partGeometry
+    ? fixedCylinderStock(input.partGeometry, input, input.position, input.positionOffset)
+    : input
   const { origin, diameter, length } = figure
   if (![origin.x, origin.y, origin.z].every(Number.isFinite)) {
     throw new RangeError('Cylinder stock origin must be finite.')
@@ -173,9 +212,32 @@ export function cylinderStockGeometry(figure: CylinderStockFigure): BufferGeomet
     .translate(center.x, center.y, center.z)
 }
 
+/** Resolve preview options when supplied, then build a box in part coordinates. */
+export function boxStockGeometry(input: BoxStockInput): BufferGeometry {
+  const figure: BoxStockFigure = input.partGeometry
+    ? boxFigure(
+        input.dimensions
+          ? fixedBoxStockBounds(
+              input.partGeometry,
+              input.dimensions,
+              input.position,
+              input.positionOffset,
+              input.offset,
+            )
+          : boxStockBounds(input.partGeometry, input.allowance, input.offset),
+      )
+    : input
+  return orientedBoxStockGeometry(figure)
+}
+
 /** A closed block for `figure`, in part coordinates. */
-export function orientedBoxStockGeometry(figure: OrientedBoxStockFigure): BufferGeometry {
-  const { frame, lower, upper } = figure
+export function orientedBoxStockGeometry(figure: BoxStockFigure): BufferGeometry {
+  const { lower, upper } = figure
+  const frame = figure.frame ?? {
+    location: { x: 0, y: 0, z: 0 },
+    axis: { x: 0, y: 0, z: 1 },
+    refDirection: { x: 1, y: 0, z: 0 },
+  }
   const { location, axis, refDirection } = frame
   if (
     ![location, axis, refDirection, lower, upper].every((vector) =>

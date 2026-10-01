@@ -16,10 +16,10 @@ import { contentBounds, partBounds } from '../src/render/camera.js'
 import { hitUnderRay } from '../src/render/section.js'
 import {
   boxStockBounds,
+  boxStockGeometry,
   createStock,
   cylinderStockGeometry,
   fixedBoxStockBounds,
-  fixedCylinderStock,
   orientedBoxStockGeometry,
   type StockPosition,
 } from '../src/render/stock.js'
@@ -50,6 +50,28 @@ function cylinderSpan(geometry: BufferGeometry, origin: Vec3, axis: Vec3) {
 }
 
 describe('stock dimensions', () => {
+  it('renders allowance and fixed-dimension preview options in part coordinates', () => {
+    const part = new BoxGeometry(20, 30, 10).translate(40, -10, 5)
+    const padded = bounds(
+      boxStockGeometry({
+        partGeometry: part,
+        allowance: { wall: 2, floor: 3 },
+        offset: { x: 1, y: 2, z: 3 },
+      }),
+    )
+    expect(padded.min.toArray()).toEqual([29, -25, 0])
+    expect(padded.max.toArray()).toEqual([53, 9, 16])
+    const fixed = bounds(
+      boxStockGeometry({
+        partGeometry: part,
+        dimensions: { x: 40, y: 50, z: 20 },
+        position: 'offset_from_top',
+        positionOffset: 2,
+      }),
+    )
+    expect(fixed.min.toArray()).toEqual([20, -35, -8])
+    expect(fixed.max.toArray()).toEqual([60, 15, 12])
+  })
   it('adds allowance on both sides and offsets from an off-origin part centre', () => {
     const geometry = new BoxGeometry(20, 30, 10).translate(40, -10, 5)
     const positions = geometry.getAttribute('position').array.slice()
@@ -116,12 +138,9 @@ describe('fixed cylinder stock', () => {
   const part = () => new BoxGeometry(20, 30, 10).translate(40, -10, 5)
 
   it('stands on the part Z and centres on its bounding box', () => {
-    expect(fixedCylinderStock(part(), { diameter: 50, length: 20 })).toEqual({
-      origin: { x: 40, y: -10, z: -5 },
-      axis: { x: 0, y: 0, z: 1 },
-      diameter: 50,
-      length: 20,
-    })
+    const box = bounds(cylinderStockGeometry({ partGeometry: part(), diameter: 50, length: 20 }))
+    expect(box.min.toArray()).toEqual([15, -35, -5])
+    expect(box.max.toArray()).toEqual([65, 15, 15])
   })
 
   it('places its ends by the same rule as a fixed box', () => {
@@ -132,25 +151,43 @@ describe('fixed cylinder stock', () => {
       ['offset_from_top', -1, -11],
     ]
     for (const [position, offset, bottom] of cases) {
-      const cylinder = fixedCylinderStock(part(), { diameter: 50, length: 20 }, position, offset)
+      const cylinder = bounds(
+        cylinderStockGeometry({
+          partGeometry: part(),
+          diameter: 50,
+          length: 20,
+          position,
+          positionOffset: offset,
+        }),
+      )
       const box = fixedBoxStockBounds(part(), { x: 50, y: 50, z: 20 }, position, offset)
-      expect(cylinder.origin.z).toBe(bottom)
-      expect(cylinder.origin.z).toBe(box.min.z)
-      expect(cylinder.origin.z + cylinder.length).toBe(box.max.z)
+      expect(cylinder.min.z).toBe(bottom)
+      expect(cylinder.min.z).toBe(box.min.z)
+      expect(cylinder.max.z).toBe(box.max.z)
     }
   })
 
   it('rejects sizes and offsets that would build NaN geometry', () => {
     for (const value of [0, -1, NaN, Infinity]) {
-      expect(() => fixedCylinderStock(part(), { diameter: value, length: 20 })).toThrow(RangeError)
-      expect(() => fixedCylinderStock(part(), { diameter: 20, length: value })).toThrow(RangeError)
+      expect(() =>
+        cylinderStockGeometry({ partGeometry: part(), diameter: value, length: 20 }),
+      ).toThrow(RangeError)
+      expect(() =>
+        cylinderStockGeometry({ partGeometry: part(), diameter: 20, length: value }),
+      ).toThrow(RangeError)
     }
     expect(() =>
-      fixedCylinderStock(part(), { diameter: 20, length: 20 }, 'offset_from_top', NaN),
+      cylinderStockGeometry({
+        partGeometry: part(),
+        diameter: 20,
+        length: 20,
+        position: 'offset_from_top',
+        positionOffset: NaN,
+      }),
     ).toThrow(RangeError)
-    expect(() => fixedCylinderStock(new BufferGeometry(), { diameter: 20, length: 20 })).toThrow(
-      RangeError,
-    )
+    expect(() =>
+      cylinderStockGeometry({ partGeometry: new BufferGeometry(), diameter: 20, length: 20 }),
+    ).toThrow(RangeError)
   })
 })
 
@@ -224,6 +261,16 @@ describe('cylinder stock geometry', () => {
 })
 
 describe('oriented box stock geometry', () => {
+  it('uses part-coordinate corners when no frame is supplied', () => {
+    const box = bounds(
+      orientedBoxStockGeometry({
+        lower: { x: -5, y: 10, z: 20 },
+        upper: { x: 15, y: 40, z: 60 },
+      }),
+    )
+    expect(box.min.toArray()).toEqual([-5, 10, 20])
+    expect(box.max.toArray()).toEqual([15, 40, 60])
+  })
   const frame = {
     location: { x: 5, y: 5, z: 5 },
     axis: { x: 0, y: 0, z: 1 },

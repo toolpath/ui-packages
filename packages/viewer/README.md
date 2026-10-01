@@ -76,8 +76,7 @@ What each wrapper is for:
  ├─ <EnginePart>          validates the report, loads the mesh, then renders <PartMesh>
  │   └─ <PartMesh>        draws the part and handles hover, click, colours, section cuts
  ├─ <DirectionArrows>     arrows for the directions the part can be machined from
- ├─ <Stock> <BoxStock> <CylinderStock> <OrientedBoxStock>
- │                        translucent stock, included when fitting the camera
+ ├─ <Stock>               translucent geometry, GLB, box or cylinder stock, included in Fit
  ├─ <SectionTool>         optional: click a face or a plane to cut the part open
  ├─ <MeasureTool>         optional: click two points for a distance, three for an angle
  ├─ <Grid> <Axes>         reference geometry, sized to the part
@@ -147,11 +146,8 @@ context rather than a fact of the part surface.
 
 ### Stock and display controls
 
-Use `<BoxStock>` for an axis-aligned blank around a part, `<CylinderStock>` for round stock,
-`<OrientedBoxStock>` for a block squared to a frame of its own, or
-`<Stock geometry={stockGeometry} />` for an actual stock mesh, such as irregular or in-process
-stock. Stock and part coordinates
-must use the same millimetre, Z-up frame. Both components include stock in Fit and Reset while
+Use `<Stock>` for a box, cylinder, prepared geometry or GLB bytes. Stock and part coordinates
+must use the same millimetre, Z-up frame. Stock is included in Fit and Reset while
 keeping section tools, measurements, the grid, and direction arrows sized to the finished part.
 Stock does not intercept clicks or get clipped by the part's section plane.
 
@@ -159,7 +155,7 @@ Stock does not intercept clicks or get clipped by the part's section plane.
 import { useMemo, useRef, useState } from 'react'
 import {
   Axes,
-  BoxStock,
+  Stock,
   DirectionArrows,
   PartMesh,
   Viewer,
@@ -190,7 +186,7 @@ export function StockPreview({ model, geometry }: { model: PartModel; geometry: 
           regionHighlights={colors}
           activeDirection={directions ? direction : null}
         />
-        {stock && <BoxStock partGeometry={geometry} allowance={{ wall: 3, floor: 3 }} />}
+        {stock && <Stock box={{ partGeometry: geometry, allowance: { wall: 3, floor: 3 } }} />}
         {axes && <Axes />}
         <DirectionArrows
           directions={model.candidateDirections}
@@ -217,51 +213,60 @@ export function StockPreview({ model, geometry }: { model: PartModel; geometry: 
 }
 ```
 
-`BoxStock.allowance` is padding **per side**, in millimetres. The preferred form is
+For a box preview, pass `box={{ partGeometry, allowance, offset }}`. Allowance is padding
+**per side**, in millimetres. The preferred form is
 `{ wall, floor }`: wall stock expands X/Y and floor stock expands Z, matching the wall/floor
 roughing-stock distinction used by machining settings. A number or `{ x, y, z }` remains accepted
 for uniform or axis-specific padding. It defaults to zero. `offset` translates the stock from the
 part's bounding-box centre. `boxStockBounds(geometry, allowance, offset)` returns the same `Box3`
 for displaying dimensions.
 
-For fixed-box stock, pass `dimensions={{ x, y, z }}` instead. `position` accepts
+For fixed-box previews, pass `box={{ partGeometry, dimensions, position, positionOffset, offset }}`
+instead, where `dimensions` is `{ x, y, z }`. Dimensions and allowance are alternative sizing
+modes, not simultaneous options. `position` accepts
 `model_centered`, `offset_from_top`, or `offset_from_bottom`, and `positionOffset` is the distance
 from the selected top or bottom bound. All fixed-box values use millimetres and the part's Z-up
 coordinate frame.
 Negative/non-finite allowances, non-finite coordinates, and empty or non-positive stock dimensions
 throw `RangeError`. The 3 mm allowance above is an example, not an automatic stock recommendation.
 
-`<CylinderStock origin={…} axis={…} diameter={…} length={…} />` draws round stock along any axis:
+`<Stock cylinder={{ origin, axis, diameter, length }} />` draws round stock along any axis:
 `origin` is the centre of its base and `axis` points from the base toward its far end, in part
-coordinates. `fixedCylinderStock(geometry, { diameter, length }, position, positionOffset)` returns
-that figure for a fixed-cylinder preview, standing along the part's Z, centred on the part's
-bounding box, and placed along Z by the same `position` rule as fixed-box stock — so
-`<CylinderStock {...fixedCylinderStock(geometry, size)} />` previews it. Memoise the figure: it reads
-every vertex of the part. It is a preview; the kernel centres fixed round stock on the part's
+coordinates. For a preview, pass
+`cylinder={{ partGeometry, diameter, length, position, positionOffset }}` instead. It stands along
+the part's Z, is centred on the part's bounding box, and is placed along Z by the same `position`
+rule as fixed-box stock. The kernel centres fixed round stock on the part's
 smallest enclosing circle about the first setup's cutting direction, so render the resolved stock
 once a job is planned.
 
-`<OrientedBoxStock frame={…} lower={…} upper={…} />` draws a block whose corners are given in a frame
+`<Stock box={{ frame, lower, upper }} />` draws a block whose corners are given in a frame
 of `location`, `axis` and `refDirection`: a point `(x, y, z)` sits at
 `location + x·refDirection + y·(axis × refDirection) + z·axis`. That is the shape of an Engine plan's
-`stock` box, which is squared to the setup rather than to the part.
+`stock.resolved` box, which is squared to the setup rather than to the part. Omit `frame` when
+`lower` and `upper` are already in part coordinates. Resolved placement and `partGeometry`
+preview options are mutually exclusive for both shapes.
 
-`CylinderStock` and `OrientedBoxStock` rebuild their mesh only when the figure's numbers change, so
-a figure read off a fresh API response does not rebuild the same stock. Figures that cannot make a
+Box and cylinder sources rebuild their mesh only when their figures/options change (or the
+preview's `partGeometry` reference changes). Inline option objects do not trigger repeated part
+scans on ordinary renders. Figures that cannot make a
 solid — a zero axis, a non-positive size, a frame whose axis and reference direction are parallel —
 throw `RangeError`.
 
-`Stock` accepts exactly one source: caller-owned `BufferGeometry`, or initial-stock/in-process-stock
-GLB bytes as an `ArrayBuffer`:
+`Stock` accepts exactly one of `geometry`, `glb`, `box` or `cylinder`:
 
 ```tsx
 <Stock geometry={geometry} showEdges={false} />
 // Or:
 <Stock glb={glbBytes} showEdges={false} />
+<Stock box={resolvedBox} />
+<Stock cylinder={resolvedCylinder} />
+<Stock box={{ partGeometry, dimensions, position, positionOffset }} />
+<Stock cylinder={{ partGeometry, diameter, length, position, positionOffset }} />
 ```
 
-`geometry` and `glb` are mutually exclusive in `StockProps`. With `geometry`, the caller owns its
-lifetime and disposal. With `glb`, `Stock` decodes the bytes internally and disposes decoded
+All four inputs are mutually exclusive in `StockProps`. With `geometry`, the caller owns its
+lifetime and disposal. With `box` or `cylinder`, `Stock` owns the generated geometry. With `glb`,
+`Stock` decodes the bytes internally and disposes decoded
 geometry when the bytes change or the component unmounts. Keep the same `ArrayBuffer` reference
 while displaying the same artifact to avoid decoding it again on ordinary renders.
 It renders nothing while decoding and throws decoding failures to the nearest error boundary.
@@ -282,10 +287,14 @@ writer. **Shape preview** exposes the separate box/cylinder shape controls.
 
 `Stock` accepts `color`, `opacity` (default `0.2`), `edgeColor`, `edgeOpacity`, and `showEdges`.
 The outline is built the first time it is shown, so a large stock mesh with `showEdges={false}`
-costs no edge pass. `BoxStock`, `CylinderStock` and `OrientedBoxStock` accept the same appearance
-props. Caller-provided geometry is never disposed; the
+costs no edge pass. All source types accept the same appearance props. Caller-provided geometry is never disposed; the
 components dispose their own materials and outlines. Conditionally mount stock to toggle it.
 Toggling stock preserves the camera; Fit/Reset then frames the visible stock together with the part.
+
+**Migration from 1.x:** `BoxStock` and `BoxStockProps` have been removed. Use
+`<Stock box={{ partGeometry, allowance, offset }} />` for allowance-based previews, or
+`<Stock box={{ partGeometry, dimensions, position, positionOffset, offset }} />` for fixed
+dimensions. No preview-builder helper is required. `Stock geometry={geometry}` remains supported.
 
 `directionHighlights(model, activeDirection?)` returns region colors in the same palette as
 `DirectionArrows`. For a face with several owners, the most specific feature wins, followed by
