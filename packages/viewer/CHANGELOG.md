@@ -1,5 +1,20 @@
 # @toolpath/viewer
 
+## 2.0.0
+
+### Major Changes
+
+- 6d4a91f: Consolidate stock rendering into `Stock`, accepting exactly one of `geometry`, `glb`, `box`, or `cylinder`. Box and cylinder inputs accept either resolved placement or part-relative preview options, with placement calculated internally. Resolved box figures support optional setup frames; resolved cylinder figures support arbitrary axes. Fetching, caching and artifact storage remain caller-owned. Stock outlines are built only when shown.
+
+  Remove `BoxStock` and `BoxStockProps`. Replace `<BoxStock partGeometry={geometry} allowance={allowance} />` with `<Stock box={{ partGeometry: geometry, allowance }} />`; for explicit dimensions use `<Stock box={{ partGeometry: geometry, dimensions, position, positionOffset, offset }} />`. Preview builders are internal, and inline options do not cause repeated part scans on ordinary renders. Existing `<Stock geometry={geometry} />` usage is unchanged.
+
+  `StockProps` is now a union type alias rather than an interface, so `interface X extends StockProps` no longer compiles; write `type X = StockProps & { … }` instead. Use `StockAppearanceProps` for the shared appearance props alone.
+
+### Minor Changes
+
+- a2fc359: Add optional `Stock` `retainPrevious` behavior to keep the current GLB visible until its replacement finishes decoding. Dispose replaced geometry after the swap, and discard cancelled decode results.
+- a2fc359: Add a `legacy-workpiece` render style to `Stock`, reproducing legacy white/emissive shading, 20% opacity, two surface passes and edges drawn before surfaces. Add optional `emissive` and `flatShading` appearance props. Existing overlay defaults and source geometry remain unchanged.
+
 ## 1.5.0
 
 ### Minor Changes
