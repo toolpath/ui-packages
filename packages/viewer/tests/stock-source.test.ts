@@ -30,6 +30,14 @@ it('accepts exactly one geometry, GLB, box or cylinder source, with shared appea
   }).toExtend<StockProps>()
   // @ts-expect-error Resolved box placement and preview options cannot be mixed.
   expectTypeOf({ box: { ...box, partGeometry: new BufferGeometry() } }).toExtend<StockProps>()
+  // @ts-expect-error A resolved box is already placed; an offset would be ignored.
+  expectTypeOf({ box: { ...box, offset: { x: 5, y: 0, z: 0 } } }).toExtend<StockProps>()
+  // @ts-expect-error A resolved box is already sized; an allowance would be ignored.
+  expectTypeOf({ box: { ...box, allowance: 3 } }).toExtend<StockProps>()
+  // @ts-expect-error A resolved box is already sized; dimensions would be ignored.
+  expectTypeOf({ box: { ...box, dimensions: { x: 1, y: 1, z: 1 } } }).toExtend<StockProps>()
+  // @ts-expect-error A resolved box is already placed; a position would be ignored.
+  expectTypeOf({ box: { ...box, position: 'offset_from_top' as const } }).toExtend<StockProps>()
   const mixedCylinder = { cylinder: { ...cylinder, partGeometry: new BufferGeometry() } }
   const mixedBoxSizing = {
     box: { partGeometry: new BufferGeometry(), dimensions: { x: 10, y: 20, z: 30 }, allowance: 2 },

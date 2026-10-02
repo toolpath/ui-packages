@@ -302,6 +302,19 @@ describe('oriented box stock geometry', () => {
     expect(box.max.toArray()).toEqual([35, 15, 25])
   })
 
+  it('reads the frame as directions, so a non-unit or skewed frame neither scales nor shears', () => {
+    const box = bounds(
+      orientedBoxStockGeometry({
+        // A long axis, and a long reference direction tilted toward it.
+        frame: { ...frame, axis: { x: 0, y: 0, z: 3 }, refDirection: { x: 2, y: 0, z: 0.5 } },
+        lower: { x: -1, y: -2, z: -3 },
+        upper: { x: 10, y: 20, z: 30 },
+      }),
+    )
+    expect(box.min.toArray()).toEqual([4, 3, 2])
+    expect(box.max.toArray()).toEqual([15, 25, 35])
+  })
+
   it('rejects degenerate frames and inverted corners', () => {
     const lower = { x: 0, y: 0, z: 0 }
     const upper = { x: 1, y: 1, z: 1 }
@@ -314,6 +327,13 @@ describe('oriented box stock geometry', () => {
     ).toThrow(RangeError)
     expect(() =>
       orientedBoxStockGeometry({ frame: { ...frame, axis: { x: 0, y: 0, z: 0 } }, lower, upper }),
+    ).toThrow(RangeError)
+    expect(() =>
+      orientedBoxStockGeometry({
+        frame: { ...frame, refDirection: { x: 0, y: 0, z: 0 } },
+        lower,
+        upper,
+      }),
     ).toThrow(RangeError)
     expect(() =>
       orientedBoxStockGeometry({ frame, lower: upper, upper: { x: 2, y: 1, z: 2 } }),

@@ -44,8 +44,9 @@ export interface CylinderStockFigure {
  * A block squared to a frame of its own rather than to the part, in
  * millimetres. `lower` and `upper` are corners in `frame`, whose point
  * `(x, y, z)` sits at `location + x·refDirection + y·(axis × refDirection) + z·axis`
- * in part coordinates. This is the shape of the Engine's plan `StockBox`, which
- * is squared to the setup.
+ * in part coordinates, with `axis` normalised and `refDirection` projected
+ * square to it and normalised. This is the shape of the Engine's plan
+ * `StockBox`, which is squared to the setup.
  */
 export interface BoxStockFigure {
   /** Omit for a box whose corners are already in part coordinates. */
@@ -65,7 +66,14 @@ export type BoxStockPreview = {
 
 /** Resolved corners or part-relative preview options, never both. */
 export type BoxStockInput =
-  | (BoxStockFigure & { partGeometry?: never })
+  | (BoxStockFigure & {
+      partGeometry?: never
+      offset?: never
+      allowance?: never
+      dimensions?: never
+      position?: never
+      positionOffset?: never
+    })
   | (BoxStockPreview & { lower?: never; upper?: never; frame?: never })
 
 /** Upright cylinder preview centered on the part's bounding box. */
@@ -250,14 +258,21 @@ export function orientedBoxStockGeometry(figure: BoxStockFigure): BufferGeometry
   if (size.toArray().some((value) => !(value > 0))) {
     throw new RangeError('Box stock upper corner must be above its lower corner on every axis.')
   }
+  // Directions, not lengths: as in a STEP placement, the axis is normalised and
+  // the reference direction is projected square to it, so a non-unit or
+  // slightly skewed frame neither scales nor shears the block.
+  const z = new Vector3(axis.x, axis.y, axis.z).normalize()
   const x = new Vector3(refDirection.x, refDirection.y, refDirection.z)
-  const z = new Vector3(axis.x, axis.y, axis.z)
-  const y = new Vector3().crossVectors(z, x)
-  if (!(y.length() > 0)) {
+  const reference = x.length()
+  x.addScaledVector(z, -x.dot(z))
+  // Projection leaves float noise, not zero, when the two are parallel.
+  if (!(z.lengthSq() > 0 && x.length() > 1e-9 * reference)) {
     throw new RangeError(
       'Box stock frame axis and reference direction must be non-zero and not parallel.',
     )
   }
+  x.normalize()
+  const y = new Vector3().crossVectors(z, x)
   return new BoxGeometry(size.x, size.y, size.z)
     .translate((lower.x + upper.x) / 2, (lower.y + upper.y) / 2, (lower.z + upper.z) / 2)
     .applyMatrix4(new Matrix4().makeBasis(x, y, z).setPosition(location.x, location.y, location.z))
