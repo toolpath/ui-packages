@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import {
   Axes,
   Banana,
-  BoxStock,
+  Stock,
   fixedBoxStockBounds,
   directionHighlights,
   directionLabel,
@@ -36,6 +36,7 @@ import {
 } from '@toolpath/viewer'
 import { AnalysisOptions } from './analysis-options'
 import { MODELS, modelFromQuery } from './models'
+import stockMeshFixture from '../../../packages/viewer/fixtures/mesh/stock-box.json'
 import './style.css'
 
 /**
@@ -55,6 +56,14 @@ const params = new URLSearchParams(window.location.search)
 const projection: Projection =
   params.get('projection') === 'orthographic' ? 'orthographic' : 'perspective'
 const showOrbitTarget = params.get('orbitTarget') === 'on'
+const STOCK_GLB_BYTES = Uint8Array.from(atob(stockMeshFixture.base64), (char) =>
+  char.charCodeAt(0),
+).buffer
+const LARGE_STOCK_GLB_BYTES = Uint8Array.from(atob(stockMeshFixture.largeBase64), (char) =>
+  char.charCodeAt(0),
+).buffer
+type StockShape = 'box' | 'cylinder'
+type StockSource = 'geometry' | 'glb'
 const requestedControls = params.get('controls')
 const initialControls: ControlScheme = CONTROL_SCHEME_OPTIONS.some(
   (option) => option.value === requestedControls,
@@ -215,7 +224,15 @@ const App = () => {
   const [showDirections, setShowDirections] = useState(false)
   const [focus, setFocus] = useState(false)
   const [wireframe, setWireframe] = useState(false)
+  const [stockShape, setStockShape] = useState<StockShape>(
+    params.get('stockShape') === 'cylinder' ? 'cylinder' : 'box',
+  )
+  const [stockSource, setStockSource] = useState<StockSource>(
+    params.get('stockSource') === 'glb' ? 'glb' : 'geometry',
+  )
   const [stockDimensions, setStockDimensions] = useState({ x: 25.908, y: 25.908, z: 25.908 })
+  const [stockCylinder, setStockCylinder] = useState({ diameter: 38.1, length: 25.908 })
+  const [stockMeshSize, setStockMeshSize] = useState('40')
   const [stockPosition, setStockPosition] = useState<StockPosition>('model_centered')
   const [stockPositionOffset, setStockPositionOffset] = useState(0)
   const stockSize = useMemo(
@@ -346,69 +363,146 @@ const App = () => {
         <p>{part.hint}</p>
         <p>
           <strong>Stock:</strong>{' '}
-          {stockSize
-            .toArray()
-            .map((value) => value.toFixed(2))
-            .join(' × ')}{' '}
-          mm (X × Y × Z)
+          {stockSource === 'glb'
+            ? `${stockMeshSize}.00 × ${stockMeshSize}.00 × ${stockMeshSize}.00 mm (services-encoded GLB blank)`
+            : stockShape === 'cylinder'
+              ? `⌀${stockCylinder.diameter.toFixed(2)} × ${stockCylinder.length.toFixed(2)} mm (diameter × length)`
+              : `${stockSize
+                  .toArray()
+                  .map((value) => value.toFixed(2))
+                  .join(' × ')} mm (X × Y × Z)`}
         </p>
         <label className="stock-allowance">
-          Stock X dimension (mm)
-          <input
-            type="number"
-            min="0"
-            max="100"
-            step="0.5"
-            value={stockDimensions.x}
-            onChange={(event) => {
-              const value = event.target.valueAsNumber
-              if (Number.isFinite(value) && value > 0 && value <= 1000)
-                setStockDimensions((current) => ({ ...current, x: value }))
-            }}
-          />
-        </label>
-        <label className="stock-allowance">
-          Stock Y dimension (mm)
-          <input
-            type="number"
-            min="0"
-            max="100"
-            step="0.5"
-            value={stockDimensions.y}
-            onChange={(event) => {
-              const value = event.target.valueAsNumber
-              if (Number.isFinite(value) && value > 0 && value <= 1000)
-                setStockDimensions((current) => ({ ...current, y: value }))
-            }}
-          />
-        </label>
-        <label className="stock-allowance">
-          Stock Z dimension (mm)
-          <input
-            type="number"
-            min="0.01"
-            max="1000"
-            step="0.01"
-            value={stockDimensions.z}
-            onChange={(event) => {
-              const value = event.target.valueAsNumber
-              if (Number.isFinite(value) && value > 0 && value <= 1000)
-                setStockDimensions((current) => ({ ...current, z: value }))
-            }}
-          />
-        </label>
-        <label className="stock-allowance">
-          Stock position
+          Stock source
           <select
-            value={stockPosition}
-            onChange={(event) => setStockPosition(event.target.value as StockPosition)}
+            value={stockSource}
+            onChange={(event) => setStockSource(event.target.value as StockSource)}
           >
-            <option value="model_centered">Model centered</option>
-            <option value="offset_from_top">Offset from top</option>
-            <option value="offset_from_bottom">Offset from bottom</option>
+            <option value="geometry">Shape preview</option>
+            <option value="glb">GLB fixture</option>
           </select>
         </label>
-        {stockPosition !== 'model_centered' ? (
+        {stockSource === 'geometry' ? (
+          <label className="stock-allowance">
+            Stock shape
+            <select
+              value={stockShape}
+              onChange={(event) => setStockShape(event.target.value as StockShape)}
+            >
+              <option value="box">Box</option>
+              <option value="cylinder">Cylinder</option>
+            </select>
+          </label>
+        ) : null}
+        {stockSource === 'glb' ? (
+          <label className="stock-allowance">
+            GLB blank
+            <select
+              value={stockMeshSize}
+              onChange={(event) => setStockMeshSize(event.target.value)}
+            >
+              <option value="40">40 mm box</option>
+              <option value="60">60 mm box</option>
+            </select>
+          </label>
+        ) : null}
+        {stockSource === 'geometry' && stockShape === 'cylinder' ? (
+          <>
+            <label className="stock-allowance">
+              Stock diameter (mm)
+              <input
+                type="number"
+                min="0.01"
+                max="1000"
+                step="0.01"
+                value={stockCylinder.diameter}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockCylinder((current) => ({ ...current, diameter: value }))
+                }}
+              />
+            </label>
+            <label className="stock-allowance">
+              Stock length (mm)
+              <input
+                type="number"
+                min="0.01"
+                max="1000"
+                step="0.01"
+                value={stockCylinder.length}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockCylinder((current) => ({ ...current, length: value }))
+                }}
+              />
+            </label>
+          </>
+        ) : null}
+        {stockSource === 'geometry' && stockShape === 'box' ? (
+          <>
+            <label className="stock-allowance">
+              Stock X dimension (mm)
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={stockDimensions.x}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockDimensions((current) => ({ ...current, x: value }))
+                }}
+              />
+            </label>
+            <label className="stock-allowance">
+              Stock Y dimension (mm)
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={stockDimensions.y}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockDimensions((current) => ({ ...current, y: value }))
+                }}
+              />
+            </label>
+            <label className="stock-allowance">
+              Stock Z dimension (mm)
+              <input
+                type="number"
+                min="0.01"
+                max="1000"
+                step="0.01"
+                value={stockDimensions.z}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockDimensions((current) => ({ ...current, z: value }))
+                }}
+              />
+            </label>
+          </>
+        ) : null}
+        {stockSource === 'geometry' ? (
+          <label className="stock-allowance">
+            Stock position
+            <select
+              value={stockPosition}
+              onChange={(event) => setStockPosition(event.target.value as StockPosition)}
+            >
+              <option value="model_centered">Model centered</option>
+              <option value="offset_from_top">Offset from top</option>
+              <option value="offset_from_bottom">Offset from bottom</option>
+            </select>
+          </label>
+        ) : null}
+        {stockSource === 'geometry' && stockPosition !== 'model_centered' ? (
           <label className="stock-allowance">
             Position offset (mm)
             <input
@@ -426,7 +520,9 @@ const App = () => {
           </label>
         ) : null}
         <p className="small-note">
-          Fixed box stock dimensions and position. Values are millimetres.
+          {stockSource === 'glb'
+            ? 'Synthetic initial stock encoded by the services GLB writer, in part coordinates.'
+            : 'Fixed stock shape, dimensions and position. Values are millimetres.'}
         </p>
         <button
           className="detail-button"
@@ -605,12 +701,27 @@ const App = () => {
               }}
               onPick={(pick: PartPick) => setSelected([...pick.ranked])}
             />
-            {showStock ? (
-              <BoxStock
-                partGeometry={part.geometry}
-                dimensions={stockDimensions}
-                position={stockPosition}
-                positionOffset={stockPositionOffset}
+            {showStock && stockSource === 'geometry' && stockShape === 'cylinder' ? (
+              <Stock
+                cylinder={{
+                  partGeometry: part.geometry,
+                  ...stockCylinder,
+                  position: stockPosition,
+                  positionOffset: stockPositionOffset,
+                }}
+              />
+            ) : null}
+            {showStock && stockSource === 'glb' ? (
+              <Stock glb={stockMeshSize === '40' ? STOCK_GLB_BYTES : LARGE_STOCK_GLB_BYTES} />
+            ) : null}
+            {showStock && stockSource === 'geometry' && stockShape === 'box' ? (
+              <Stock
+                box={{
+                  partGeometry: part.geometry,
+                  dimensions: stockDimensions,
+                  position: stockPosition,
+                  positionOffset: stockPositionOffset,
+                }}
               />
             ) : null}
             <DirectionArrows

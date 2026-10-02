@@ -13,11 +13,20 @@ export type {
   ViewerToolbarControlsProps,
   ViewerToolbarProps,
 } from './viewer-toolbar.js'
-export { Stock, BoxStock } from './stock.js'
-export type { StockProps, BoxStockProps } from './stock.js'
+export { Stock } from './stock.js'
+export type { StockProps, StockSource, StockAppearanceProps } from './stock.js'
 export { Banana, BANANA_MODEL_URL } from './banana.js'
 export { boxStockBounds, fixedBoxStockBounds } from './render/stock.js'
-export type { StockAllowance, StockPosition } from './render/stock.js'
+export type {
+  CylinderStockFigure,
+  BoxStockFigure,
+  BoxStockInput,
+  BoxStockPreview,
+  CylinderStockInput,
+  CylinderStockPreview,
+  StockAllowance,
+  StockPosition,
+} from './render/stock.js'
 export { directionHighlights } from './render/direction-highlights.js'
 export type { PartDisplay } from './render/part.js'
 export { Axes, Grid, ViewCube } from './primitives.js'

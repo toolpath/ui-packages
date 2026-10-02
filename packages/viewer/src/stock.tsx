@@ -1,91 +1,205 @@
 import { useThree } from '@react-three/fiber'
-import { useEffect, useLayoutEffect, useMemo } from 'react'
-import { type BufferGeometry, BoxGeometry, Vector3 } from 'three'
-import type { Vec3 } from './model/types.js'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import type { BufferGeometry } from 'three'
+import { parseStockGlb } from './render/stock-mesh.js'
+import { createStockMeshBuffer } from './render/stock-mesh-buffer.js'
 import {
-  boxStockBounds,
+  type BoxStockInput,
+  boxStockGeometry,
   createStock,
-  fixedBoxStockBounds,
-  type StockAllowance,
-  type StockPosition,
+  cylinderStockGeometry,
+  type CylinderStockInput,
 } from './render/stock.js'
 
-export interface StockProps {
-  /** Caller-owned stock mesh in the same millimetre, Z-up coordinates as the part. */
-  geometry: BufferGeometry
+export interface StockAppearanceProps {
+  /** Keep the preceding decoded GLB visible until its replacement is ready. Key by part/run to reset. */
+  retainPrevious?: boolean
+  /** Reproduce the legacy Workpiece's materials, duplicate surface pass and edge ordering. */
+  renderStyle?: 'overlay' | 'legacy-workpiece'
   color?: number
+  /** Unlit surface contribution, useful for readable workpiece shading beside the CAD model. */
+  emissive?: number
+  /** Shade each triangle independently without changing the source's vertices or normals. */
+  flatShading?: boolean
   opacity?: number
   edgeColor?: number
   edgeOpacity?: number
   showEdges?: boolean
 }
 
+interface StockSources {
+  /** Caller-owned geometry; Stock never disposes it. */
+  geometry: BufferGeometry
+  /** Caller-provided GLB bytes; Stock owns and cleans up the decoded geometry. */
+  glb: ArrayBuffer
+  /** Resolved box corners/frame, or part-relative box preview options. */
+  box: BoxStockInput
+  /** Resolved cylinder placement, or part-relative cylinder preview options. */
+  cylinder: CylinderStockInput
+}
+
+/** Exactly one source, in the same millimetre, Z-up coordinates as the part. */
+export type StockSource = {
+  [K in keyof StockSources]: Pick<StockSources, K> &
+    Partial<Record<Exclude<keyof StockSources, K>, never>>
+}[keyof StockSources]
+
+export type StockProps = StockAppearanceProps & StockSource
+
 /** Translucent stock, included in Fit but ignored by picking, sections and measurements. */
-export const Stock = ({
+export const Stock = ({ geometry, glb, box, cylinder, ...appearance }: StockProps) =>
+  geometry ? (
+    <GeometryStock geometry={geometry} {...appearance} />
+  ) : glb ? (
+    <GlbStock glb={glb} {...appearance} />
+  ) : (
+    <ShapeStock box={box} cylinder={cylinder} {...appearance} />
+  )
+
+/** One renderer for caller-owned geometry and internally decoded GLB meshes. */
+const GeometryStock = ({
   geometry,
-  color = 0xb9cbe2,
+  renderStyle = 'overlay',
+  color = renderStyle === 'legacy-workpiece' ? 0xffffff : 0xb9cbe2,
+  emissive = renderStyle === 'legacy-workpiece' ? 0x3c4051 : 0x000000,
+  flatShading = renderStyle === 'legacy-workpiece',
   opacity = 0.2,
-  edgeColor = 0xa8bdd8,
-  edgeOpacity = 0.75,
+  edgeColor = renderStyle === 'legacy-workpiece' ? 0x000000 : 0xa8bdd8,
+  edgeOpacity = renderStyle === 'legacy-workpiece' ? 0.5 : 0.75,
   showEdges = true,
-}: StockProps) => {
+}: StockAppearanceProps & { geometry: BufferGeometry }) => {
   const invalidate = useThree((state) => state.invalidate)
-  const stock = useMemo(() => createStock(geometry), [geometry])
+  const stock = useMemo(
+    () => createStock(geometry, renderStyle === 'legacy-workpiece'),
+    [geometry, renderStyle],
+  )
   useEffect(() => () => stock.dispose(), [stock])
   useLayoutEffect(() => {
     stock.material.color.setHex(color)
+    stock.material.emissive.setHex(emissive)
+    if (stock.material.flatShading !== flatShading) {
+      stock.material.flatShading = flatShading
+      stock.material.needsUpdate = true
+    }
     stock.material.opacity = opacity
+    stock.material.depthWrite = renderStyle === 'legacy-workpiece' && opacity === 1
+    stock.material.polygonOffset = renderStyle === 'legacy-workpiece' && opacity === 1
+    stock.material.polygonOffsetFactor = 1
+    stock.material.polygonOffsetUnits = 1
     stock.edgeMaterial.color.setHex(edgeColor)
     stock.edgeMaterial.opacity = edgeOpacity
-    stock.edges.visible = showEdges
+    stock.showEdges(showEdges)
     invalidate()
-  }, [color, edgeColor, edgeOpacity, invalidate, opacity, showEdges, stock])
+  }, [
+    color,
+    emissive,
+    flatShading,
+    edgeColor,
+    edgeOpacity,
+    invalidate,
+    opacity,
+    renderStyle,
+    showEdges,
+    stock,
+  ])
   return <primitive object={stock.object} dispose={null} />
 }
 
-export interface BoxStockProps extends Omit<StockProps, 'geometry'> {
-  partGeometry: BufferGeometry
-  /** Explicit X/Y/Z dimensions, in millimetres, for fixed-box stock. */
-  dimensions?: Vec3
-  /** Position mode for explicit fixed-box stock. Defaults to model-centered. */
-  position?: StockPosition
-  /** Distance from the selected top/bottom part bound, in millimetres. */
-  positionOffset?: number
-  /**
-   * Stock left around the part, in millimetres. In the `{ wall, floor }` form,
-   * wall applies to X/Y and floor applies to Z. Number and `{ x, y, z }` forms
-   * are retained for compatibility. Defaults to zero.
-   */
-  allowance?: StockAllowance
-  /** Translation from the part's bounding-box centre, in millimetres. */
-  offset?: Vec3
+const GlbStock = ({
+  glb,
+  retainPrevious = false,
+  ...appearance
+}: StockAppearanceProps & { glb: ArrayBuffer }) => {
+  const buffer = useMemo(() => createStockMeshBuffer(), [])
+  const [decoded, setDecoded] = useState<{
+    source: ArrayBuffer
+    geometries?: BufferGeometry[]
+    error?: Error
+  } | null>(null)
+
+  useEffect(() => () => buffer.dispose(), [buffer])
+  useLayoutEffect(() => {
+    buffer.commit(decoded?.geometries ?? [])
+  }, [buffer, decoded])
+  useEffect(
+    () =>
+      buffer.request(
+        () => parseStockGlb(glb),
+        (geometries) => {
+          setDecoded({ source: glb, geometries })
+        },
+        (cause: unknown) => {
+          setDecoded({
+            source: glb,
+            error: cause instanceof Error ? cause : new Error(String(cause)),
+          })
+        },
+      ),
+    [buffer, glb],
+  )
+
+  // Retention is opt-in: playback can hold its current IPG through the next decode.
+  if (!decoded || (!retainPrevious && decoded.source !== glb)) return null
+  if (decoded.error) throw decoded.error
+  return decoded.geometries?.map((geometry) => (
+    <GeometryStock key={geometry.uuid} geometry={geometry} {...appearance} />
+  ))
 }
 
-/** An axis-aligned blank around the part. Use Stock for an arbitrary stock mesh. */
-export const BoxStock = ({
-  partGeometry,
-  dimensions,
-  position = 'model_centered',
-  positionOffset = 0,
-  allowance = 0,
-  offset,
-  ...props
-}: BoxStockProps) => {
-  const ox = offset?.x ?? 0
-  const oy = offset?.y ?? 0
-  const oz = offset?.z ?? 0
+/**
+ * JSON alone writes NaN and Infinity as null, which the builders would read as
+ * an absent value instead of rejecting with RangeError. No figure field is a
+ * string that could be mistaken for one of these.
+ */
+const keepNonFinite = (_key: string, value: unknown) =>
+  typeof value === 'number' && !Number.isFinite(value) ? String(value) : value
+const restoreNonFinite = (_key: string, value: unknown) =>
+  value === 'NaN' || value === 'Infinity' || value === '-Infinity' ? Number(value) : value
+
+/** Figure geometry is owned here; equivalent figures do not rebuild it. */
+const ShapeStock = ({
+  box,
+  cylinder,
+  ...appearance
+}: StockAppearanceProps & {
+  box?: BoxStockInput
+  cylinder?: CylinderStockInput
+}) => {
+  const isBox = box !== undefined
+  const partGeometry = box?.partGeometry ?? cylinder?.partGeometry
+  const figure = JSON.stringify(
+    box
+      ? box.partGeometry
+        ? {
+            dimensions: box.dimensions,
+            allowance: box.allowance,
+            offset: box.offset,
+            position: box.position,
+            positionOffset: box.positionOffset,
+          }
+        : { frame: box.frame, lower: box.lower, upper: box.upper }
+      : cylinder!.partGeometry
+        ? {
+            diameter: cylinder!.diameter,
+            length: cylinder!.length,
+            position: cylinder!.position,
+            positionOffset: cylinder!.positionOffset,
+          }
+        : {
+            origin: cylinder!.origin,
+            axis: cylinder!.axis,
+            diameter: cylinder!.diameter,
+            length: cylinder!.length,
+          },
+    keepNonFinite,
+  )
   const geometry = useMemo(() => {
-    const box = dimensions
-      ? fixedBoxStockBounds(partGeometry, dimensions, position, positionOffset, {
-          x: ox,
-          y: oy,
-          z: oz,
-        })
-      : boxStockBounds(partGeometry, allowance, { x: ox, y: oy, z: oz })
-    const size = box.getSize(new Vector3())
-    const center = box.getCenter(new Vector3())
-    return new BoxGeometry(size.x, size.y, size.z).translate(center.x, center.y, center.z)
-  }, [allowance, dimensions, ox, oy, oz, partGeometry, position, positionOffset])
+    const options = JSON.parse(figure, restoreNonFinite)
+    const input = partGeometry ? { ...options, partGeometry } : options
+    return isBox
+      ? boxStockGeometry(input as BoxStockInput)
+      : cylinderStockGeometry(input as CylinderStockInput)
+  }, [figure, isBox, partGeometry])
   useEffect(() => () => geometry.dispose(), [geometry])
-  return <Stock geometry={geometry} {...props} />
+  return <GeometryStock geometry={geometry} {...appearance} />
 }
