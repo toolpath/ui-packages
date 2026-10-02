@@ -359,6 +359,32 @@ describe('stock scene integration', () => {
     stock.dispose()
   })
 
+  it('matches legacy surface passes and edge ordering without copying the source geometry', () => {
+    const geometry = new BoxGeometry(10, 20, 30)
+    const stock = createStock(geometry, true)
+    stock.showEdges(true)
+    const surfaces = stock.object.children.filter((child) => child instanceof Mesh)
+    expect(surfaces).toHaveLength(2)
+    for (const surface of surfaces) {
+      expect((surface as Mesh).geometry).toBe(geometry)
+      expect((surface as Mesh).material).toBe(stock.material)
+      expect(surface.renderOrder).toBe(2)
+    }
+    const edges = stock.object.children.find((child) => child instanceof LineSegments)!
+    expect(edges.renderOrder).toBe(1)
+    expect(stock.edgeMaterial.depthWrite).toBe(true)
+    expect(stock.material.depthTest).toBe(true)
+    const root = new Group()
+    const part = new Mesh(new BoxGeometry(1, 1, 1))
+    root.add(stock.object, part)
+    const ray = new Raycaster(new Vector3(0, 0, 100), new Vector3(0, 0, -1))
+    expect(ray.intersectObject(root, true)[0]?.object).toBe(part)
+    const dispose = vi.spyOn(geometry, 'dispose')
+    stock.dispose()
+    expect(dispose).not.toHaveBeenCalled()
+    geometry.dispose()
+  })
+
   it('disposes owned GPU resources while leaving caller geometry reusable', () => {
     const geometry = new BoxGeometry(10, 10, 10)
     const stock = createStock(geometry)

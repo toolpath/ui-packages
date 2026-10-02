@@ -307,15 +307,23 @@ function partBounds(geometry: BufferGeometry): Box3 {
 }
 
 /** Owns the stock materials and outline, never the caller's geometry. */
-export function createStock(geometry: BufferGeometry) {
+export function createStock(geometry: BufferGeometry, legacyWorkpiece = false) {
   const material = new MeshLambertMaterial({ transparent: true, depthWrite: false })
   const edgeMaterial = new LineBasicMaterial({ transparent: true, depthWrite: false })
   const mesh = new Mesh(geometry, material)
   const object = new Group()
   object.userData[STOCK_OBJECT] = true
-  mesh.renderOrder = 5
+  mesh.renderOrder = legacyWorkpiece ? 2 : 5
   mesh.raycast = () => {}
   object.add(mesh)
+  if (legacyWorkpiece) {
+    // Legacy Workpiece draws stock and stockShadow with the same material.
+    // Share geometry/material rather than allocating a second copy of the GLB.
+    const shadow = mesh.clone()
+    shadow.raycast = () => {}
+    object.add(shadow)
+    edgeMaterial.depthWrite = true
+  }
   let edges: LineSegments<EdgesGeometry, LineBasicMaterial> | null = null
   return {
     object,
@@ -329,7 +337,7 @@ export function createStock(geometry: BufferGeometry) {
     showEdges(show: boolean) {
       if (show && !edges) {
         edges = new LineSegments(new EdgesGeometry(geometry, 15), edgeMaterial)
-        edges.renderOrder = 6
+        edges.renderOrder = legacyWorkpiece ? 1 : 6
         edges.raycast = () => {}
         object.add(edges)
       }

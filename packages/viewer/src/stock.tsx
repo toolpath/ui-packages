@@ -2,6 +2,7 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import type { BufferGeometry } from 'three'
 import { parseStockGlb } from './render/stock-mesh.js'
+import { createStockMeshBuffer } from './render/stock-mesh-buffer.js'
 import {
   type BoxStockInput,
   boxStockGeometry,
@@ -11,7 +12,15 @@ import {
 } from './render/stock.js'
 
 export interface StockAppearanceProps {
+  /** Keep the preceding decoded GLB visible until its replacement is ready. Key by part/run to reset. */
+  retainPrevious?: boolean
+  /** Reproduce the legacy Workpiece's materials, duplicate surface pass and edge ordering. */
+  renderStyle?: 'overlay' | 'legacy-workpiece'
   color?: number
+  /** Unlit surface contribution, useful for readable workpiece shading beside the CAD model. */
+  emissive?: number
+  /** Shade each triangle independently without changing the source's vertices or normals. */
+  flatShading?: boolean
   opacity?: number
   edgeColor?: number
   edgeOpacity?: number
@@ -50,62 +59,87 @@ export const Stock = ({ geometry, glb, box, cylinder, ...appearance }: StockProp
 /** One renderer for caller-owned geometry and internally decoded GLB meshes. */
 const GeometryStock = ({
   geometry,
-  color = 0xb9cbe2,
+  renderStyle = 'overlay',
+  color = renderStyle === 'legacy-workpiece' ? 0xffffff : 0xb9cbe2,
+  emissive = renderStyle === 'legacy-workpiece' ? 0x3c4051 : 0x000000,
+  flatShading = renderStyle === 'legacy-workpiece',
   opacity = 0.2,
-  edgeColor = 0xa8bdd8,
-  edgeOpacity = 0.75,
+  edgeColor = renderStyle === 'legacy-workpiece' ? 0x000000 : 0xa8bdd8,
+  edgeOpacity = renderStyle === 'legacy-workpiece' ? 0.5 : 0.75,
   showEdges = true,
 }: StockAppearanceProps & { geometry: BufferGeometry }) => {
   const invalidate = useThree((state) => state.invalidate)
-  const stock = useMemo(() => createStock(geometry), [geometry])
+  const stock = useMemo(
+    () => createStock(geometry, renderStyle === 'legacy-workpiece'),
+    [geometry, renderStyle],
+  )
   useEffect(() => () => stock.dispose(), [stock])
   useLayoutEffect(() => {
     stock.material.color.setHex(color)
+    stock.material.emissive.setHex(emissive)
+    if (stock.material.flatShading !== flatShading) {
+      stock.material.flatShading = flatShading
+      stock.material.needsUpdate = true
+    }
     stock.material.opacity = opacity
+    stock.material.depthWrite = renderStyle === 'legacy-workpiece' && opacity === 1
+    stock.material.polygonOffset = renderStyle === 'legacy-workpiece' && opacity === 1
+    stock.material.polygonOffsetFactor = 1
+    stock.material.polygonOffsetUnits = 1
     stock.edgeMaterial.color.setHex(edgeColor)
     stock.edgeMaterial.opacity = edgeOpacity
     stock.showEdges(showEdges)
     invalidate()
-  }, [color, edgeColor, edgeOpacity, invalidate, opacity, showEdges, stock])
+  }, [
+    color,
+    emissive,
+    flatShading,
+    edgeColor,
+    edgeOpacity,
+    invalidate,
+    opacity,
+    renderStyle,
+    showEdges,
+    stock,
+  ])
   return <primitive object={stock.object} dispose={null} />
 }
 
-const GlbStock = ({ glb, ...appearance }: StockAppearanceProps & { glb: ArrayBuffer }) => {
+const GlbStock = ({
+  glb,
+  retainPrevious = false,
+  ...appearance
+}: StockAppearanceProps & { glb: ArrayBuffer }) => {
+  const buffer = useMemo(() => createStockMeshBuffer(), [])
   const [decoded, setDecoded] = useState<{
     source: ArrayBuffer
     geometries?: BufferGeometry[]
     error?: Error
   } | null>(null)
 
-  useEffect(() => {
-    let active = true
-    let owned: BufferGeometry[] = []
-    parseStockGlb(glb).then(
-      (geometries) => {
-        if (!active) {
-          geometries.forEach((geometry) => geometry.dispose())
-          return
-        }
-        owned = geometries
-        setDecoded({ source: glb, geometries })
-      },
-      (cause: unknown) => {
-        if (active) {
+  useEffect(() => () => buffer.dispose(), [buffer])
+  useLayoutEffect(() => {
+    buffer.commit(decoded?.geometries ?? [])
+  }, [buffer, decoded])
+  useEffect(
+    () =>
+      buffer.request(
+        () => parseStockGlb(glb),
+        (geometries) => {
+          setDecoded({ source: glb, geometries })
+        },
+        (cause: unknown) => {
           setDecoded({
             source: glb,
             error: cause instanceof Error ? cause : new Error(String(cause)),
           })
-        }
-      },
-    )
-    return () => {
-      active = false
-      owned.forEach((geometry) => geometry.dispose())
-    }
-  }, [glb])
+        },
+      ),
+    [buffer, glb],
+  )
 
-  // A changed source must not display the preceding action while it decodes.
-  if (decoded?.source !== glb) return null
+  // Retention is opt-in: playback can hold its current IPG through the next decode.
+  if (!decoded || (!retainPrevious && decoded.source !== glb)) return null
   if (decoded.error) throw decoded.error
   return decoded.geometries?.map((geometry) => (
     <GeometryStock key={geometry.uuid} geometry={geometry} {...appearance} />

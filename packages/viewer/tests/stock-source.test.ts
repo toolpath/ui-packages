@@ -12,6 +12,16 @@ it('accepts exactly one geometry, GLB, box or cylinder source, with shared appea
   }
   expectTypeOf({ geometry: new BufferGeometry(), opacity: 0.3 }).toExtend<StockProps>()
   expectTypeOf({ glb: new ArrayBuffer(0), showEdges: false }).toExtend<StockProps>()
+  expectTypeOf({ glb: new ArrayBuffer(0), retainPrevious: true }).toExtend<StockProps>()
+  expectTypeOf({
+    glb: new ArrayBuffer(0),
+    renderStyle: 'legacy-workpiece' as const,
+  }).toExtend<StockProps>()
+  expectTypeOf({
+    glb: new ArrayBuffer(0),
+    emissive: 0x3c4051,
+    flatShading: true,
+  }).toExtend<StockProps>()
   expectTypeOf({ box, color: 0xff0000 }).toExtend<StockProps>()
   expectTypeOf({ cylinder, edgeOpacity: 0.5 }).toExtend<StockProps>()
   expectTypeOf({

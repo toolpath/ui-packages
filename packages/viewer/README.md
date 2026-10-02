@@ -285,7 +285,18 @@ missing-artifact fallback and artifact caching belong to the application. The ex
 **Stock source → GLB fixture** option exercises synthetic blanks encoded by the services stock
 writer. **Shape preview** exposes the separate box/cylinder shape controls.
 
-`Stock` accepts `color`, `opacity` (default `0.2`), `edgeColor`, `edgeOpacity`, and `showEdges`.
+`Stock` accepts `color`, `emissive` (default black), `flatShading` (default `false`),
+`opacity` (default `0.2`), `edgeColor`, `edgeOpacity`, and `showEdges`. Emissive shading
+and flat shading change only the material, not the source's vertices, indices or normals.
+`renderStyle="legacy-workpiece"` reproduces legacy Workpiece rendering: white with dark emissive
+shading, per-face shading, 20% opacity, two shared-geometry surface passes and black 50%-opacity
+edges drawn before surfaces (rather than over them). The default `overlay` style is unchanged.
+
+For action-to-action playback, `retainPrevious` keeps the current decoded GLB visible until
+the next GLB is ready, then swaps meshes without a blank frame. Key the stock's parent by
+part/calculation identity (not action) to prevent retaining geometry across unrelated runs.
+The default still hides the previous source during decoding. Geometry is disposed after a
+replacement commits; cancelled/late results are discarded.
 The outline is built the first time it is shown, so a large stock mesh with `showEdges={false}`
 costs no edge pass. All source types accept the same appearance props. Caller-provided geometry is never disposed; the
 components dispose their own materials and outlines. Conditionally mount stock to toggle it.
