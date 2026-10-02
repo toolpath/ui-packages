@@ -146,6 +146,16 @@ const GlbStock = ({
   ))
 }
 
+/**
+ * JSON alone writes NaN and Infinity as null, which the builders would read as
+ * an absent value instead of rejecting with RangeError. No figure field is a
+ * string that could be mistaken for one of these.
+ */
+const keepNonFinite = (_key: string, value: unknown) =>
+  typeof value === 'number' && !Number.isFinite(value) ? String(value) : value
+const restoreNonFinite = (_key: string, value: unknown) =>
+  value === 'NaN' || value === 'Infinity' || value === '-Infinity' ? Number(value) : value
+
 /** Figure geometry is owned here; equivalent figures do not rebuild it. */
 const ShapeStock = ({
   box,
@@ -181,9 +191,10 @@ const ShapeStock = ({
             diameter: cylinder!.diameter,
             length: cylinder!.length,
           },
+    keepNonFinite,
   )
   const geometry = useMemo(() => {
-    const options = JSON.parse(figure)
+    const options = JSON.parse(figure, restoreNonFinite)
     const input = partGeometry ? { ...options, partGeometry } : options
     return isBox
       ? boxStockGeometry(input as BoxStockInput)

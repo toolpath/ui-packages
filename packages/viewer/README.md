@@ -241,7 +241,8 @@ once a job is planned.
 
 `<Stock box={{ frame, lower, upper }} />` draws a block whose corners are given in a frame
 of `location`, `axis` and `refDirection`: a point `(x, y, z)` sits at
-`location + x·refDirection + y·(axis × refDirection) + z·axis`. That is the shape of an Engine plan's
+`location + x·refDirection + y·(axis × refDirection) + z·axis`, with `axis` normalised and
+`refDirection` projected square to it and normalised. That is the shape of an Engine plan's
 `stock.resolved` box, which is squared to the setup rather than to the part. Omit `frame` when
 `lower` and `upper` are already in part coordinates. Resolved placement and `partGeometry`
 preview options are mutually exclusive for both shapes.
@@ -306,6 +307,8 @@ Toggling stock preserves the camera; Fit/Reset then frames the visible stock tog
 `<Stock box={{ partGeometry, allowance, offset }} />` for allowance-based previews, or
 `<Stock box={{ partGeometry, dimensions, position, positionOffset, offset }} />` for fixed
 dimensions. No preview-builder helper is required. `Stock geometry={geometry}` remains supported.
+`StockProps` is now a union type alias, so `interface X extends StockProps` becomes
+`type X = StockProps & { … }`; `StockAppearanceProps` names the shared appearance props alone.
 
 `directionHighlights(model, activeDirection?)` returns region colors in the same palette as
 `DirectionArrows`. For a face with several owners, the most specific feature wins, followed by
