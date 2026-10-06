@@ -2,7 +2,7 @@ import type { FeatureSheet, FeatureSheets } from './feature-sheet.js'
 import type { ClearanceFit } from './pinch.js'
 import { featureLd, featureTypeLabel, partTop, type DfmFeature } from './geometry.js'
 import { MM_PER_INCH } from '@toolpath/tool-support'
-import type { Units } from './units.js'
+import { LENGTH_PLACES, type Units } from './units.js'
 
 /*
  * Taken from the quoting app (quoting-ui `src/plan/feature-details.ts`): the
@@ -85,7 +85,9 @@ const clearanceDerivation = (fit: ClearanceFit, clearance: number): string[] => 
 const trim = (value: number, places: number): string => String(Number(value.toFixed(places)))
 
 const formatLength = (mm: number, units: Units): string =>
-  units === 'inch' ? `${trim(mm / MM_PER_INCH, 4)} in` : `${trim(mm, 3)} mm`
+  units === 'inch'
+    ? `${trim(mm / MM_PER_INCH, LENGTH_PLACES.inch)} in`
+    : `${trim(mm, LENGTH_PLACES.mm)} mm`
 
 /**
  * Feature types read as a surface rather than walls and floors: what they

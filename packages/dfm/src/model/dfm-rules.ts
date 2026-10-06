@@ -10,7 +10,7 @@ import {
   type DfmQuantity,
 } from './dfm-metrics.js'
 import { MM_PER_INCH } from '@toolpath/tool-support'
-import type { Units } from './units.js'
+import { LENGTH_PLACES, type Units } from './units.js'
 
 export { FEATURE_METRICS, FEATURE_SUBJECTS, metricInfo, metricsForSubject }
 export type { DfmMetric, DfmOp, DfmQuantity }
@@ -185,7 +185,7 @@ const toUnits = (quantity: DfmQuantity, value: number, units: Units): number =>
 export const toField = (quantity: DfmQuantity, value: number, units: Units): string => {
   const shown = toUnits(quantity, value, units)
   return quantity === 'length'
-    ? trim(shown, units === 'inch' ? 4 : 3)
+    ? trim(shown, LENGTH_PLACES[units])
     : quantity === 'count'
       ? trim(shown, 0)
       : trim(shown, 3)
@@ -212,7 +212,9 @@ export const formatMeasured = (quantity: DfmQuantity, value: number, units: Unit
   const shown = toUnits(quantity, value, units)
   switch (quantity) {
     case 'length':
-      return units === 'inch' ? `${trim(shown, 3)}"` : `${trim(shown, 3)} mm`
+      return units === 'inch'
+        ? `${trim(shown, LENGTH_PLACES.inch)}"`
+        : `${trim(shown, LENGTH_PLACES.mm)} mm`
     case 'area':
       return `${Number(shown.toFixed(3)).toLocaleString(undefined, { maximumFractionDigits: 3 })} ${quantityUnit('area', units)}`
     case 'angle':

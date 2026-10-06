@@ -6,6 +6,7 @@ import {
   breaks,
   compareColors,
   describeRule,
+  formatMeasured,
   fromField,
   makeRule,
   metricInfo,
@@ -119,6 +120,13 @@ describe('typing and reading values', () => {
     expect(toField('length', 50.8, 'inch')).toBe('2')
     expect(toField('length', 25.4, 'mm')).toBe('25.4')
     expect(toField('count', 3.0, 'mm')).toBe('3')
+  })
+
+  it('writes a length to the same places in a field and in a measured figure', () => {
+    // 0.0125" is the rule; 0.0124" is the part. Three places would show both as 0.012".
+    expect(toField('length', 0.3175, 'inch')).toBe('0.0125')
+    expect(formatMeasured('length', 0.31496, 'inch')).toBe('0.0124"')
+    expect(formatMeasured('length', 0.31496, 'mm')).toBe('0.315 mm')
   })
 
   it('writes a rule as one sentence', () => {

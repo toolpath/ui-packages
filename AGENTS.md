@@ -75,9 +75,10 @@ are never published. They exist to exercise a package the way a consumer would.
   `/clearance`, the optional overlay — and a new file has to be reachable from one of them.
 - `packages/dfm/src/` splits the same way: `model/` is the DFM rules and the part checker, pure
   and shipped as `/model`, which imports no React and touches no DOM; `rule-list/` is the React
-  rule list on the root entry. The rules are an input: the package ships no default rules and
-  stores nothing — the app keeps them. `tests/subpaths.test.ts` is the sensor that `/model`
-  reaches no React, DOM or `@toolpath/ui`, and that the root reaches no three.js.
+  rule list on the root entry, and `reach/` is the React reach chart, also on the root. The
+  rules are an input: the package ships no default rules and stores nothing — the app keeps
+  them. `tests/subpaths.test.ts` is the sensor that `/model` reaches no React, DOM or
+  `@toolpath/ui`, and that the root reaches no three.js.
 - `packages/tool-scraper/src/vendors/<brand>/` are the vendor adapters; everything above them in
   `src/` is the shared core, and `src/node/` is the filesystem/CLI entry point that the library
   half deliberately does not depend on.
