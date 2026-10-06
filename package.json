@@ -43,7 +43,7 @@
     "changeset": "changeset",
     "version-packages": "changeset version",
     "bootstrap:npm-package": "node scripts/bootstrap-npm-package.mjs",
-    "release:npm": "pnpm package:typescript-sdk && pnpm build:ui && pnpm build:viewer && pnpm --filter @toolpath/tool-support build && pnpm --filter @toolpath/app-support build && pnpm --filter @toolpath/tool-drawing build && pnpm --filter @toolpath/tool-scraper build && changeset publish",
+    "release:npm": "pnpm package:typescript-sdk && pnpm build:ui && pnpm build:viewer && pnpm --filter @toolpath/tool-support build && pnpm --filter @toolpath/app-support build && pnpm --filter @toolpath/tool-drawing build && pnpm --filter @toolpath/dfm build && pnpm --filter @toolpath/tool-scraper build && changeset publish",
     "release:dry-run": "pnpm check && node scripts/prepare-release.mjs",
     "release:typescript-sdk:check": "pnpm openapi:verify:typescript && pnpm package:typescript-sdk && node scripts/test-typescript-sdk-package.mjs",
     "release:typescript-sdk:dry-run": "pnpm release:typescript-sdk:check && RELEASE_PACKAGE=sdk node scripts/prepare-release.mjs",

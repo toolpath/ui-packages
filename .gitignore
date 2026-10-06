@@ -9,6 +9,7 @@ __pycache__/
 .ruff_cache/
 .pytest_cache/
 packages/app-support/dist/
+packages/dfm/dist/
 packages/sdk-typescript/dist/
 packages/sdk-python/build/
 packages/sdk-python/dist/
