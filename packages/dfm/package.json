@@ -1,0 +1,75 @@
+{
+  "name": "@toolpath/dfm",
+  "version": "0.0.0",
+  "description": "Toolpath DFM rules: the rule list component, the rules and the part checker",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toolpath/ui-packages.git",
+    "directory": "packages/dfm"
+  },
+  "homepage": "https://developers.toolpath.com",
+  "bugs": {
+    "url": "https://github.com/toolpath/ui-packages/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./model": {
+      "types": "./dist/model/index.d.ts",
+      "import": "./dist/model/index.js"
+    },
+    "./dfm.css": "./dfm.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "dfm.css",
+    "LICENSE",
+    "README.md"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts src/model/index.ts --format esm --dts --clean --external react --external react-dom --external @toolpath/ui",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "2.1.10",
+    "@toolpath/tool-support": "workspace:^"
+  },
+  "peerDependencies": {
+    "@toolpath/ui": "^1.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@toolpath/api": "workspace:^",
+    "@toolpath/ui": "workspace:^",
+    "@types/node": "24.10.1",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "jsdom": "^30.0.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tsup": "8.5.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

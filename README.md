@@ -16,6 +16,7 @@ machined, and what it may cost.
 | Build Toolpath-styled UI      | `@toolpath/ui`                  | [UI kit](packages/ui)                                              |
 | Collect vendor tool data      | `@toolpath/tool-scraper`        | [Tool scraper](packages/tool-scraper)                              |
 | Draw a tool and its holder    | `@toolpath/tool-drawing`        | [Tool drawing](packages/tool-drawing)                              |
+| Show and edit DFM rules       | `@toolpath/dfm`                 | [DFM](packages/dfm)                                                |
 | Share the cutting-tool domain | `@toolpath/tool-support`        | [Tool support](packages/tool-support)                              |
 | Share application logic       | `@toolpath/app-support`         | [App support](packages/app-support)                                |
 | See usage examples            | TypeScript, Python, or React    | [Examples](#examples)                                              |

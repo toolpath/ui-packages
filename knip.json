@@ -10,6 +10,10 @@
       "entry": ["src/index.ts", "src/react/index.ts", "tests/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
     },
+    "packages/dfm": {
+      "entry": ["src/index.ts", "src/model/index.ts", "tests/**/*.test.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
+    },
     "packages/sdk-typescript": {
       "project": ["src/**/*.ts"],
       "ignore": ["src/generated/**"]

@@ -9,6 +9,9 @@ on:
       - .github/workflows/release.yml
       - packages/app-support/src/**
       - packages/app-support/package.json
+      - packages/dfm/src/**
+      - packages/dfm/dfm.css
+      - packages/dfm/package.json
       - packages/ui/src/**
       - packages/ui/tailwind-preset.cjs
       - packages/ui/package.json
