@@ -15,8 +15,10 @@ T = TypeVar("T", bound="PlanIssue")
 class PlanIssue:
     """
     Attributes:
-        kind (PlanIssueKind): How the plan falls short: `Unseen` (regions no offered feature reaches from any direction
-            that the plan owes) or `Incomplete` (regions some feature could reach that the plan leaves untouched).
+        kind (PlanIssueKind): How the plan falls short: `Unseen` (regions no direction reaches at all), `OutOfPlay`
+            (regions some direction reaches but no feature in play holds — one the kernel rejected or excluded, or one left
+            out because measuring it threw) or `Incomplete` (regions some feature could reach that the plan leaves
+            untouched).
         area (float): Faceted area of this shortfall, in mm² — the figure to gate a quote on.
         region_count (int): How many part regions this shortfall covers.
     """

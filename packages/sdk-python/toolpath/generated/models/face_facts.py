@@ -21,18 +21,19 @@ class FaceFacts:
         is_top_face (bool): The face is the highest surface of the part along the tool axis.
         is_facing (bool): The face is to be faced off: a top face the fixture does not rule out.
         cd (CdData): Clearance-diameter bounds per tolerance regime, plus the flags derived with them.
-        max_bottom_diameter (float): Largest bottom diameter a terminal tool may have, in mm.
         needs_sidemill (bool): Deprecated: sweeping the floor does not clear the face on its own, so a wall pass must
             follow. tp-kernel 0.11.0 no longer states it separately, since only a face that is not faced off asks its tool
             to cut on its flank: a feature enriched since reads `!isFacing`. Removed in the next API major.
+        max_bottom_diameter (float | None): Deprecated: the largest bottom diameter a terminal tool may have. Nothing
+            ever computed it, so it has always read `null`, and tp-kernel 0.16.0 removed it. Removed in the next API major.
     """
 
     kind: Literal["Face"]
     is_top_face: bool
     is_facing: bool
     cd: CdData
-    max_bottom_diameter: float
     needs_sidemill: bool
+    max_bottom_diameter: float | None
 
     def to_dict(self) -> dict[str, Any]:
         kind = self.kind
@@ -43,9 +44,10 @@ class FaceFacts:
 
         cd = self.cd.to_dict()
 
-        max_bottom_diameter = self.max_bottom_diameter
-
         needs_sidemill = self.needs_sidemill
+
+        max_bottom_diameter: float | None
+        max_bottom_diameter = self.max_bottom_diameter
 
         field_dict: dict[str, Any] = {}
 
@@ -55,8 +57,8 @@ class FaceFacts:
                 "isTopFace": is_top_face,
                 "isFacing": is_facing,
                 "cd": cd,
-                "maxBottomDiameter": max_bottom_diameter,
                 "needsSidemill": needs_sidemill,
+                "maxBottomDiameter": max_bottom_diameter,
             }
         )
 
@@ -77,17 +79,22 @@ class FaceFacts:
 
         cd = CdData.from_dict(d.pop("cd"))
 
-        max_bottom_diameter = d.pop("maxBottomDiameter")
-
         needs_sidemill = d.pop("needsSidemill")
+
+        def _parse_max_bottom_diameter(data: object) -> float | None:
+            if data is None:
+                return data
+            return cast(float | None, data)
+
+        max_bottom_diameter = _parse_max_bottom_diameter(d.pop("maxBottomDiameter"))
 
         face_facts = cls(
             kind=kind,
             is_top_face=is_top_face,
             is_facing=is_facing,
             cd=cd,
-            max_bottom_diameter=max_bottom_diameter,
             needs_sidemill=needs_sidemill,
+            max_bottom_diameter=max_bottom_diameter,
         )
 
         return face_facts

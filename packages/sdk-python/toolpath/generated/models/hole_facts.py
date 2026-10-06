@@ -18,7 +18,7 @@ T = TypeVar("T", bound="HoleFacts")
 
 @_attrs_define
 class HoleFacts:
-    """A hole's facts. See `HoleFacts` in the `api` crate for what each figure means.
+    """A hole's facts.
 
     Attributes:
         kind (Literal['Hole']): Discriminator for this facts variant.
@@ -28,11 +28,13 @@ class HoleFacts:
         is_counterbore (bool): Whether the hole includes a larger counterbore at its mouth.
         hole_process (HoleProcess): How the user wants a hole machined.
         cd (CdData): Clearance-diameter bounds per tolerance regime, plus the flags derived with them.
-        max_spot_diameter (float): Largest spot-drill diameter that reaches the hole without collision, in mm.
         max_drill_diameter (float): Largest drill diameter that leaves the hole within its permitted oversize, in mm.
         max_endmill_diameter (float): Largest end-mill diameter that can machine the hole, in mm.
         fillet_radius (float): Radius of the blend at the hole bottom, in mm; zero when sharp.
         fillet_height (float): Height of the bottom blend, in mm; zero when sharp.
+        max_spot_diameter (float | None): Deprecated: the largest spot-drill diameter that reaches the hole without
+            collision. Nothing ever computed it, so it has always read `null`, and tp-kernel 0.16.0 removed it. Removed in
+            the next API major.
         threading (Threading | Unset): A thread a hole is to receive, and how it is to be cut.
         min_drill_diameter (float | Unset): Smallest drill diameter that leaves the hole within its permitted undersize,
             in mm.
@@ -44,11 +46,11 @@ class HoleFacts:
     is_counterbore: bool
     hole_process: HoleProcess
     cd: CdData
-    max_spot_diameter: float
     max_drill_diameter: float
     max_endmill_diameter: float
     fillet_radius: float
     fillet_height: float
+    max_spot_diameter: float | None
     threading: Threading | Unset = UNSET
     min_drill_diameter: float | Unset = UNSET
 
@@ -65,8 +67,6 @@ class HoleFacts:
 
         cd = self.cd.to_dict()
 
-        max_spot_diameter = self.max_spot_diameter
-
         max_drill_diameter = self.max_drill_diameter
 
         max_endmill_diameter = self.max_endmill_diameter
@@ -74,6 +74,9 @@ class HoleFacts:
         fillet_radius = self.fillet_radius
 
         fillet_height = self.fillet_height
+
+        max_spot_diameter: float | None
+        max_spot_diameter = self.max_spot_diameter
 
         threading: dict[str, Any] | Unset = UNSET
         if not isinstance(self.threading, Unset):
@@ -91,11 +94,11 @@ class HoleFacts:
                 "isCounterbore": is_counterbore,
                 "holeProcess": hole_process,
                 "cd": cd,
-                "maxSpotDiameter": max_spot_diameter,
                 "maxDrillDiameter": max_drill_diameter,
                 "maxEndmillDiameter": max_endmill_diameter,
                 "filletRadius": fillet_radius,
                 "filletHeight": fillet_height,
+                "maxSpotDiameter": max_spot_diameter,
             }
         )
         if threading is not UNSET:
@@ -125,8 +128,6 @@ class HoleFacts:
 
         cd = CdData.from_dict(d.pop("cd"))
 
-        max_spot_diameter = d.pop("maxSpotDiameter")
-
         max_drill_diameter = d.pop("maxDrillDiameter")
 
         max_endmill_diameter = d.pop("maxEndmillDiameter")
@@ -134,6 +135,13 @@ class HoleFacts:
         fillet_radius = d.pop("filletRadius")
 
         fillet_height = d.pop("filletHeight")
+
+        def _parse_max_spot_diameter(data: object) -> float | None:
+            if data is None:
+                return data
+            return cast(float | None, data)
+
+        max_spot_diameter = _parse_max_spot_diameter(d.pop("maxSpotDiameter"))
 
         _threading = d.pop("threading", UNSET)
         threading: Threading | Unset
@@ -151,11 +159,11 @@ class HoleFacts:
             is_counterbore=is_counterbore,
             hole_process=hole_process,
             cd=cd,
-            max_spot_diameter=max_spot_diameter,
             max_drill_diameter=max_drill_diameter,
             max_endmill_diameter=max_endmill_diameter,
             fillet_radius=fillet_radius,
             fillet_height=fillet_height,
+            max_spot_diameter=max_spot_diameter,
             threading=threading,
             min_drill_diameter=min_drill_diameter,
         )

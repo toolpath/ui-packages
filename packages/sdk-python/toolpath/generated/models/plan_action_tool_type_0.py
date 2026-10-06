@@ -13,7 +13,15 @@ T = TypeVar("T", bound="PlanActionToolType0")
 class PlanActionToolType0:
     """The full synthesized tool spec, or null when the kernel exposes none. Its `key` names the tool within this plan
     only: two actions with equal keys run in one tool, so a change of key between consecutive actions is a tool change.
-    It is not an identity across plans or kernel versions, and is absent on plans computed before tp-kernel 0.10.0.
+    It is not an identity across plans or kernel versions, and is absent on plans computed before tp-kernel 0.10.0. It
+    gained `fluteCount` and `stickout` (the tool’s reach below its holder, mm) in tp-kernel 0.14.0, both absent on plans
+    made before it. A tap or thread mill carries the thread it cuts: `threadPitch` (mm), a tap its `threadHandedness`,
+    and its form `threadProfileDeg` (the included flank angle) and taper `threadTaperDeg` (the half angle of the pitch
+    cone, 0 for a straight thread), these two absent on plans made before Engine API 1.23.0. Chip load is
+    `cuttingFeedRate / (spindleSpeed × fluteCount)`; surface speed is `π × diameter × spindleSpeed / 1000` (m/min). A
+    tool made past the tool crib, for a pass no crib tool could play (a job asked for `fallbackTools`), carries
+    `outsideCrib: { reasons }`: the kernel’s reasons no crib tool fit this pass’s features —
+    `LengthOverDiameterTooHigh`, `ToolTypeExcluded`, … — each once, possibly none.
 
     """
 

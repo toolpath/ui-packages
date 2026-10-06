@@ -21,8 +21,9 @@ class PlanSetup:
         idx (int): Position of this item in machining order.
         direction (None | Vec3): The setup’s machining direction (tool axis), or null when none is exposed.
         actions (list[PlanAction]): Action-specs, in machining order.
-        unmachined (list[str]): Feature tags (hex) this setup was meant to machine that no pass in it does — a coverage
-            loss the tool pool could not finish. Empty when the setup machines everything assigned.
+        unmachined (list[str]): Feature tags (hex) this setup was meant to machine that its passes leave short: a
+            feature no pass cuts, or one roughed but owed its finish, such as a hole drilled under size where no stocked
+            drill lands in its tolerance. Empty when the setup machines everything assigned.
     """
 
     idx: int

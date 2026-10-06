@@ -21,7 +21,8 @@ class PartFeatureEntry:
     """
     Attributes:
         feature_id (UUID): Identifier of the resolved feature.
-        feature_tag (str): Stable kernel feature tag, encoded as a lowercase hexadecimal string.
+        feature_tag (str): Kernel feature tag, encoded as a lowercase hexadecimal string. Stable across runs of one
+            kernel version, not across versions.
         feature_type (str): Kernel-recognized feature type; the vocabulary is open-ended.
         datasheet (FeatureDatasheet | None | Unset): Generated machining detail, or null when this feature has no detail
             yet.

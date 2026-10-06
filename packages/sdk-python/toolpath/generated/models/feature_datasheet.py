@@ -34,6 +34,9 @@ class FeatureDatasheet:
     tool against without having the part in hand. All lengths mm and angles degrees;
     z runs up the tool axis, so `zMin` is the bottom of the feature and `zMax` its top.
 
+    Every number in it is finite, so it survives a JSON round trip: a bound nothing sets
+    is absent rather than infinite.
+
         Attributes:
             feature_type (FeatureType): What kind of thing a feature is, and so how it gets machined. The names are the
                 contract at this boundary (the shared numeric wire format stays inside the binary
@@ -43,33 +46,54 @@ class FeatureDatasheet:
             extended_z_min (float): Bottom of the band a pass over the feature reaches, in mm: `zMin`, or lower where a
                 chamfer on the far edge of a through feature deepens it. This, not `zMin`, is where
                 a wall pass and the whole-part rough run out, the reach a tool is held to, and the
-                depth the time estimates and setup planning price.
+                depth the time estimates and setup planning read.
             extended_z_max (float): Top of the band a pass over the feature runs down, in mm: `zMax`, or higher where a
                 chamfer, fillet or countersink sits on the feature's mouth. This, not `zMax`, is where
                 a rough, a wall pass and a hole's helix start, the reach a tool is held to, and the top
-                of the band the time estimates price.
-            reach_curve (ReachCurve): How deep a tool must reach, by how far outboard of the cut the material stands:
-                material
-                within `horizontalOffset[i]` of the feature rises to `verticalOffset[i]` above it, so
-                anything on the tool standing that far past its own cutting edge must clear that much.
-                Both arrays are the same length, ascending, non-negative, in mm; the curve is a
-                non-decreasing step function, and offsets beyond its last knot clamp to it.
+                of the band the time estimates read.
+            reach_curve (ReachCurve): Surrounding material height as a function of distance from the feature. Material
+                within `horizontalOffset[i]` rises to `verticalOffset[i]` above the feature. Each
+                reading is the worst case over the feature's whole surface, measured above each
+                sampled point.
+                Both arrays are the same length, ascending, non-negative, in mm. Evaluate the step
+                function at the first knot whose horizontal offset is at least the query distance;
+                queries beyond the last knot clamp to it.
 
-                Offsets are measured from the feature, never from the tool's axis: offset zero is the
-                wall of the cut, so material at offset `d` meets the tool at radius `d` plus the cutting
-                radius. Each reading is the worst case over the feature's whole surface — the tallest
-                material within that distance of any point of it, measured above that point.
+                The last knot can stand well beyond the others, at the plan-view diagonal of the part and
+                its fixtures: where material anywhere in the setup stands taller than the nearer offsets
+                read, that knot carries it, since the spindle face atop a finite holder has to clear it
+                however far off it stands.
 
-                ![A tool cutting a pocket whose wall stands at the cut, with a boss further out: the
-                horizontal offsets run outward from the feature's edge, the vertical offsets up from
-                its floor](./media/reach-curve.svg)
+                Offsets start at the feature, not the tool axis, and retain no obstacle direction.
+                For an open feature, the cutter can sit between its contact point and an obstacle.
+                A cylindrical holder of radius `R` at least as large as the cutting radius `r` reads
+                the curve at `R + r`: that height is the required stickout before clearances. For example, a
+                Ø10 cutter with a Ø24 holder reads at 17 mm from the feature, not 7 mm.
 
-                The tool checks sweep a tool's shank and holder over this curve; it is here so a
-                caller can draw it, or sweep an envelope of its own.
+                ![A cutter beside an external wall, with an obstacle beyond the cutter: the holder
+                footprint extends R + r from the contact point](./media/reach-curve.svg)
+
+                Closed features allow an optimization: enclosing material lies beyond the cutting
+                edge away from the axis, so a holder wider than the cutter reads at `R - r` instead;
+                a holder narrower than the cutter adds no reach constraint. Tool checks
+                use this for holes, sinks, non-open pockets, U-slots and threads; potentially open
+                feature kinds use the conservative `R + r` footprint. The curve can overestimate
+                holder reach because it has lost obstacle direction; it is not a collision proof.
+
+                ![A cutter inside a closed pocket, with horizontal offsets measured outward from
+                its floor and vertical offsets measured upward](./media/reach-curve-closed.svg)
+
+                Here the cutter sits inside the pocket. Only the holder's overhang beyond the
+                cutting edge, `R - r`, extends over the surrounding material.
+
+                Shaft checks (neck, shoulder and shank) retain the enclosed-cut rule. Tool checks
+                sweep tapered shaft and holder layers with their heights and clearances; the
+                cylindrical example above explains
+                the holder footprint. Callers can draw the curve or sweep an envelope of their own.
             axial_stock_to_leave (float): Material intentionally left along the tool axis for a later operation, in mm.
             radial_stock_to_leave (float): Material intentionally left radially for a later operation, in mm.
             tolerance_band (ToleranceBand): How far a machined surface may deviate from the model, in three escalating bands
-                (`0 <= ignore <= deviate <= max`).
+                (`0 <= ignore <= deviate <= max`, all finite).
             has_floor (bool): Whether the feature has a floor machined perpendicular to the tool axis.
             has_wall (bool): Whether the feature has a wall machined parallel to the tool axis.
             projected_floor_area (float): Projected area machined floor-wise (perpendicular to the tool axis).

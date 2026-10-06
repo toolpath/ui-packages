@@ -24,7 +24,7 @@ class ProfileFacts:
         cd (CdData): Clearance-diameter bounds per tolerance regime, plus the flags derived with them.
         length (float): How far the pass travels, mm — the outline's own length. The `radius = 0` term of
             `wallLength`, kept because it is what this boundary has always published; prefer the
-            outline itself, which prices the tool actually used.
+            outline itself, which measures the path of the tool actually used.
         is_modified (bool): Whether the outline is the part's silhouette or the bridged reading of it.
         wall_length (OffsetLength | Unset): An outline a pass follows, measured so that any tool's path length can be
             read off it.
@@ -33,7 +33,7 @@ class ProfileFacts:
             the free side, which is shorter than the outline inside a pocket and longer around a boss.
             So the length a tool of `radius` travels is `Math.max(0, length + radius * dlDr)`, and zero
             means the tool does not fit — the outline is shorter than the tool's own orbit, which a
-            caller pricing a pass must refuse rather than bill as free.
+            caller estimating a pass must refuse rather than read as free.
 
             Exact for every tool the outline has room for, except at a corner sharper than the tool,
             where it reads long by that corner's miter — zero for the filleted corners a pocket that

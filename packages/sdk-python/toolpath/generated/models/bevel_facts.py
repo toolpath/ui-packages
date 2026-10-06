@@ -27,7 +27,9 @@ class BevelFacts:
             lower_adjacent_z_min (float): The highest bottom among the features the bevel stands on — how far down there
                 is room under it before a tool would meet something. z grows up the tool axis,
                 so this is *below* the bevel's own `zMin` by the room there is.
-            is_open_pocket_bottom (bool): The bevel breaks the edge along an open pocket's floor.
+            is_open_pocket_bottom (bool): Deprecated: whether the bevel breaks the edge along the floor of an open pocket.
+                tp-kernel 0.15.0 no longer computes it, so a feature enriched since reads `false`; tool matching reads
+                `three.isEdgeBreak` in its place. Removed in the next API major.
             countersink (SinkFacts | Unset): A countersink read as a cone of revolution: the circle its bevel starts from
                 and the
                 one it opens to.

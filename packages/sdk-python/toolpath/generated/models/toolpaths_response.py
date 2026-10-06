@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -23,6 +23,12 @@ class ToolpathsResponse:
         job_id (UUID): Identifier of the job that produced these toolpaths.
         kernel_version (str): Version of the Toolpath kernel that produced these toolpaths.
         setups (list[ToolpathSetup]): Setups, in machining order.
+        initial_stock_url (None | str): 15-minute URL for the exact initial stock mesh (GLB, part coordinates, mm),
+            before the first action. Null when unavailable; fall back to the plan’s stock.resolved figure. A plain GLB, like
+            `meshGlbUrl`: no glTF extension is needed to read it. It is stored gzipped and served with `Content-Encoding:
+            gzip` whatever the request’s `Accept-Encoding`: browsers and `fetch` undo that on their own, but curl without
+            `--compressed`, wget, Python’s `urllib`, and Java’s and .NET’s HTTP clients by default hand back the gzipped
+            bytes, which must be gunzipped before the GLB is parsed.
     """
 
     part_id: UUID
@@ -30,6 +36,7 @@ class ToolpathsResponse:
     job_id: UUID
     kernel_version: str
     setups: list[ToolpathSetup]
+    initial_stock_url: None | str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -46,6 +53,9 @@ class ToolpathsResponse:
             setups_item = setups_item_data.to_dict()
             setups.append(setups_item)
 
+        initial_stock_url: None | str
+        initial_stock_url = self.initial_stock_url
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -55,6 +65,7 @@ class ToolpathsResponse:
                 "jobId": job_id,
                 "kernelVersion": kernel_version,
                 "setups": setups,
+                "initialStockUrl": initial_stock_url,
             }
         )
 
@@ -80,12 +91,20 @@ class ToolpathsResponse:
 
             setups.append(setups_item)
 
+        def _parse_initial_stock_url(data: object) -> None | str:
+            if data is None:
+                return data
+            return cast(None | str, data)
+
+        initial_stock_url = _parse_initial_stock_url(d.pop("initialStockUrl"))
+
         toolpaths_response = cls(
             part_id=part_id,
             plan_id=plan_id,
             job_id=job_id,
             kernel_version=kernel_version,
             setups=setups,
+            initial_stock_url=initial_stock_url,
         )
 
         toolpaths_response.additional_properties = d
