@@ -10,7 +10,7 @@ import {
   type DfmQuantity,
 } from './dfm-metrics.js'
 import { MM_PER_INCH } from '@toolpath/tool-support'
-import { LENGTH_PLACES, type Units } from './units.js'
+import { FIELD_LENGTH_PLACES, LENGTH_PLACES, type Units } from './units.js'
 
 export { FEATURE_METRICS, FEATURE_SUBJECTS, metricInfo, metricsForSubject }
 export type { DfmMetric, DfmOp, DfmQuantity }
@@ -185,7 +185,7 @@ const toUnits = (quantity: DfmQuantity, value: number, units: Units): number =>
 export const toField = (quantity: DfmQuantity, value: number, units: Units): string => {
   const shown = toUnits(quantity, value, units)
   return quantity === 'length'
-    ? trim(shown, LENGTH_PLACES[units])
+    ? trim(shown, FIELD_LENGTH_PLACES[units])
     : quantity === 'count'
       ? trim(shown, 0)
       : trim(shown, 3)

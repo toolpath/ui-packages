@@ -109,18 +109,18 @@ export const SectionShapes: FC<PartProps> = ({ geometry }): ReactElement => {
 
 /** The headings: the feature's over its middle, the walls' flush with the drawing's right edge. */
 export const SectionHeadings: FC<PartProps> = ({ geometry }): ReactElement => {
-  const { x, right } = geometry
+  const { right } = geometry
   return (
     <>
       <text
-        x={(SECTION_PAD.left + x(0)) / 2}
+        x={geometry.featureHeadingX}
         y={SECTION_PAD.top - 8}
         textAnchor="middle"
         fontSize={9}
         fontWeight={600}
         className={FEATURE_TEXT}
       >
-        {geometry.feature.through ? 'THROUGH FEATURE' : 'FEATURE'}
+        {geometry.featureHeading}
       </text>
       <text
         x={right}

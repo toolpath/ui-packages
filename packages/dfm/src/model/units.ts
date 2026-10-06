@@ -4,12 +4,20 @@ import { MM_PER_INCH } from '@toolpath/tool-support'
 export type Units = 'mm' | 'inch'
 
 /**
- * How many places a length is written to: a micron, or a tenth of a thousandth
- * of an inch. Two places of a millimetre rounded away figures a tolerance turns
- * on. One table, so a rule's field, a feature's details and the reach chart
- * write one length as one number.
+ * How many places a length is shown to: a micron, or a thousandth of an inch,
+ * which is the unit a shop talks in. One table, so a feature's details, a
+ * measured figure and the reach chart show one length as one number. A rule's
+ * own field is the one exception: {@link FIELD_LENGTH_PLACES}.
  */
-export const LENGTH_PLACES: Record<Units, number> = { mm: 3, inch: 4 }
+export const LENGTH_PLACES: Record<Units, number> = { mm: 3, inch: 3 }
+
+/**
+ * How many places a rule's length field is written to: one more in inches,
+ * because a rule's value is typed, not measured, and some start finer than a
+ * thousandth (a tolerance of 0.0005", a 1/64" fillet). A ten-thousandth keeps
+ * the finest starting values from being hidden.
+ */
+export const FIELD_LENGTH_PLACES: Record<Units, number> = { mm: 3, inch: 4 }
 
 const UNIT_LABELS: Record<Units, string> = { mm: 'mm', inch: 'in' }
 

@@ -20,8 +20,15 @@ export const FEATURE_SHARE_MAX = 0.6
 /** The least room between two dimension labels on one line, CSS pixels. */
 export const LABEL_GAP_X = 40
 export const LABEL_GAP_Y = 14
+/**
+ * The least room between the wall's 0 and an offset's label beside it, CSS
+ * pixels: half a label and the 0, which is one character, with a little air.
+ */
+export const WALL_LABEL_GAP_X = 30
 /** A rough width per character of the 11 px reading, to keep it inside the drawing. */
 export const READ_CHAR_PX = 6.4
+/** A rough width per character of the 9 px bold headings, to keep them inside the drawing. */
+export const HEADING_CHAR_PX = 6.5
 /** How far the reading sits from the pointer's line, and from the drawing's edges. */
 export const READ_INSET = 8
 /** Half the width of the offsets' axis label at 9 px, to hold it inside the drawing, CSS pixels. */

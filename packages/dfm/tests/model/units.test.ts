@@ -6,8 +6,8 @@ describe('lengthValue', () => {
     expect(lengthValue(11.684, 'mm')).toBe('11.684')
   })
 
-  it('writes inches to a tenth of a thousandth', () => {
-    expect(lengthValue(11.684, 'inch')).toBe('0.4600')
+  it('writes inches to a thousandth', () => {
+    expect(lengthValue(11.684, 'inch')).toBe('0.460')
   })
 })
 

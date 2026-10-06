@@ -37,7 +37,7 @@ describe('ReachChart', () => {
 
   it('writes the lengths in inches when asked', () => {
     render(<ReachChart curve={curve} units="inch" feature={pocket} />)
-    expect(screen.getByText('0.4600')).toBeInTheDocument()
+    expect(screen.getByText('0.460')).toBeInTheDocument()
   })
 
   it('names a through feature, and marks its depth', () => {

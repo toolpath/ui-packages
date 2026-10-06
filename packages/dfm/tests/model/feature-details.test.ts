@@ -103,11 +103,11 @@ describe('featureMeasurements: measurements against machining considerations', (
 })
 
 describe('featureMeasurements: lengths in inches', () => {
-  it('writes an inch length to four places, as the rule fields do', () => {
+  it('writes an inch length to a thousandth, as the other measured figures are', () => {
     const hole = feature('h1', { featureType: 'hole' })
-    expect(byKey(rowsOf(hole, { h1: { diameter: 0.3175 } }), 'diameter')).toMatchObject({
-      value: '0.318 mm',
-      alt: '0.0125 in',
+    expect(byKey(rowsOf(hole, { h1: { diameter: 11.684 } }), 'diameter')).toMatchObject({
+      value: '11.684 mm',
+      alt: '0.46 in',
     })
   })
 })

@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { FeatureProfile, ReachCurve } from '../../src/model/reach.js'
 import { offsetUnder, readingAt } from '../../src/reach/reading.js'
 import { sectionGeometry } from '../../src/reach/section-geometry.js'
-import { FLOOR_STRIP, SECTION_MAX_H, SECTION_PAD } from '../../src/reach/section-layout.js'
+import {
+  FLOOR_STRIP,
+  HEADING_CHAR_PX,
+  SECTION_MAX_H,
+  SECTION_PAD,
+  WALL_LABEL_GAP_X,
+} from '../../src/reach/section-layout.js'
 
 const curve: ReachCurve = { offsets: [2, 5, 10], heights: [1, 4, 6] }
 const pocket: FeatureProfile = { across: null, depth: null, through: false }
@@ -42,6 +48,36 @@ describe('sectionGeometry', () => {
     const geometry = sectionGeometry(long, pocket, 400)
     expect(geometry.cut).toBe(true)
     expect(geometry.last).toBeLessThan(100)
+  })
+
+  it('writes no step so near the wall that its label would cover the 0', () => {
+    // As a part showed it: material from 0.128 mm out, stepping up again from 8.128.
+    const near: ReachCurve = { offsets: [0.128, 8.128, 31.75], heights: [0, 7, 10] }
+    const geometry = sectionGeometry(near, pocket, 480)
+    const at = geometry.across.map((riser) => riser.at)
+    expect(at).not.toContain(0.128)
+    expect(at).toContain(8.128)
+    for (const riser of geometry.across) {
+      expect(geometry.x(riser.at) - geometry.x(0)).toBeGreaterThanOrEqual(WALL_LABEL_GAP_X)
+    }
+  })
+
+  it('keeps the feature heading inside the drawing over a narrow feature', () => {
+    const narrow: FeatureProfile = {
+      across: { width: 0.1, kind: 'diameter' },
+      depth: 7,
+      through: true,
+    }
+    const geometry = sectionGeometry(curve, narrow, 480)
+    expect(geometry.featureHeading).toBe('THROUGH FEATURE')
+    const halfWidth = (geometry.featureHeading.length * HEADING_CHAR_PX) / 2
+    // Moved right just enough to start where the feature does.
+    expect(geometry.featureHeadingX).toBeCloseTo(SECTION_PAD.left + halfWidth)
+  })
+
+  it('centres the feature heading over a feature wide enough to hold it', () => {
+    const geometry = sectionGeometry(curve, pocket, 480)
+    expect(geometry.featureHeadingX).toBe((SECTION_PAD.left + geometry.x(0)) / 2)
   })
 
   it('leaves out a wall height that the feature depth label would cover', () => {

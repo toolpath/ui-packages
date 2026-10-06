@@ -122,11 +122,22 @@ describe('typing and reading values', () => {
     expect(toField('count', 3.0, 'mm')).toBe('3')
   })
 
-  it('writes a length to the same places in a field and in a measured figure', () => {
-    // 0.0125" is the rule; 0.0124" is the part. Three places would show both as 0.012".
-    expect(toField('length', 0.3175, 'inch')).toBe('0.0125')
-    expect(formatMeasured('length', 0.31496, 'inch')).toBe('0.0124"')
+  it('shows a measured length to a thousandth of an inch', () => {
+    expect(formatMeasured('length', 11.684, 'inch')).toBe('0.46"')
+    expect(formatMeasured('length', 0.31496, 'inch')).toBe('0.012"')
     expect(formatMeasured('length', 0.31496, 'mm')).toBe('0.315 mm')
+  })
+
+  it('writes a rule field in inches to one place more, so it shows the value the rule checks', () => {
+    // 0.0125" is the rule; at three places the field would show 0.013".
+    expect(toField('length', 0.3175, 'inch')).toBe('0.0125')
+    expect(toField('length', 11.684, 'mm')).toBe('11.684')
+  })
+
+  it('shows each inch starting value to four places', () => {
+    // A 0.0005" tolerance and a 1/64" fillet: both finer than a thousandth.
+    expect(toField('length', makeRule('any', 'tolIgnore', 'inch').value, 'inch')).toBe('0.0005')
+    expect(toField('length', makeRule('any', 'floorFillet', 'inch').value, 'inch')).toBe('0.0156')
   })
 
   it('writes a rule as one sentence', () => {

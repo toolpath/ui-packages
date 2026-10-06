@@ -10,6 +10,7 @@ import {
   FEATURE_SHARE_MAX,
   FEATURE_SHARE_MIN,
   FLOOR_STRIP,
+  HEADING_CHAR_PX,
   LABEL_GAP_X,
   LABEL_GAP_Y,
   SECTION_MAX_H,
@@ -18,6 +19,7 @@ import {
   risersOf,
   spaced,
   wallBreak,
+  WALL_LABEL_GAP_X,
   type Riser,
 } from './section-layout.js'
 
@@ -48,13 +50,16 @@ export interface SectionGeometry {
   right: number
   /** The material, out to the right edge; a broken edge where the curve was cut. */
   materialPath: string
-  /** The steps out from the wall that have room for a label beneath. */
+  /** The steps out from the wall that have room for a label beneath, clear of the wall's own 0. */
   across: Riser[]
   /** The walls' heights that have room for a label on the right. */
   up: number[]
   feature: FeatureProfile
   /** Wider than the drawing gives it: broken off at the left. */
   featureCut: boolean
+  /** The feature's heading, and where its middle sits: over the feature, held inside the drawing. */
+  featureHeading: string
+  featureHeadingX: number
   /** The feature's top, where its depth is known; else the top of the drawing. */
   featureTopY: number
   /** A through feature runs on down through the floor strip, with no floor of its own. */
@@ -123,6 +128,31 @@ const heightLabels = (
     LABEL_GAP_Y,
   ).filter((h) => depth === null || Math.abs(y(h) - y(depth)) >= LABEL_GAP_Y)
 
+/**
+ * The steps out from the wall that have room for a label beneath: clear of
+ * one another, and of the wall's own 0, which is always written.
+ */
+const offsetLabels = (risers: readonly Riser[], x: (mm: number) => number): Riser[] =>
+  spaced(
+    risers.filter((riser) => x(riser.at) - x(0) >= WALL_LABEL_GAP_X),
+    (riser) => x(riser.at),
+    LABEL_GAP_X,
+  )
+
+const headingFor = (feature: FeatureProfile): string =>
+  feature.through ? 'THROUGH FEATURE' : 'FEATURE'
+
+/**
+ * The middle of the feature's heading: over the feature, unless the feature
+ * is too narrow to hold it; then moved right, so it starts where the feature
+ * does and is not cut off at the drawing's left edge.
+ */
+const headingMiddle = (heading: string, wallX: number): number =>
+  Math.max(
+    (SECTION_PAD.left + wallX) / 2,
+    SECTION_PAD.left + (heading.length * HEADING_CHAR_PX) / 2,
+  )
+
 export const sectionGeometry = (
   whole: ReachCurve,
   feature: FeatureProfile,
@@ -144,6 +174,7 @@ export const sectionGeometry = (
   const right = Math.min(x(x1), width - SECTION_PAD.right)
   const risers = risersOf(curve)
   const { depth } = feature
+  const heading = headingFor(feature)
 
   return {
     curve,
@@ -158,14 +189,12 @@ export const sectionGeometry = (
     floorY,
     right,
     materialPath: materialPath(curve, cut, x, y, floorY, right),
-    across: spaced(
-      risers.filter((riser) => riser.at > 0),
-      (riser) => x(riser.at),
-      LABEL_GAP_X,
-    ),
+    across: offsetLabels(risers, x),
     up: heightLabels(risers, depth, y),
     feature,
     featureCut,
+    featureHeading: heading,
+    featureHeadingX: headingMiddle(heading, x(0)),
     featureTopY: depth === null ? SECTION_PAD.top : y(depth),
     featureBottomY: feature.through ? floorY + FLOOR_STRIP : floorY,
     wallTop: y(curve.heights[0] ?? 0),
