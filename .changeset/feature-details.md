@@ -32,3 +32,6 @@ It also lists every field of the feature's datasheet and shows its raw API recor
 
 With `PopOut`, the app's own window component, the reach, the datasheet fields and the raw record pop out, larger,
 into it.
+
+`<CandidateList>` lists the features a clicked face could mean, with each one's colour, rule count, REQUIRED pill
+and the app's detail, note and action, chosen by click or by `candidateListKeys`.

@@ -27,3 +27,10 @@ export type {
   PopOutId,
   PopOutWindowProps,
 } from './feature-panel/types.js'
+export {
+  CandidateList,
+  candidateListKeys,
+  type CandidateListProps,
+  type CandidateRow,
+  type ComparedFaceList,
+} from './feature-panel/candidate-list.js'
