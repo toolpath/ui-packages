@@ -39,3 +39,8 @@ export {
   type ComparedFace,
   type ComparisonTableProps,
 } from './feature-panel/comparison-table.js'
+export {
+  FeaturePanel,
+  type FeaturePanelProps,
+  type InspectedFace,
+} from './feature-panel/feature-panel.js'

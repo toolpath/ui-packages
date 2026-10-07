@@ -37,3 +37,6 @@ into it.
 and the app's detail, note and action, chosen by click or by `candidateListKeys`.
 
 `<ComparisonTable>` sets the features several faces were read as side by side, marking the rows where they differ.
+
+`<FeaturePanel>` is the whole card: a clicked face's candidates, several faces compared under letters, and the
+read feature's details, with Escape and the arrow keys. The app places it.
