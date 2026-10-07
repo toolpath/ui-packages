@@ -607,6 +607,51 @@ what a label looks like is your stylesheet's, through the `toolpath-measure-labe
 data attributes on each one — see [Measuring](#measuring) for a starting point. While the tool is
 mounted the part reports no hovers or picks, as with `<SectionTool>`.
 
+### `<ToolMarks>`
+
+Cutting tools drawn on the part, each to scale where it stands: a see-through end mill — flat,
+bull nose or ball — rimmed at its bottom and top, with a dimension across its top and a label on
+it. What a tool stands for is yours: the widest tool a pocket admits, the tool an operation uses.
+Nothing here reads a datasheet.
+
+```tsx
+<EnginePart report={report}>
+  <ToolMarks
+    marks={[
+      {
+        base: { x: 12, y: 4, z: -8 },
+        axis: { x: 0, y: 0, z: 1 },
+        diameter: 6,
+        height: 8,
+        cornerRadius: 0.5,
+        label: '⌀ 6.000 mm',
+        note: 'bull nose R 0.5',
+      },
+    ]}
+  />
+</EnginePart>
+```
+
+| Prop             | What it does                                                                       |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| `marks`          | The tools, in the coordinates the part is drawn in. See `ToolMark` below.          |
+| `visible`        | `false` hides them without unmounting. On by default.                              |
+| `labelClassName` | Added to every label, beside `toolpath-measure-label`.                             |
+| `theme`          | `measure` colours the rims and the dimension, as it does the measure tool's lines. |
+
+A `ToolMark` is `base` (the centre of the tool's bottom), `axis` (up the tool), `diameter`,
+`height`, and optionally `cornerRadius` (0 flat, half the diameter a ball), `across` (which way the
+dimension runs; any direction square to the axis otherwise), `label` and `note`.
+
+It draws as `<MeasureTool>` draws: the lines show through the part, and each label is an unstyled
+`<div class="toolpath-measure-label" data-measure-label="tool">` with its text in a
+`data-measure-value` span and its note in a `data-measure-note` one. The marks take no pointer
+events and are left out of framing.
+
+Inside `<PartMesh>` or `<EnginePart>`, `usePartContext()` gives the part's `model` and `geometry`,
+and `featureTriangles(model, geometry, tag)` a feature's triangles, for working out where a tool
+stands.
+
 ### `<Grid>` and `<Axes>`
 
 Reference geometry. The camera ignores both when it frames the part.
