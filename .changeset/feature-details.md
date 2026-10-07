@@ -26,7 +26,7 @@ and under a key prefix the app chooses.
 `<FeatureDetails>` shows one feature as the Engine read it: its name and machining direction, the rules it breaks,
 its measurements and milling considerations with how each was measured, and its reach. It takes loading and
 failed reads with a Retry, slots for the app's own buttons and status, an optional REQUIRED pill and "Show this
-feature", a `pinchPoints` toggle on the widest tool's row, and a `look`. `featureMeasurements` takes `inchMark`
+feature", and a `look`. `featureMeasurements` takes `inchMark`
 to write inches as `0.46"`.
 
 It also lists every field of the feature's datasheet and shows its raw API record, with a copy button.

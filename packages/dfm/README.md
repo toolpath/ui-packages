@@ -141,7 +141,6 @@ export const Inspector = () => (
         value: featureMeasurements({ features, feature, sheets, units: 'mm' }),
       }}
       record={{ status: 'ready', value: records[key] ?? null }}
-      pinchPoints={{ shown, onShownChange: setShown }}
       PopOut={AppWindow}
       folds={folds}
     />
@@ -203,5 +202,10 @@ export const PinchPoints = ({ datasheet, sheet, feature, units, shown }) => {
 the API gives its discs across the tool without saying which way x and y lie —
 and stands the tool on the tightest disc, turned toward the wall that pinches
 it. If the app moved the geometry to centre it, pass `origin`: where the CAD
-file's zero now sits. `FeatureDetails`' `pinchPoints` shows and hides it from
-the "Max tool diameter" row; start it shown.
+file's zero now sits.
+
+Show and hide it from the viewer's toolbar — `ViewerToolbar.ToolsButton` on a
+`tools` control — with the state held by the app; start it shown. The tool is
+an end mill made from its diameter and corner; to draw it as the app's other
+tools are drawn, give the mark a `profile` from `@toolpath/tool-drawing`'s
+outline of a flat or bull nose end mill that size.

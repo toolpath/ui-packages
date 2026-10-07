@@ -15,11 +15,7 @@ export type { DfmRules, Hovered, RuleListProps } from './rule-list/types.js'
 export { ReachChart, ReachDrawing } from './reach/reach-chart.js'
 export type { ReachChartProps } from './reach/types.js'
 export { storageFolds, type FoldStore } from './feature-panel/fold-store.js'
-export {
-  FeatureDetails,
-  type FeatureDetailsProps,
-  type PinchPointsToggle,
-} from './feature-panel/feature-details.js'
+export { FeatureDetails, type FeatureDetailsProps } from './feature-panel/feature-details.js'
 export type { FeaturePanelLook } from './feature-panel/look.js'
 export type {
   FeatureIdentity,

@@ -24,12 +24,6 @@ import { PopOutButton, PopOuts } from './pop-outs.js'
 import { RecordSections } from './record-sections.js'
 import type { FeatureIdentity, Loadable, PopOutId, PopOutWindow } from './types.js'
 
-/** Whether the widest tool is drawn on the part, and how to change that. */
-export interface PinchPointsToggle {
-  shown: boolean
-  onShownChange: (shown: boolean) => void
-}
-
 export interface FeatureDetailsProps {
   feature: FeatureIdentity
   /** Lengths in the reach chart; every other figure comes in written. */
@@ -56,11 +50,6 @@ export interface FeatureDetailsProps {
   measurements: Loadable<readonly Measurement[]>
   /** Its raw report entry and datasheet, for the reach chart. Null where the app has none. */
   record: Loadable<FeatureRecord | null>
-  /**
-   * The widest tool drawn on the part: its "Max tool diameter" row then shows
-   * and hides it. Left out, the row is plain. Apps start it shown.
-   */
-  pinchPoints?: PinchPointsToggle
   /**
    * The app's window, to pop the reach, the datasheet fields and the raw
    * record out into, larger. Left out, there are no pop-out buttons.
@@ -95,7 +84,6 @@ export const FeatureDetails: FC<FeatureDetailsProps> = ({
   rules,
   measurements,
   record,
-  pinchPoints,
   PopOut,
   look: lookOption,
   folds,
@@ -147,12 +135,7 @@ export const FeatureDetails: FC<FeatureDetailsProps> = ({
         <BrokenRuleList rules={rules} look={look} />
       </FoldSection>
 
-      <MeasurementSections
-        measurements={measurements}
-        pinchPoints={pinchPoints}
-        look={look}
-        folds={folds}
-      />
+      <MeasurementSections measurements={measurements} look={look} folds={folds} />
 
       <ReachSection
         record={record}
@@ -237,10 +220,9 @@ const None: FC<{ look: ResolvedLook }> = ({ look }): ReactElement => (
  */
 const MeasurementSections: FC<{
   measurements: Loadable<readonly Measurement[]>
-  pinchPoints?: PinchPointsToggle
   look: ResolvedLook
   folds?: FoldStore
-}> = ({ measurements, pinchPoints, look, folds }): ReactElement => {
+}> = ({ measurements, look, folds }): ReactElement => {
   if (measurements.status !== 'ready') {
     return (
       <FoldSection id="measurements" title="Measurements" folds={folds}>
@@ -261,68 +243,34 @@ const MeasurementSections: FC<{
       </FoldSection>
       {milling.length > 0 ? (
         <FoldSection id="milling" title="Milling considerations" folds={folds}>
-          <MeasurementList rows={milling} look={look} pinchPoints={pinchPoints} />
+          <MeasurementList rows={milling} look={look} />
         </FoldSection>
       ) : null}
     </>
   )
 }
 
-/** The row the widest tool on the part stands for. */
-const PINCH_ROW = 'pinch'
-
 /**
  * Measurements as rows: what each is and its figure, the other unit on hover,
- * with how it was worked out behind an ⓘ. With `pinchPoints`, the widest
- * tool's row is a button that shows and hides it on the part.
+ * with how it was worked out behind an ⓘ.
  */
 const MeasurementList: FC<{
   rows: readonly Measurement[]
   look: ResolvedLook
-  pinchPoints?: PinchPointsToggle
-}> = ({ rows, look, pinchPoints }): ReactElement =>
+}> = ({ rows, look }): ReactElement =>
   rows.length > 0 ? (
     <dl className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 text-sm">
-      {rows.map((row) => {
-        const toggle = pinchPoints && row.key === PINCH_ROW ? pinchPoints : undefined
-        const shown = toggle?.shown ?? false
-        const derivation = <Derivation lines={row.derivation} look={look} />
-        return (
-          <div key={row.key} className="contents">
-            <dt className={cn('flex items-center gap-1', secondaryText(look))}>
-              {toggle ? (
-                <button
-                  type="button"
-                  aria-pressed={shown}
-                  title={shown ? 'Hide the tool on the part' : 'Show the tool on the part'}
-                  onClick={() => toggle.onShownChange(!shown)}
-                  className={cn(
-                    'flex cursor-pointer items-center gap-1 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-info/75',
-                    shown
-                      ? 'text-blue-600 dark:text-blue-400'
-                      : 'hover:text-gray-600 dark:hover:text-zinc-200',
-                  )}
-                >
-                  {row.label}
-                  {shown ? <span className="text-2xs font-medium uppercase">shown</span> : null}
-                </button>
-              ) : (
-                row.label
-              )}
-              {derivation}
-            </dt>
-            <dd
-              className={cn(
-                'text-right tabular-nums',
-                shown ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-zinc-100',
-              )}
-              title={row.alt}
-            >
-              {row.value}
-            </dd>
-          </div>
-        )
-      })}
+      {rows.map((row) => (
+        <div key={row.key} className="contents">
+          <dt className={cn('flex items-center gap-1', secondaryText(look))}>
+            {row.label}
+            <Derivation lines={row.derivation} look={look} />
+          </dt>
+          <dd className="text-right text-gray-600 tabular-nums dark:text-zinc-100" title={row.alt}>
+            {row.value}
+          </dd>
+        </div>
+      ))}
     </dl>
   ) : (
     <None look={look} />

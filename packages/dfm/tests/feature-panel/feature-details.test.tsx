@@ -150,21 +150,10 @@ describe('FeatureDetails', () => {
     expect(screen.queryByRole('button', { name: 'Reach' })).not.toBeInTheDocument()
   })
 
-  it("makes the widest tool's row show and hide it on the part", () => {
-    const onShownChange = vi.fn()
-    const { unmount } = details()
+  it("keeps the widest tool's row a plain measurement: the viewer's toolbar shows the tool", () => {
+    details()
     expect(screen.queryByRole('button', { name: /Max tool diameter/ })).not.toBeInTheDocument()
-    unmount()
-    details({ pinchPoints: { shown: true, onShownChange } })
-    const row = screen.getByRole('button', { name: /Max tool diameter/ })
-    expect(row).toHaveAttribute('aria-pressed', 'true')
-    expect(row).toHaveTextContent('shown')
-    // Its ⓘ is a button of its own, beside the toggle rather than inside it.
-    expect(
-      within(row).queryByRole('button', { name: 'How this was measured' }),
-    ).not.toBeInTheDocument()
-    fireEvent.click(row)
-    expect(onShownChange).toHaveBeenCalledWith(false)
+    expect(screen.getByText('Max tool diameter')).toBeInTheDocument()
   })
 })
 
