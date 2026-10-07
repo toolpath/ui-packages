@@ -1200,6 +1200,7 @@ is a complete app built this way, with no API key needed.
 | `focusForPick(pick, lastRegion, lastFocus)`              | Steps through a face's matches on repeated clicks.          |
 | `rankOwners` / `bestOwner`                               | The ranking `onPick` uses, if you want to run it yourself.  |
 | `groupByDirection(model)`                                | Features grouped by machining direction.                    |
+| `featureTriangles(model, geometry, tag)`                 | A feature's triangles and outward normals, as plain arrays. |
 | `directionLabel(v)` / `directionColor(i)`                | A direction's label and colour.                             |
 | `sectionFromPick({ point, normal })`                     | Turns a clicked surface into a section plane.               |
 | `measurementLabel(measurement, format?)`                 | Writes a measurement the way `<MeasureTool>` labels it.     |
