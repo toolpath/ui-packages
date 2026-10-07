@@ -18,3 +18,6 @@ for the colour a feature is painted, and the `FeatureRecord` type for a feature'
 `pinchMark` and `pinchLabel` read the pinch discs a feature's widest tool stands in, and `placePinchTool` finds
 the datasheet's tool frame against the feature's faces and places that tool on the part, as plain vectors for
 `<ToolMarks>`.
+
+`FoldStore` and `storageFolds(storage, prefix)` keep which of the feature panel's sections are open, in a storage
+and under a key prefix the app chooses.
