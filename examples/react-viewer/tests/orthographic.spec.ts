@@ -115,59 +115,85 @@ test('a double click on a face aims the orbit at the point that was clicked', as
  * before the orbit and the click after it paired — with a whole drag in
  * between — and the view re-aimed at a face nobody had double-clicked.
  */
+/**
+ * How many times the sequence below is run before missing the window is a
+ * failure rather than a slow runner.
+ *
+ * Making the window is not the behaviour under test, only the condition for
+ * testing it, and on a shared CI runner other workspaces' suites are running
+ * beside this one: the sequence has landed at 411 ms against a 400 ms window
+ * there while taking well under 100 ms on an idle machine. A run that misses
+ * proves nothing either way, so it is repeated on a fresh page rather than
+ * failed — and a viewer that can no longer make the window at all still fails,
+ * after the last one.
+ */
+const PAIRING_ATTEMPTS = 3
+
 test('an orbit released over the part does not pair with the click after it', async ({ page }) => {
-  const { canvas, box } = await openViewer(page, ORTHOGRAPHIC)
-
   const selected = page.locator('p', { hasText: 'Selected:' })
-  const point = at(box, RIGHT)
 
-  /*
-   * The first click on the part costs more than every one after it: the pick
-   * walks the region index for the first time, and the highlight repaint writes
-   * the layer texture for the first time. Left inside the sequence below, that
-   * cost falls between the two clicks being paired — it spends the very budget
-   * under test, and on a loaded runner it can outrun the window on its own.
-   * Spent here instead, on a face far enough away that it cannot pair with what
-   * follows.
-   */
-  await canvas.click({ position: on(box, CENTRE) })
-  await expect(selected).toContainText('front-face')
+  /** One click, drag and click on a freshly opened page, timed by the page. */
+  const clickDragClick = async (): Promise<number[]> => {
+    const { canvas, box } = await openViewer(page, ORTHOGRAPHIC)
+    const point = at(box, RIGHT)
 
-  /*
-   * Timed on the page's clock rather than this process's, because that is the
-   * clock being judged: pairing compares one `click` event's `timeStamp` with
-   * the last. Timing the Playwright calls instead puts a protocol round trip
-   * per gesture — six of them — inside a budget that belongs to the browser.
-   */
-  await page.evaluate(() => {
-    const clicks: number[] = []
-    ;(window as unknown as { clickTimes: number[] }).clickTimes = clicks
-    addEventListener('click', (event) => clicks.push(event.timeStamp), { capture: true })
-  })
+    /*
+     * The first click on the part costs more than every one after it: the pick
+     * walks the region index for the first time, and the highlight repaint
+     * writes the layer texture for the first time. Left inside the sequence
+     * below, that cost falls between the two clicks being paired — it spends
+     * the very budget under test, and on a loaded runner it can outrun the
+     * window on its own. Spent here instead, on a face far enough away that it
+     * cannot pair with what follows.
+     */
+    await canvas.click({ position: on(box, CENTRE) })
+    await expect(selected).toContainText('front-face')
 
-  // All three gestures inside the double-tap window, or the pair this is about
-  // could not form in the first place and the test would pass on the clock.
-  // Every event in here renders a frame, so the sequence is as short as the
-  // gesture allows: a click, one drag of 20 px released back where the click
-  // was, and a second click.
-  await page.mouse.click(point.x, point.y)
-  await page.mouse.move(point.x + 14, point.y + 14)
-  await page.mouse.down()
-  await page.mouse.move(point.x, point.y)
-  await page.mouse.up()
-  await page.mouse.click(point.x, point.y)
+    /*
+     * Timed on the page's clock rather than this process's, because that is
+     * the clock being judged: pairing compares one `click` event's `timeStamp`
+     * with the last. Timing the Playwright calls instead puts a protocol round
+     * trip per gesture — six of them — inside a budget that belongs to the
+     * browser.
+     */
+    await page.evaluate(() => {
+      const clicks: number[] = []
+      ;(window as unknown as { clickTimes: number[] }).clickTimes = clicks
+      addEventListener('click', (event) => clicks.push(event.timeStamp), { capture: true })
+    })
 
-  const clicks = await page.evaluate(
-    () => (window as unknown as { clickTimes: number[] }).clickTimes,
-  )
+    // All three gestures inside the double-tap window, or the pair this is
+    // about could not form in the first place and the test would pass on the
+    // clock. Every event in here renders a frame, so the sequence is as short
+    // as the gesture allows: a click, one drag of 20 px released back where the
+    // click was, and a second click.
+    await page.mouse.click(point.x, point.y)
+    await page.mouse.move(point.x + 14, point.y + 14)
+    await page.mouse.down()
+    await page.mouse.move(point.x, point.y)
+    await page.mouse.up()
+    await page.mouse.click(point.x, point.y)
+
+    const clicks = await page.evaluate(
+      () => (window as unknown as { clickTimes: number[] }).clickTimes,
+    )
+    expect(
+      clicks,
+      'the sequence did not reach the page as a click, a drag and a click',
+    ).toHaveLength(3)
+    return clicks
+  }
+
+  let clicks = await clickDragClick()
+  for (let attempt = 2; attempt <= PAIRING_ATTEMPTS; attempt += 1) {
+    if (clicks[2] - clicks[0] < DOUBLE_TAP_MS) break
+    clicks = await clickDragClick()
+  }
 
   await expect(selected).toContainText('right-face')
-  expect(clicks, 'the sequence did not reach the page as a click, a drag and a click').toHaveLength(
-    3,
-  )
   expect(
     clicks[2] - clicks[0],
-    'the three gestures outran the double-tap window, so this run proved nothing',
+    `the three gestures outran the double-tap window ${PAIRING_ATTEMPTS} times, so no run proved anything`,
   ).toBeLessThan(DOUBLE_TAP_MS)
 
   // The orbit moved the camera; nothing in the sequence asked the pivot to
