@@ -357,8 +357,8 @@ individual buttons to use only the controls and order your application needs.
 </ViewerToolbarProvider>
 ```
 
-`ViewerToolbar.Controls`, `Divider`, and the thirteen `*Button` components are available on
-`ViewerToolbar`: `StockButton`, `AxesButton`, `GridButton`, `BananaButton`, `DirectionsButton`,
+`ViewerToolbar.Controls`, `Divider`, and the fourteen `*Button` components are available on
+`ViewerToolbar`: `StockButton`, `AxesButton`, `GridButton`, `BananaButton`, `ToolsButton`, `DirectionsButton`,
 `HoverButton`, `FocusButton`, `WireframeButton`, `SectionButton`, `MeasureButton`, `FitButton`,
 `ResetButton`, and `TopButton`. A rendered button requires its matching provider control. For an
 application-specific toolbar component, `useViewerToolbar()` reads the same controls from inside
@@ -388,19 +388,19 @@ override any of these selectors in your application stylesheet.
 The following `data-*` attributes identify generated elements without depending on labels, which
 can change with state or localization:
 
-| Attribute                             | Element and values                                                                                                                              |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `data-viewer-root="true"`             | `<Viewer>` wrapper                                                                                                                              |
-| `data-viewer-canvas-container="true"` | R3F canvas event container                                                                                                                      |
-| `data-viewer-canvas-frame="true"`     | R3F canvas-sizing frame                                                                                                                         |
-| `data-viewer-canvas="true"`           | The `<canvas>` itself                                                                                                                           |
-| `data-viewer-hover-card="true"`       | `<HoverCard>` shell                                                                                                                             |
-| `data-viewer-toolbar="true"`          | Toolbar stack                                                                                                                                   |
-| `data-viewer-toolbar-controls="true"` | Controls group                                                                                                                                  |
-| `data-viewer-toolbar-action`          | Standard button: `stock`, `axes`, `grid`, `banana`, `directions`, `hover`, `focus`, `wireframe`, `section`, `measure`, `fit`, `reset`, or `top` |
-| `data-viewer-toolbar-icon="true"`     | Standard button SVG                                                                                                                             |
-| `data-viewer-toolbar-tooltip="true"`  | Standard button tooltip                                                                                                                         |
-| `data-viewer-toolbar-divider="true"`  | Toolbar separator                                                                                                                               |
+| Attribute                             | Element and values                                                                                                                                       |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data-viewer-root="true"`             | `<Viewer>` wrapper                                                                                                                                       |
+| `data-viewer-canvas-container="true"` | R3F canvas event container                                                                                                                               |
+| `data-viewer-canvas-frame="true"`     | R3F canvas-sizing frame                                                                                                                                  |
+| `data-viewer-canvas="true"`           | The `<canvas>` itself                                                                                                                                    |
+| `data-viewer-hover-card="true"`       | `<HoverCard>` shell                                                                                                                                      |
+| `data-viewer-toolbar="true"`          | Toolbar stack                                                                                                                                            |
+| `data-viewer-toolbar-controls="true"` | Controls group                                                                                                                                           |
+| `data-viewer-toolbar-action`          | Standard button: `stock`, `axes`, `grid`, `banana`, `tools`, `directions`, `hover`, `focus`, `wireframe`, `section`, `measure`, `fit`, `reset`, or `top` |
+| `data-viewer-toolbar-icon="true"`     | Standard button SVG                                                                                                                                      |
+| `data-viewer-toolbar-tooltip="true"`  | Standard button tooltip                                                                                                                                  |
+| `data-viewer-toolbar-divider="true"`  | Toolbar separator                                                                                                                                        |
 
 Toggle buttons also carry standard `aria-pressed="true"` or `"false"`; use that to style their
 current state. `Fit`, `Reset`, and `Top view` are actions rather than toggles, so they omit the
@@ -645,6 +645,8 @@ dimension runs; any direction square to the axis otherwise), `label` and `note`.
 a drill, a chamfer mill, a tool in its holder — takes `profile`: its side as `{ r, z }` points from
 the tip up, such as `@toolpath/tool-drawing`'s outline, turned about the axis in place of the end
 mill.
+
+Show and hide them with `visible`, from the toolbar's `ToolsButton` and its `tools` control.
 
 It draws as `<MeasureTool>` draws: the lines show through the part, and each label is an unstyled
 `<div class="toolpath-measure-label" data-measure-label="tool">` with its text in a

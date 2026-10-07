@@ -10,7 +10,8 @@
 plain arrays.
 
 `<ToolMarks>` draws cutting tools on the part to scale — an end mill, flat, bull nose or ball, or any tool by
-its `profile` — with a dimension and a label each, in the measure tool's style.
+its `profile` — with a dimension and a label each, in the measure tool's style. `ViewerToolbar.ToolsButton`, on a `tools` control,
+shows and hides them.
 
 `@toolpath/dfm/model` adds `brokenRules` and the neutral `BrokenRule` row a feature's details list, `featureColor`
 for the colour a feature is painted, and the `FeatureRecord` type for a feature's raw report entry and datasheet.
