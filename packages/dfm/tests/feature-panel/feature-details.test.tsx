@@ -163,3 +163,42 @@ describe('FeatureDetails', () => {
     expect(onShownChange).toHaveBeenCalledWith(false)
   })
 })
+
+describe('FeatureDetails: the datasheet and the raw record', () => {
+  it('lists every datasheet field and the raw record, both shut until opened', () => {
+    details()
+    const fields = screen.getByRole('button', { name: 'All datasheet fields (2)' })
+    expect(fields).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(fields)
+    expect(screen.getByText('reachCurve.horizontalOffset')).toBeInTheDocument()
+    expect(screen.getByText('1, 2')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Raw API record' }))
+    expect(screen.getByText(/"featureTag": "P1"/)).toBeInTheDocument()
+  })
+
+  it('says when the API sent no datasheet, and shows no sections without a record', () => {
+    const { unmount } = details({
+      record: { status: 'ready', value: { feature: {}, datasheet: null } },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /All datasheet fields/ }))
+    expect(screen.getByText('The API sent no datasheet for this feature.')).toBeInTheDocument()
+    unmount()
+    details({ record: { status: 'ready', value: null } })
+    expect(screen.queryByRole('button', { name: /All datasheet fields/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Raw API record' })).not.toBeInTheDocument()
+  })
+
+  it('copies the raw record, and says Copied for a moment', async () => {
+    vi.useFakeTimers()
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    details()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy raw record' }))
+    })
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('"featureTag": "P1"'))
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument()
+    act(() => vi.advanceTimersByTime(1500))
+    expect(screen.getByRole('button', { name: 'Copy raw record' })).toBeInTheDocument()
+  })
+})

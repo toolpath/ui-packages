@@ -20,6 +20,7 @@ import {
   type ResolvedLook,
 } from './look.js'
 import { ReadFailure, Reading } from './read-state.js'
+import { RecordSections } from './record-sections.js'
 import type { FeatureIdentity, Loadable } from './types.js'
 
 /** Whether the widest tool is drawn on the part, and how to change that. */
@@ -67,6 +68,9 @@ export interface FeatureDetailsProps {
  * One feature, as the Engine read it: its name and the way it is machined
  * from, then the rules it breaks, what was measured of it, what that asks of
  * the milling, and its reach.
+ *
+ * Then, shut until opened, every field of its datasheet and its raw API record,
+ * to read or copy.
  *
  * Each section folds away under its heading. A section waiting on something
  * the app reads says so, and one whose read failed says why, with a Retry.
@@ -131,6 +135,8 @@ export const FeatureDetails: FC<FeatureDetailsProps> = ({
       />
 
       <ReachSection record={record} units={units} profile={profile} folds={folds} />
+
+      <RecordSections record={record} look={look} folds={folds} />
     </div>
   )
 }
