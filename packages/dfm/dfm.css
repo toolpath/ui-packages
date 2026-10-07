@@ -1,6 +1,7 @@
 /*
- * Lets the app's Tailwind see the classes the rule list uses. Import it after
- * Tailwind and `@toolpath/ui/theme.css`, whose colours the list is drawn in:
+ * Lets the app's Tailwind see the classes the rule list and the feature panel
+ * use. Import it after Tailwind and `@toolpath/ui/theme.css`, whose colours
+ * they are drawn in:
  *
  *   @import 'tailwindcss';
  *   @import '@toolpath/ui/theme.css';

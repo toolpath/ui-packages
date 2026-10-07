@@ -1,7 +1,7 @@
 {
   "name": "@toolpath/dfm",
   "version": "0.1.0",
-  "description": "Toolpath DFM rules: the rule list component, the rules and the part checker",
+  "description": "Toolpath DFM rules: the rule list, the rules and the part checker, and the feature panel",
   "license": "MIT",
   "engines": {
     "node": ">=20"
