@@ -1,16 +1,9 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type FC,
-  type ReactElement,
-  type ReactNode,
-} from 'react'
+import { useRef, type FC, type ReactElement, type ReactNode } from 'react'
 import { CheckIcon, CopyIcon, DownloadSimpleIcon, UploadSimpleIcon } from '@phosphor-icons/react'
 import { Button, cn } from '@toolpath/ui'
 import { llmRulePrompt, parseRuleSetFile, serializeRuleSet } from '../model/rule-set-file.js'
 import type { DfmRules } from './types.js'
+import { useTimedValue } from './use-timed-value.js'
 
 /** How long a word of feedback under the footer stays, ms. */
 const NOTE_MS = 4000
@@ -122,22 +115,6 @@ const ActionLabel: FC<ActionLabelProps> = ({ icon, children, hidden = false }): 
     {children}
   </span>
 )
-
-/**
- * A value that clears itself a while after it is set, for feedback that should
- * not linger. Setting it again, even to the same value, starts the wait over.
- */
-const useTimedValue = <Value,>(ms: number): [Value | null, (value: Value) => void] => {
-  // Boxed, so each set is a new state and restarts the timer.
-  const [box, setBox] = useState<{ value: Value } | null>(null)
-  useEffect(() => {
-    if (box === null) return
-    const timer = setTimeout(() => setBox(null), ms)
-    return () => clearTimeout(timer)
-  }, [box, ms])
-  const set = useCallback((value: Value) => setBox({ value }), [])
-  return [box?.value ?? null, set]
-}
 
 /** Saves the rules as a rule-set file, through the browser's download. */
 const downloadRuleSet = (rules: DfmRules): void => {
