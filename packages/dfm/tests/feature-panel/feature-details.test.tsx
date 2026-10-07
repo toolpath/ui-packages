@@ -1,0 +1,268 @@
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  FeatureDetails,
+  type FeatureDetailsProps,
+  type PopOutWindowProps,
+} from '../../src/index.js'
+import {
+  RULE_COLORS,
+  featureProfile,
+  type BrokenRule,
+  type Measurement,
+} from '../../src/model/index.js'
+
+const [RED = ''] = RULE_COLORS.map((each) => each.value)
+
+const measured: Measurement[] = [
+  {
+    key: 'featureDepth',
+    label: 'Feature depth',
+    value: '10 mm',
+    alt: '0.394 in',
+    derivation: ['zMax − zMin'],
+  },
+  {
+    key: 'pinch',
+    label: 'Max tool diameter',
+    value: '⌀ 6 mm',
+    derivation: ['pinchPoints[0].diameter'],
+    milling: true,
+  },
+  { key: 'ld', label: 'Feature L/D', value: '1.667', derivation: [], milling: true },
+]
+
+const rules: BrokenRule[] = [
+  {
+    key: 'deep',
+    color: RED,
+    text: 'Milled features with L/D ≥ 1',
+    figure: '9.8',
+    limit: '≥ 1',
+    note: 'Deep for a mill',
+  },
+]
+
+const datasheet = { reachCurve: { horizontalOffset: [1, 2], verticalOffset: [3, 5] } }
+
+const details = (over: Partial<FeatureDetailsProps> = {}) =>
+  render(
+    <FeatureDetails
+      feature={{ tag: 'P1', featureType: 'pocket', machiningDirection: { x: 0, y: 0, z: 1 } }}
+      units="mm"
+      directionColor="#3b82f6"
+      profile={featureProfile(undefined, 'pocket')}
+      rules={rules}
+      measurements={{ status: 'ready', value: measured }}
+      record={{ status: 'ready', value: { feature: { featureTag: 'P1' }, datasheet } }}
+      {...over}
+    />,
+  )
+
+const headings = () =>
+  screen.getAllByRole('button', { expanded: true }).map((button) => button.textContent)
+
+afterEach(() => vi.useRealTimers())
+
+describe('FeatureDetails', () => {
+  it('names the feature and its direction, then its sections in order', () => {
+    details()
+    expect(screen.getByRole('heading', { name: 'Pocket from +Z' })).toBeInTheDocument()
+    expect(screen.getByText(/Machined from \+Z/)).toBeInTheDocument()
+    expect(headings()).toEqual(['Rules broken', 'Measurements', 'Milling considerations', 'Reach'])
+  })
+
+  it('splits the milling considerations from the measurements, and explains each behind an ⓘ', () => {
+    details()
+    const milling = screen
+      .getByRole('button', { name: 'Milling considerations' })
+      .closest('section')!
+    expect(within(milling).getByText('Max tool diameter')).toBeInTheDocument()
+    expect(within(milling).queryByText('Feature depth')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'How this was measured' })).toHaveLength(2)
+    expect(screen.getByText('10 mm')).toHaveAttribute('title', '0.394 in')
+  })
+
+  it('says None where nothing is broken, and leaves out milling with no rows', () => {
+    details({ rules: [], measurements: { status: 'ready', value: [measured[0]!] } })
+    expect(screen.getByText('None')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Milling considerations' })).not.toBeInTheDocument()
+  })
+
+  it('writes a rule as a sentence with a grey figure, or as a result in its colour with its limit', () => {
+    const { unmount } = details()
+    expect(screen.queryByText('≥ 1')).not.toBeInTheDocument()
+    unmount()
+    details({ look: { rules: 'result' } })
+    expect(screen.getByText('9.8').getAttribute('style')).toContain('color')
+    expect(screen.getByText('≥ 1')).toBeInTheDocument()
+  })
+
+  it('shows the pills, buttons and slots the app gives, and only those', () => {
+    const onFrame = vi.fn()
+    const { unmount } = details()
+    expect(screen.queryByText('Required')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Show this feature/ })).not.toBeInTheDocument()
+    unmount()
+    details({
+      required: true,
+      onFrame,
+      label: 'Pocket ⌀ 6',
+      actions: <button type="button">Isolate</button>,
+      status: <span>Folder 1</span>,
+      children: <p>Pinned to Folder 1.</p>,
+    })
+    expect(screen.getByText('Required')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Pocket ⌀ 6 from +Z' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Show this feature/ }))
+    expect(onFrame).toHaveBeenCalled()
+    for (const text of ['Isolate', 'Folder 1', 'Pinned to Folder 1.'])
+      expect(screen.getByText(text)).toBeInTheDocument()
+  })
+
+  it('says what it is reading, and what failed, with a Retry that waits as long as asked', () => {
+    vi.useFakeTimers()
+    const retry = vi.fn()
+    details({
+      measurements: { status: 'loading' },
+      record: {
+        status: 'error',
+        message: 'Toolpath asked us to wait.',
+        retry,
+        retryAt: Date.now() + 5000,
+      },
+    })
+    expect(screen.getByText('Reading the feature’s datasheet…')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Toolpath asked us to wait.')
+    const button = screen.getByRole('button', { name: 'Retry' })
+    expect(button).toBeDisabled()
+    act(() => vi.advanceTimersByTime(5000))
+    expect(button).toBeEnabled()
+    fireEvent.click(button)
+    expect(retry).toHaveBeenCalled()
+  })
+
+  it('shows the reach heading while the record is read, and leaves it out with no curve', () => {
+    const { unmount } = details({ record: { status: 'loading' } })
+    expect(screen.getByText('Reading the reach curve…')).toBeInTheDocument()
+    unmount()
+    details({ record: { status: 'ready', value: null } })
+    expect(screen.queryByRole('button', { name: 'Reach' })).not.toBeInTheDocument()
+  })
+
+  it("keeps the widest tool's row a plain measurement: the viewer's toolbar shows the tool", () => {
+    details()
+    expect(screen.queryByRole('button', { name: /Max tool diameter/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Max tool diameter')).toBeInTheDocument()
+  })
+})
+
+describe('FeatureDetails: the datasheet and the raw record', () => {
+  it('lists every datasheet field and the raw record, both shut until opened', () => {
+    details()
+    const fields = screen.getByRole('button', { name: 'All datasheet fields (2)' })
+    expect(fields).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(fields)
+    expect(screen.getByText('reachCurve.horizontalOffset')).toBeInTheDocument()
+    expect(screen.getByText('1, 2')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Raw API record' }))
+    expect(screen.getByText(/"featureTag": "P1"/)).toBeInTheDocument()
+  })
+
+  it('says when the API sent no datasheet, and shows no sections without a record', () => {
+    const { unmount } = details({
+      record: { status: 'ready', value: { feature: {}, datasheet: null } },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /All datasheet fields/ }))
+    expect(screen.getByText('The API sent no datasheet for this feature.')).toBeInTheDocument()
+    unmount()
+    details({ record: { status: 'ready', value: null } })
+    expect(screen.queryByRole('button', { name: /All datasheet fields/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Raw API record' })).not.toBeInTheDocument()
+  })
+
+  it('copies the raw record, and says Copied for a moment', async () => {
+    vi.useFakeTimers()
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    details()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy raw record' }))
+    })
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('"featureTag": "P1"'))
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument()
+    act(() => vi.advanceTimersByTime(1500))
+    expect(screen.getByRole('button', { name: 'Copy raw record' })).toBeInTheDocument()
+  })
+})
+
+/** An app's window, as plain as it gets: its title, its action, a close button and its contents. */
+const TestWindow = ({ title, action, onClose, children }: PopOutWindowProps) => (
+  <section aria-label={`${title} window`}>
+    {action}
+    <button type="button" onClick={onClose}>
+      Close {title}
+    </button>
+    {children}
+  </section>
+)
+
+describe('FeatureDetails: pop-outs', () => {
+  it('offers none without a window from the app', () => {
+    details()
+    expect(screen.queryByRole('button', { name: /Pop out/ })).not.toBeInTheDocument()
+  })
+
+  it("pops the reach, the fields and the raw record out into the app's window, and closes them", () => {
+    details({ PopOut: TestWindow })
+    fireEvent.click(screen.getByRole('button', { name: 'Pop out the reach drawing' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pop out the datasheet fields' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pop out the raw record' }))
+    const reach = screen.getByRole('region', { name: 'Reach window' })
+    expect(within(reach).getByText(/Section at the wall/)).toBeInTheDocument()
+    const fields = screen.getByRole('region', { name: 'All datasheet fields window' })
+    expect(within(fields).getByText('reachCurve.verticalOffset')).toBeInTheDocument()
+    const raw = screen.getByRole('region', { name: 'Raw API record window' })
+    expect(within(raw).getByRole('button', { name: 'Copy raw record' })).toBeInTheDocument()
+    fireEvent.click(within(raw).getByRole('button', { name: 'Close Raw API record' }))
+    expect(screen.queryByRole('region', { name: 'Raw API record window' })).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Reach window' })).toBeInTheDocument()
+  })
+})
+
+describe('FeatureDetails: what it survives', () => {
+  it('copies nothing, and throws nothing, where the page has no clipboard', () => {
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
+    details()
+    expect(() =>
+      fireEvent.click(screen.getByRole('button', { name: 'Copy raw record' })),
+    ).not.toThrow()
+  })
+
+  it('keeps Measurements folded while they are read and once they arrive', () => {
+    const { rerender } = details({ measurements: { status: 'loading' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Measurements' }))
+    rerender(
+      <FeatureDetails
+        feature={{ tag: 'P1', featureType: 'pocket', machiningDirection: { x: 0, y: 0, z: 1 } }}
+        units="mm"
+        directionColor="#3b82f6"
+        profile={featureProfile(undefined, 'pocket')}
+        rules={rules}
+        measurements={{ status: 'ready', value: measured }}
+        record={{ status: 'ready', value: { feature: {}, datasheet } }}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Measurements' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+  })
+
+  it("lets the keyboard reach a rule's note", () => {
+    details()
+    expect(
+      screen.getByText('Milled features with L/D ≥ 1').closest('[tabindex="0"]'),
+    ).not.toBeNull()
+  })
+})

@@ -4,7 +4,9 @@
 // report.
 export { EnginePart, normalizePartReport, smoothRegionNormals } from './engine/index.js'
 export { regionAdjacency } from './render/adjacency.js'
+export { featureTriangles } from './render/feature-triangles.js'
 export { PartMesh } from './part-mesh.js'
+export { usePartContext } from './part-context.js'
 export { HoverCard } from './hover-card.js'
 export { ViewerToolbar, ViewerToolbarProvider, useViewerToolbar } from './viewer-toolbar.js'
 export type {
@@ -34,6 +36,7 @@ export { DirectionArrows } from './direction-arrows.js'
 export { SectionView, resolveSectionPlane } from './section-view.js'
 export { SectionTool } from './section-tool.js'
 export { MEASURE_LABEL_CLASS, MeasureTool } from './measure-tool.js'
+export { ToolMarks } from './tool-marks.js'
 export {
   ANGLE_ARC_FRACTION,
   AXIS_COLORS,
@@ -231,6 +234,8 @@ export type { FeatureHighlight, HighlightLayers, RegionHighlight } from './rende
 export type { FocusOptions } from './render/focus.js'
 export type { ViewerTheme } from './render/theme.js'
 export type { PartMeshProps } from './part-mesh.js'
+export type { PartContextValue } from './part-context.js'
+export type { FeatureTriangles } from './render/feature-triangles.js'
 export type { BananaProps } from './banana.js'
 export type { HoverCardProps } from './hover-card.js'
 export type { AxesProps, GridProps, ViewCubeProps } from './primitives.js'
@@ -250,6 +255,8 @@ export type { SectionStore } from './render/section-store.js'
 export type { CapMaterial, CapUniforms } from './render/section-cap.js'
 export type { SectionToolProps } from './section-tool.js'
 export type { MeasureLabelKind, MeasureToolProps } from './measure-tool.js'
+export type { ToolMarksProps } from './tool-marks.js'
+export type { ToolMark, ToolProfilePoint } from './render/tool-marks.js'
 export type {
   AngleMeasurement,
   Axis,

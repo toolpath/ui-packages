@@ -64,6 +64,13 @@ const BananaIcon = () => (
   </SvgIcon>
 )
 
+/** An end mill, flutes down: a tool standing on the part. */
+const ToolsIcon = () => (
+  <SvgIcon>
+    <path d="M9 2h6v7H9zM9.5 9v9.5l2.5 3.5 2.5-3.5V9M9.5 12l5 2.5M9.5 15.5l5 2.5" />
+  </SvgIcon>
+)
+
 const DirectionsIcon = () => (
   <SvgIcon>
     <path d="M7 3v18m-4-4 4 4 4-4M17 21V3m-4 4 4-4 4 4" />
@@ -108,6 +115,7 @@ export type ToolbarIconName =
   | 'axes'
   | 'grid'
   | 'banana'
+  | 'tools'
   | 'directions'
   | 'hover'
   | 'focus'
@@ -123,6 +131,7 @@ const ICONS: Record<ToolbarIconName, () => ReactNode> = {
   axes: AxesIcon,
   grid: GridIcon,
   banana: BananaIcon,
+  tools: ToolsIcon,
   directions: DirectionsIcon,
   hover: HoverIcon,
   focus: FocusIcon,

@@ -111,3 +111,18 @@ describe('featureMeasurements: lengths in inches', () => {
     })
   })
 })
+
+describe('featureMeasurements: how inches are written', () => {
+  const hole = feature('h', { featureType: 'blind_hole' })
+  const sheets: FeatureSheets = { h: { diameter: 12.7, zMin: -25.4, zMax: 0 } }
+
+  it('writes `in` by default, and the inch mark when asked', () => {
+    const inches = (inchMark?: boolean) =>
+      byKey(
+        featureMeasurements({ features: [hole], feature: hole, sheets, units: 'inch', inchMark }),
+        'diameter',
+      )?.value
+    expect(inches()).toBe('0.5 in')
+    expect(inches(true)).toBe('0.5"')
+  })
+})

@@ -22,6 +22,8 @@ export interface ViewerToolbarControls {
   axes?: ViewerToolbarControl
   grid?: ViewerToolbarControl
   banana?: ViewerToolbarControl
+  /** Tools drawn on the part: see `<ToolMarks>`. */
+  tools?: ViewerToolbarControl
   directions?: ViewerToolbarControl
   hover?: ViewerToolbarControl
   focus?: ViewerToolbarControl
@@ -116,6 +118,14 @@ const BananaButton = () => (
     label={(pressed) => (pressed ? 'Banana for scale (on)' : 'Banana for scale')}
   />
 )
+const ToolsButton = () => (
+  <ToolbarButton
+    action="tools"
+    icon="tools"
+    label={(pressed) => (pressed ? 'Hide tools on the part' : 'Show tools on the part')}
+  />
+)
+
 const DirectionsButton = () => (
   <ToolbarButton
     action="directions"
@@ -189,6 +199,7 @@ const DefaultControls = () => {
     controls.axes ? <AxesButton key="axes" /> : null,
     controls.grid ? <GridButton key="grid" /> : null,
     controls.banana ? <BananaButton key="banana" /> : null,
+    controls.tools ? <ToolsButton key="tools" /> : null,
   ].filter(Boolean)
   const analysis = [
     controls.directions ? <DirectionsButton key="directions" /> : null,
@@ -248,6 +259,7 @@ export const ViewerToolbar = Object.assign(ViewerToolbarRoot, {
   AxesButton,
   GridButton,
   BananaButton,
+  ToolsButton,
   DirectionsButton,
   HoverButton,
   FocusButton,

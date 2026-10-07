@@ -14,3 +14,30 @@ export { isField, listKeys } from './rule-list/list-keys.js'
 export type { DfmRules, Hovered, RuleListProps } from './rule-list/types.js'
 export { ReachChart, ReachDrawing } from './reach/reach-chart.js'
 export type { ReachChartProps } from './reach/types.js'
+export { storageFolds, type FoldStore } from './feature-panel/fold-store.js'
+export { FeatureDetails, type FeatureDetailsProps } from './feature-panel/feature-details.js'
+export type { FeaturePanelLook } from './feature-panel/look.js'
+export type {
+  FeatureIdentity,
+  Loadable,
+  PopOutId,
+  PopOutWindow,
+  PopOutWindowProps,
+} from './feature-panel/types.js'
+export {
+  CandidateList,
+  candidateListKeys,
+  type CandidateListProps,
+  type CandidateRow,
+  type ComparedFaceList,
+} from './feature-panel/candidate-list.js'
+export {
+  ComparisonTable,
+  type ComparedFace,
+  type ComparisonTableProps,
+} from './feature-panel/comparison-table.js'
+export {
+  FeaturePanel,
+  type FeaturePanelProps,
+  type InspectedFace,
+} from './feature-panel/feature-panel.js'

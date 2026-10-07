@@ -357,8 +357,8 @@ individual buttons to use only the controls and order your application needs.
 </ViewerToolbarProvider>
 ```
 
-`ViewerToolbar.Controls`, `Divider`, and the thirteen `*Button` components are available on
-`ViewerToolbar`: `StockButton`, `AxesButton`, `GridButton`, `BananaButton`, `DirectionsButton`,
+`ViewerToolbar.Controls`, `Divider`, and the fourteen `*Button` components are available on
+`ViewerToolbar`: `StockButton`, `AxesButton`, `GridButton`, `BananaButton`, `ToolsButton`, `DirectionsButton`,
 `HoverButton`, `FocusButton`, `WireframeButton`, `SectionButton`, `MeasureButton`, `FitButton`,
 `ResetButton`, and `TopButton`. A rendered button requires its matching provider control. For an
 application-specific toolbar component, `useViewerToolbar()` reads the same controls from inside
@@ -388,19 +388,19 @@ override any of these selectors in your application stylesheet.
 The following `data-*` attributes identify generated elements without depending on labels, which
 can change with state or localization:
 
-| Attribute                             | Element and values                                                                                                                              |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `data-viewer-root="true"`             | `<Viewer>` wrapper                                                                                                                              |
-| `data-viewer-canvas-container="true"` | R3F canvas event container                                                                                                                      |
-| `data-viewer-canvas-frame="true"`     | R3F canvas-sizing frame                                                                                                                         |
-| `data-viewer-canvas="true"`           | The `<canvas>` itself                                                                                                                           |
-| `data-viewer-hover-card="true"`       | `<HoverCard>` shell                                                                                                                             |
-| `data-viewer-toolbar="true"`          | Toolbar stack                                                                                                                                   |
-| `data-viewer-toolbar-controls="true"` | Controls group                                                                                                                                  |
-| `data-viewer-toolbar-action`          | Standard button: `stock`, `axes`, `grid`, `banana`, `directions`, `hover`, `focus`, `wireframe`, `section`, `measure`, `fit`, `reset`, or `top` |
-| `data-viewer-toolbar-icon="true"`     | Standard button SVG                                                                                                                             |
-| `data-viewer-toolbar-tooltip="true"`  | Standard button tooltip                                                                                                                         |
-| `data-viewer-toolbar-divider="true"`  | Toolbar separator                                                                                                                               |
+| Attribute                             | Element and values                                                                                                                                       |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data-viewer-root="true"`             | `<Viewer>` wrapper                                                                                                                                       |
+| `data-viewer-canvas-container="true"` | R3F canvas event container                                                                                                                               |
+| `data-viewer-canvas-frame="true"`     | R3F canvas-sizing frame                                                                                                                                  |
+| `data-viewer-canvas="true"`           | The `<canvas>` itself                                                                                                                                    |
+| `data-viewer-hover-card="true"`       | `<HoverCard>` shell                                                                                                                                      |
+| `data-viewer-toolbar="true"`          | Toolbar stack                                                                                                                                            |
+| `data-viewer-toolbar-controls="true"` | Controls group                                                                                                                                           |
+| `data-viewer-toolbar-action`          | Standard button: `stock`, `axes`, `grid`, `banana`, `tools`, `directions`, `hover`, `focus`, `wireframe`, `section`, `measure`, `fit`, `reset`, or `top` |
+| `data-viewer-toolbar-icon="true"`     | Standard button SVG                                                                                                                                      |
+| `data-viewer-toolbar-tooltip="true"`  | Standard button tooltip                                                                                                                                  |
+| `data-viewer-toolbar-divider="true"`  | Toolbar separator                                                                                                                                        |
 
 Toggle buttons also carry standard `aria-pressed="true"` or `"false"`; use that to style their
 current state. `Fit`, `Reset`, and `Top view` are actions rather than toggles, so they omit the
@@ -501,6 +501,7 @@ Draws the part and handles clicks. You only use it directly when you
 | `section`         | `SectionOptions`                   | Cut the part open. Omit it to follow the viewer's own cut. See [Section view](#section-view).   |
 | `onSectionChange` | `(state: SectionState) => void`    | Called when the cut moves or goes away. With `section`, passing it also shows the drag handle.  |
 | `onAdjacency`     | `(map) => void`                    | Called once per mesh with which faces touch which.                                              |
+| `children`        | `ReactNode`                        | Objects drawn on the part. They read its model and mesh with `usePartContext()`.                |
 
 Hovering over the part is handled for you. You only need `onHover` if you want to show the hovered
 feature elsewhere in your UI.
@@ -605,6 +606,56 @@ Labels are DOM elements laid over the canvas and come **unstyled**: the tool is 
 what a label looks like is your stylesheet's, through the `toolpath-measure-label` class and the
 data attributes on each one — see [Measuring](#measuring) for a starting point. While the tool is
 mounted the part reports no hovers or picks, as with `<SectionTool>`.
+
+### `<ToolMarks>`
+
+Cutting tools drawn on the part, each to scale where it stands: a see-through end mill — flat,
+bull nose or ball — or any tool given by its profile, rimmed at its bottom and top, with a dimension
+across its top and a label on it. What a tool stands for is yours: the widest tool a pocket admits, the tool an operation uses.
+Nothing here reads a datasheet.
+
+```tsx
+<EnginePart report={report}>
+  <ToolMarks
+    marks={[
+      {
+        base: { x: 12, y: 4, z: -8 },
+        axis: { x: 0, y: 0, z: 1 },
+        diameter: 6,
+        height: 8,
+        cornerRadius: 0.5,
+        label: '⌀ 6.000 mm',
+        note: 'bull nose R 0.5',
+      },
+    ]}
+  />
+</EnginePart>
+```
+
+| Prop             | What it does                                                                       |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| `marks`          | The tools, in the coordinates the part is drawn in. See `ToolMark` below.          |
+| `visible`        | `false` hides them without unmounting. On by default.                              |
+| `labelClassName` | Added to every label, beside `toolpath-measure-label`.                             |
+| `theme`          | `measure` colours the rims and the dimension, as it does the measure tool's lines. |
+
+A `ToolMark` is `base` (the centre of the tool's bottom), `axis` (up the tool), `diameter`,
+`height`, and optionally `cornerRadius` (0 flat, half the diameter a ball), `across` (which way the
+dimension runs; any direction square to the axis otherwise), `label` and `note`. Any other tool —
+a drill, a chamfer mill, a tool in its holder — takes `profile`: its side as `{ r, z }` points from
+the tip up, such as `@toolpath/tool-drawing`'s outline, turned about the axis in place of the end
+mill.
+
+Show and hide them with `visible`, from the toolbar's `ToolsButton` and its `tools` control.
+
+It draws as `<MeasureTool>` draws: the lines show through the part, and each label is an unstyled
+`<div class="toolpath-measure-label" data-measure-label="tool">` with its text in a
+`data-measure-value` span and its note in a `data-measure-note` one. The marks take no pointer
+events and are left out of framing.
+
+Inside `<PartMesh>` or `<EnginePart>`, `usePartContext()` gives the part's `model` and `geometry`,
+and `featureTriangles(model, geometry, tag)` a feature's triangles, for working out where a tool
+stands.
 
 ### `<Grid>` and `<Axes>`
 
@@ -1185,6 +1236,7 @@ is a complete app built this way, with no API key needed.
 | `useViewerToolbar()`  | Inside `<ViewerToolbarProvider>` | Get the actions and state supplied to the provider.                              |
 | `useSectionStore()`   | Inside `<Viewer>`                | Read, set, or subscribe to the viewer's own cut.                                 |
 | `useContentBox()`     | Inside `<Viewer>`                | Get the part's bounding box (a `THREE.Box3`, empty until loaded).                |
+| `usePartContext()`    | Inside `<PartMesh>`              | Get the part's `model` and the `geometry` it is drawn from, for an overlay.      |
 | `useTapGuard()`       | Inside `<Viewer>`                | Check whether a pointer event was a click and not a drag.                        |
 
 ### Helpers
@@ -1198,6 +1250,7 @@ is a complete app built this way, with no API key needed.
 | `focusForPick(pick, lastRegion, lastFocus)`              | Steps through a face's matches on repeated clicks.          |
 | `rankOwners` / `bestOwner`                               | The ranking `onPick` uses, if you want to run it yourself.  |
 | `groupByDirection(model)`                                | Features grouped by machining direction.                    |
+| `featureTriangles(model, geometry, tag)`                 | A feature's triangles and outward normals, as plain arrays. |
 | `directionLabel(v)` / `directionColor(i)`                | A direction's label and colour.                             |
 | `sectionFromPick({ point, normal })`                     | Turns a clicked surface into a section plane.               |
 | `measurementLabel(measurement, format?)`                 | Writes a measurement the way `<MeasureTool>` labels it.     |
