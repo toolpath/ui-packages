@@ -7,6 +7,7 @@
  * ships, so a helper becomes public only when an app needs it.
  */
 
+export { brokenRules, featureColor, type BrokenRule } from './broken-rules.js'
 export { featureTypeLabel, hitFigure } from './dfm-explain.js'
 export {
   checkPart,
@@ -44,6 +45,7 @@ export {
   type FeatureSheets,
   type FeatureThreading,
 } from './feature-sheet.js'
+export type { FeatureRecord } from './feature-record.js'
 export { dfmFeatures, type DfmFeature, type ReportFeature } from './geometry.js'
 export { sameDepth } from './hole-groups.js'
 export { readPinch, type ClearanceFit, type FeaturePinch, type PinchDisc } from './pinch.js'
