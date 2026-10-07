@@ -9,8 +9,19 @@ import {
   type DfmRule,
   type RangeHigh,
 } from '../model/dfm-rules.js'
-import { OP_TITLES, OneSidedOptions, rangeEnd } from './ops.js'
-import { WORD } from './styles.js'
+import { ONE_SIDED_CHOICES, OP_TITLES, rangeEnd } from './ops.js'
+import { Picker, type Choices } from './picker.js'
+
+const COMPARISONS: Choices = {
+  groups: [{ choices: OPS.map((op) => ({ value: op, label: opSymbol(op) })) }],
+}
+
+const RANGE_HIGH: Choices = {
+  groups: [
+    { heading: 'Range', choices: RANGE_HIGHS.map((op) => ({ value: op, label: opSymbol(op) })) },
+    ONE_SIDED_CHOICES,
+  ],
+}
 
 /**
  * The comparison after the measure. One-sided, every comparison and "range".
@@ -23,36 +34,19 @@ export const Comparison: FC<{
   onChange: (rule: DfmRule) => void
 }> = ({ rule, ranged, onChange }): ReactElement =>
   ranged ? (
-    <select
-      aria-label="High end"
+    <Picker
+      label="High end"
       title={OP_TITLES[highOf(rule)]}
-      className={WORD}
       value={highOf(rule)}
-      onChange={(event) =>
-        onChange(rangeEnd(rule, event.target.value, (op) => ({ highOp: op as RangeHigh })))
-      }
-    >
-      <optgroup label="Range">
-        {RANGE_HIGHS.map((op) => (
-          <option key={op} value={op}>
-            {opSymbol(op)}
-          </option>
-        ))}
-      </optgroup>
-      <OneSidedOptions />
-    </select>
+      choices={RANGE_HIGH}
+      onChange={(value) => onChange(rangeEnd(rule, value, (op) => ({ highOp: op as RangeHigh })))}
+    />
   ) : (
-    <select
-      aria-label="Comparison"
+    <Picker
+      label="Comparison"
       title={OP_TITLES[rule.op]}
-      className={WORD}
       value={rule.op}
-      onChange={(event) => onChange(withOp(rule, event.target.value as DfmOp))}
-    >
-      {OPS.map((op) => (
-        <option key={op} value={op}>
-          {opSymbol(op)}
-        </option>
-      ))}
-    </select>
+      choices={COMPARISONS}
+      onChange={(value) => onChange(withOp(rule, value as DfmOp))}
+    />
   )

@@ -12,10 +12,17 @@ import {
 } from '../model/dfm-rules.js'
 import type { Units } from '../model/units.js'
 import { Comparison } from './comparison.js'
-import { LOW_SYMBOLS, OP_TITLES, OneSidedOptions, rangeEnd } from './ops.js'
-import { MORE, MetricOptions, SubjectOptions, showMore } from './options.js'
-import { WORD } from './styles.js'
+import { LOW_SYMBOLS, ONE_SIDED_CHOICES, OP_TITLES, rangeEnd } from './ops.js'
+import { metricChoices, subjectChoices } from './options.js'
+import { Picker, type Choices } from './picker.js'
 import { ValueField } from './value-field.js'
+
+const RANGE_LOW: Choices = {
+  groups: [
+    { heading: 'Range', choices: RANGE_LOWS.map((op) => ({ value: op, label: LOW_SYMBOLS[op] })) },
+    ONE_SIDED_CHOICES,
+  ],
+}
 
 interface SentenceProps {
   rule: DfmRule
@@ -54,17 +61,13 @@ export const RuleSentence: FC<SentenceProps> = ({
 
   return (
     <p className="min-w-0 flex-1 text-sm leading-7 text-gray-500 dark:text-zinc-400">
-      <select
-        aria-label="Features"
-        className={WORD}
+      <Picker
+        label="Features"
         value={rule.subject}
-        onChange={(event) => {
-          if (event.target.value === MORE) showMore(event.currentTarget, setAllSubjects)
-          else onChange(withSubject(rule, event.target.value, units))
-        }}
-      >
-        <SubjectOptions current={rule.subject} all={allSubjects} />
-      </select>
+        choices={subjectChoices(rule.subject, allSubjects)}
+        onChange={(value) => onChange(withSubject(rule, value, units))}
+        onMore={() => setAllSubjects(true)}
+      />
       {presence ? ', ' : ' with '}
       {/* A range is one expression, `2 in ≤ depth < 4 in`: it moves to a line of its own whole, never splits. */}
       <span className={ranged ? 'whitespace-nowrap' : undefined}>
@@ -80,39 +83,26 @@ export const RuleSentence: FC<SentenceProps> = ({
               />
               {unitSpan}
             </span>{' '}
-            <select
-              aria-label="Low end"
+            <Picker
+              label="Low end"
               title={OP_TITLES[lowOf(rule)]}
-              className={WORD}
               value={lowOf(rule)}
-              onChange={(event) =>
-                onChange(rangeEnd(rule, event.target.value, (op) => ({ lowOp: op as RangeLow })))
+              choices={RANGE_LOW}
+              onChange={(value) =>
+                onChange(rangeEnd(rule, value, (op) => ({ lowOp: op as RangeLow })))
               }
-            >
-              <optgroup label="Range">
-                {RANGE_LOWS.map((op) => (
-                  <option key={op} value={op}>
-                    {LOW_SYMBOLS[op]}
-                  </option>
-                ))}
-              </optgroup>
-              <OneSidedOptions />
-            </select>{' '}
+            />{' '}
           </>
         ) : null}
-        <select
-          aria-label="Measure"
+        <Picker
+          label="Measure"
           title={info?.hint}
-          className={WORD}
           value={rule.metric}
-          onChange={(event) => {
-            if (event.target.value === MORE) showMore(event.currentTarget, setAllMetrics)
-            else onChange(withMetric(rule, event.target.value, units))
-          }}
+          choices={metricChoices(rule.subject, rule.metric, allMetrics)}
+          onChange={(value) => onChange(withMetric(rule, value, units))}
+          onMore={() => setAllMetrics(true)}
           autoFocus={autoFocus}
-        >
-          <MetricOptions subject={rule.subject} current={rule.metric} all={allMetrics} />
-        </select>
+        />
         {info && !flag ? (
           <>
             {' '}
