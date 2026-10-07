@@ -21,4 +21,9 @@ export {
   type PinchPointsToggle,
 } from './feature-panel/feature-details.js'
 export type { FeaturePanelLook } from './feature-panel/look.js'
-export type { FeatureIdentity, Loadable } from './feature-panel/types.js'
+export type {
+  FeatureIdentity,
+  Loadable,
+  PopOutId,
+  PopOutWindowProps,
+} from './feature-panel/types.js'

@@ -1,6 +1,10 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { FeatureDetails, type FeatureDetailsProps } from '../../src/index.js'
+import {
+  FeatureDetails,
+  type FeatureDetailsProps,
+  type PopOutWindowProps,
+} from '../../src/index.js'
 import {
   RULE_COLORS,
   featureProfile,
@@ -200,5 +204,39 @@ describe('FeatureDetails: the datasheet and the raw record', () => {
     expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument()
     act(() => vi.advanceTimersByTime(1500))
     expect(screen.getByRole('button', { name: 'Copy raw record' })).toBeInTheDocument()
+  })
+})
+
+/** An app's window, as plain as it gets: its title, its action, a close button and its contents. */
+const TestWindow = ({ title, action, onClose, children }: PopOutWindowProps) => (
+  <section aria-label={`${title} window`}>
+    {action}
+    <button type="button" onClick={onClose}>
+      Close {title}
+    </button>
+    {children}
+  </section>
+)
+
+describe('FeatureDetails: pop-outs', () => {
+  it('offers none without a window from the app', () => {
+    details()
+    expect(screen.queryByRole('button', { name: /Pop out/ })).not.toBeInTheDocument()
+  })
+
+  it("pops the reach, the fields and the raw record out into the app's window, and closes them", () => {
+    details({ PopOut: TestWindow })
+    fireEvent.click(screen.getByRole('button', { name: 'Pop out the reach drawing' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pop out the datasheet fields' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pop out the raw record' }))
+    const reach = screen.getByRole('region', { name: 'Reach window' })
+    expect(within(reach).getByText(/Section at the wall/)).toBeInTheDocument()
+    const fields = screen.getByRole('region', { name: 'All datasheet fields window' })
+    expect(within(fields).getByText('reachCurve.verticalOffset')).toBeInTheDocument()
+    const raw = screen.getByRole('region', { name: 'Raw API record window' })
+    expect(within(raw).getByRole('button', { name: 'Copy raw record' })).toBeInTheDocument()
+    fireEvent.click(within(raw).getByRole('button', { name: 'Close Raw API record' }))
+    expect(screen.queryByRole('region', { name: 'Raw API record window' })).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Reach window' })).toBeInTheDocument()
   })
 })

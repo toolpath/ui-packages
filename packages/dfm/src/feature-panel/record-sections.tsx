@@ -82,7 +82,7 @@ export const RecordSections: FC<RecordSectionsProps> = ({
  * Every leaf of a datasheet by its path, as sent: millimetres and degrees,
  * whatever units the panel reads in. `wide` for a window of its own.
  */
-const DatasheetFields: FC<{
+export const DatasheetFields: FC<{
   record: FeatureRecord | null
   look: ResolvedLook
   wide?: boolean
@@ -120,7 +120,10 @@ const DatasheetFields: FC<{
 }
 
 /** The raw record as JSON, to read or select. `wide` for a window of its own. */
-const RawRecord: FC<{ json: string; wide?: boolean }> = ({ json, wide = false }): ReactElement => (
+export const RawRecord: FC<{ json: string; wide?: boolean }> = ({
+  json,
+  wide = false,
+}): ReactElement => (
   <pre
     className={cn(
       'font-mono text-2xs leading-relaxed text-gray-600 select-text dark:text-zinc-200',
@@ -132,7 +135,7 @@ const RawRecord: FC<{ json: string; wide?: boolean }> = ({ json, wide = false })
 )
 
 /** Copies the raw record, and says so for a moment. */
-const CopyButton: FC<{ text: string }> = ({ text }): ReactElement => {
+export const CopyButton: FC<{ text: string }> = ({ text }): ReactElement => {
   const [copied, setCopied] = useTimedValue<true>(COPIED_MS)
   return (
     <IconButton

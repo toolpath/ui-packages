@@ -28,7 +28,9 @@ export type PopOutId = 'reach' | 'datasheet' | 'raw'
  * The app's window for a section popped out of the panel. The panel decides
  * when one is open and what is in it; the app draws the frame — moved and
  * sized as its page allows — and calls `onClose`. Define it once, at module
- * level: one written inline remounts the window on every render.
+ * level: one written inline remounts the window on every render. Render it
+ * through a portal to the page's body: the panel blurs what is behind it,
+ * which makes the panel the box a `fixed` window inside it is placed in.
  */
 export interface PopOutWindowProps {
   id: PopOutId

@@ -1,4 +1,4 @@
-import { useMemo, type FC, type ReactElement, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type FC, type ReactElement, type ReactNode } from 'react'
 import { CrosshairIcon, InfoIcon } from '@phosphor-icons/react'
 import { Button, Tooltip, cn } from '@toolpath/ui'
 import type { BrokenRule } from '../model/broken-rules.js'
@@ -20,8 +20,9 @@ import {
   type ResolvedLook,
 } from './look.js'
 import { ReadFailure, Reading } from './read-state.js'
+import { PopOutButton, PopOuts } from './pop-outs.js'
 import { RecordSections } from './record-sections.js'
-import type { FeatureIdentity, Loadable } from './types.js'
+import type { FeatureIdentity, Loadable, PopOutId, PopOutWindow } from './types.js'
 
 /** Whether the widest tool is drawn on the part, and how to change that. */
 export interface PinchPointsToggle {
@@ -60,6 +61,11 @@ export interface FeatureDetailsProps {
    * and hides it. Left out, the row is plain. Apps start it shown.
    */
   pinchPoints?: PinchPointsToggle
+  /**
+   * The app's window, to pop the reach, the datasheet fields and the raw
+   * record out into, larger. Left out, there are no pop-out buttons.
+   */
+  PopOut?: PopOutWindow
   look?: FeaturePanelLook
   folds?: FoldStore
 }
@@ -90,11 +96,25 @@ export const FeatureDetails: FC<FeatureDetailsProps> = ({
   measurements,
   record,
   pinchPoints,
+  PopOut,
   look: lookOption,
   folds,
 }): ReactElement => {
   const look = resolveLook(lookOption)
   const name = <FeatureName feature={feature} label={label} look={look} />
+  // Which sections are popped out. They stay out as the feature read changes, and follow it.
+  const [out, setOut] = useState<ReadonlySet<PopOutId>>(new Set())
+  const openOut = useCallback((id: PopOutId) => setOut((was) => new Set(was).add(id)), [])
+  const closeOut = useCallback(
+    (id: PopOutId) =>
+      setOut((was) => {
+        const next = new Set(was)
+        next.delete(id)
+        return next
+      }),
+    [],
+  )
+  const popOut = PopOut ? (id: PopOutId) => <PopOutButton id={id} onOpen={openOut} /> : undefined
   return (
     <div className="flex flex-col gap-4 p-4">
       <div className="flex flex-col gap-2">
@@ -134,9 +154,28 @@ export const FeatureDetails: FC<FeatureDetailsProps> = ({
         folds={folds}
       />
 
-      <ReachSection record={record} units={units} profile={profile} folds={folds} />
+      <ReachSection
+        record={record}
+        units={units}
+        profile={profile}
+        folds={folds}
+        action={popOut?.('reach')}
+      />
 
-      <RecordSections record={record} look={look} folds={folds} />
+      <RecordSections record={record} look={look} folds={folds} popOut={popOut} />
+
+      {PopOut ? (
+        <PopOuts
+          open={out}
+          onClose={closeOut}
+          Window={PopOut}
+          subtitle={name}
+          record={record.status === 'ready' ? record.value : null}
+          units={units}
+          profile={profile}
+          look={look}
+        />
+      ) : null}
     </div>
   )
 }
@@ -328,14 +367,16 @@ const ReachSection: FC<{
   units: Units
   profile: FeatureProfile
   folds?: FoldStore
-}> = ({ record, units, profile, folds }): ReactElement | null => {
+  /** Beside the heading, once there is a curve: the pop-out button. */
+  action?: ReactNode
+}> = ({ record, units, profile, folds, action }): ReactElement | null => {
   const curve = useMemo(
     () => (record.status === 'ready' ? readReachCurve(record.value?.datasheet) : null),
     [record],
   )
   if (record.status === 'ready' && !curve) return null
   return (
-    <FoldSection id="reach" title="Reach" folds={folds}>
+    <FoldSection id="reach" title="Reach" folds={folds} action={curve ? action : null}>
       {record.status === 'loading' ? (
         <Reading>Reading the reach curve…</Reading>
       ) : record.status === 'error' ? (

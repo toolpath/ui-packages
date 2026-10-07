@@ -29,3 +29,6 @@ feature", a `pinchPoints` toggle on the widest tool's row, and a `look`. `featur
 to write inches as `0.46"`.
 
 It also lists every field of the feature's datasheet and shows its raw API record, with a copy button.
+
+With `PopOut`, the app's own window component, the reach, the datasheet fields and the raw record pop out, larger,
+into it.
