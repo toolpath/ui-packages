@@ -501,6 +501,7 @@ Draws the part and handles clicks. You only use it directly when you
 | `section`         | `SectionOptions`                   | Cut the part open. Omit it to follow the viewer's own cut. See [Section view](#section-view).   |
 | `onSectionChange` | `(state: SectionState) => void`    | Called when the cut moves or goes away. With `section`, passing it also shows the drag handle.  |
 | `onAdjacency`     | `(map) => void`                    | Called once per mesh with which faces touch which.                                              |
+| `children`        | `ReactNode`                        | Objects drawn on the part. They read its model and mesh with `usePartContext()`.                |
 
 Hovering over the part is handled for you. You only need `onHover` if you want to show the hovered
 feature elsewhere in your UI.
@@ -1185,6 +1186,7 @@ is a complete app built this way, with no API key needed.
 | `useViewerToolbar()`  | Inside `<ViewerToolbarProvider>` | Get the actions and state supplied to the provider.                              |
 | `useSectionStore()`   | Inside `<Viewer>`                | Read, set, or subscribe to the viewer's own cut.                                 |
 | `useContentBox()`     | Inside `<Viewer>`                | Get the part's bounding box (a `THREE.Box3`, empty until loaded).                |
+| `usePartContext()`    | Inside `<PartMesh>`              | Get the part's `model` and the `geometry` it is drawn from, for an overlay.      |
 | `useTapGuard()`       | Inside `<Viewer>`                | Check whether a pointer event was a click and not a drag.                        |
 
 ### Helpers

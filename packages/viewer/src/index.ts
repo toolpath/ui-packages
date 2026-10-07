@@ -5,6 +5,7 @@
 export { EnginePart, normalizePartReport, smoothRegionNormals } from './engine/index.js'
 export { regionAdjacency } from './render/adjacency.js'
 export { PartMesh } from './part-mesh.js'
+export { usePartContext } from './part-context.js'
 export { HoverCard } from './hover-card.js'
 export { ViewerToolbar, ViewerToolbarProvider, useViewerToolbar } from './viewer-toolbar.js'
 export type {
@@ -231,6 +232,7 @@ export type { FeatureHighlight, HighlightLayers, RegionHighlight } from './rende
 export type { FocusOptions } from './render/focus.js'
 export type { ViewerTheme } from './render/theme.js'
 export type { PartMeshProps } from './part-mesh.js'
+export type { PartContextValue } from './part-context.js'
 export type { BananaProps } from './banana.js'
 export type { HoverCardProps } from './hover-card.js'
 export type { AxesProps, GridProps, ViewCubeProps } from './primitives.js'

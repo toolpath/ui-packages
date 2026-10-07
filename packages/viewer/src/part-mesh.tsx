@@ -1,6 +1,7 @@
 import type { ThreeEvent } from '@react-three/fiber'
 import { useThree } from '@react-three/fiber'
 import {
+  type ReactNode,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -10,6 +11,7 @@ import {
 } from 'react'
 import { type BufferGeometry, Vector3 } from 'three'
 import type { FeatureTag, PartModel } from './model/types.js'
+import { PartContext } from './part-context.js'
 import type { FeatureHighlight, RegionHighlight } from './render/paint.js'
 import { applyHighlightLayers } from './render/paint.js'
 import { focusStateKey, type FocusOptions } from './render/focus.js'
@@ -134,6 +136,11 @@ export interface PartMeshProps {
   showEdges?: boolean
   /** Wireframe shows region boundaries and any hovered/painted faces, with no triangle diagonals. */
   display?: PartDisplay
+  /**
+   * Objects drawn on the part, such as `<ToolMarks>`. They can read its model
+   * and mesh with `usePartContext`.
+   */
+  children?: ReactNode
 }
 
 /**
@@ -167,8 +174,10 @@ export const PartMesh = ({
   theme,
   showEdges = true,
   display = 'solid',
+  children,
 }: PartMeshProps) => {
   const { camera, controls, invalidate } = useThree()
+  const context = useMemo(() => ({ model, geometry }), [model, geometry])
   const viewerControls = useViewerControls()
   const resolved = useStableTheme(theme)
   // The part is built once per mesh and re-themed in place: a colour change is
@@ -513,6 +522,7 @@ export const PartMesh = ({
           onDrag={!controlled || onSectionChange ? dragSection : undefined}
         />
       ) : null}
+      {children ? <PartContext.Provider value={context}>{children}</PartContext.Provider> : null}
     </>
   )
 }
