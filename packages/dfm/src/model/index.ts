@@ -49,6 +49,8 @@ export type { FeatureRecord } from './feature-record.js'
 export { dfmFeatures, type DfmFeature, type ReportFeature } from './geometry.js'
 export { sameDepth } from './hole-groups.js'
 export { readPinch, type ClearanceFit, type FeaturePinch, type PinchDisc } from './pinch.js'
+export { pinchLabel, pinchMark, type PinchMark } from './pinch-mark.js'
+export { placePinchTool, type FaceTriangles, type PlacedTool, type Vec3 } from './tool-frame.js'
 export {
   featureProfile,
   peakHeight,

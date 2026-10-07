@@ -14,3 +14,7 @@ a label each, in the measure tool's style.
 
 `@toolpath/dfm/model` adds `brokenRules` and the neutral `BrokenRule` row a feature's details list, `featureColor`
 for the colour a feature is painted, and the `FeatureRecord` type for a feature's raw report entry and datasheet.
+
+`pinchMark` and `pinchLabel` read the pinch discs a feature's widest tool stands in, and `placePinchTool` finds
+the datasheet's tool frame against the feature's faces and places that tool on the part, as plain vectors for
+`<ToolMarks>`.
