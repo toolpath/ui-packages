@@ -9,8 +9,8 @@
 `featureTriangles(model, geometry, tag)` reads a feature's triangles and outward normals out of the mesh as
 plain arrays.
 
-`<ToolMarks>` draws cutting tools on the part to scale — flat, bull nose or ball — with a dimension and
-a label each, in the measure tool's style.
+`<ToolMarks>` draws cutting tools on the part to scale — an end mill, flat, bull nose or ball, or any tool by
+its `profile` — with a dimension and a label each, in the measure tool's style.
 
 `@toolpath/dfm/model` adds `brokenRules` and the neutral `BrokenRule` row a feature's details list, `featureColor`
 for the colour a feature is painted, and the `FeatureRecord` type for a feature's raw report entry and datasheet.

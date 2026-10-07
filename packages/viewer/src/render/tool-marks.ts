@@ -24,10 +24,24 @@ export interface ToolMark {
    * touches, say. Any direction square to the axis when left out or along it.
    */
   readonly across?: Vec3
+  /**
+   * The tool's own side, to turn about its axis in place of the end mill
+   * `diameter` and `cornerRadius` make: radius out from the axis and height
+   * above the tip, from the tip up — `@toolpath/tool-drawing`'s outline of a
+   * drill, a chamfer mill, a tool in its holder. `diameter` and `height` still
+   * place the rims and the dimension.
+   */
+  readonly profile?: readonly ToolProfilePoint[]
   /** Written on the dimension: `⌀ 3.200 mm`. */
   readonly label?: string
   /** After the label, quieter: `bull nose R 0.5 · 3 places`. */
   readonly note?: string
+}
+
+/** A point on a tool's side: radius out from its axis and height above its tip. */
+export interface ToolProfilePoint {
+  readonly r: number
+  readonly z: number
 }
 
 /** How many segments round a tool's corner, from its flat bottom to its side. */
@@ -129,7 +143,9 @@ export function toolMarkShape(mark: ToolMark): ToolMarkShape | null {
   return {
     base,
     turn: new Quaternion().setFromUnitVectors(UP, w),
-    profile: toolProfile(radius, corner, height),
+    profile: mark.profile
+      ? mark.profile.map(({ r, z }) => new Vector2(r, z))
+      : toolProfile(radius, corner, height),
     rims: [
       ...(radius - corner > 1e-9 ? [circle(base, u, v, radius - corner)] : []),
       circle(top, u, v, radius),

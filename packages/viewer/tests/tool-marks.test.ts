@@ -71,4 +71,19 @@ describe('toolMarkShape', () => {
     expect(toolMarkShape({ ...mark, diameter: 0 })).toBeNull()
     expect(toolMarkShape({ ...mark, axis: { x: 0, y: 0, z: 0 } })).toBeNull()
   })
+
+  it("turns the tool's own profile where it has one, and still dimensions its diameter", () => {
+    const drill = [
+      { r: 0, z: 0 },
+      { r: 3, z: 1.8 },
+      { r: 3, z: 10 },
+    ]
+    const shape = toolMarkShape({ ...mark, profile: drill })!
+    expect(shape.profile.map(({ x, y }) => [x, y])).toEqual([
+      [0, 0],
+      [3, 1.8],
+      [3, 10],
+    ])
+    expect(shape.dimension[0].distanceTo(shape.dimension[1])).toBeCloseTo(6)
+  })
 })

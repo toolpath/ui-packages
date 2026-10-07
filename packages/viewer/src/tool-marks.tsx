@@ -28,8 +28,9 @@ const ignoreRay = (): void => undefined
 
 /**
  * Cutting tools drawn on the part, each to scale where it stands: a
- * see-through end mill — flat, bull nose or ball — rimmed at its bottom and
- * top, with a dimension across its top and a label on it. Mount it inside
+ * see-through end mill — flat, bull nose or ball — or any tool turned from its
+ * `profile`, rimmed at its bottom and top, with a dimension across its top and
+ * a label on it. Mount it inside
  * `<Viewer>`, beside or inside the part.
  *
  * What a tool stands for is the caller's. A DFM panel stands the widest tool

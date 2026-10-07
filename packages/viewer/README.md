@@ -610,8 +610,8 @@ mounted the part reports no hovers or picks, as with `<SectionTool>`.
 ### `<ToolMarks>`
 
 Cutting tools drawn on the part, each to scale where it stands: a see-through end mill — flat,
-bull nose or ball — rimmed at its bottom and top, with a dimension across its top and a label on
-it. What a tool stands for is yours: the widest tool a pocket admits, the tool an operation uses.
+bull nose or ball — or any tool given by its profile, rimmed at its bottom and top, with a dimension
+across its top and a label on it. What a tool stands for is yours: the widest tool a pocket admits, the tool an operation uses.
 Nothing here reads a datasheet.
 
 ```tsx
@@ -641,7 +641,10 @@ Nothing here reads a datasheet.
 
 A `ToolMark` is `base` (the centre of the tool's bottom), `axis` (up the tool), `diameter`,
 `height`, and optionally `cornerRadius` (0 flat, half the diameter a ball), `across` (which way the
-dimension runs; any direction square to the axis otherwise), `label` and `note`.
+dimension runs; any direction square to the axis otherwise), `label` and `note`. Any other tool —
+a drill, a chamfer mill, a tool in its holder — takes `profile`: its side as `{ r, z }` points from
+the tip up, such as `@toolpath/tool-drawing`'s outline, turned about the axis in place of the end
+mill.
 
 It draws as `<MeasureTool>` draws: the lines show through the part, and each label is an unstyled
 `<div class="toolpath-measure-label" data-measure-label="tool">` with its text in a
