@@ -34,3 +34,8 @@ export {
   type CandidateRow,
   type ComparedFaceList,
 } from './feature-panel/candidate-list.js'
+export {
+  ComparisonTable,
+  type ComparedFace,
+  type ComparisonTableProps,
+} from './feature-panel/comparison-table.js'

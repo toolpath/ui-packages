@@ -35,3 +35,5 @@ into it.
 
 `<CandidateList>` lists the features a clicked face could mean, with each one's colour, rule count, REQUIRED pill
 and the app's detail, note and action, chosen by click or by `candidateListKeys`.
+
+`<ComparisonTable>` sets the features several faces were read as side by side, marking the rows where they differ.
