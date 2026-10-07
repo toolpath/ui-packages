@@ -77,3 +77,16 @@ describe('ComparisonTable', () => {
     expect(onSelect).toHaveBeenCalledWith('W1', 1)
   })
 })
+
+describe('ComparisonTable: a face no feature owns', () => {
+  it('has a column head that cannot be chosen', () => {
+    render(
+      <ComparisonTable
+        faces={[faces[0]!, { feature: null, directionColor: '#000', rules: [], measurements: [] }]}
+        active={0}
+        onSelect={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /No feature/ })).toBeDisabled()
+  })
+})

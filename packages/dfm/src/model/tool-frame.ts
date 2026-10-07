@@ -37,6 +37,17 @@ interface FrameDisc {
 
 type V = readonly [number, number, number]
 
+/** The least and greatest of a list, in a loop: spreading a mesh's points into `Math.min` overflows the stack. */
+const extent = (values: Iterable<number>): { low: number; high: number } => {
+  let low = Infinity
+  let high = -Infinity
+  for (const value of values) {
+    if (value < low) low = value
+    if (value > high) high = value
+  }
+  return { low, high }
+}
+
 const dot = (a: V, b: V): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 const cross = (a: V, b: V): V => [
   a[1] * b[2] - a[2] * b[1],
@@ -224,9 +235,7 @@ const candidateFrames = (
   const frames: Frame[] = []
   for (const sign of [1, -1]) {
     const w = scale(along, sign)
-    const heights = points.map((point) => dot(point, w))
-    const low = Math.min(...heights)
-    const high = Math.max(...heights)
+    const { low, high } = extent(points.map((point) => dot(point, w)))
     if (strict && (Math.abs(low - zMin) > ON_DEPTH_MM || Math.abs(high - zMax) > ON_DEPTH_MM)) {
       continue
     }
@@ -289,7 +298,7 @@ const discMiss = (
   if (points.length > 0) {
     const flat = pointsOf(triangles).map((point) => flatten(point, frame))
     for (const disc of points) {
-      miss += Math.min(...flat.map((point) => Math.hypot(point.x - disc.x, point.y - disc.y)))
+      miss += extent(flat.map((point) => Math.hypot(point.x - disc.x, point.y - disc.y))).low
     }
   }
   const wide = discs.filter((disc) => disc.diameter >= POINT_DISC_MM)
@@ -338,7 +347,7 @@ const bestFrame = (
     return !was || miss < was.miss ? { frame, miss } : was
   }, null)
   if (!best) return null
-  const low = Math.min(...points.map((point) => dot(point, best.frame.w)))
+  const { low } = extent(points.map((point) => dot(point, best.frame.w)))
   return { frame: best.frame, lift: fitting.length > 0 ? 0 : low - zMin }
 }
 

@@ -144,7 +144,11 @@ export const CopyButton: FC<{ text: string }> = ({ text }): ReactElement => {
       variant="muted"
       size="sm"
       onClick={() => {
-        void navigator.clipboard.writeText(text).then(() => setCopied(true))
+        // No clipboard off a secure page, and a refused write: nothing copied, nothing thrown.
+        void navigator.clipboard
+          ?.writeText(text)
+          .then(() => setCopied(true))
+          .catch(() => undefined)
       }}
     >
       {copied ? <CheckIcon weight="bold" /> : <CopyIcon weight="bold" />}

@@ -204,7 +204,12 @@ const BrokenRuleList: FC<{ rules: readonly BrokenRule[]; look: ResolvedLook }> =
 const Explained: FC<{ note?: string; children: ReactElement }> = ({ note, children }) =>
   note ? (
     <Tooltip tip={note} side="left">
-      {children}
+      <span
+        tabIndex={0}
+        className="min-w-0 flex-1 rounded outline-none focus-visible:ring-2 focus-visible:ring-info/75"
+      >
+        {children}
+      </span>
     </Tooltip>
   ) : (
     children
@@ -223,15 +228,18 @@ const MeasurementSections: FC<{
   look: ResolvedLook
   folds?: FoldStore
 }> = ({ measurements, look, folds }): ReactElement => {
+  // One shape of tree whether read or not, so the Measurements fold is not remounted as they arrive.
   if (measurements.status !== 'ready') {
     return (
-      <FoldSection id="measurements" title="Measurements" folds={folds}>
-        {measurements.status === 'loading' ? (
-          <Reading>Reading the feature’s datasheet…</Reading>
-        ) : (
-          <ReadFailure failure={measurements} />
-        )}
-      </FoldSection>
+      <>
+        <FoldSection id="measurements" title="Measurements" folds={folds}>
+          {measurements.status === 'loading' ? (
+            <Reading>Reading the feature’s datasheet…</Reading>
+          ) : (
+            <ReadFailure failure={measurements} />
+          )}
+        </FoldSection>
+      </>
     )
   }
   const measured = measurements.value.filter((row) => !row.milling)

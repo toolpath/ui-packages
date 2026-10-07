@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import {
@@ -99,5 +100,30 @@ describe('FeaturePanel', () => {
   it("spreads the app's drag handle on its header", () => {
     panel({ headerProps: { title: 'Drag to move' } })
     expect(screen.getByTitle('Drag to move').tagName).toBe('HEADER')
+  })
+})
+
+describe('FeaturePanel: what it answers', () => {
+  it('asks for a choice when the face has candidates but none is read', () => {
+    panel({ faces: [face({ selected: null })] })
+    expect(screen.getByText('Choose a feature to read its details.')).toBeInTheDocument()
+  })
+
+  it('leaves keys alone that come from outside the card, as from a portalled pop-out', () => {
+    const outside = document.createElement('div')
+    document.body.append(outside)
+    const onClose = vi.fn()
+    const onSelect = vi.fn()
+    render(
+      <FeaturePanel faces={[face()]} active={0} onSelect={onSelect} onClose={onClose}>
+        {createPortal(<button type="button">in a window</button>, outside)}
+      </FeaturePanel>,
+    )
+    const inWindow = screen.getByRole('button', { name: 'in a window' })
+    fireEvent.keyDown(inWindow, { key: 'Escape' })
+    fireEvent.keyDown(inWindow, { key: 'ArrowDown' })
+    expect(onClose).not.toHaveBeenCalled()
+    expect(onSelect).not.toHaveBeenCalled()
+    outside.remove()
   })
 })

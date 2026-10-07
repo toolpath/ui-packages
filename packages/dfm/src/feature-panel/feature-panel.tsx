@@ -80,6 +80,8 @@ export const FeaturePanel: FC<FeaturePanelProps> = ({
       aria-label={heading}
       data-list-root
       onKeyDown={(event) => {
+        // A pop-out window is portalled out of the card, yet its keys bubble here through React.
+        if (event.defaultPrevented || !event.currentTarget.contains(event.target as Node)) return
         if (event.key === 'Escape') onClose()
         else candidateListKeys(event)
       }}
@@ -145,7 +147,11 @@ export const FeaturePanel: FC<FeaturePanelProps> = ({
         {face?.selected ? (
           children
         ) : (
-          <p className={cn('px-4 py-3 text-sm', secondaryText(look))}>No feature owns this face.</p>
+          <p className={cn('px-4 py-3 text-sm', secondaryText(look))}>
+            {face && face.rows.length > 0
+              ? 'Choose a feature to read its details.'
+              : 'No feature owns this face.'}
+          </p>
         )}
       </ScrollArea>
     </section>

@@ -229,3 +229,40 @@ describe('FeatureDetails: pop-outs', () => {
     expect(screen.getByRole('region', { name: 'Reach window' })).toBeInTheDocument()
   })
 })
+
+describe('FeatureDetails: what it survives', () => {
+  it('copies nothing, and throws nothing, where the page has no clipboard', () => {
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
+    details()
+    expect(() =>
+      fireEvent.click(screen.getByRole('button', { name: 'Copy raw record' })),
+    ).not.toThrow()
+  })
+
+  it('keeps Measurements folded while they are read and once they arrive', () => {
+    const { rerender } = details({ measurements: { status: 'loading' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Measurements' }))
+    rerender(
+      <FeatureDetails
+        feature={{ tag: 'P1', featureType: 'pocket', machiningDirection: { x: 0, y: 0, z: 1 } }}
+        units="mm"
+        directionColor="#3b82f6"
+        profile={featureProfile(undefined, 'pocket')}
+        rules={rules}
+        measurements={{ status: 'ready', value: measured }}
+        record={{ status: 'ready', value: { feature: {}, datasheet } }}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Measurements' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+  })
+
+  it("lets the keyboard reach a rule's note", () => {
+    details()
+    expect(
+      screen.getByText('Milled features with L/D ≥ 1').closest('[tabindex="0"]'),
+    ).not.toBeNull()
+  })
+})

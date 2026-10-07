@@ -183,18 +183,21 @@ data is here; the drawing is `@toolpath/viewer`'s `<ToolMarks>`, which knows
 nothing of datasheets:
 
 ```tsx
+import { useMemo } from 'react'
 import { pinchLabel, pinchMark, placePinchTool } from '@toolpath/dfm/model'
 import { featureTriangles, ToolMarks, usePartContext } from '@toolpath/viewer'
 
 // A child of <EnginePart> or <PartMesh>, which gives it the part.
 export const PinchPoints = ({ datasheet, sheet, feature, units, shown }) => {
   const { model, geometry } = usePartContext()
-  const mark = pinchMark(datasheet, sheet, feature.featureType)
-  const triangles = featureTriangles(model, geometry, feature.tag)
-  const tool = mark ? placePinchTool(mark, triangles, feature.machiningDirection) : null
-  return tool && mark ? (
-    <ToolMarks marks={[{ ...tool, ...pinchLabel(mark, units) }]} visible={shown} />
-  ) : null
+  // Placing the tool searches the feature's faces: once per feature, not once per render.
+  const marks = useMemo(() => {
+    const mark = pinchMark(datasheet, sheet, feature.featureType)
+    const triangles = featureTriangles(model, geometry, feature.tag)
+    const tool = mark ? placePinchTool(mark, triangles, feature.machiningDirection) : null
+    return tool && mark ? [{ ...tool, ...pinchLabel(mark, units) }] : []
+  }, [datasheet, sheet, feature, model, geometry, units])
+  return <ToolMarks marks={marks} visible={shown} />
 }
 ```
 

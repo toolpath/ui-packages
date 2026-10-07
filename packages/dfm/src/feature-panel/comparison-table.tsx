@@ -139,6 +139,7 @@ export const ComparisonTable: FC<ComparisonTableProps> = ({
                   <th key={index} className="text-left align-bottom font-normal">
                     <button
                       type="button"
+                      disabled={!feature}
                       onClick={() => feature && onSelect(feature.tag, index)}
                       onPointerEnter={onHover ? () => onHover(feature?.tag ?? null) : undefined}
                       onPointerLeave={onHover ? () => onHover(null) : undefined}

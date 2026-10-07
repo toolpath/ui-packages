@@ -21,6 +21,7 @@ export type {
   FeatureIdentity,
   Loadable,
   PopOutId,
+  PopOutWindow,
   PopOutWindowProps,
 } from './feature-panel/types.js'
 export {

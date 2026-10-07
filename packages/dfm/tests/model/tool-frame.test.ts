@@ -121,3 +121,17 @@ describe('pinchMark', () => {
     })
   })
 })
+
+describe('placePinchTool on a big feature', () => {
+  it('reads a feature of hundreds of thousands of points without overflowing the stack', () => {
+    const base = pocket()
+    const copies = 20_000
+    const positions = new Float32Array(base.positions.length * copies)
+    const normals = new Float32Array(base.normals.length * copies)
+    for (let at = 0; at < copies; at++) {
+      positions.set(base.positions as ArrayLike<number>, at * base.positions.length)
+      normals.set(base.normals as ArrayLike<number>, at * base.normals.length)
+    }
+    expect(() => placePinchTool(mark, { positions, normals }, UP)).not.toThrow()
+  })
+})
