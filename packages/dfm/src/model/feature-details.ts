@@ -84,9 +84,10 @@ const clearanceDerivation = (fit: ClearanceFit, clearance: number): string[] => 
 
 const trim = (value: number, places: number): string => String(Number(value.toFixed(places)))
 
-const formatLength = (mm: number, units: Units): string =>
+/** A length in the reader's units: `0.46 in`, or `0.46"` with `inchMark`. */
+const formatLength = (mm: number, units: Units, inchMark = false): string =>
   units === 'inch'
-    ? `${trim(mm / MM_PER_INCH, LENGTH_PLACES.inch)} in`
+    ? `${trim(mm / MM_PER_INCH, LENGTH_PLACES.inch)}${inchMark ? '"' : ' in'}`
     : `${trim(mm, LENGTH_PLACES.mm)} mm`
 
 /**
@@ -152,14 +153,20 @@ export const featureMeasurements = ({
   feature,
   sheets,
   units,
+  inchMark = false,
 }: {
   features: readonly DfmFeature[]
   feature: DfmFeature
   sheets: FeatureSheets
   units: Units
+  /** Writes inches as `0.46"` rather than `0.46 in`. */
+  inchMark?: boolean
 }): Measurement[] => {
   const other: Units = units === 'inch' ? 'mm' : 'inch'
-  const length = (mm: number) => ({ value: formatLength(mm, units), alt: formatLength(mm, other) })
+  const length = (mm: number) => ({
+    value: formatLength(mm, units, inchMark),
+    alt: formatLength(mm, other, inchMark),
+  })
   const sheet = sheets[feature.tag.toLowerCase()]
   const rows: Measurement[] = []
 
@@ -424,7 +431,7 @@ export const featureMeasurements = ({
     rows.push({
       key: 'thread',
       label: 'Thread',
-      value: `${formatLength(sheet.threading.basicDiameter, units)} × ${formatLength(sheet.threading.threadPitch, units)} pitch`,
+      value: `${formatLength(sheet.threading.basicDiameter, units, inchMark)} × ${formatLength(sheet.threading.threadPitch, units, inchMark)} pitch`,
       derivation: [
         `facts.threading.spec.basicDiameter = ${mm(sheet.threading.basicDiameter)}`,
         `facts.threading.spec.threadPitch = ${mm(sheet.threading.threadPitch)}`,

@@ -21,3 +21,9 @@ the datasheet's tool frame against the feature's faces and places that tool on t
 
 `FoldStore` and `storageFolds(storage, prefix)` keep which of the feature panel's sections are open, in a storage
 and under a key prefix the app chooses.
+
+`<FeatureDetails>` shows one feature as the Engine read it: its name and machining direction, the rules it breaks,
+its measurements and milling considerations with how each was measured, and its reach. It takes loading and
+failed reads with a Retry, slots for the app's own buttons and status, an optional REQUIRED pill and "Show this
+feature", a `pinchPoints` toggle on the widest tool's row, and a `look`. `featureMeasurements` takes `inchMark`
+to write inches as `0.46"`.
