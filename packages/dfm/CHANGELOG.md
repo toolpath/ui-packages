@@ -1,5 +1,12 @@
 # @toolpath/dfm
 
+## 0.3.1
+
+### Patch Changes
+
+- f2d2f76: `FeaturePanel` is titled "Feature details" for one feature, whether a face was clicked or it was
+  chosen from a list, in place of "Features on this face" and "Feature".
+
 ## 0.3.0
 
 ### Minor Changes
