@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { DfmCheck } from '../model/dfm-flags.js'
 import type { DfmRule } from '../model/dfm-rules.js'
 import type { FeatureSheets } from '../model/feature-sheet.js'
@@ -36,4 +37,9 @@ export interface RuleListProps {
   selectedGroup: readonly string[] | null
   onInspect: (tag: string, group?: readonly string[]) => void
   onHover: (hovered: Hovered) => void
+  /**
+   * At the end of the footer's row, after Copy LLM prompt: the app's own
+   * buttons — a way back to its default rules, say.
+   */
+  actions?: ReactNode
 }

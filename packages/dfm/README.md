@@ -77,6 +77,10 @@ lower-cased feature tag; `regionAreas` is each face's area by region index.
 Put `ruleListKeys` on the panel that holds the list, so the arrow keys walk the
 rules from anywhere in it.
 
+`actions` puts the app's own buttons at the end of the footer's row, after
+Import…, Export and Copy LLM prompt — a way back to the app's default rules,
+say, since the package has none of its own.
+
 ## Reach chart
 
 `ReachChart` draws a feature's reach curve: the section through the part at the

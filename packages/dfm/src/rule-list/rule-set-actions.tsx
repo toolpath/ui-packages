@@ -16,11 +16,14 @@ const EXPORT_FILE_NAME = 'dfm-rules.json'
 
 /**
  * The footer under the rules: import a set from a file, export this one, and
- * copy a prompt that has an LLM write one. A set is one JSON file
- * (`rule-set-file.ts`), so it can be kept per customer or material and passed
- * around.
+ * copy a prompt that has an LLM write one, then the app's own buttons. A set
+ * is one JSON file (`rule-set-file.ts`), so it can be kept per customer or
+ * material and passed around.
  */
-export const RuleSetActions: FC<{ rules: DfmRules }> = ({ rules }): ReactElement => {
+export const RuleSetActions: FC<{ rules: DfmRules; actions?: ReactNode }> = ({
+  rules,
+  actions,
+}): ReactElement => {
   const [note, setNote] = useTimedValue<string>(NOTE_MS)
   const [copied, setCopied] = useTimedValue<true>(COPIED_MS)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -77,6 +80,7 @@ export const RuleSetActions: FC<{ rules: DfmRules }> = ({ rules }): ReactElement
             </ActionLabel>
           </span>
         </Button>
+        {actions}
         <input
           ref={fileInput}
           type="file"
