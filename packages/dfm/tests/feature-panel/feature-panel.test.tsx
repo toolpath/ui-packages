@@ -33,7 +33,7 @@ const panel = (over: Partial<FeaturePanelProps> = {}) => {
 describe('FeaturePanel', () => {
   it("lists a clicked face's features, then the details of the one read", () => {
     panel()
-    expect(screen.getByRole('heading', { name: 'Features on this face' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Feature details' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Candidate features (2)' })).toBeInTheDocument()
     expect(screen.getByText('details of the feature')).toBeInTheDocument()
   })
@@ -47,7 +47,7 @@ describe('FeaturePanel', () => {
         onClose={vi.fn()}
       />,
     )
-    expect(screen.getByRole('heading', { name: 'Feature' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Feature details' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Candidate features/ })).not.toBeInTheDocument()
     unmount()
     render(
@@ -88,7 +88,7 @@ describe('FeaturePanel', () => {
 
   it('closes on Escape and on its ✕, and walks the candidates from anywhere in it', () => {
     const { onClose, onSelect } = panel()
-    fireEvent.keyDown(screen.getByRole('heading', { name: 'Features on this face' }), {
+    fireEvent.keyDown(screen.getByRole('heading', { name: 'Feature details' }), {
       key: 'Escape',
     })
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
