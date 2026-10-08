@@ -37,6 +37,7 @@ export const RuleList: FC<RuleListProps> = ({
   features,
   sheets,
   units,
+  actions,
   ...list
 }): ReactElement => {
   const [openIds, setOpenIds] = useState<ReadonlySet<string>>(new Set())
@@ -97,7 +98,7 @@ export const RuleList: FC<RuleListProps> = ({
           }}
         />
       </ul>
-      <RuleSetActions rules={rules} />
+      <RuleSetActions rules={rules} actions={actions} />
     </ScrollArea>
   )
 }

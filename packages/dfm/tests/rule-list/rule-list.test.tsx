@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RuleList, type DfmRules } from '../../src/index.js'
 import { PRESENCE_METRIC, QUICK_SUBJECTS } from '../../src/model/dfm-metrics.js'
@@ -14,10 +15,11 @@ const fakeRules = (rules: readonly DfmRule[]): DfmRules => ({
   replace: vi.fn(),
 })
 
-const renderList = (rules: DfmRules) =>
+const renderList = (rules: DfmRules, actions?: ReactNode) =>
   render(
     <RuleList
       rules={rules}
+      actions={actions}
       check={null}
       features={null}
       sheets={null}
@@ -57,6 +59,14 @@ describe('RuleList footer', () => {
     vi.restoreAllMocks()
     vi.useRealTimers()
     Reflect.deleteProperty(navigator, 'clipboard')
+  })
+
+  it("puts the app's actions in the row with its own, after them", () => {
+    renderList(fakeRules([aRule()]), <button type="button">Reset to standard checks</button>)
+    const reset = screen.getByRole('button', { name: 'Reset to standard checks' })
+    const copy = screen.getByRole('button', { name: /Copy LLM prompt/ })
+    expect(reset.parentElement).toBe(copy.parentElement)
+    expect(copy.compareDocumentPosition(reset) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   describe('Export', () => {
