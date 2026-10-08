@@ -38,12 +38,15 @@ export interface FeaturePanelProps {
   children?: ReactNode
 }
 
+/**
+ * The card's title: one feature is "Feature details", whether its face was
+ * clicked or it was chosen from a list.
+ */
 const title = (faces: readonly InspectedFace[], active: number, group?: number): string => {
   if (faces.length > 1) return `Comparing ${faces.length} faces`
-  if (faces[active]?.region !== null && faces[active]?.region !== undefined)
-    return 'Features on this face'
-  if (group !== undefined) return `${group} identical holes`
-  return 'Feature'
+  const clicked = faces[active]?.region !== null && faces[active]?.region !== undefined
+  if (!clicked && group !== undefined) return `${group} identical holes`
+  return 'Feature details'
 }
 
 /**
