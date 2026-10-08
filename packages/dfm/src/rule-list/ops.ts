@@ -1,4 +1,3 @@
-import type { FC, ReactElement } from 'react'
 import {
   OPS,
   opSymbol,
@@ -7,6 +6,7 @@ import {
   type DfmRule,
   type RangeLow,
 } from '../model/dfm-rules.js'
+import type { ChoiceGroup } from './picker.js'
 
 export const OP_TITLES: Record<DfmOp, string> = {
   gte: 'at least',
@@ -25,15 +25,13 @@ export const LOW_SYMBOLS: Record<RangeLow, string> = { gte: '≤', gt: '<' }
 const ONE_SIDED = 'one:'
 
 /** Every one-sided comparison, under a heading, in either end of a range. */
-export const OneSidedOptions: FC = (): ReactElement => (
-  <optgroup label="One-sided">
-    {OPS.filter((op) => op !== 'between').map((op) => (
-      <option key={op} value={`${ONE_SIDED}${op}`}>
-        {opSymbol(op)} {OP_TITLES[op]}
-      </option>
-    ))}
-  </optgroup>
-)
+export const ONE_SIDED_CHOICES: ChoiceGroup = {
+  heading: 'One-sided',
+  choices: OPS.filter((op) => op !== 'between').map((op) => ({
+    value: `${ONE_SIDED}${op}`,
+    label: `${opSymbol(op)} ${OP_TITLES[op]}`,
+  })),
+}
 
 /** A range with one end's choice made: that end held the new way, or a one-sided comparison in its place. */
 export const rangeEnd = (

@@ -42,13 +42,13 @@ const chooseFile = (contents: string): void => {
 describe('RuleList', () => {
   it('shows the rules it is given, and no others', () => {
     renderList(fakeRules([aRule(), aRule()]))
-    expect(screen.getAllByLabelText('Features')).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: /^Features:/ })).toHaveLength(2)
   })
 
   it('shows no rules when given none: it ships no defaults', () => {
     renderList(fakeRules([]))
-    expect(screen.queryByLabelText('Features')).toBeNull()
-    expect(screen.getByLabelText('New rule')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Features:/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'New rule' })).toBeInTheDocument()
   })
 })
 

@@ -1,7 +1,6 @@
 import { useState, type FC, type ReactElement } from 'react'
-import { cn } from '@toolpath/ui'
-import { MORE, SubjectOptions, showMore } from './options.js'
-import { WORD } from './styles.js'
+import { subjectChoices } from './options.js'
+import { Picker } from './picker.js'
 
 /**
  * The last row: an empty rule, to start one. Choosing its features makes the
@@ -18,20 +17,15 @@ export const NewRule: FC<{ onAdd: (subject: string) => void }> = ({ onAdd }): Re
         className="mt-1.5 size-4 shrink-0 rounded-full border border-dashed border-gray-300 dark:border-zinc-600"
       />
       <p className="min-w-0 flex-1 text-sm leading-7">
-        <select
-          aria-label="New rule"
-          className={cn(WORD, 'font-normal text-gray-400 dark:text-zinc-500')}
+        <Picker
+          label="New rule"
+          placeholder="+ New Rule"
           value=""
-          onChange={(event) => {
-            if (event.target.value === MORE) showMore(event.currentTarget, setAll)
-            else if (event.target.value) onAdd(event.target.value)
-          }}
-        >
-          <option value="" disabled>
-            + New Rule
-          </option>
-          <SubjectOptions current="any" all={all} />
-        </select>
+          choices={subjectChoices('any', all)}
+          onChange={onAdd}
+          onMore={() => setAll(true)}
+          className="font-normal text-gray-400 dark:text-zinc-500"
+        />
       </p>
     </li>
   )
