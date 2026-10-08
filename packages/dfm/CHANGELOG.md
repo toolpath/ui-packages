@@ -1,5 +1,12 @@
 # @toolpath/dfm
 
+## 0.3.0
+
+### Minor Changes
+
+- d45900f: `RuleList` takes `actions`: the app's own buttons, at the end of the footer's row after Import…,
+  Export and Copy LLM prompt.
+
 ## 0.2.1
 
 ### Patch Changes
