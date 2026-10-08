@@ -16,7 +16,7 @@ class OffsetLength:
     the free side, which is shorter than the outline inside a pocket and longer around a boss.
     So the length a tool of `radius` travels is `Math.max(0, length + radius * dlDr)`, and zero
     means the tool does not fit — the outline is shorter than the tool's own orbit, which a
-    caller pricing a pass must refuse rather than bill as free.
+    caller estimating a pass must refuse rather than read as free.
 
     Exact for every tool the outline has room for, except at a corner sharper than the tool,
     where it reads long by that corner's miter — zero for the filleted corners a pocket that

@@ -103,9 +103,8 @@ def sync_detailed(
     /plans/{planId}/toolpaths`) to have run and its job to have succeeded.
 
     **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality — planned additions include plan constraints and specifying material and stock, among
-    others. Breaking changes still follow the API major version, so you can build against them today;
-    expect new capabilities to arrive as they mature.
+    functionality. These experimental operations may change, including breaking request and response
+    changes, without an API major version bump while in beta. Check release notes before upgrading.
 
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -141,9 +140,8 @@ def sync(
     /plans/{planId}/toolpaths`) to have run and its job to have succeeded.
 
     **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality — planned additions include plan constraints and specifying material and stock, among
-    others. Breaking changes still follow the API major version, so you can build against them today;
-    expect new capabilities to arrive as they mature.
+    functionality. These experimental operations may change, including breaking request and response
+    changes, without an API major version bump while in beta. Check release notes before upgrading.
 
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -174,9 +172,8 @@ async def asyncio_detailed(
     /plans/{planId}/toolpaths`) to have run and its job to have succeeded.
 
     **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality — planned additions include plan constraints and specifying material and stock, among
-    others. Breaking changes still follow the API major version, so you can build against them today;
-    expect new capabilities to arrive as they mature.
+    functionality. These experimental operations may change, including breaking request and response
+    changes, without an API major version bump while in beta. Check release notes before upgrading.
 
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -210,9 +207,8 @@ async def asyncio(
     /plans/{planId}/toolpaths`) to have run and its job to have succeeded.
 
     **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality — planned additions include plan constraints and specifying material and stock, among
-    others. Breaking changes still follow the API major version, so you can build against them today;
-    expect new capabilities to arrive as they mature.
+    functionality. These experimental operations may change, including breaking request and response
+    changes, without an API major version bump while in beta. Check release notes before upgrading.
 
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

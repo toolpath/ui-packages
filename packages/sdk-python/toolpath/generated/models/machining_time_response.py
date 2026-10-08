@@ -8,6 +8,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
+    from ..models.machining_time_response_stock import MachiningTimeResponseStock
     from ..models.machining_time_setup import MachiningTimeSetup
 
 
@@ -30,6 +31,7 @@ class MachiningTimeResponse:
             the totals, so a nonzero count means the machining-time total covers only part of the plan.
         total_cutting_length (float): Sum of cut actions’ cutting lengths, in mm.
         total_path_length (float): Sum of cut actions’ full path lengths, in mm.
+        stock (MachiningTimeResponseStock): The saved stock input and the initial geometry the kernel resolved from it.
         setups (list[MachiningTimeSetup]): Per-action machining times, grouped by setup, in machining order.
     """
 
@@ -42,6 +44,7 @@ class MachiningTimeResponse:
     refused_count: int
     total_cutting_length: float
     total_path_length: float
+    stock: MachiningTimeResponseStock
     setups: list[MachiningTimeSetup]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -64,6 +67,8 @@ class MachiningTimeResponse:
 
         total_path_length = self.total_path_length
 
+        stock = self.stock.to_dict()
+
         setups = []
         for setups_item_data in self.setups:
             setups_item = setups_item_data.to_dict()
@@ -82,6 +87,7 @@ class MachiningTimeResponse:
                 "refusedCount": refused_count,
                 "totalCuttingLength": total_cutting_length,
                 "totalPathLength": total_path_length,
+                "stock": stock,
                 "setups": setups,
             }
         )
@@ -90,6 +96,7 @@ class MachiningTimeResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.machining_time_response_stock import MachiningTimeResponseStock
         from ..models.machining_time_setup import MachiningTimeSetup
 
         d = dict(src_dict)
@@ -111,6 +118,8 @@ class MachiningTimeResponse:
 
         total_path_length = d.pop("totalPathLength")
 
+        stock = MachiningTimeResponseStock.from_dict(d.pop("stock"))
+
         setups = []
         _setups = d.pop("setups")
         for setups_item_data in _setups:
@@ -128,6 +137,7 @@ class MachiningTimeResponse:
             refused_count=refused_count,
             total_cutting_length=total_cutting_length,
             total_path_length=total_path_length,
+            stock=stock,
             setups=setups,
         )
 

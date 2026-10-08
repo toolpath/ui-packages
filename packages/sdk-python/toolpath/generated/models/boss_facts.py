@@ -22,9 +22,10 @@ class BossFacts:
     Attributes:
         kind (Literal['Boss']): Discriminator for this facts variant.
         cd (CdData): Clearance-diameter bounds per tolerance regime, plus the flags derived with them.
-        max_bottom_diameter (float): Largest bottom diameter a terminal tool may have, in mm.
         fillet_radius (float): Radius of the floor blend, in mm; zero when sharp.
         fillet_height (float): Height of the floor blend, in mm; zero when sharp.
+        max_bottom_diameter (float | None): Deprecated: the largest bottom diameter a terminal tool may have. Nothing
+            ever computed it, so it has always read `null`, and tp-kernel 0.16.0 removed it. Removed in the next API major.
         wall_length (OffsetLength | Unset): An outline a pass follows, measured so that any tool's path length can be
             read off it.
 
@@ -32,7 +33,7 @@ class BossFacts:
             the free side, which is shorter than the outline inside a pocket and longer around a boss.
             So the length a tool of `radius` travels is `Math.max(0, length + radius * dlDr)`, and zero
             means the tool does not fit — the outline is shorter than the tool's own orbit, which a
-            caller pricing a pass must refuse rather than bill as free.
+            caller estimating a pass must refuse rather than read as free.
 
             Exact for every tool the outline has room for, except at a corner sharper than the tool,
             where it reads long by that corner's miter — zero for the filleted corners a pocket that
@@ -41,9 +42,9 @@ class BossFacts:
 
     kind: Literal["Boss"]
     cd: CdData
-    max_bottom_diameter: float
     fillet_radius: float
     fillet_height: float
+    max_bottom_diameter: float | None
     wall_length: OffsetLength | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
@@ -51,11 +52,12 @@ class BossFacts:
 
         cd = self.cd.to_dict()
 
-        max_bottom_diameter = self.max_bottom_diameter
-
         fillet_radius = self.fillet_radius
 
         fillet_height = self.fillet_height
+
+        max_bottom_diameter: float | None
+        max_bottom_diameter = self.max_bottom_diameter
 
         wall_length: dict[str, Any] | Unset = UNSET
         if not isinstance(self.wall_length, Unset):
@@ -67,9 +69,9 @@ class BossFacts:
             {
                 "kind": kind,
                 "cd": cd,
-                "maxBottomDiameter": max_bottom_diameter,
                 "filletRadius": fillet_radius,
                 "filletHeight": fillet_height,
+                "maxBottomDiameter": max_bottom_diameter,
             }
         )
         if wall_length is not UNSET:
@@ -89,11 +91,16 @@ class BossFacts:
 
         cd = CdData.from_dict(d.pop("cd"))
 
-        max_bottom_diameter = d.pop("maxBottomDiameter")
-
         fillet_radius = d.pop("filletRadius")
 
         fillet_height = d.pop("filletHeight")
+
+        def _parse_max_bottom_diameter(data: object) -> float | None:
+            if data is None:
+                return data
+            return cast(float | None, data)
+
+        max_bottom_diameter = _parse_max_bottom_diameter(d.pop("maxBottomDiameter"))
 
         _wall_length = d.pop("wallLength", UNSET)
         wall_length: OffsetLength | Unset
@@ -105,9 +112,9 @@ class BossFacts:
         boss_facts = cls(
             kind=kind,
             cd=cd,
-            max_bottom_diameter=max_bottom_diameter,
             fillet_radius=fillet_radius,
             fillet_height=fillet_height,
+            max_bottom_diameter=max_bottom_diameter,
             wall_length=wall_length,
         )
 

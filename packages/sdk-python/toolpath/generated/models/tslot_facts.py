@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 from attrs import define as _attrs_define
 
+from ..types import UNSET, Unset
+
 if TYPE_CHECKING:
     from ..models.cd_data import CdData
 
@@ -22,22 +24,29 @@ class TslotFacts:
             is_external (bool): The slot runs around material standing in it rather than into the material
                 around a void.
             is_closed (bool): The slot's walls close on themselves in plan view.
-            undercut_depth (float): How far the groove runs back from its opening, radially; infinite when the slot
-                could not be measured.
-            max_entry_cd (float): The widest tool that can come down through the opening above the slot to reach
-                it; infinite when nothing above constrains one, zero when nothing fits at all.
             cd (CdData): Clearance-diameter bounds per tolerance regime, plus the flags derived with them.
             fillet_radius (float): Radius of the blend where the slot's walls meet its floor and ceiling; 0.0 when
                 sharp.
+            undercut_depth (float | Unset): How far the groove runs back from its opening, radially, in mm; absent where the
+                slot
+                has no valid measurement, which `isInvalidGeometry` or `cd.measurementFailed` says.
+            max_entry_cd (float | Unset): The widest tool that can come down through the opening above the slot to reach it,
+                in mm; absent where nothing above the slot limits one. Zero where nothing fits, and
+                wherever `isInvalidGeometry` or `cd.measurementFailed` is set.
+            is_invalid_geometry (bool | Unset): The slot was measured and is not one a disc cutter can cut: its walls do not
+                form a
+                slot, nothing overhangs them, or a cutter reaching its depth could not turn inside
+                it. Its clearance then admits no tool.
     """
 
     kind: Literal["Tslot"]
     is_external: bool
     is_closed: bool
-    undercut_depth: float
-    max_entry_cd: float
     cd: CdData
     fillet_radius: float
+    undercut_depth: float | Unset = UNSET
+    max_entry_cd: float | Unset = UNSET
+    is_invalid_geometry: bool | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         kind = self.kind
@@ -46,13 +55,15 @@ class TslotFacts:
 
         is_closed = self.is_closed
 
+        cd = self.cd.to_dict()
+
+        fillet_radius = self.fillet_radius
+
         undercut_depth = self.undercut_depth
 
         max_entry_cd = self.max_entry_cd
 
-        cd = self.cd.to_dict()
-
-        fillet_radius = self.fillet_radius
+        is_invalid_geometry = self.is_invalid_geometry
 
         field_dict: dict[str, Any] = {}
 
@@ -61,12 +72,16 @@ class TslotFacts:
                 "kind": kind,
                 "isExternal": is_external,
                 "isClosed": is_closed,
-                "undercutDepth": undercut_depth,
-                "maxEntryCd": max_entry_cd,
                 "cd": cd,
                 "filletRadius": fillet_radius,
             }
         )
+        if undercut_depth is not UNSET:
+            field_dict["undercutDepth"] = undercut_depth
+        if max_entry_cd is not UNSET:
+            field_dict["maxEntryCd"] = max_entry_cd
+        if is_invalid_geometry is not UNSET:
+            field_dict["isInvalidGeometry"] = is_invalid_geometry
 
         return field_dict
 
@@ -83,22 +98,25 @@ class TslotFacts:
 
         is_closed = d.pop("isClosed")
 
-        undercut_depth = d.pop("undercutDepth")
-
-        max_entry_cd = d.pop("maxEntryCd")
-
         cd = CdData.from_dict(d.pop("cd"))
 
         fillet_radius = d.pop("filletRadius")
+
+        undercut_depth = d.pop("undercutDepth", UNSET)
+
+        max_entry_cd = d.pop("maxEntryCd", UNSET)
+
+        is_invalid_geometry = d.pop("isInvalidGeometry", UNSET)
 
         tslot_facts = cls(
             kind=kind,
             is_external=is_external,
             is_closed=is_closed,
-            undercut_depth=undercut_depth,
-            max_entry_cd=max_entry_cd,
             cd=cd,
             fillet_radius=fillet_radius,
+            undercut_depth=undercut_depth,
+            max_entry_cd=max_entry_cd,
+            is_invalid_geometry=is_invalid_geometry,
         )
 
         return tslot_facts

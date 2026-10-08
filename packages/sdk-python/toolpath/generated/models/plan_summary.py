@@ -9,6 +9,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.plan_summary_level import PlanSummaryLevel
+from ..models.plan_summary_material import PlanSummaryMaterial
 
 if TYPE_CHECKING:
     from ..models.plan_issue import PlanIssue
@@ -24,6 +25,8 @@ class PlanSummary:
         plan_id (UUID): Identifier of this plan.
         job_id (UUID): Identifier of the job that produced this plan.
         kernel_version (str): Version of the Toolpath kernel that produced this plan.
+        material (PlanSummaryMaterial): The material this plan was synthesized for. Its tools’ feeds and speeds — and so
+            every machining time here — are the kernel’s for it. `Aluminum` on plans made before it was recorded.
         level (PlanSummaryLevel): Fidelity of this plan: `planned` (setups and action-specs only) or `toolpathed`
             (toolpaths also calculated).
         issues (list[PlanIssue]): The plan’s coverage shortfalls (see PlanResponse.issues). Empty when it covers all.
@@ -33,6 +36,7 @@ class PlanSummary:
     plan_id: UUID
     job_id: UUID
     kernel_version: str
+    material: PlanSummaryMaterial
     level: PlanSummaryLevel
     issues: list[PlanIssue]
     created_at: datetime.datetime
@@ -44,6 +48,8 @@ class PlanSummary:
         job_id = str(self.job_id)
 
         kernel_version = self.kernel_version
+
+        material = self.material.value
 
         level = self.level.value
 
@@ -61,6 +67,7 @@ class PlanSummary:
                 "planId": plan_id,
                 "jobId": job_id,
                 "kernelVersion": kernel_version,
+                "material": material,
                 "level": level,
                 "issues": issues,
                 "createdAt": created_at,
@@ -80,6 +87,8 @@ class PlanSummary:
 
         kernel_version = d.pop("kernelVersion")
 
+        material = PlanSummaryMaterial(d.pop("material"))
+
         level = PlanSummaryLevel(d.pop("level"))
 
         issues = []
@@ -95,6 +104,7 @@ class PlanSummary:
             plan_id=plan_id,
             job_id=job_id,
             kernel_version=kernel_version,
+            material=material,
             level=level,
             issues=issues,
             created_at=created_at,

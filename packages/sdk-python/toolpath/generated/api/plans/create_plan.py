@@ -6,6 +6,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.part_job_request import PartJobRequest
 from ...models.problem_details import ProblemDetails
 from ...models.queue_part_job_response import QueuePartJobResponse
 from ...types import UNSET, Response, Unset
@@ -14,6 +15,7 @@ from ...types import UNSET, Response, Unset
 def _get_kwargs(
     id: str,
     *,
+    body: PartJobRequest | Unset = UNSET,
     idempotency_key: str | Unset = UNSET,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -26,6 +28,11 @@ def _get_kwargs(
             id=quote(str(id), safe=""),
         ),
     }
+
+    if not isinstance(body, Unset):
+        _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -95,6 +102,7 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    body: PartJobRequest | Unset = UNSET,
     idempotency_key: str | Unset = UNSET,
 ) -> Response[ProblemDetails | QueuePartJobResponse]:
     """Create a plan
@@ -103,13 +111,13 @@ def sync_detailed(
     with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
 
     **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality — planned additions include plan constraints and specifying material and stock, among
-    others. Breaking changes still follow the API major version, so you can build against them today;
-    expect new capabilities to arrive as they mature.
+    functionality. These experimental operations may change, including breaking request and response
+    changes, without an API major version bump while in beta. Check release notes before upgrading.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
         idempotency_key (str | Unset):  Example: plan-request-123.
+        body (PartJobRequest | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -121,6 +129,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+        body=body,
         idempotency_key=idempotency_key,
     )
 
@@ -135,6 +144,7 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    body: PartJobRequest | Unset = UNSET,
     idempotency_key: str | Unset = UNSET,
 ) -> ProblemDetails | QueuePartJobResponse | None:
     """Create a plan
@@ -143,13 +153,13 @@ def sync(
     with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
 
     **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality — planned additions include plan constraints and specifying material and stock, among
-    others. Breaking changes still follow the API major version, so you can build against them today;
-    expect new capabilities to arrive as they mature.
+    functionality. These experimental operations may change, including breaking request and response
+    changes, without an API major version bump while in beta. Check release notes before upgrading.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
         idempotency_key (str | Unset):  Example: plan-request-123.
+        body (PartJobRequest | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -162,6 +172,7 @@ def sync(
     return sync_detailed(
         id=id,
         client=client,
+        body=body,
         idempotency_key=idempotency_key,
     ).parsed
 
@@ -170,6 +181,7 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    body: PartJobRequest | Unset = UNSET,
     idempotency_key: str | Unset = UNSET,
 ) -> Response[ProblemDetails | QueuePartJobResponse]:
     """Create a plan
@@ -178,13 +190,13 @@ async def asyncio_detailed(
     with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
 
     **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality — planned additions include plan constraints and specifying material and stock, among
-    others. Breaking changes still follow the API major version, so you can build against them today;
-    expect new capabilities to arrive as they mature.
+    functionality. These experimental operations may change, including breaking request and response
+    changes, without an API major version bump while in beta. Check release notes before upgrading.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
         idempotency_key (str | Unset):  Example: plan-request-123.
+        body (PartJobRequest | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -196,6 +208,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+        body=body,
         idempotency_key=idempotency_key,
     )
 
@@ -208,6 +221,7 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    body: PartJobRequest | Unset = UNSET,
     idempotency_key: str | Unset = UNSET,
 ) -> ProblemDetails | QueuePartJobResponse | None:
     """Create a plan
@@ -216,13 +230,13 @@ async def asyncio(
     with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
 
     **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality — planned additions include plan constraints and specifying material and stock, among
-    others. Breaking changes still follow the API major version, so you can build against them today;
-    expect new capabilities to arrive as they mature.
+    functionality. These experimental operations may change, including breaking request and response
+    changes, without an API major version bump while in beta. Check release notes before upgrading.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
         idempotency_key (str | Unset):  Example: plan-request-123.
+        body (PartJobRequest | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -236,6 +250,7 @@ async def asyncio(
         await asyncio_detailed(
             id=id,
             client=client,
+            body=body,
             idempotency_key=idempotency_key,
         )
     ).parsed

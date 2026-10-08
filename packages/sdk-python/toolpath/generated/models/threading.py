@@ -20,6 +20,11 @@ class Threading:
 
     Attributes:
         spec (ThreadSpec): The thread a hole is to receive.
+
+            Every diameter, the pitch and `threadPercentage` are finite and positive,
+            `threadPercentage` at most 100, `minMinorDiameter` no more than `maxMinorDiameter`, and
+            `minMajorDiameter` above `minMinorDiameter`; the two angles keep the ranges their fields
+            state.
         process (ThreadProcess): How a thread is to be cut: the three ways there are.
     """
 

@@ -20,7 +20,8 @@ class PartFeature:
     """
     Attributes:
         feature_id (UUID): Globally unique identifier of this feature record within its part result.
-        feature_tag (str): Stable kernel feature tag, encoded as a lowercase hexadecimal string.
+        feature_tag (str): Kernel feature tag, encoded as a lowercase hexadecimal string. Stable across runs of one
+            kernel version, not across versions.
         region_idxs (list[int]): Indexes of regions this feature covers; join each value to `regions[].idx`.
         feature_type (str): Kernel-recognized feature type. This vocabulary is open-ended as the kernel evolves.
         machining_direction (PartFeatureMachiningDirection): Access direction from which the kernel extracted this

@@ -11,7 +11,7 @@ T = TypeVar("T", bound="ToleranceBand")
 @_attrs_define
 class ToleranceBand:
     """How far a machined surface may deviate from the model, in three escalating bands
-    (`0 <= ignore <= deviate <= max`).
+    (`0 <= ignore <= deviate <= max`, all finite).
 
         Attributes:
             atol_ignore (float): Deviation at or below this value is ignored, in mm.
