@@ -1,5 +1,13 @@
 # @toolpath/api
 
+## 0.8.0
+
+### Minor Changes
+
+- 1495e2b: `createToolpathClient` exposes every generated API. `toolpaths` (create and recalculate toolpaths,
+  read toolpaths and machining times), `toolHolders` and `demo` were generated but unreachable from
+  the client, so callers built those requests by hand.
+
 ## 0.7.0
 
 ### Minor Changes
