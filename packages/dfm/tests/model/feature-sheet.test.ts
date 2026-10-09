@@ -147,6 +147,72 @@ describe('featureSheet: the figures the rules read', () => {
   })
 })
 
+describe('featureSheet: an undercut’s own figures', () => {
+  const band = { ignore: { min: 20, max: 24 }, deviate: { min: 20, max: 24 } }
+
+  it('reads a T-slot’s depth and entry, and none of a dovetail’s', () => {
+    const sheet = featureSheet({
+      zMin: -12,
+      zMax: -7,
+      facts: {
+        kind: 'Tslot',
+        isExternal: false,
+        isClosed: true,
+        undercutDepth: 6,
+        maxEntryCd: 8,
+        cd: band,
+        filletRadius: 0.5,
+        // A dovetail's figures on a T-slot are not its own.
+        taperDeg: 30,
+      },
+    })
+    expect(sheet.undercut).toEqual({ undercutDepth: 6, maxEntry: 8, isClosed: true })
+    expect(sheet.maxTool).toBe(20)
+  })
+
+  it('reads a dovetail’s widths and taper, and whether it runs out', () => {
+    const sheet = featureSheet({
+      facts: {
+        kind: 'Dovetail',
+        taperDeg: 30,
+        filletRadius: 0,
+        floorWidth: 16,
+        topOpeningWidth: 10,
+        bottomOpeningWidth: 15.8,
+        isExternal: true,
+        cd: band,
+        isInvalidGeometry: false,
+      },
+    })
+    expect(sheet.undercut).toEqual({
+      taperDeg: 30,
+      floorWidth: 16,
+      topOpeningWidth: 10,
+      isExternal: true,
+    })
+  })
+
+  it('leaves out a figure sent as an infinity, as nothing limits it', () => {
+    const sheet = featureSheet({
+      facts: { kind: 'Tslot', undercutDepth: 'inf', maxEntryCd: 'Infinity', cd: band },
+    })
+    expect(sheet.undercut).toEqual({})
+  })
+
+  it('marks an undercut the Engine could not measure, either way it says so', () => {
+    const invalid = featureSheet({ facts: { kind: 'Tslot', isInvalidGeometry: true, cd: band } })
+    expect(invalid.undercut?.unmeasured).toBe(true)
+    const failed = featureSheet({
+      facts: { kind: 'Dovetail', cd: { ...band, measurementFailed: true } },
+    })
+    expect(failed.undercut?.unmeasured).toBe(true)
+  })
+
+  it('gives no other kind an undercut', () => {
+    expect(featureSheet(pocket()).undercut).toBeUndefined()
+  })
+})
+
 describe('readPinch: the discs a tool stands in', () => {
   it('takes the slack off every disc and clamps at zero', () => {
     const pinch = readPinch(pocket({ pinchPoints: [{ center: { x: 0, y: 0 }, diameter: 0.05 }] }))
