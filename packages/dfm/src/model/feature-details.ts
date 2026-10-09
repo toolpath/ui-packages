@@ -1,4 +1,9 @@
-import type { FeatureSheet, FeatureSheets, FeatureUndercut } from './feature-sheet.js'
+import {
+  SHARP_MM,
+  type FeatureSheet,
+  type FeatureSheets,
+  type FeatureUndercut,
+} from './feature-sheet.js'
 import type { ClearanceFit } from './pinch.js'
 import { featureLd, featureTypeLabel, partTop, type DfmFeature } from './geometry.js'
 import { MM_PER_INCH } from '@toolpath/tool-support'
@@ -178,7 +183,6 @@ export const featureMeasurements = ({
   const rows: Measurement[] = []
   // An undercut's cutter band is its cutter's head, not a tool between walls: it has rows of its own.
   const undercut = sheet?.undercut
-  const tslot = sheet?.kind === 'Tslot'
 
   const top = sheet ? partTop(features, sheets, feature.machiningDirection) : null
   const bottom = sheet?.zMin
@@ -200,7 +204,7 @@ export const featureMeasurements = ({
       derivation: [topLine, `Top − zMin = ${mm(top)} − ${mm(bottom)} = ${mm(top - bottom)}`],
     })
   }
-  if (sheet?.zMax !== undefined && bottom !== undefined && !(undercut && tslot)) {
+  if (sheet?.zMax !== undefined && bottom !== undefined && !(undercut && sheet?.kind === 'Tslot')) {
     rows.push({
       key: 'featureDepth',
       label: 'Feature depth',
@@ -376,8 +380,8 @@ export const featureMeasurements = ({
    * cutter, and its depth below the top of the part, which is how far down
    * the cutter has to go to get there.
    */
-  const ld = featureLd(features, feature, sheets)
-  if (ld && !undercut && top !== null && bottom !== undefined) {
+  const ld = undercut ? null : featureLd(features, feature, sheets)
+  if (ld && top !== null && bottom !== undefined) {
     const across =
       ld.basis === 'bore'
         ? `D = facts.diameter = ${mm(ld.across)}`
@@ -480,9 +484,6 @@ export const featureMeasurements = ({
   return rows.sort((a, b) => ROW_ORDER.indexOf(a.key) - ROW_ORDER.indexOf(b.key))
 }
 
-/** What an undercut's cutter row is called, a T-slot's or a dovetail's. */
-const CUTTING_DIAMETER = 'Max cutting diameter'
-
 /**
  * An undercut's rows — a T-slot's or a dovetail's: how wide and how deep the
  * groove runs, and the biggest cutter it takes, with the shaft that has to
@@ -498,19 +499,19 @@ const undercutRows = (
   const rows: Measurement[] = []
   const tslot = sheet.kind === 'Tslot'
   const { zMin, zMax } = sheet
-  const width = tslot && zMin !== undefined && zMax !== undefined ? zMax - zMin : undefined
-  if (width !== undefined && zMin !== undefined && zMax !== undefined) {
+  const { floorWidth: floor, topOpeningWidth: opening } = undercut
+  const angle = undercut.taperDeg !== undefined ? `${trim(undercut.taperDeg, 3)}°` : undefined
+  if (tslot && zMin !== undefined && zMax !== undefined) {
     rows.push({
       key: 'undercutWidth',
       label: 'Undercut width',
-      ...length(width),
+      ...length(zMax - zMin),
       derivation: [
         'The groove’s height along the tool: the widest cutter it takes in one pass.',
-        `zMax − zMin = ${mm(zMax)} − ${mm(zMin)} = ${mm(width)}`,
+        `zMax − zMin = ${mm(zMax)} − ${mm(zMin)} = ${mm(zMax - zMin)}`,
       ],
     })
   }
-  const { floorWidth: floor, topOpeningWidth: opening } = undercut
   if (floor !== undefined) {
     rows.push({
       key: 'floorWidth',
@@ -530,169 +531,164 @@ const undercutRows = (
       ],
     })
   }
-  if (undercut.undercutDepth !== undefined) {
-    rows.push({
-      key: 'undercutDepth',
-      label: 'Undercut depth',
-      ...length(undercut.undercutDepth),
-      derivation: [
-        'How far the groove runs back from its opening: what the cutter’s head reaches past its shaft.',
-        `facts.undercutDepth = ${mm(undercut.undercutDepth)}`,
-      ],
-    })
-  } else if (
-    floor !== undefined &&
-    opening !== undefined &&
-    floor > opening &&
-    !undercut.isExternal
-  ) {
-    // A closed dovetail overhangs evenly on both sides; one that runs out has no single depth.
-    const depth = (floor - opening) / 2
+  // How far the head reaches past its shaft: a T-slot's undercut, or each overhang of a closed
+  // dovetail, which overhangs evenly on both sides. One that runs out has no single depth.
+  let depth = undercut.undercutDepth
+  let depthLine = depth !== undefined ? `facts.undercutDepth = ${mm(depth)}` : ''
+  if (depth === undefined && floor !== undefined && opening !== undefined) {
+    if (floor > opening && !undercut.isExternal) {
+      depth = (floor - opening) / 2
+      depthLine = `(facts.floorWidth − facts.topOpeningWidth) / 2 = (${mm(floor)} − ${mm(opening)}) / 2 = ${mm(depth)}`
+    }
+  }
+  if (depth !== undefined) {
     rows.push({
       key: 'undercutDepth',
       label: 'Undercut depth',
       ...length(depth),
       derivation: [
-        'How far each overhang runs back over the floor: what the cutter’s head reaches past its shaft.',
-        `(facts.floorWidth − facts.topOpeningWidth) / 2 = (${mm(floor)} − ${mm(opening)}) / 2 = ${mm(depth)}`,
+        'How far the groove runs back from its opening: what the cutter’s head reaches past its shaft.',
+        depthLine,
       ],
     })
   }
-  if (undercut.taperDeg !== undefined) {
+  if (angle) {
     rows.push({
       key: 'taper',
       label: 'Dovetail angle',
-      value: `${trim(undercut.taperDeg, 3)}° from the tool axis`,
-      derivation: [
-        `facts.taperDeg = ${trim(undercut.taperDeg, 3)}°, between the overhanging wall and the tool axis`,
-      ],
+      value: `${angle} from the tool axis`,
+      derivation: [`facts.taperDeg = ${angle}, between the overhanging wall and the tool axis`],
     })
   }
 
+  const cutter = (value: string, derivation: string[], alt?: string): Measurement => ({
+    key: 'undercutCutter',
+    label: 'Max cutting diameter',
+    milling: true,
+    value,
+    ...(alt !== undefined ? { alt } : {}),
+    derivation,
+  })
   if (undercut.unmeasured) {
-    rows.push({
-      key: 'undercutCutter',
-      label: CUTTING_DIAMETER,
-      milling: true,
-      value: 'Not measured',
-      derivation: [
+    return [
+      ...rows,
+      cutter('Not measured', [
         'The Engine could not measure the groove (facts.isInvalidGeometry or facts.cd.measurementFailed), so its figures offer no cutter.',
-      ],
-    })
-    return rows
+      ]),
+    ]
+  }
+  if (sheet.noToolFits) {
+    return [
+      ...rows,
+      cutter('None fits', [
+        'facts.cd.ignore.max is next to nothing: no cutter fits anywhere in the groove.',
+      ]),
+    ]
   }
   /*
-   * The head: the biggest that reaches every point of the groove. A closed
+   * The head is the biggest that reaches every point of the groove. A closed
    * T-slot has no open end to slide it in from, so it comes down through the
-   * opening above, and is no wider than that either.
+   * opening above, and is no wider than that either. (`isClosed` and
+   * `maxEntry` are a T-slot's; `topOpeningWidth` a dovetail's.)
+   *
+   * The shaft comes down through the opening above the groove: a T-slot's
+   * entry, a dovetail's top. The head also has to stand out past it by the
+   * undercut on each side to reach the back of the groove, so the shaft is no
+   * wider than the head less twice the undercut either.
    */
   const band = sheet.maxTool !== undefined && sheet.maxTool > 0 ? sheet.maxTool : undefined
-  const entry = tslot ? undercut.maxEntry : undefined
-  const dropsIn = tslot && undercut.isClosed === true && entry !== undefined
-  const head =
-    band === undefined ? undefined : dropsIn && entry !== undefined ? Math.min(band, entry) : band
-  const headLines = [
-    'The biggest head that reaches every point of the groove.',
-    ...(band !== undefined ? [`facts.cd.ignore.min = ${mm(band)}`] : []),
-    ...(dropsIn && entry !== undefined
+  const dropIn = undercut.isClosed ? undercut.maxEntry : undefined
+  const head = band === undefined ? undefined : Math.min(band, dropIn ?? Infinity)
+  const opensTo = undercut.maxEntry ?? opening
+  const behind = head !== undefined && depth !== undefined ? head - 2 * depth : undefined
+  const limits = [opensTo, behind].filter((each): each is number => each !== undefined)
+  const shaft = limits.length > 0 ? Math.max(Math.min(...limits), 0) : undefined
+  const shaftLines = [
+    'The most the cutter’s shaft can be: what comes down through the opening above the groove, and leaves the head reaching the back of it.',
+    ...(opensTo !== undefined
+      ? [`Opening: ${tslot ? 'facts.maxEntryCd' : 'facts.topOpeningWidth'} = ${mm(opensTo)}`]
+      : []),
+    ...(behind !== undefined && head !== undefined && depth !== undefined
       ? [
-          `A closed slot: the head comes down through the opening above it, facts.maxEntryCd = ${mm(entry)}`,
+          `Reach: max cutting diameter − 2 × undercut depth = ${mm(head)} − 2 × ${mm(depth)} = ${mm(behind)}`,
         ]
       : []),
+    ...(shaft !== undefined ? [`Max shaft = ${mm(shaft)}`] : []),
   ]
-  if (sheet.noToolFits || head === 0) {
-    rows.push({
-      key: 'undercutCutter',
-      label: CUTTING_DIAMETER,
-      milling: true,
-      value: 'None fits',
-      derivation: sheet.noToolFits
-        ? ['facts.cd.ignore.max is next to nothing: no cutter fits anywhere in the groove.']
-        : [...headLines, 'Nothing comes down through the opening.'],
-    })
-  } else if (head !== undefined) {
+
+  if (head !== undefined && band !== undefined) {
+    const headLines = [
+      'The biggest head that reaches every point of the groove.',
+      `facts.cd.ignore.min = ${mm(band)}`,
+      ...(dropIn !== undefined
+        ? [
+            `A closed slot: the head comes down through the opening above it, facts.maxEntryCd = ${mm(dropIn)}`,
+          ]
+        : []),
+      `⌀ = ${mm(head)}`,
+    ]
+    // Narrower than a tenth of a millimetre, a head or a shaft is no tool at all.
+    if (head < SHARP_MM || (shaft !== undefined && shaft < SHARP_MM)) {
+      return [
+        ...rows,
+        cutter('None fits', [
+          ...headLines,
+          ...(shaft !== undefined ? shaftLines : []),
+          'No head that fits the groove leaves room for a shaft to carry it.',
+        ]),
+      ]
+    }
     // The head's size, its angle in a dovetail, and the corner its blend asks for.
     const size = length(head)
-    const fillet =
-      sheet.filletRadius !== undefined && sheet.filletRadius > 0
-        ? length(sheet.filletRadius)
-        : undefined
-    const angle = !tslot && undercut.taperDeg !== undefined ? `${trim(undercut.taperDeg, 3)}°` : ''
+    const filletRadius =
+      sheet.filletRadius !== undefined && sheet.filletRadius > 0 ? sheet.filletRadius : undefined
+    const fillet = filletRadius !== undefined ? length(filletRadius) : undefined
     const describe = (unit: 'value' | 'alt'): string =>
       [`⌀ ${size[unit]}`, ...(angle ? [angle] : []), ...(fillet ? [`R ${fillet[unit]}`] : [])].join(
         ' · ',
       )
-    rows.push({
-      key: 'undercutCutter',
-      label: CUTTING_DIAMETER,
-      milling: true,
-      value: describe('value'),
-      alt: describe('alt'),
-      derivation: [
-        ...headLines,
-        `⌀ = ${mm(head)}`,
-        ...(angle ? [`Angle = facts.taperDeg = ${angle}, from the tool axis`] : []),
-        ...(fillet && sheet.filletRadius !== undefined
-          ? [`R = facts.filletRadius = ${mm(sheet.filletRadius)}, the blend the head’s corners cut`]
-          : []),
-      ],
-    })
+    rows.push(
+      cutter(
+        describe('value'),
+        [
+          ...headLines,
+          ...(angle ? [`Angle = facts.taperDeg = ${angle}, from the tool axis`] : []),
+          ...(filletRadius !== undefined
+            ? [`R = facts.filletRadius = ${mm(filletRadius)}, the blend the head’s corners cut`]
+            : []),
+        ],
+        describe('alt'),
+      ),
+    )
     // How far the cutter comes down from the top of the part, against the head it carries.
     if (top !== null && zMin !== undefined) {
       const reach = top - zMin
+      const ratio = (reach / head).toFixed(3)
       rows.push({
         key: 'topLd',
         label: 'L/D to top of part',
         milling: true,
-        value: (reach / head).toFixed(3),
+        value: ratio,
         derivation: [
           `L = depth below top of part = ${mm(reach)}`,
           `D = max cutting diameter = ${mm(head)}`,
-          `L / D = ${mm(reach)} / ${mm(head)} = ${(reach / head).toFixed(3)}`,
+          `L / D = ${mm(reach)} / ${mm(head)} = ${ratio}`,
         ],
       })
     }
   }
-  /*
-   * The shaft comes down through the opening above the groove: a T-slot's
-   * entry, a dovetail's top. A T-slot's head also has to stand out past it
-   * by the undercut on each side to reach the back of the groove, so the
-   * shaft is no wider than the head less twice the undercut either.
-   */
-  const opensTo = tslot ? entry : opening
-  const depth = tslot ? undercut.undercutDepth : undefined
-  const behind = tslot && head !== undefined && depth !== undefined ? head - 2 * depth : undefined
-  const limits = [opensTo, behind].filter((each): each is number => each !== undefined)
-  if (limits.length > 0) {
-    const shaft = Math.max(Math.min(...limits), 0)
-    const size = length(shaft)
+  if (shaft !== undefined || tslot) {
+    const size = shaft !== undefined ? length(shaft) : undefined
     rows.push({
       key: 'maxShaft',
       label: 'Max shaft diameter',
       milling: true,
-      ...(shaft > 0 ? { value: `⌀ ${size.value}`, alt: `⌀ ${size.alt}` } : { value: 'None fits' }),
-      derivation: [
-        'The most the cutter’s shaft can be: what comes down through the opening above the groove, and leaves the head reaching the back of it.',
-        ...(opensTo !== undefined
-          ? [`Opening: ${tslot ? 'facts.maxEntryCd' : 'facts.topOpeningWidth'} = ${mm(opensTo)}`]
-          : []),
-        ...(behind !== undefined && head !== undefined && depth !== undefined
-          ? [
-              `Reach: max cutting diameter − 2 × undercut depth = ${mm(head)} − 2 × ${mm(depth)} = ${mm(behind)}`,
-            ]
-          : []),
-        `Max shaft = ${mm(shaft)}`,
-      ],
-    })
-  } else if (tslot) {
-    rows.push({
-      key: 'maxShaft',
-      label: 'Max shaft diameter',
-      milling: true,
-      value: 'No limit',
-      derivation: [
-        'facts.maxEntryCd is not reported and the head or undercut depth is not known: nothing limits the shaft.',
-      ],
+      ...(size ? { value: `⌀ ${size.value}`, alt: `⌀ ${size.alt}` } : { value: 'No limit' }),
+      derivation: size
+        ? shaftLines
+        : [
+            'facts.maxEntryCd is not reported and the head or undercut depth is not known: nothing limits the shaft.',
+          ],
     })
   }
   return rows

@@ -178,8 +178,10 @@ describe('featureMeasurements: an undercut', () => {
   it('says when nothing limits the shaft, and when nothing fits through', () => {
     const open = rowsOf(tslot, { t: { ...tslotSheet, undercut: {} } })
     expect(byKey(open, 'maxShaft')?.value).toBe('No limit')
+    // Nothing comes through the opening, so no cutter does: no shaft, and no L/D over a head it cannot carry.
     const shut = rowsOf(tslot, { t: { ...tslotSheet, undercut: { maxEntry: 0 } } })
-    expect(byKey(shut, 'maxShaft')?.value).toBe('None fits')
+    expect(byKey(shut, 'undercutCutter')?.value).toBe('None fits')
+    for (const key of ['maxShaft', 'topLd']) expect(byKey(shut, key)).toBeUndefined()
   })
 
   it('gives a dovetail its widths, depth and angle, and its cutter at that angle', () => {
@@ -209,6 +211,35 @@ describe('featureMeasurements: an undercut', () => {
       value: '⌀ 16 mm · 30°',
     })
     expect(byKey(rows, 'maxShaft')?.value).toBe('⌀ 10 mm')
+  })
+
+  it('offers no cutter where the head cannot reach past a shaft, or is next to no tool', () => {
+    // A closed slot 1 wide with a 0.6 undercut: 1 − 2 × 0.6 leaves no shaft.
+    const deep = rowsOf(tslot, {
+      t: { ...tslotSheet, undercut: { undercutDepth: 0.6, maxEntry: 1, isClosed: true } },
+    })
+    expect(byKey(deep, 'undercutCutter')?.value).toBe('None fits')
+    for (const key of ['maxShaft', 'topLd']) expect(byKey(deep, key)).toBeUndefined()
+    // An opening of 0.02 mm drops in no head worth the name.
+    const pinhole = rowsOf(tslot, {
+      t: { ...tslotSheet, undercut: { undercutDepth: 0.01, maxEntry: 0.02, isClosed: true } },
+    })
+    expect(byKey(pinhole, 'undercutCutter')?.value).toBe('None fits')
+  })
+
+  it('gives no shaft where no cutter fits the groove at all', () => {
+    const rows = rowsOf(tslot, { t: { ...tslotSheet, noToolFits: true } })
+    expect(byKey(rows, 'undercutCutter')?.value).toBe('None fits')
+    expect(byKey(rows, 'maxShaft')).toBeUndefined()
+  })
+
+  it('keeps a dovetail’s shaft narrow enough for the head to reach under the overhang', () => {
+    const dovetail = feature('d', { featureType: 'undercut_dovetail' })
+    // Floor 16, top 10: 3 each side. A 12 head leaves 12 − 6 = 6 for the shaft, not the opening's 10.
+    const rows = rowsOf(dovetail, {
+      d: { kind: 'Dovetail', maxTool: 12, undercut: { floorWidth: 16, topOpeningWidth: 10 } },
+    })
+    expect(byKey(rows, 'maxShaft')?.value).toBe('⌀ 6 mm')
   })
 
   it('gives a dovetail that runs out no single depth', () => {

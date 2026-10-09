@@ -113,7 +113,7 @@ export interface FeatureThreading {
 export type FeatureSheets = Record<string, FeatureSheet>
 
 /** Narrower than this, the largest tool that fits is no tool at all. */
-const SHARP_MM = 0.1
+export const SHARP_MM = 0.1
 
 /** Under this, mm, an inside corner has no radius at all: it is sharp. */
 const SHARP_RADIUS_MM = 0.01
@@ -126,31 +126,36 @@ const asNumber = (value: unknown): number | undefined =>
 const recordOf = (value: unknown): Record<string, unknown> =>
   typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {}
 
+/** Only the fields that are set: one left out reads as not reported, never as a zero. */
+const definedOnly = <T extends object>(fields: { [K in keyof T]: T[K] | undefined }): T =>
+  Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) as T
+
 /**
  * A T-slot's or a dovetail's own figures. An unmeasured figure may come as
  * an infinity, which JSON sends as a string or not at all: either way it is
  * left out.
  */
 const undercutOf = (facts: Record<string, unknown>): FeatureUndercut | undefined => {
-  if (facts.kind !== 'Tslot' && facts.kind !== 'Dovetail') return undefined
-  const tslot = facts.kind === 'Tslot'
-  const fields = {
-    undercutDepth: tslot ? asNumber(facts.undercutDepth) : undefined,
-    maxEntry: tslot ? asNumber(facts.maxEntryCd) : undefined,
-    taperDeg: tslot ? undefined : asNumber(facts.taperDeg),
-    floorWidth: tslot ? undefined : asNumber(facts.floorWidth),
-    topOpeningWidth: tslot ? undefined : asNumber(facts.topOpeningWidth),
-  }
   const unmeasured =
     facts.isInvalidGeometry === true || recordOf(facts.cd).measurementFailed === true
-  return {
-    ...(Object.fromEntries(
-      Object.entries(fields).filter(([, value]) => value !== undefined),
-    ) as FeatureUndercut),
-    ...(!tslot && facts.isExternal === true ? { isExternal: true as const } : {}),
-    ...(tslot && facts.isClosed === true ? { isClosed: true as const } : {}),
-    ...(unmeasured ? { unmeasured: true as const } : {}),
-  }
+      ? (true as const)
+      : undefined
+  if (facts.kind === 'Tslot')
+    return definedOnly<FeatureUndercut>({
+      undercutDepth: asNumber(facts.undercutDepth),
+      maxEntry: asNumber(facts.maxEntryCd),
+      isClosed: facts.isClosed === true ? true : undefined,
+      unmeasured,
+    })
+  if (facts.kind === 'Dovetail')
+    return definedOnly<FeatureUndercut>({
+      taperDeg: asNumber(facts.taperDeg),
+      floorWidth: asNumber(facts.floorWidth),
+      topOpeningWidth: asNumber(facts.topOpeningWidth),
+      isExternal: facts.isExternal === true ? true : undefined,
+      unmeasured,
+    })
+  return undefined
 }
 
 /** A hole's thread, where the model has one. */
