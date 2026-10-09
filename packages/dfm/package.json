@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/dfm",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Toolpath DFM rules: the rule list, the rules and the part checker, and the feature panel",
   "license": "MIT",
   "engines": {
