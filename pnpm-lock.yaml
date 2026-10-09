@@ -95,9 +95,6 @@ importers:
       '@toolpath/api':
         specifier: workspace:*
         version: link:../../packages/sdk-typescript
-      eventsource-parser:
-        specifier: 4.0.0
-        version: 4.0.0
     devDependencies:
       '@types/node':
         specifier: 24.10.1
@@ -206,6 +203,9 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@24.10.1)(jsdom@30.0.1)(vite@8.2.1(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.5)(yaml@2.9.0))
 
   packages/tool-drawing:
     dependencies:
@@ -3458,13 +3458,6 @@ packages:
         integrity: sha512-kVscqXk4OCp68SZ0dkgEKVi6/8ij300KBWTJq32P/dYeWTSwK41WyTxalN1eRmA5Z9UU/LX9D7FWSmV9SAYx6g==,
       }
     engines: { node: '>=0.10.0' }
-
-  eventsource-parser@4.0.0:
-    resolution:
-      {
-        integrity: sha512-aIpvYxbqTx4KYWw73KpCt1Rh22tEAJ144F1qR76CT3Ex+LNMEPKf5HFrK5Yz9fMP1EVT0GrfA35VZvWQhMPuSQ==,
-      }
-    engines: { node: '>=22.12' }
 
   expect-type@1.4.0:
     resolution:
@@ -8053,8 +8046,6 @@ snapshots:
       '@types/estree': 1.0.9
 
   esutils@2.0.3: {}
-
-  eventsource-parser@4.0.0: {}
 
   expect-type@1.4.0: {}
 

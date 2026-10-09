@@ -7,8 +7,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from httpx_sse import aconnect_sse
-from toolpath import AuthenticatedClient, upload_to_presigned_url
+from toolpath import AuthenticatedClient, upload_to_presigned_url, wait_for_job
 from toolpath.generated.api.features import get_part_features
 from toolpath.generated.api.parts import create_part, get_part, update_part
 from toolpath.generated.models import (
@@ -23,28 +22,11 @@ from toolpath.generated.models import (
 from toolpath.generated.types import Unset
 
 
-async def wait_for_job(
-    api: AuthenticatedClient,
-    *,
-    job_id: str,
-) -> JobDetail:
-    async with aconnect_sse(
-        api.get_async_httpx_client(), "GET", f"/v1/jobs/{job_id}/events"
-    ) as events:
-        events.response.raise_for_status()
-        async for event in events.aiter_sse():
-            if event.event != "job":
-                continue
-
-            job = JobDetail.from_dict(json.loads(event.data))
-            if job.status is JobDetailStatus.RUNNING:
-                print("Analyzing geometry...", file=sys.stderr)
-            elif job.status is JobDetailStatus.QUEUED:
-                print("Analysis is queued...", file=sys.stderr)
-            if job.status in (JobDetailStatus.SUCCEEDED, JobDetailStatus.FAILED):
-                return job
-
-    raise RuntimeError("The Toolpath Engine closed the event stream before analysis completed.")
+def print_status(job: JobDetail) -> None:
+    if job.status is JobDetailStatus.RUNNING:
+        print("Analyzing geometry...", file=sys.stderr)
+    elif job.status is JobDetailStatus.QUEUED:
+        print("Analysis is queued...", file=sys.stderr)
 
 
 async def add_feature_datasheets(
@@ -99,9 +81,8 @@ async def analyze(
         raise TypeError(f"Could not start analysis: {queued}")
     print(f"Analysis started as job {queued.job_id}", file=sys.stderr)
 
-    job = await wait_for_job(api, job_id=queued.job_id)
-    if job.status is JobDetailStatus.FAILED:
-        raise RuntimeError(job.error or "The Toolpath Engine could not analyze this part.")
+    # Follows the job's event stream until the job is final; raises JobFailedError if it fails.
+    await wait_for_job(api, queued.job_id, on_update=print_status)
 
     report = await get_part.asyncio(client=api, id=str(created.part_id), job_id=str(queued.job_id))
     if not isinstance(report, PartResponse):

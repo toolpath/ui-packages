@@ -6,9 +6,8 @@
     "moduleResolution": "NodeNext",
     "declaration": true,
     "strict": true,
-    "rootDir": "src",
-    "outDir": "dist",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "noEmit": true
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
 }
