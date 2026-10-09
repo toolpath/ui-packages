@@ -148,6 +148,14 @@ every package the change affects, and see AGENTS.md for which paths belong to wh
 which bump to use. Never edit a package version or changelog by hand: the release workflow
 generates both.
 
+**Staging prereleases.** `@toolpath/api` is also published under the `staging` dist-tag, as
+`<next stable>-staging.<datetime>.g<services sha7>`, from the contract Engine staging serves — by
+services' staging workflow after acceptance, or by running `release.yml` with a `services_sha`
+input (`dry_run` defaults to on). It commits nothing and never moves `latest`; the job lives in
+`release.yml` because npm's trusted publisher is bound to that file name. Inspect with
+`npm view @toolpath/api dist-tags` and `npm view @toolpath/api@staging toolpath`; should
+`latest` ever move, `npm dist-tag add @toolpath/api@<stable> latest` restores it.
+
 ## Publishing a new npm package
 
 New packages need a one-time bootstrap publish before npm trusted publishing can take over. See

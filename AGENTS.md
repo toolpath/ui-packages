@@ -320,6 +320,23 @@ workflow's.
 Do not manually edit package versions or changelogs. The release workflow generates them in its
 auto-merged release-metadata pull request.
 
+### Staging prereleases
+
+`@toolpath/api` has a second channel: the `staging` dist-tag, for an internal application that
+needs a contract Engine staging serves before production does. Services' staging workflow sends a
+`repository_dispatch` (`engine-api-staging`) once staging acceptance passes, and the
+`sdk-prerelease` job in `.github/workflows/release.yml` runs `scripts/publish-sdk-prerelease.mjs`:
+it fetches `https://api.staging.toolpath.com/v1/openapi.json`, adopts and regenerates in the
+throwaway checkout, versions with `changeset version --snapshot staging`, and publishes
+`<next stable>-staging.<UTC datetime>.g<services sha7>` — `0.8.0-staging.20261009131500.g85efae8`
+— under `staging` only. It commits nothing, so `openapi/` and the stable release are untouched,
+and it refuses to finish if `latest` moved. The job stays in `release.yml` because npm's trusted
+publisher is bound to that file name. A `workflow_dispatch` with `services_sha` (and optionally
+`api_version`) runs the same job by hand; `dry_run` is on by default, and a run off `main` is
+always a dry run. Runbook: `npm view @toolpath/api dist-tags`,
+`npm view @toolpath/api@staging toolpath` (contract hash and version, both commits), and if
+`latest` ever moves, `npm dist-tag add @toolpath/api@<stable> latest`.
+
 ## Safety
 
 - npm publishing uses GitHub Actions OIDC trusted publishing. Never add an npm token to a
