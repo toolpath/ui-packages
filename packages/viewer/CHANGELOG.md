@@ -1,5 +1,13 @@
 # @toolpath/viewer
 
+## 2.2.0
+
+### Minor Changes
+
+- cb8c5f2: `ViewerToolbar.DfmButton` shows or hides an application's DFM flags on the part, from a `dfm`
+  toolbar control: "Show DFM flags" / "Hide DFM flags", with a warning-octagon icon. The standard
+  toolbar places it after the direction highlight button when a `dfm` control is given.
+
 ## 2.1.0
 
 ### Minor Changes
