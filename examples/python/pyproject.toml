@@ -2,7 +2,7 @@
 name = "toolpath-example-python"
 version = "0.0.0"
 requires-python = ">=3.11"
-dependencies = ["httpx-sse>=0.4.0,<0.5.0", "toolpath"]
+dependencies = ["toolpath"]
 
 [tool.uv.sources]
 toolpath = { path = "../../packages/sdk-python" }
