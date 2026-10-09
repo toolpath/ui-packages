@@ -34,7 +34,7 @@ try {
   )
   await writeFile(
     join(fixtureRoot, 'verify.mjs'),
-    `import { createToolpathClient, uploadToPresignedUrl } from '@toolpath/api'
+    `import { JobFailedError, createToolpathClient, uploadToPresignedUrl, waitForJob } from '@toolpath/api'
 
 const options = { apiKey: 'test-key', baseUrl: 'https://api.example.test' }
 let apiRequest
@@ -75,6 +75,35 @@ await uploadToPresignedUrl('https://upload.example.test', new Uint8Array([1, 2, 
 })
 if (request.url !== 'https://upload.example.test' || request.options.method !== 'PUT') {
   throw new Error('uploadToPresignedUrl did not make a PUT request to the presigned URL')
+}
+const job = {
+  partUuid: 'part-123',
+  holderUuid: null,
+  jobUuid: 'job-123',
+  productType: 'analyze-part',
+  progress: 100,
+  error: null,
+  reportId: null,
+  importId: null,
+  createdAt: '2026-10-09T12:00:00.000Z',
+  updatedAt: '2026-10-09T12:00:00.000Z',
+  durationMs: 0,
+}
+const jobStream = (status) =>
+  createToolpathClient({
+    ...options,
+    fetch: async () =>
+      new Response(\`event: job\\ndata: \${JSON.stringify({ ...job, status })}\\n\\n\`, {
+        headers: { 'Content-Type': 'text/event-stream' },
+      }),
+  })
+const finished = await waitForJob(jobStream('succeeded'), 'job-123')
+if (finished.status !== 'succeeded') {
+  throw new Error('waitForJob did not resolve with the succeeded job')
+}
+const failure = await waitForJob(jobStream('failed'), 'job-123').catch((error) => error)
+if (!(failure instanceof JobFailedError) || failure.job.jobUuid !== 'job-123') {
+  throw new Error('waitForJob did not reject a failed job with JobFailedError')
 }
 `,
   )

@@ -2,7 +2,7 @@
 
 This command uses the local `toolpath` package to create a part, upload a STEP file, start analysis,
 listen until the report is ready, fetch feature datasheets, and print the complete report as JSON.
-Analysis progress is received from the Engine job SSE stream.
+`wait_for_job` follows the job's event stream for progress rather than polling.
 
 Install [Python 3.11 or newer](https://www.python.org/downloads/) and
 [uv](https://docs.astral.sh/uv/getting-started/installation/). Then replace the example API key and

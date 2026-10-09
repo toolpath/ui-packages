@@ -34,12 +34,14 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc",
-    "check-types": "tsc --noEmit"
+    "build": "tsc -p tsconfig.build.json",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
   },
   "toolpath": {
     "openApiSha256": "123854eecdb1ee00468d573654e9a307e1d4764f183f4b3047a693c8fafb4a3c",
