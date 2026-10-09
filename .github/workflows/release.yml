@@ -28,24 +28,51 @@ on:
       - openapi/**
       - codegen/typescript-fetch.yaml
       - scripts/generate-sdks.mjs
+  # Without inputs this is the ordinary release run. With `services_sha` it is a
+  # staging prerelease of @toolpath/api instead (see the sdk-prerelease job).
   workflow_dispatch:
+    inputs:
+      services_sha:
+        description: >-
+          services commit to publish an @toolpath/api staging prerelease for
+          (blank: an ordinary release run)
+        type: string
+        default: ''
+      api_version:
+        description: 'Engine API version staging must serve (blank: not checked)'
+        type: string
+        default: ''
+      dry_run:
+        description: Build and check the prerelease without publishing it
+        type: boolean
+        default: true
+  # services' staging workflow, once Engine staging acceptance passes.
+  repository_dispatch:
+    types: [engine-api-staging]
 
 permissions:
   contents: write
   pull-requests: write
   id-token: write
 
-concurrency:
-  group: npm-release
-  cancel-in-progress: false
-
 jobs:
   quality:
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.services_sha == '')
     uses: ./.github/workflows/_quality.yml
 
   release:
     needs: quality
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.services_sha == '')
     runs-on: ubuntu-latest
+    # Its own group, separate from the prerelease's, so neither can cancel or
+    # delay the other.
+    concurrency:
+      group: npm-release
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v6
         with:
@@ -123,3 +150,75 @@ jobs:
         run: gh pr merge "${{ steps.changesets.outputs.pullRequestNumber }}" --auto --squash
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+  # Publishes @toolpath/api under npm's `staging` dist-tag from the contract Engine
+  # staging serves. It commits nothing and never moves `latest`. It lives in this
+  # file because npm's trusted publisher is bound to the workflow file name
+  # (docs/BOOTSTRAPPING-NPM-PACKAGES.md); a job elsewhere could not publish.
+  sdk-prerelease:
+    if: >-
+      github.event_name == 'repository_dispatch' ||
+      (github.event_name == 'workflow_dispatch' && inputs.services_sha != '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: npm-release-staging
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      # `pnpm generate` regenerates the Python SDK alongside the TypeScript one.
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: 0.11.28
+          python-version: '3.11'
+
+      - run: pnpm install --frozen-lockfile
+      - run: npm install --global npm@11.19.0
+
+      # A manual run is a dry run unless asked otherwise; a run off main always is,
+      # because the trusted publisher only vouches for main.
+      - run: pnpm release:sdk-prerelease
+        env:
+          SERVICES_SHA: ${{ github.event.client_payload.services_sha || inputs.services_sha }}
+          EXPECTED_API_VERSION: ${{ github.event.client_payload.api_version || inputs.api_version }}
+          EXPECTED_SHA256: ${{ github.event.client_payload.contract_sha256 }}
+          SERVICES_RUN_URL: ${{ github.event.client_payload.run_url }}
+          DRY_RUN: >-
+            ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) ||
+            github.ref != 'refs/heads/main' }}
+
+  notify-prerelease-failure:
+    needs: sdk-prerelease
+    if: always() && needs.sdk-prerelease.result == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # SLACK_BOT_TOKEN is an organization secret that this public repository may
+    # not see; a failed post must not stand in for the failure it reports.
+    continue-on-error: true
+    steps:
+      - uses: slackapi/slack-github-action@v2.1.1
+        env:
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          payload: |
+            channel: dev-notifications
+            text: >-
+              @toolpath/api staging prerelease failed for services
+              ${{ github.event.client_payload.services_sha || inputs.services_sha }}.
+              <${{ env.RUN_URL }}|View workflow run>.
