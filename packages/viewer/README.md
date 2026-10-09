@@ -357,9 +357,9 @@ individual buttons to use only the controls and order your application needs.
 </ViewerToolbarProvider>
 ```
 
-`ViewerToolbar.Controls`, `Divider`, and the fourteen `*Button` components are available on
+`ViewerToolbar.Controls`, `Divider`, and the fifteen `*Button` components are available on
 `ViewerToolbar`: `StockButton`, `AxesButton`, `GridButton`, `BananaButton`, `ToolsButton`, `DirectionsButton`,
-`HoverButton`, `FocusButton`, `WireframeButton`, `SectionButton`, `MeasureButton`, `FitButton`,
+`DfmButton` (shows or hides an application's DFM flags), `HoverButton`, `FocusButton`, `WireframeButton`, `SectionButton`, `MeasureButton`, `FitButton`,
 `ResetButton`, and `TopButton`. A rendered button requires its matching provider control. For an
 application-specific toolbar component, `useViewerToolbar()` reads the same controls from inside
 the provider.
