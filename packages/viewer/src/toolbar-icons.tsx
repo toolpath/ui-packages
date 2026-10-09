@@ -77,6 +77,13 @@ const DirectionsIcon = () => (
   </SvgIcon>
 )
 
+/** A warning octagon: what breaks a design-for-manufacturing rule. */
+const DfmIcon = () => (
+  <SvgIcon>
+    <path d="M8.3 3h7.4L21 8.3v7.4L15.7 21H8.3L3 15.7V8.3zM12 7.5v5.5m0 3.5v.01" />
+  </SvgIcon>
+)
+
 const HoverIcon = () => (
   <SvgIcon>
     <path d="M4 4h16v12H9l-5 4zm4 5h8m-8 3h5" />
@@ -117,6 +124,7 @@ export type ToolbarIconName =
   | 'banana'
   | 'tools'
   | 'directions'
+  | 'dfm'
   | 'hover'
   | 'focus'
   | 'wireframe'
@@ -133,6 +141,7 @@ const ICONS: Record<ToolbarIconName, () => ReactNode> = {
   banana: BananaIcon,
   tools: ToolsIcon,
   directions: DirectionsIcon,
+  dfm: DfmIcon,
   hover: HoverIcon,
   focus: FocusIcon,
   wireframe: WireframeIcon,

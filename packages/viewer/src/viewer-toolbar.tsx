@@ -25,6 +25,7 @@ export interface ViewerToolbarControls {
   /** Tools drawn on the part: see `<ToolMarks>`. */
   tools?: ViewerToolbarControl
   directions?: ViewerToolbarControl
+  dfm?: ViewerToolbarControl
   hover?: ViewerToolbarControl
   focus?: ViewerToolbarControl
   wireframe?: ViewerToolbarControl
@@ -133,6 +134,13 @@ const DirectionsButton = () => (
     label={() => 'Highlight faces by direction'}
   />
 )
+const DfmButton = () => (
+  <ToolbarButton
+    action="dfm"
+    icon="dfm"
+    label={(pressed) => (pressed ? 'Hide DFM flags' : 'Show DFM flags')}
+  />
+)
 const HoverButton = () => (
   <ToolbarButton
     action="hover"
@@ -203,6 +211,7 @@ const DefaultControls = () => {
   ].filter(Boolean)
   const analysis = [
     controls.directions ? <DirectionsButton key="directions" /> : null,
+    controls.dfm ? <DfmButton key="dfm" /> : null,
     controls.hover ? <HoverButton key="hover" /> : null,
     controls.focus ? <FocusButton key="focus" /> : null,
     controls.wireframe ? <WireframeButton key="wireframe" /> : null,
@@ -261,6 +270,7 @@ export const ViewerToolbar = Object.assign(ViewerToolbarRoot, {
   BananaButton,
   ToolsButton,
   DirectionsButton,
+  DfmButton,
   HoverButton,
   FocusButton,
   WireframeButton,
