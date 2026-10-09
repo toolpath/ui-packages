@@ -102,6 +102,145 @@ describe('featureMeasurements: measurements against machining considerations', (
   })
 })
 
+describe('featureMeasurements: an undercut', () => {
+  const tslot = feature('t', { featureType: 'undercut_filleted_tslot' })
+  // A wall reading on the slot's cutter band, as `featureSheet` makes for a slot with walls.
+  const tslotSheet = {
+    kind: 'Tslot',
+    zMin: -12,
+    zMax: -7,
+    extendedZMax: 0,
+    maxTool: 20,
+    filletRadius: 0.5,
+    cornerRadius: 10,
+    undercut: { undercutDepth: 6, maxEntry: 8 },
+  }
+
+  it('gives a T-slot its width and depth, and the cutter and shaft it takes', () => {
+    const rows = rowsOf(tslot, { t: tslotSheet })
+    expect(rows.filter((row) => !row.milling).map((row) => row.key)).toEqual([
+      'undercutWidth',
+      'undercutDepth',
+      'floorFillet',
+    ])
+    expect(rows.filter((row) => row.milling).map((row) => row.key)).toEqual([
+      'undercutCutter',
+      'maxShaft',
+      'depthBelowTop',
+      'topLd',
+    ])
+    expect(byKey(rows, 'undercutWidth')).toMatchObject({ label: 'Undercut width', value: '5 mm' })
+    expect(byKey(rows, 'undercutDepth')).toMatchObject({ label: 'Undercut depth', value: '6 mm' })
+    expect(byKey(rows, 'undercutCutter')).toMatchObject({
+      label: 'Max cutting diameter',
+      value: '⌀ 20 mm · R 0.5 mm',
+    })
+    expect(byKey(rows, 'maxShaft')).toMatchObject({ label: 'Max shaft diameter', value: '⌀ 8 mm' })
+  })
+
+  it('takes the L/D to the top of the part over the cutter’s head', () => {
+    // L = 0 − (−12) = 12, D = 20.
+    expect(byKey(rowsOf(tslot, { t: tslotSheet }), 'topLd')).toMatchObject({
+      label: 'L/D to top of part',
+      value: '0.600',
+    })
+  })
+
+  it('reads no wall corner, wall tool or feature L/D off the cutter band', () => {
+    const keys = rowsOf(tslot, { t: tslotSheet }).map((row) => row.key)
+    for (const key of ['featureDepth', 'cornerRadius', 'pinch', 'featureLd'])
+      expect(keys).not.toContain(key)
+  })
+
+  it('keeps the shaft narrow enough for the head to reach the back of the groove', () => {
+    // An open slot: the head is the band's 20, and 20 − 2 × 6 = 8 holds the shaft as the entry does.
+    const reaching = rowsOf(tslot, {
+      t: { ...tslotSheet, undercut: { undercutDepth: 6, maxEntry: 30 } },
+    })
+    expect(byKey(reaching, 'maxShaft')?.value).toBe('⌀ 8 mm')
+  })
+
+  it('brings a closed slot’s head down through its opening, and its shaft in under that', () => {
+    // A ring groove in a bore, as UDH3's: the band and the entry both 14.4, the undercut 0.254.
+    const ring = {
+      ...tslotSheet,
+      maxTool: 14.5,
+      undercut: { undercutDepth: 0.254, maxEntry: 14.4, isClosed: true as const },
+    }
+    const rows = rowsOf(tslot, { t: ring })
+    expect(byKey(rows, 'undercutCutter')?.value).toBe('⌀ 14.4 mm · R 0.5 mm')
+    // 14.4 − 2 × 0.254 = 13.892: a head and shaft the same size reach no undercut at all.
+    expect(byKey(rows, 'maxShaft')?.value).toBe('⌀ 13.892 mm')
+    // L = 12, D = 14.4.
+    expect(byKey(rows, 'topLd')?.value).toBe('0.833')
+  })
+
+  it('says when nothing limits the shaft, and when nothing fits through', () => {
+    const open = rowsOf(tslot, { t: { ...tslotSheet, undercut: {} } })
+    expect(byKey(open, 'maxShaft')?.value).toBe('No limit')
+    const shut = rowsOf(tslot, { t: { ...tslotSheet, undercut: { maxEntry: 0 } } })
+    expect(byKey(shut, 'maxShaft')?.value).toBe('None fits')
+  })
+
+  it('gives a dovetail its widths, depth and angle, and its cutter at that angle', () => {
+    const dovetail = feature('d', { featureType: 'undercut_dovetail' })
+    const rows = rowsOf(dovetail, {
+      d: {
+        kind: 'Dovetail',
+        zMin: -6,
+        zMax: 0,
+        extendedZMax: 0,
+        maxTool: 16,
+        undercut: { taperDeg: 30, floorWidth: 16, topOpeningWidth: 10 },
+      },
+    })
+    expect(rows.filter((row) => !row.milling).map((row) => row.key)).toEqual([
+      'featureDepth',
+      'floorWidth',
+      'openingWidth',
+      'undercutDepth',
+      'taper',
+    ])
+    // (16 − 10) / 2: each side overhangs by half the difference.
+    expect(byKey(rows, 'undercutDepth')?.value).toBe('3 mm')
+    expect(byKey(rows, 'taper')?.value).toBe('30° from the tool axis')
+    expect(byKey(rows, 'undercutCutter')).toMatchObject({
+      label: 'Max cutting diameter',
+      value: '⌀ 16 mm · 30°',
+    })
+    expect(byKey(rows, 'maxShaft')?.value).toBe('⌀ 10 mm')
+  })
+
+  it('gives a dovetail that runs out no single depth', () => {
+    const dovetail = feature('d', { featureType: 'undercut_dovetail' })
+    const rows = rowsOf(dovetail, {
+      d: { kind: 'Dovetail', undercut: { floorWidth: 16, topOpeningWidth: 10, isExternal: true } },
+    })
+    expect(byKey(rows, 'undercutDepth')).toBeUndefined()
+  })
+
+  it('offers no cutter for one the Engine could not measure', () => {
+    const rows = rowsOf(tslot, {
+      t: { ...tslotSheet, undercut: { maxEntry: 0, unmeasured: true } },
+    })
+    expect(byKey(rows, 'undercutCutter')).toMatchObject({ value: 'Not measured', milling: true })
+    for (const key of ['maxShaft', 'topLd']) expect(byKey(rows, key)).toBeUndefined()
+  })
+
+  it('writes the cutter in inches too', () => {
+    const rows = featureMeasurements({
+      features: [tslot],
+      feature: tslot,
+      sheets: { t: tslotSheet },
+      units: 'inch',
+    })
+    expect(byKey(rows, 'undercutCutter')).toMatchObject({
+      value: '⌀ 0.787 in · R 0.02 in',
+      alt: '⌀ 20 mm · R 0.5 mm',
+    })
+  })
+})
+
 describe('featureMeasurements: lengths in inches', () => {
   it('writes an inch length to a thousandth, as the other measured figures are', () => {
     const hole = feature('h1', { featureType: 'hole' })

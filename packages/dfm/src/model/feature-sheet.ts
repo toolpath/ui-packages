@@ -68,6 +68,39 @@ export interface FeatureSheet {
   noToolFits?: true
   /** For a hole the model threads: its thread. */
   threading?: FeatureThreading
+  /** For an undercut — a T-slot or a dovetail: what its cutter is held to. */
+  undercut?: FeatureUndercut
+}
+
+/**
+ * An undercut's own figures, from its `facts`: a T-slot's or a dovetail's.
+ * Millimetres and degrees. Each is left out where the Engine did not measure
+ * it, or where nothing limits it.
+ */
+export interface FeatureUndercut {
+  /** T-slot: how far the groove runs back from its opening, radially (`facts.undercutDepth`). */
+  undercutDepth?: number
+  /**
+   * T-slot: the widest tool that comes down through the opening above it
+   * (`facts.maxEntryCd`), which holds the cutter's shaft. Left out where
+   * nothing above limits it; zero where nothing fits.
+   */
+  maxEntry?: number
+  /** Dovetail: between the overhanging wall and the tool axis, degrees (`facts.taperDeg`). */
+  taperDeg?: number
+  /** Dovetail: the widest clearance over the floor, the width the groove cuts at. */
+  floorWidth?: number
+  /** Dovetail: the clearance through the opening at the top of the groove. */
+  topOpeningWidth?: number
+  /** Dovetail: the groove's widths vary from place to place — it runs out somewhere. */
+  isExternal?: true
+  /** T-slot: its walls close on themselves in plan view, so a cutter's head comes down through its opening. */
+  isClosed?: true
+  /**
+   * The Engine could not measure it (`facts.isInvalidGeometry` or
+   * `facts.cd.measurementFailed`), so its figures offer no cutter.
+   */
+  unmeasured?: true
 }
 
 /** A modelled thread, from a hole's `facts.threading`. Millimetres. */
@@ -92,6 +125,33 @@ const asNumber = (value: unknown): number | undefined =>
 
 const recordOf = (value: unknown): Record<string, unknown> =>
   typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {}
+
+/**
+ * A T-slot's or a dovetail's own figures. An unmeasured figure may come as
+ * an infinity, which JSON sends as a string or not at all: either way it is
+ * left out.
+ */
+const undercutOf = (facts: Record<string, unknown>): FeatureUndercut | undefined => {
+  if (facts.kind !== 'Tslot' && facts.kind !== 'Dovetail') return undefined
+  const tslot = facts.kind === 'Tslot'
+  const fields = {
+    undercutDepth: tslot ? asNumber(facts.undercutDepth) : undefined,
+    maxEntry: tslot ? asNumber(facts.maxEntryCd) : undefined,
+    taperDeg: tslot ? undefined : asNumber(facts.taperDeg),
+    floorWidth: tslot ? undefined : asNumber(facts.floorWidth),
+    topOpeningWidth: tslot ? undefined : asNumber(facts.topOpeningWidth),
+  }
+  const unmeasured =
+    facts.isInvalidGeometry === true || recordOf(facts.cd).measurementFailed === true
+  return {
+    ...(Object.fromEntries(
+      Object.entries(fields).filter(([, value]) => value !== undefined),
+    ) as FeatureUndercut),
+    ...(!tslot && facts.isExternal === true ? { isExternal: true as const } : {}),
+    ...(tslot && facts.isClosed === true ? { isClosed: true as const } : {}),
+    ...(unmeasured ? { unmeasured: true as const } : {}),
+  }
+}
 
 /** A hole's thread, where the model has one. */
 const threadingOf = (facts: Record<string, unknown>): FeatureThreading | undefined => {
@@ -223,6 +283,7 @@ export const featureSheet = (datasheet: unknown): FeatureSheet => {
   const cornerRadius = clearance ? insideCornerRadius(clearance) : undefined
   const sharp = cornerRadius !== undefined && cornerRadius < SHARP_RADIUS_MM && !cramped
   const threading = kind === 'Hole' ? threadingOf(facts) : undefined
+  const undercut = undercutOf(facts)
   const pinched = (readPinch(datasheet)?.discs ?? []).filter(
     (disc) => disc.diameter >= PINCH_TOOL_MM,
   )
@@ -242,5 +303,6 @@ export const featureSheet = (datasheet: unknown): FeatureSheet => {
     ...(cramped ? { noToolFits: true as const } : {}),
     ...(ballOnly ? { ballOnly: true as const } : {}),
     ...(threading ? { threading } : {}),
+    ...(undercut ? { undercut } : {}),
   }
 }

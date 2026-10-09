@@ -44,6 +44,7 @@ export {
   type FeatureSheet,
   type FeatureSheets,
   type FeatureThreading,
+  type FeatureUndercut,
 } from './feature-sheet.js'
 export type { FeatureRecord } from './feature-record.js'
 export { dfmFeatures, type DfmFeature, type ReportFeature } from './geometry.js'
