@@ -2,6 +2,7 @@ import { isToolForm } from '@toolpath/tool-support'
 import { describe, expect, it } from 'vitest'
 import { FEATURE_TOOL_FORMS, formsFor } from '../../src/model/feature-forms.js'
 import { featureSheet } from '../../src/model/feature-sheet.js'
+import { FLAT_TIP_DEG } from '../../src/model/geometry.js'
 
 describe('formsFor: which tool forms may cut a feature', () => {
   it('lets a through hole be drilled or milled, the drill first', () => {
@@ -15,6 +16,10 @@ describe('formsFor: which tool forms may cut a feature', () => {
 
   it('reads the report’s snake case and the SDK’s Pascal case as one type', () => {
     expect(formsFor('through_hole')).toEqual(formsFor('ThroughHole'))
+    const plain = ['drill', 'flat end mill', 'bull nose end mill', 'ball end mill']
+    for (const name of ['Blind Hole', 'BLIND-HOLE', 'blind_hole', 'BlindHole']) {
+      expect(formsFor(name)).toEqual(plain)
+    }
     expect(formsFor('u_slot')).toEqual(['ball end mill', 'bull nose end mill'])
   })
 
@@ -35,11 +40,20 @@ describe('formsFor: which tool forms may cut a feature', () => {
       'drill',
     ])
     expect(formsFor('blind_hole', { tipAngle: 118 })?.[0]).toBe('drill')
-    // The same half-degree slack isDrilled allows.
+    // The same half-degree slack isDrilled allows, its edge included.
+    expect(formsFor('blind_hole', { tipAngle: 180 - FLAT_TIP_DEG })?.[0]).toBe('flat end mill')
     expect(formsFor('blind_hole', { tipAngle: 179.6 })?.[0]).toBe('flat end mill')
     expect(formsFor('blind_hole', { tipAngle: 179.4 })?.[0]).toBe('drill')
     // First match wins: a flat bottom with a fillet is read as flat.
     expect(formsFor('blind_hole', { tipAngle: 180, filletRadius: 1 })?.[0]).toBe('flat end mill')
+  })
+
+  it('drills a pointed, filleted blind hole first, and admits no ball', () => {
+    expect(formsFor('blind_hole', { tipAngle: 118, filletRadius: 1 })).toEqual([
+      'drill',
+      'bull nose end mill',
+      'flat end mill',
+    ])
   })
 
   it('takes a feature sheet as it is', () => {
@@ -63,5 +77,20 @@ describe('formsFor: which tool forms may cut a feature', () => {
     }
     const types = new Set(FEATURE_TOOL_FORMS.map((row) => row.feature))
     for (const type of types) expect(formsFor(type)).not.toBeNull()
+  })
+
+  it('puts every conditional row of a type before its one plain row', () => {
+    const types = new Set(FEATURE_TOOL_FORMS.map((row) => row.feature))
+    for (const type of types) {
+      const whens = FEATURE_TOOL_FORMS.filter((row) => row.feature === type).map((row) =>
+        'when' in row ? row.when : undefined,
+      )
+      // Exactly one plain row, and it is last: a row after it could never match.
+      expect(
+        whens.filter((when) => when === undefined),
+        type,
+      ).toHaveLength(1)
+      expect(whens.at(-1), type).toBeUndefined()
+    }
   })
 })

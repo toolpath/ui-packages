@@ -15,10 +15,10 @@ import { FLAT_TIP_DEG } from './geometry.js'
  */
 
 /** A row's condition, as the sheet names it. */
-export type FeatureFormsWhen = 'filleted' | 'flat bottom'
+type FeatureFormsWhen = 'filleted' | 'flat bottom'
 
 /** One row of {@link FEATURE_TOOL_FORMS}. */
-export interface FeatureToolForms {
+interface FeatureToolForms {
   /** The Engine's `FeatureType`, matched case- and separator-insensitively. */
   readonly feature: string
   /** Blank is always. Rows are first-match-wins, so a conditional row comes before the plain one. */
@@ -26,6 +26,10 @@ export interface FeatureToolForms {
   readonly forms: readonly ToolForm[]
 }
 
+/**
+ * The table itself. Exported for the tests only: the package's public entry
+ * gives {@link formsFor}, so the table's shape stays free to change.
+ */
 export const FEATURE_TOOL_FORMS = [
   {
     feature: 'ThroughHole',
@@ -111,6 +115,10 @@ export const FEATURE_TOOL_FORMS = [
 /**
  * `BlindHole`, `blind_hole` and `Blind Hole` are one name: the SDK's
  * `FeatureType` is Pascal case, the report's features snake case.
+ *
+ * The catalog's own `featureKey` (toolpath-template
+ * `apps/catalog/app/shared/feature-defaults.ts`), which keys its sheet the
+ * same way: change one and the other must follow.
  */
 const featureKey = (name: string): string => name.toLowerCase().replace(/[^a-z0-9]/g, '')
 

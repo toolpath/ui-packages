@@ -38,13 +38,7 @@ export {
   type Measurement,
   type SurfaceToolKind,
 } from './feature-details.js'
-export {
-  FEATURE_TOOL_FORMS,
-  formsFor,
-  type FeatureFormFacts,
-  type FeatureFormsWhen,
-  type FeatureToolForms,
-} from './feature-forms.js'
+export { formsFor, type FeatureFormFacts } from './feature-forms.js'
 export {
   PINCH_TOOL_MM,
   featureSheet,

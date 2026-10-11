@@ -18,20 +18,22 @@ const positive = (value: number | undefined): number | undefined =>
  * panel shows:
  *
  * - `maxToolDiameter` — the widest cutter that reaches every point (the cutter
- *   band's `ignore.min`; a chamfer's under its three-axis reading), else, for a
- *   contour surface with no band, the largest tool its shape admits
- *   (`toolFit.toolDiameter`).
+ *   band's `ignore.min`; a chamfer's under its three-axis reading).
  * - `maxDrillDiameter`, `maxEndmillDiameter`, `holeDiameter` — a hole's.
  * - `depth` — `zMax − zMin`.
  * - `reachBelowTop` — the part's top along the machining direction (see
  *   `partTop`) less `zMin`.
- * - `floorRadius` — the floor fillet, else a contour surface's
- *   `toolFit.cornerRadius`.
+ * - `floorRadius` — the floor fillet.
  * - `reachCurve` — the curve given, in the tool package's terms.
  *
  * **A field the sheet does not state is left out, never sent as zero**: a zero
  * limit would rule out every tool, and a missing one is simply not checked.
  * A zero or negative reading is left out the same way.
+ *
+ * Kept in line with the catalog's `demandOf` (toolpath-template
+ * `packages/catalog-data/src/fit.ts`), so a tool list filtered here and one
+ * filtered there agree. That is why a contour surface's `toolFit`, which has
+ * no cutter band, states no limit: `demandOf` does not read it either.
  *
  * Takes the whole part, as `featureMeasurements` does, because the reach
  * is measured from the part's top, which only the other features say. An
@@ -59,7 +61,7 @@ export const featureDemand = ({
     demand.reachCurve = { horizontalOffset: reachCurve.offsets, verticalOffset: reachCurve.heights }
   if (!sheet) return demand
 
-  const maxTool = positive(sheet.maxTool) ?? positive(sheet.fitToolDiameter)
+  const maxTool = positive(sheet.maxTool)
   if (maxTool !== undefined) demand.maxToolDiameter = maxTool
 
   if (sheet.kind === 'Hole') {
@@ -77,7 +79,7 @@ export const featureDemand = ({
   const top = partTop(features, sheets, feature.machiningDirection)
   if (top !== null && zMin !== undefined && top > zMin) demand.reachBelowTop = top - zMin
 
-  const floorRadius = positive(sheet.filletRadius) ?? positive(sheet.fitCornerRadius)
+  const floorRadius = positive(sheet.filletRadius)
   if (floorRadius !== undefined) demand.floorRadius = floorRadius
 
   return demand

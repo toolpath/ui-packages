@@ -116,11 +116,15 @@ depth, reach below the part top, floor fillet and reach curve. Every number is
 in millimetres, and a field the datasheet does not state is left out, not set
 to zero. `formsFor` gives the tool forms that can cut the feature type, from the
 catalog's feature defaults. Together with `fitTools` from
-`@toolpath/tool-support`, they filter a library:
+`@toolpath/tool-support`, they filter a library — here one read from Fusion:
 
 ```ts
 import { featureDemand, formsFor, readReachCurve } from '@toolpath/dfm/model'
 import { fitTools } from '@toolpath/tool-support'
+import { fromFusionLibrary } from '@toolpath/tool-support/import/fusion'
+
+const { tools: entries } = fromFusionLibrary(JSON.parse(libraryJson))
+const tools = entries.map((entry) => ({ ...entry.tool, guid: entry.guid }))
 
 const reachCurve = readReachCurve(datasheet)
 const demand = featureDemand({ features, feature, sheets, reachCurve })
@@ -129,6 +133,8 @@ const forms = formsFor(feature.featureType, sheet) // null: any form
 const candidates = forms ? tools.filter((tool) => forms.some((form) => form === tool.form)) : tools
 const fits = fitTools(candidates, [demand])
 ```
+
+`tests/model/tool-fit-pipeline.test.ts` runs this snippet end to end.
 
 This only checks geometry: diameter, flute length and corner radius against
 the feature. It does not recommend a tool.
