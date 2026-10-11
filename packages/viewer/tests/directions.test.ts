@@ -3,7 +3,7 @@ import {
   directionIndexOf,
   directionLabel,
   groupByDirection,
-  nearestDirection,
+  nearestDirectionIndex,
 } from '../src/model/directions.js'
 import type { Vec3 } from '../src/model/types.js'
 import { cubeModel } from './fixtures.js'
@@ -64,9 +64,9 @@ describe('directionIndexOf', () => {
   })
 })
 
-describe('nearestDirection', () => {
+describe('nearestDirectionIndex', () => {
   it('matches an exact axis', () => {
-    expect(nearestDirection(cubeModel(), { x: 0, y: 0, z: -1 })).toBe(1)
+    expect(nearestDirectionIndex(cubeModel(), { x: 0, y: 0, z: -1 })).toBe(1)
   })
 
   /**
@@ -80,7 +80,7 @@ describe('nearestDirection', () => {
     const axis: Vec3 = { x: Math.sin(tilt), y: 0, z: Math.cos(tilt) }
 
     expect(directionIndexOf(model, axis)).toBe(-1)
-    expect(nearestDirection(model, axis)).toBe(0)
+    expect(nearestDirectionIndex(model, axis)).toBe(0)
   })
 
   it('does not snap an axis outside the tolerance', () => {
@@ -88,23 +88,69 @@ describe('nearestDirection', () => {
     const tilt = (5 * Math.PI) / 180
     const axis: Vec3 = { x: Math.sin(tilt), y: 0, z: Math.cos(tilt) }
 
-    expect(nearestDirection(model, axis)).toBe(-1)
-    expect(nearestDirection(model, axis, 10)).toBe(0)
+    expect(nearestDirectionIndex(model, axis)).toBe(-1)
+    expect(nearestDirectionIndex(model, axis, 10)).toBe(0)
   })
 
   it('accepts an axis that is not unit length', () => {
-    expect(nearestDirection(cubeModel(), { x: 0, y: 0, z: 3 })).toBe(0)
+    expect(nearestDirectionIndex(cubeModel(), { x: 0, y: 0, z: 3 })).toBe(0)
   })
 
   it('matches nothing for a zero-length axis', () => {
-    expect(nearestDirection(cubeModel(), { x: 0, y: 0, z: 0 })).toBe(-1)
+    expect(nearestDirectionIndex(cubeModel(), { x: 0, y: 0, z: 0 })).toBe(-1)
+  })
+
+  /**
+   * A candidate is a direction the part is machined from, so the opposite
+   * axis is the other side of the part, not the same setup.
+   */
+  it('does not match the opposite axis', () => {
+    expect(
+      nearestDirectionIndex({ candidateDirections: [{ x: 0, y: 0, z: 1 }] }, { x: 0, y: 0, z: -1 }),
+    ).toBe(-1)
+  })
+
+  it('matches nothing when there are no candidates', () => {
+    expect(nearestDirectionIndex({ candidateDirections: [] }, { x: 0, y: 0, z: 1 })).toBe(-1)
+  })
+
+  it('skips a zero-length candidate', () => {
+    const model = {
+      candidateDirections: [
+        { x: 0, y: 0, z: 0 },
+        { x: 0, y: 0, z: 1 },
+      ],
+    }
+
+    expect(nearestDirectionIndex(model, { x: 0, y: 0, z: 1 })).toBe(1)
+  })
+
+  it('matches nothing for an axis that is not finite', () => {
+    expect(nearestDirectionIndex(cubeModel(), { x: Number.NaN, y: 0, z: 1 })).toBe(-1)
+    expect(nearestDirectionIndex(cubeModel(), { x: 0, y: 0, z: Infinity })).toBe(-1)
+  })
+
+  it('matches a candidate to itself at zero tolerance', () => {
+    const tilted: Vec3 = { x: 0.587_785_252_292_476_9, y: 0, z: 0.809_016_994_374_944_8 }
+    const model = { candidateDirections: [tilted] }
+
+    expect(nearestDirectionIndex(model, tilted, 0)).toBe(0)
+  })
+
+  it('matches nothing for a negative or non-finite tolerance', () => {
+    const model = cubeModel()
+    const up = { x: 0, y: 0, z: 1 }
+
+    expect(nearestDirectionIndex(model, up, -1)).toBe(-1)
+    expect(nearestDirectionIndex(model, up, Number.NaN)).toBe(-1)
+    expect(nearestDirectionIndex(model, up, Infinity)).toBe(-1)
   })
 
   it('picks the closer of two candidates inside the tolerance', () => {
     const near: Vec3 = { x: Math.sin(0.001), y: 0, z: Math.cos(0.001) }
     const model = { candidateDirections: [near, { x: 0, y: 0, z: 1 }] }
 
-    expect(nearestDirection(model, { x: 0, y: 0, z: 1 })).toBe(1)
+    expect(nearestDirectionIndex(model, { x: 0, y: 0, z: 1 })).toBe(1)
   })
 })
 

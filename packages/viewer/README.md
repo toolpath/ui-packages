@@ -789,10 +789,12 @@ To list features by direction, use `groupByDirection(model)`. To label a directi
 `directionLabel(direction)`, which gives `+Z`, `−X`, or `0.707, 0, 0.707`. To colour a direction
 the same way as its arrow, use `directionColor(index)`.
 
-To start on the direction a CAM setup cuts from, use `nearestDirection(model, axis)`. It returns
+To start on the direction a CAM setup cuts from, use `nearestDirectionIndex(model, axis)`. It returns
 the index of the candidate within 1° of the setup's tool axis, or `-1` if none is that close. Pass
-a third argument for a wider tolerance in degrees. `directionIndexOf` needs an exact match, so it
-only works for a direction read out of the same report.
+a third argument for a wider tolerance in degrees. The axis has to point the way the candidates do,
+from the part toward the tool: the opposite axis is a different setup and never matches.
+`directionIndexOf` needs an exact match, so it only works for a direction read out of the same
+report.
 
 ### Custom colours
 
@@ -1255,7 +1257,7 @@ is a complete app built this way, with no API key needed.
 | `focusForPick(pick, lastRegion, lastFocus)`              | Steps through a face's matches on repeated clicks.          |
 | `rankOwners` / `bestOwner`                               | The ranking `onPick` uses, if you want to run it yourself.  |
 | `groupByDirection(model)`                                | Features grouped by machining direction.                    |
-| `nearestDirection(model, axis, toleranceDeg?)`           | The candidate direction nearest an outside axis, or `-1`.   |
+| `nearestDirectionIndex(model, axis, toleranceDeg?)`      | The candidate direction nearest an outside axis, or `-1`.   |
 | `featureTriangles(model, geometry, tag)`                 | A feature's triangles and outward normals, as plain arrays. |
 | `directionLabel(v)` / `directionColor(i)`                | A direction's label and colour.                             |
 | `sectionFromPick({ point, normal })`                     | Turns a clicked surface into a section plane.               |

@@ -28,11 +28,12 @@ export function directionIndexOf(
   return model.candidateDirections.findIndex((candidate) => sameDirection(candidate, direction))
 }
 
-/** How far, in degrees, `nearestDirection` looks by default. */
+/** How far, in degrees, `nearestDirectionIndex` looks by default. */
 const NEAREST_TOLERANCE_DEG = 1
 
 /**
- * The candidate direction closest to an axis measured somewhere else, or `-1`.
+ * The index of the candidate direction closest to an axis measured somewhere
+ * else, or `-1`.
  *
  * `directionIndexOf` is for a direction read back out of the same report, which
  * is exact. An axis from outside the report — a CAM setup's tool axis, read off
@@ -43,33 +44,56 @@ const NEAREST_TOLERANCE_DEG = 1
  * candidate still reports `-1` rather than snapping to whichever direction
  * happens to be nearest.
  *
- * Neither vector has to be unit length. A zero-length axis matches nothing.
+ * **The axis has to point the way the candidates do.** A candidate is a
+ * direction the part can be machined *from*; the opposite axis is a different
+ * setup, so it never matches, and an axis with its sign flipped reports `-1`.
+ *
+ * Neither vector has to be unit length. A zero-length or non-finite axis
+ * matches nothing, as does a tolerance that is negative or not finite.
  */
-export function nearestDirection(
+export function nearestDirectionIndex(
   model: Pick<PartModel, 'candidateDirections'>,
   axis: Vec3,
   toleranceDeg: number = NEAREST_TOLERANCE_DEG,
 ): number {
-  const axisLength = Math.hypot(axis.x, axis.y, axis.z)
-  if (axisLength === 0) return -1
+  if (!Number.isFinite(toleranceDeg) || toleranceDeg < 0) return -1
+  if (!isUsable(axis)) return -1
 
-  const minCosine = Math.cos((toleranceDeg * Math.PI) / 180)
+  const tolerance = (toleranceDeg * Math.PI) / 180
   let best = -1
-  let bestCosine = -Infinity
+  let bestAngle = Infinity
 
   model.candidateDirections.forEach((candidate, index) => {
-    const length = Math.hypot(candidate.x, candidate.y, candidate.z)
-    if (length === 0) return
+    if (!isUsable(candidate)) return
 
-    const cosine =
-      (axis.x * candidate.x + axis.y * candidate.y + axis.z * candidate.z) / (axisLength * length)
-    if (cosine >= minCosine && cosine > bestCosine) {
+    const angle = angleBetween(axis, candidate)
+    if (angle <= tolerance && angle < bestAngle) {
       best = index
-      bestCosine = cosine
+      bestAngle = angle
     }
   })
 
   return best
+}
+
+/** Finite, and not zero length: a vector that has a direction. */
+function isUsable(v: Vec3): boolean {
+  return (
+    Number.isFinite(v.x) &&
+    Number.isFinite(v.y) &&
+    Number.isFinite(v.z) &&
+    Math.hypot(v.x, v.y, v.z) > 0
+  )
+}
+
+/**
+ * The angle between two vectors, in radians. `atan2(|a × b|, a · b)` rather
+ * than `acos` of the normalised dot product, which rounds to just under 1 for
+ * a vector against itself and loses the small angles this is for.
+ */
+function angleBetween(a: Vec3, b: Vec3): number {
+  const cross = Math.hypot(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
+  return Math.atan2(cross, a.x * b.x + a.y * b.y + a.z * b.z)
 }
 
 /**
