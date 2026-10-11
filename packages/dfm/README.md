@@ -108,6 +108,31 @@ This is not the clearance overlay in `@toolpath/tool-drawing/clearance`: that
 draws the walls beside a cutting tool, to show whether the tool fits. This
 draws the walls alone.
 
+## Tools that fit a feature
+
+`featureDemand` reads what a feature asks of a tool off its sheet: the widest
+cutter that reaches its tightest corner, a hole's drill and end mill limits,
+depth, reach below the part top, floor fillet and reach curve. Every number is
+in millimetres, and a field the datasheet does not state is left out, not set
+to zero. `formsFor` gives the tool forms that can cut the feature type, from the
+catalog's feature defaults. Together with `fitTools` from
+`@toolpath/tool-support`, they filter a library:
+
+```ts
+import { featureDemand, formsFor, readReachCurve } from '@toolpath/dfm/model'
+import { fitTools } from '@toolpath/tool-support'
+
+const reachCurve = readReachCurve(datasheet)
+const demand = featureDemand({ features, feature, sheets, reachCurve })
+const sheet = sheets[feature.tag.toLowerCase()]
+const forms = formsFor(feature.featureType, sheet) // null: any form
+const candidates = forms ? tools.filter((tool) => forms.some((form) => form === tool.form)) : tools
+const fits = fitTools(candidates, [demand])
+```
+
+This only checks geometry: diameter, flute length and corner radius against
+the feature. It does not recommend a tool.
+
 ## Feature panel
 
 `FeaturePanel` is the card a click on the part opens: every feature the face

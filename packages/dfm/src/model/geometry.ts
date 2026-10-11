@@ -86,7 +86,7 @@ export const partTop = (
 }
 
 /** Within this of 180°, degrees, a hole's bottom is flat. */
-const FLAT_TIP_DEG = 0.5
+export const FLAT_TIP_DEG = 0.5
 
 /**
  * Whether a feature is drilled: it has a bore, and a point at its bottom. A

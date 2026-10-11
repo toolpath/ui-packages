@@ -20,6 +20,14 @@ export interface FeatureSheet {
   /** The widest cutter that still reaches the tightest corner. */
   maxTool?: number
   diameter?: number
+  /**
+   * For a hole: the widest drill that leaves it within its oversize
+   * (`facts.maxDrillDiameter`), and the widest end mill that can machine it
+   * (`facts.maxEndmillDiameter`) — smaller than the bore, since an end mill
+   * has to helix down inside it.
+   */
+  maxDrill?: number
+  maxEndmill?: number
   /** For a hole: the full angle of the cone at its bottom, degrees; 180 for a flat bottom. */
   tipAngle?: number
   filletRadius?: number
@@ -266,6 +274,8 @@ export const featureSheet = (datasheet: unknown): FeatureSheet => {
     extendedZMax: asNumber(sheet.extendedZMax),
     maxTool: asNumber(ignoreBand.min),
     diameter: kind === 'Hole' ? asNumber(facts.diameter) : undefined,
+    maxDrill: kind === 'Hole' ? asNumber(facts.maxDrillDiameter) : undefined,
+    maxEndmill: kind === 'Hole' ? asNumber(facts.maxEndmillDiameter) : undefined,
     tipAngle: kind === 'Hole' ? asNumber(facts.fullConeDeg) : undefined,
     filletRadius: asNumber(facts.filletRadius),
     // A bevel's angle wherever the facts carry one: a chamfer's, and any other kind that bevels.
