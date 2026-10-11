@@ -246,6 +246,32 @@ reduced into `fusion/digest.json` at the repository root. `pnpm
 fusion:check-upstream` asks Autodesk weekly whether it has moved, and a test
 fails if the table this package reads drifts from it.
 
+## Importing from Fusion
+
+`@toolpath/tool-support/import/fusion` is the other direction: a Fusion tool
+library, as `ToolLibrary.toJson()` gives it, read back into `Tool`s in
+millimetres so it can be fitted against a part.
+
+```ts
+import { fromFusionLibrary } from '@toolpath/tool-support/import/fusion'
+
+const { tools, notes } = fromFusionLibrary(JSON.parse(library.toJson()))
+const fits = fitTools(
+  tools.map((entry) => entry.tool),
+  demands,
+)
+// entry.guid and entry.index lead back to the original record in `data[]`.
+```
+
+Units are per tool in Fusion, so each record's lengths are converted by its own
+`unit`, using the same length table the exporter writes with; angles and counts
+pass through, booleans and enums are dropped, and a key whose unit is unknown is
+dropped with a note. Fusion's `LB` is stored as `LBH`, the dictionary's name for
+the same stickout. Holders are skipped, and a type with no `ToolForm` is read as
+`'other'` and said so. Two readings are supplied and reported as `filled`: a
+ball end mill with no corner radius has `RE = DC / 2`, and a spot or center
+drill whose `DC` is zero takes `SFDM`. `fromFusionTool` reads a single entry.
+
 ## Status
 
 `0.x`: in use, and the surface still moves. A minor is the breaking channel
