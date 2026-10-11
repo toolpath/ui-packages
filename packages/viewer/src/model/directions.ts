@@ -28,6 +28,50 @@ export function directionIndexOf(
   return model.candidateDirections.findIndex((candidate) => sameDirection(candidate, direction))
 }
 
+/** How far, in degrees, `nearestDirection` looks by default. */
+const NEAREST_TOLERANCE_DEG = 1
+
+/**
+ * The candidate direction closest to an axis measured somewhere else, or `-1`.
+ *
+ * `directionIndexOf` is for a direction read back out of the same report, which
+ * is exact. An axis from outside the report — a CAM setup's tool axis, read off
+ * a work coordinate system and carried through an occurrence transform — is
+ * not: it arrives a rounded matrix away from the candidate it means, and an
+ * exact match turns that into "no setup". This takes the smallest angle
+ * instead, and only within `toleranceDeg`, so an axis that is genuinely not a
+ * candidate still reports `-1` rather than snapping to whichever direction
+ * happens to be nearest.
+ *
+ * Neither vector has to be unit length. A zero-length axis matches nothing.
+ */
+export function nearestDirection(
+  model: Pick<PartModel, 'candidateDirections'>,
+  axis: Vec3,
+  toleranceDeg: number = NEAREST_TOLERANCE_DEG,
+): number {
+  const axisLength = Math.hypot(axis.x, axis.y, axis.z)
+  if (axisLength === 0) return -1
+
+  const minCosine = Math.cos((toleranceDeg * Math.PI) / 180)
+  let best = -1
+  let bestCosine = -Infinity
+
+  model.candidateDirections.forEach((candidate, index) => {
+    const length = Math.hypot(candidate.x, candidate.y, candidate.z)
+    if (length === 0) return
+
+    const cosine =
+      (axis.x * candidate.x + axis.y * candidate.y + axis.z * candidate.z) / (axisLength * length)
+    if (cosine >= minCosine && cosine > bestCosine) {
+      best = index
+      bestCosine = cosine
+    }
+  })
+
+  return best
+}
+
 /**
  * Features by machining direction, in `candidateDirections` order.
  *

@@ -166,6 +166,7 @@ export {
   directionIndexOf,
   directionLabel,
   groupByDirection,
+  nearestDirection,
   sameDirection,
 } from './model/directions.js'
 export { regionNormals } from './model/normals.js'
