@@ -71,6 +71,14 @@ export interface ToolFit<T> {
   readonly failures: readonly FitFailure[]
 }
 
+/**
+ * A length for a reason string, rounded to the micron with trailing zeros
+ * dropped: `6.35`, `3.175`, `15` — not the `14.99999999999989` a unit
+ * conversion leaves. Only the words are rounded; every comparison is made on
+ * the value as stated.
+ */
+const mm = (value: number): string => String(Number(value.toFixed(3)))
+
 /** Whether one tool can cut one feature, and why not where it cannot. */
 export const fitAgainst = (
   tool: Pick<Tool, 'geometry' | 'form'>,
@@ -92,7 +100,7 @@ export const fitAgainst = (
 
   const room = demand.maxToolSomewhere
   if (diameter !== undefined && room !== undefined && diameter > room) {
-    say(`⌀${diameter} mm is wider than the ${room} mm this feature has room for anywhere`)
+    say(`⌀${mm(diameter)} mm is wider than the ${mm(room)} mm this feature has room for anywhere`)
   } else if (diameter !== undefined && demand.sharpCorners) {
     // A sharp corner has no room in it, and `widest` is at most the
     // tolerance's reading of that: every cutter misses it by its own radius.
@@ -101,16 +109,16 @@ export const fitAgainst = (
     const radius = diameter / 2
     failures.push({
       featureTag: demand.featureTag,
-      reason: `⌀${diameter} mm leaves R${radius} mm in corners drawn sharp, which no end mill finishes`,
+      reason: `⌀${mm(diameter)} mm leaves R${mm(radius)} mm in corners drawn sharp, which no end mill finishes`,
       kind: 'sharp-corner',
       leavesCornerRadius: radius,
     })
   } else if (diameter !== undefined && widest !== undefined && diameter > widest) {
-    say(`⌀${diameter} mm is wider than the ${widest} mm this feature admits`)
+    say(`⌀${mm(diameter)} mm is wider than the ${mm(widest)} mm this feature admits`)
   }
 
   if (fluteLength !== undefined && demand.depth !== undefined && fluteLength < demand.depth) {
-    say(`${fluteLength} mm of flute does not reach ${demand.depth} mm deep`)
+    say(`${mm(fluteLength)} mm of flute does not reach ${mm(demand.depth)} mm deep`)
   }
 
   // A corner radius larger than the floor fillet leaves material the floor does
@@ -121,7 +129,7 @@ export const fitAgainst = (
     demand.floorRadius !== undefined &&
     cornerRadius > demand.floorRadius
   ) {
-    say(`a ${cornerRadius} mm corner does not fit a ${demand.floorRadius} mm floor fillet`)
+    say(`a ${mm(cornerRadius)} mm corner does not fit a ${mm(demand.floorRadius)} mm floor fillet`)
   }
 
   return failures

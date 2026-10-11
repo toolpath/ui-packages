@@ -343,7 +343,11 @@ describe('a library', () => {
   })
 
   it('reads an empty data array as nothing, with nothing to say', () => {
-    expect(fromFusionLibrary({ version: 33, data: [] })).toEqual({ tools: [], notes: [] })
+    expect(fromFusionLibrary({ version: 33, data: [] })).toEqual({
+      tools: [],
+      notes: [],
+      skipped: { holders: 0, nonMilling: 0, unreadable: 0 },
+    })
   })
 
   it('notes every entry that is not a record, by index', () => {
@@ -364,6 +368,28 @@ describe('a library', () => {
     })
     expect(tools[0]?.tool.geometry.DC).toBe(9.525)
     expect(tools[1]?.tool.geometry.DC).toBe(6.8)
+  })
+
+  it('counts what it left out, by why', () => {
+    expect(fromFusionLibrary(library).skipped).toEqual({ holders: 1, nonMilling: 0, unreadable: 1 })
+    const mixed = fromFusionLibrary({
+      version: 33,
+      data: [
+        holder,
+        holder,
+        { type: 'probe', unit: 'millimeters', geometry: {} },
+        { type: 'turning general', unit: 'inches', geometry: {} },
+        null,
+        inchEndMill,
+      ],
+    })
+    expect(mixed.tools).toHaveLength(1)
+    expect(mixed.skipped).toEqual({ holders: 2, nonMilling: 2, unreadable: 1 })
+    expect(fromFusionLibrary({ version: 33 }).skipped).toEqual({
+      holders: 0,
+      nonMilling: 0,
+      unreadable: 0,
+    })
   })
 
   it('notes a non-milling entry as skipped, and still not the holder', () => {

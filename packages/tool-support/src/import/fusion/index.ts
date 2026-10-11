@@ -19,6 +19,11 @@
  * Nothing here reads a file.
  */
 
-export { fromFusionLibrary, type FusionLibraryEntry, type FusionLibraryImport } from './library.js'
+export {
+  fromFusionLibrary,
+  type FusionLibraryEntry,
+  type FusionLibraryImport,
+  type FusionLibrarySkipped,
+} from './library.js'
 
 export { fromFusionTool, type FusionImport, type ImportNote } from './tool.js'

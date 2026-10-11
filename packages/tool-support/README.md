@@ -77,6 +77,7 @@ vendor published in — that is what lets an inch tool and a metric tool compare
 | `stickoutLimits`, `defaultStickout`                                               | The collet-shaped way into the range above              |
 | `hasNeck`, `shankOf`, `heightAt`, `belowGageLine`                                 | The four that used to be written twice                  |
 | `fitAgainst`, `fitTools`, `DRILLING_FORMS`                                        | Whether a cutter cuts a feature                         |
+| `rankFits`, `fitClass`, `leavesCornerRadius`                                      | The order a tool list for one feature reads in          |
 | `clearance`, `toolSilhouette`, `holderSilhouette`, `toolCollisions`               | Whether the stack clears the material around it         |
 | `assemblyAgainst`, `NOT_MODELLED`                                                 | Whether there is a way to _hold_ it that reaches        |
 | `sectionOutline`, `materialProfile`, `ASSEMBLY_PARTS`, `SILHOUETTE_PARTS`         | The feature in section, and what an assembly is made of |
@@ -276,6 +277,26 @@ const closest = fits.filter(
 // fit.failures[0].leavesCornerRadius: DC / 2, what the corners keep.
 ```
 
+`rankFits` puts a list in the order it reads in. `fitClass` sorts each fit into
+`'fits'`, `'corner-only'` (every failure is a sharp corner) or `'fails'`, and the
+classes come in that order. Fits, and failures, lead with the form's place in the
+`forms` given (`formsFor` in `@toolpath/dfm/model` gives one, `null` ignores
+form); where the demand states a floor fillet, the corner radius closest under it
+comes first and one over it after; then the largest cutting diameter. Corner-only
+misses lead with the smallest radius they leave (`leavesCornerRadius`). Ties keep
+the input order. It orders by geometry and form, and recommends nothing.
+
+```ts
+import { fitClass, rankFits } from '@toolpath/tool-support'
+
+const ranked = rankFits(fits, formsFor(feature.featureType, sheet), demand)
+const usable = ranked.filter((fit) => fitClass(fit) !== 'fails')
+```
+
+The lengths in a failure's `reason` are rounded to the micron, so a tool read
+from inches says `⌀15 mm`, not `⌀14.99999999999989 mm`; the check itself is made
+on the value as stated.
+
 A tool wider than `maxToolSomewhere`, the room the feature has anywhere, is
 still refused for that.
 
@@ -290,7 +311,9 @@ is read as `'other'` and said so. `HAND` and `CSP` are carried beside the tool a
 `hand` and `coolantThrough`, and `post-process.number` as `number` when it is a
 positive integer (Fusion's 0 means unassigned). Two readings are supplied and reported as `filled`: a
 ball end mill with no corner radius has `RE = DC / 2`, and a spot or center
-drill whose `DC` is zero takes `SFDM`. `fromFusionTool` reads a single entry.
+drill whose `DC` is zero takes `SFDM`. `skipped` counts what was left out —
+`{ holders, nonMilling, unreadable }` — so a caller can say so without reading
+the notes. `fromFusionTool` reads a single entry.
 
 ## Status
 
