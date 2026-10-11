@@ -2,6 +2,7 @@ import { isNull } from 'lodash-es'
 import React, {
   Children,
   Dispatch,
+  Fragment,
   ReactElement,
   ReactNode,
   SetStateAction,
@@ -458,28 +459,54 @@ const Table = <T,>({
             return <TableEmpty header={header} />
           }
 
+          // One entry of the list as it renders: a group's header or empty
+          // state where `grouped` put one, otherwise the caller's row. Both
+          // the virtualized and the plain body go through it, so neither hands
+          // a group header to `children` as if it were a data row.
+          const renderItem = (item: TableNode, index: number): ReactNode => {
+            if (isGroupEmptyState(item)) {
+              if (isGroupEmptyStateSpacer(item)) {
+                return null
+              }
+              const groupIdx = getGroupIndex(index)
+              return <GroupEmptyState>{grouped?.emptyState?.(groupIdx)}</GroupEmptyState>
+            }
+
+            if (isGroupHeader(item)) {
+              return (
+                <GroupHeader groupIndex={getGroupIndex(index)} rowIndex={index}>
+                  {item as unknown as ReactNode}
+                </GroupHeader>
+              )
+            }
+
+            return (
+              <RowProvider
+                item={item}
+                index={index}
+                groupIndex={grouped ? getGroupIndex(index) : undefined}
+              >
+                <RowConsumer>{({ item }) => children(item, index)}</RowConsumer>
+              </RowProvider>
+            )
+          }
+
           if (isTree || !virtualized) {
             return (
               <Body indexes={indexes} containerRef={containerRef} data={tableList}>
-                <Header>
-                  {header}
-                  {Boolean(grouped) && (
-                    <HeaderRow noOffset>
-                      <GroupHeader inHeader groupIndex={currentGroupIndex ?? 0}>
-                        {currentGroup}
-                      </GroupHeader>
-                    </HeaderRow>
-                  )}
-                </Header>
+                {/* No pinned group header here: it follows the virtualized
+                    list's scroll, and each group's own header is a row. */}
+                <Header>{header}</Header>
                 {tableList.map((item, index) => (
-                  <RowProvider
-                    key={item.id}
-                    item={item}
-                    index={index}
-                    groupIndex={grouped ? getGroupIndex(index) : undefined}
+                  <Fragment
+                    key={
+                      isGroupHeader(item) || isGroupEmptyState(item)
+                        ? `group-${getGroupIndex(index)}-${index}`
+                        : item.id
+                    }
                   >
-                    <RowConsumer>{({ item }) => children(item, index)}</RowConsumer>
-                  </RowProvider>
+                    {renderItem(item, index)}
+                  </Fragment>
                 ))}
               </Body>
             )
@@ -510,33 +537,7 @@ const Table = <T,>({
                     </Header>
                   )
                 }}
-                body={(item, index) => {
-                  if (isGroupEmptyState(item)) {
-                    if (isGroupEmptyStateSpacer(item)) {
-                      return null
-                    }
-                    const groupIdx = getGroupIndex(index)
-                    return <GroupEmptyState>{grouped?.emptyState?.(groupIdx)}</GroupEmptyState>
-                  }
-
-                  if (isGroupHeader(item)) {
-                    return (
-                      <GroupHeader groupIndex={getGroupIndex(index)} rowIndex={index}>
-                        {item as unknown as ReactNode}
-                      </GroupHeader>
-                    )
-                  }
-
-                  return (
-                    <RowProvider
-                      item={item}
-                      index={index}
-                      groupIndex={grouped ? getGroupIndex(index) : undefined}
-                    >
-                      <RowConsumer>{({ item }) => children(item, index)}</RowConsumer>
-                    </RowProvider>
-                  )
-                }}
+                body={renderItem}
               />
             </Body>
           )
