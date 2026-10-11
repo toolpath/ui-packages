@@ -264,6 +264,21 @@ const fits = fitTools(
 // entry.guid and entry.index lead back to the original record in `data[]`.
 ```
 
+A feature whose inside corners are drawn sharp (`sharpCorners` on its demand)
+fits no end mill: each leaves its own radius there. Rather than calling every
+tool too wide, each such failure has `kind: 'sharp-corner'` and the radius the
+tool leaves, so a list that comes up empty can still offer the closest:
+
+```ts
+const closest = fits.filter(
+  (fit) => !fit.fits && fit.failures.every((failure) => failure.kind === 'sharp-corner'),
+)
+// fit.failures[0].leavesCornerRadius: DC / 2, what the corners keep.
+```
+
+A tool wider than `maxToolSomewhere`, the room the feature has anywhere, is
+still refused for that.
+
 Units are per tool in Fusion, so each record's lengths are converted by its own
 `unit`, using the same length table the exporter writes with; angles and counts
 pass through, booleans and enums are dropped, and a key whose unit is unknown is

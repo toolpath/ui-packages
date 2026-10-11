@@ -19,6 +19,8 @@ export interface FeatureSheet {
   extendedZMax?: number
   /** The widest cutter that still reaches the tightest corner. */
   maxTool?: number
+  /** The widest cutter that fits anywhere in the feature (the cutter band's `ignore.max`). */
+  maxToolSomewhere?: number
   diameter?: number
   /**
    * For a hole: the widest drill that leaves it within its oversize
@@ -273,6 +275,7 @@ export const featureSheet = (datasheet: unknown): FeatureSheet => {
     zMax: asNumber(sheet.zMax),
     extendedZMax: asNumber(sheet.extendedZMax),
     maxTool: asNumber(ignoreBand.min),
+    maxToolSomewhere: asNumber(ignoreBand.max),
     diameter: kind === 'Hole' ? asNumber(facts.diameter) : undefined,
     maxDrill: kind === 'Hole' ? asNumber(facts.maxDrillDiameter) : undefined,
     maxEndmill: kind === 'Hole' ? asNumber(facts.maxEndmillDiameter) : undefined,

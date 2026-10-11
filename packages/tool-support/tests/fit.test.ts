@@ -88,6 +88,54 @@ describe('a hole’s two limits, and which applies', () => {
   })
 })
 
+describe('a feature drawn with sharp inside corners', () => {
+  // The Engine's 40 × 40 pocket with square corners: its tightest clearance is
+  // the tolerance's reading of a corner with no room in it.
+  const sharp: FeatureDemand = {
+    featureTag: 'pocket-sharp',
+    maxToolDiameter: 0.0123,
+    sharpCorners: true,
+    maxToolSomewhere: 40,
+    depth: 15,
+  }
+
+  it('rules every end mill out for the corners, with the radius it leaves', () => {
+    expect(fitAgainst({ ...endmill, geometry: { DC: 6.35, LCF: 20 } }, sharp)).toEqual([
+      {
+        featureTag: 'pocket-sharp',
+        reason: '⌀6.35 mm leaves R3.175 mm in corners drawn sharp, which no end mill finishes',
+        kind: 'sharp-corner',
+        leavesCornerRadius: 3.175,
+      },
+    ])
+  })
+
+  it('says so even where the corner limit reads zero and is left out', () => {
+    const { maxToolDiameter: _, ...unstated } = sharp
+    const [failure] = fitAgainst({ ...endmill, geometry: { DC: 3, LCF: 20 } }, unstated)
+    expect(failure?.kind).toBe('sharp-corner')
+    expect(failure?.leavesCornerRadius).toBe(1.5)
+  })
+
+  it('still bounds the tool by the room the feature has, and checks the rest', () => {
+    const [wide, ...none] = fitAgainst({ ...endmill, geometry: { DC: 50, LCF: 60 } }, sharp)
+    expect(none).toEqual([])
+    expect(wide?.kind).toBeUndefined()
+    expect(wide?.reason).toBe('⌀50 mm is wider than the 40 mm this feature has room for anywhere')
+
+    const short = fitAgainst({ ...endmill, geometry: { DC: 6, LCF: 10 } }, sharp)
+    expect(short.map((f) => f.kind)).toEqual(['sharp-corner', undefined])
+  })
+
+  it('leaves a narrow feature with no sharp corners as it was', () => {
+    const slot: FeatureDemand = { featureTag: 'slot-1', maxToolDiameter: 4, maxToolSomewhere: 4 }
+    expect(fitAgainst({ ...endmill, geometry: { DC: 4 } }, slot)).toEqual([])
+    const [failure] = fitAgainst({ ...endmill, geometry: { DC: 6 } }, slot)
+    expect(failure?.kind).toBeUndefined()
+    expect(failure?.reason).toContain('wider than')
+  })
+})
+
 describe('which tools cut every demand', () => {
   it('keeps a near miss and says which feature ruled it out', () => {
     // A tool that clears four of five features is not an answer, but knowing

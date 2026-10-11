@@ -118,10 +118,36 @@ const pocketSheet = {
   },
 } satisfies FeatureDatasheet
 
-const datasheets: Readonly<Record<string, FeatureDatasheet>> = { h1: holeSheet, p1: pocketSheet }
+/**
+ * A 40 × 40 pocket 12 deep with square inside corners, as the Engine reports
+ * one: its corner limit is only the tolerance's reading of no radius (ten
+ * times the tolerance, ten times the tool).
+ */
+const sharpPocketSheet = {
+  ...pocketSheet,
+  pinchPoints: [{ center: { x: 0, y: 0 }, diameter: 0.0483 }],
+  facts: {
+    ...pocketSheet.facts,
+    filletRadius: 0,
+    filletHeight: 0,
+    cd: {
+      ignore: { min: 0.0483, max: 40 },
+      deviate: { min: 0.0966, max: 40 },
+      effectiveAdaptive: { min: 0.92, max: 40 },
+      terminalCornerRadius: 0,
+    },
+  },
+} satisfies FeatureDatasheet
+
+const datasheets: Readonly<Record<string, FeatureDatasheet>> = {
+  h1: holeSheet,
+  p1: pocketSheet,
+  s1: sharpPocketSheet,
+}
 const features: DfmFeature[] = [
   { tag: 'h1', featureType: 'blind_hole', machiningDirection: UP, regionIdxs: [0], number: 1 },
   { tag: 'p1', featureType: 'pocket', machiningDirection: UP, regionIdxs: [1], number: 2 },
+  { tag: 's1', featureType: 'pocket', machiningDirection: UP, regionIdxs: [2], number: 3 },
 ]
 const sheets: FeatureSheets = Object.fromEntries(
   Object.entries(datasheets).map(([tag, datasheet]) => [tag, featureSheet(datasheet)]),
@@ -130,8 +156,8 @@ const sheets: FeatureSheets = Object.fromEntries(
 const { tools: entries } = fromFusionLibrary(library)
 const tools = entries.map((entry) => ({ ...entry.tool, guid: entry.guid }))
 
-/** The README's snippet, for one feature. */
-const fitting = (feature: DfmFeature) => {
+/** The README's snippet, for one feature: every candidate's fit. */
+const fitsFor = (feature: DfmFeature) => {
   const reachCurve = readReachCurve(datasheets[feature.tag])
   const demand = featureDemand({ features, feature, sheets, reachCurve })
   const sheet = sheets[feature.tag.toLowerCase()]
@@ -139,9 +165,14 @@ const fitting = (feature: DfmFeature) => {
   const candidates = forms
     ? tools.filter((tool) => forms.some((form) => form === tool.form))
     : tools
-  const fits = fitTools(candidates, [demand])
-  return fits.filter((fit) => fit.fits).map((fit) => fit.tool.guid)
+  return fitTools(candidates, [demand])
 }
+
+/** The tools that fit it. */
+const fitting = (feature: DfmFeature) =>
+  fitsFor(feature)
+    .filter((fit) => fit.fits)
+    .map((fit) => fit.tool.guid)
 
 describe('tools that fit a feature, from a Fusion library', () => {
   it('reads every tool in the library, inches into millimetres, and not the holder', () => {
@@ -164,5 +195,18 @@ describe('tools that fit a feature, from a Fusion library', () => {
     // The drill is wider than its corner, the ball too, and the chamfer mill,
     // narrow enough, is not a form that cuts a pocket.
     expect(pocket && fitting(pocket)).toEqual(['flat-6'])
+  })
+
+  it('fits nothing to a sharp-cornered pocket, and says it is the corners', () => {
+    const sharp = features[2]
+    if (!sharp) throw new Error('no sharp pocket')
+    // The README's closest-tools reading: every end mill misses only the corners.
+    const closest = fitsFor(sharp).flatMap((fit) =>
+      !fit.fits && fit.failures.every((failure) => failure.kind === 'sharp-corner')
+        ? [[fit.tool.guid, fit.failures[0]?.leavesCornerRadius]]
+        : [],
+    )
+    expect(fitting(sharp)).toEqual([])
+    expect(closest).toEqual([['flat-6', 3]])
   })
 })

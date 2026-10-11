@@ -87,6 +87,42 @@ const pocketSheet = {
   },
 } satisfies FeatureDatasheet
 
+/**
+ * The block's 40 × 40 × 15 pocket with square inside corners, as the Engine
+ * sent it to the Fusion add-in: its corner limit is 0.0123 mm at a 0.00254 mm
+ * tolerance, ten times that at ten times the tolerance — a corner with no
+ * radius, widened by the tolerance alone. A pinch disc that wide in each corner.
+ */
+const blockPocketSheet = {
+  ...unread,
+  featureType: 'Pocket',
+  zMin: 14.999999999999996,
+  zMax: 29.999999999999886,
+  extendedZMin: 14.999999999999996,
+  extendedZMax: 29.999999999999886,
+  hasWall: true,
+  hasFloor: true,
+  toleranceBand: { atolMax: 0.127, atolIgnore: 0.00254, atolDeviate: 0.0254 },
+  pinchPoints: [
+    { center: { x: 10.006132102448428, y: 49.993867897551475 }, diameter: 0.012264204896855323 },
+    { center: { x: 49.993867897551475, y: 49.993867897551475 }, diameter: 0.012264204896855323 },
+    { center: { x: 10.006132102448431, y: 10.006132102448428 }, diameter: 0.012264204896855327 },
+    { center: { x: 49.993867897551475, y: 10.006132102448431 }, diameter: 0.012264204896855327 },
+  ],
+  facts: {
+    kind: 'Pocket',
+    filletRadius: 0,
+    filletHeight: 0,
+    maxBottomDiameter: null,
+    cd: {
+      ignore: { max: 39.9999999999999, min: 0.012264204896855323 },
+      deviate: { max: 39.9999999999999, min: 0.12264204896855323 },
+      effectiveAdaptive: { max: 39.9999999999999, min: 0.9198153672641493 },
+      terminalCornerRadius: 0,
+    },
+  },
+} satisfies FeatureDatasheet
+
 /** The part's top face: it stands highest, and that is all it is here for. */
 const faceSheet = {
   ...unread,
@@ -308,7 +344,7 @@ describe('featureDemand: what a feature asks of a tool', () => {
     })
   })
 
-  it('drops a zero corner limit rather than ruling out every tool', () => {
+  it('sends no zero corner limit: a zero clearance reads as a sharp corner instead', () => {
     const pocket = feature('p1', 'pocket')
     const sheets: FeatureSheets = {
       p1: featureSheet({
@@ -321,9 +357,69 @@ describe('featureDemand: what a feature asks of a tool', () => {
     }
     expect(featureDemand({ features: [pocket], feature: pocket, sheets })).toEqual({
       featureTag: 'p1',
+      sharpCorners: true,
+      maxToolSomewhere: 40,
       depth: 12,
       reachBelowTop: 12,
       floorRadius: 1,
+    })
+  })
+
+  it('reads the block’s square-cornered pocket as sharp, its 0.012 mm the tolerance’s reading', () => {
+    const pocket = feature('d9c17a27f8bbfb3c', 'pocket')
+    const sheets: FeatureSheets = { d9c17a27f8bbfb3c: featureSheet(blockPocketSheet) }
+    const demand = featureDemand({ features: [pocket], feature: pocket, sheets })
+    expect(demand).toEqual({
+      featureTag: 'd9c17a27f8bbfb3c',
+      maxToolDiameter: 0.012264204896855323,
+      sharpCorners: true,
+      maxToolSomewhere: 39.9999999999999,
+      depth: 14.99999999999989,
+      reachBelowTop: 14.99999999999989,
+    })
+    // Not "wider than 0.012 mm": the corners, and what the tool leaves in them.
+    expect(fitAgainst({ form: 'flat end mill', geometry: { DC: 6, LCF: 20 } }, demand)).toEqual([
+      {
+        featureTag: 'd9c17a27f8bbfb3c',
+        reason: '⌀6 mm leaves R3 mm in corners drawn sharp, which no end mill finishes',
+        kind: 'sharp-corner',
+        leavesCornerRadius: 3,
+      },
+    ])
+  })
+
+  it('does not read a filleted pocket’s corners, or a narrow one’s, as sharp', () => {
+    const pocket = feature('p1', 'pocket')
+    const filleted = featureDemand({
+      features: [pocket],
+      feature: pocket,
+      sheets: { p1: featureSheet(pocketSheet) },
+    })
+    expect(filleted.sharpCorners).toBeUndefined()
+    // A slot 4 wide: the gap is its answer at either tolerance, not a corner.
+    const slot = featureDemand({
+      features: [pocket],
+      feature: pocket,
+      sheets: {
+        p1: featureSheet({
+          ...pocketSheet,
+          facts: {
+            ...pocketSheet.facts,
+            cd: {
+              ignore: { min: 4, max: 4 },
+              deviate: { min: 4, max: 4 },
+              effectiveAdaptive: { min: 4, max: 4 },
+            },
+          },
+        } satisfies FeatureDatasheet),
+      },
+    })
+    expect(slot).toMatchObject({ maxToolDiameter: 4 })
+    expect(slot.sharpCorners).toBeUndefined()
+    const [failure] = fitAgainst({ form: 'flat end mill', geometry: { DC: 6 } }, slot)
+    expect(failure).toEqual({
+      featureTag: 'p1',
+      reason: '⌀6 mm is wider than the 4 mm this feature admits',
     })
   })
 

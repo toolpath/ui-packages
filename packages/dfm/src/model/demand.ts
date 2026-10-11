@@ -19,6 +19,13 @@ const positive = (value: number | undefined): number | undefined =>
  *
  * - `maxToolDiameter` — the widest cutter that reaches every point (the cutter
  *   band's `ignore.min`; a chamfer's under its three-axis reading).
+ * - `sharpCorners`, with `maxToolSomewhere` — where the sheet reads its inside
+ *   corners as sharp (`FeatureSheet.sharpCorners`: walls, and a corner
+ *   clearance that runs back to no radius once the Engine's tolerance is taken
+ *   out). `maxToolDiameter` is then only the tolerance's reading of a corner
+ *   with no room in it — 0.012 mm in a 40 mm pocket — so the fit says each
+ *   end mill misses the *corners*, by its own radius, and the band's
+ *   `ignore.max` still bounds how wide a tool gets in at all.
  * - `maxDrillDiameter`, `maxEndmillDiameter`, `holeDiameter` — a hole's.
  * - `depth` — `zMax − zMin`.
  * - `reachBelowTop` — the part's top along the machining direction (see
@@ -63,6 +70,16 @@ export const featureDemand = ({
 
   const maxTool = positive(sheet.maxTool)
   if (maxTool !== undefined) demand.maxToolDiameter = maxTool
+
+  // The catalog's `hasSharpCorner` asks the same of the Engine (a zero
+  // `terminalCornerRadius` and a zero `cd.ignore.min`), but reads the band as
+  // sent, so a corner the tolerance widens to 0.012 mm escapes it. The sheet's
+  // reading takes the tolerance out, and is the one the DFM rules flag.
+  if (sheet.sharpCorners) {
+    demand.sharpCorners = true
+    const room = positive(sheet.maxToolSomewhere)
+    if (room !== undefined) demand.maxToolSomewhere = room
+  }
 
   if (sheet.kind === 'Hole') {
     const drill = positive(sheet.maxDrill)

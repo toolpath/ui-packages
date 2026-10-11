@@ -28,6 +28,20 @@ export interface FeatureDemand {
   readonly featureTag: string
   /** The widest cutter that still reaches the tightest corner. */
   readonly maxToolDiameter?: number
+  /**
+   * Its inside corners between walls are drawn sharp: a radius of none, which
+   * no end mill leaves — each leaves its own radius. `maxToolDiameter`, where
+   * stated, is then only the tolerance's reading of a corner with no room in
+   * it. Every cutter that gets in is ruled out *for the corners*, and its
+   * failure says so (`kind: 'sharp-corner'`, with the radius it leaves) rather
+   * than calling it too wide for the feature.
+   */
+  readonly sharpCorners?: true
+  /**
+   * The widest cutter that fits anywhere in the feature, as against the one
+   * that reaches every point (`maxToolDiameter`). Nothing wider gets in at all.
+   */
+  readonly maxToolSomewhere?: number
   /** Stated separately for a hole: the widest drill, and the widest endmill. */
   readonly maxDrillDiameter?: number
   readonly maxEndmillDiameter?: number

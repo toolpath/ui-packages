@@ -136,6 +136,21 @@ const fits = fitTools(candidates, [demand])
 
 `tests/model/tool-fit-pipeline.test.ts` runs this snippet end to end.
 
+A pocket with square inside corners fits no end mill, as in the catalog: its
+corner limit is only the Engine's tolerance reading a corner with no radius
+(0.012 mm in a 40 mm pocket). `featureDemand` marks it `sharpCorners` — the
+same reading the `sharpCorner` rule flags — and each failure then says it is
+the corners, with the radius the tool would leave:
+
+```ts
+if (demand.sharpCorners) {
+  const closest = fits.filter((fit) =>
+    fit.failures.every((failure) => failure.kind === 'sharp-corner'),
+  )
+  // "⌀6 mm leaves R3 mm in corners drawn sharp, which no end mill finishes"
+}
+```
+
 This only checks geometry: diameter, flute length and corner radius against
 the feature. It does not recommend a tool.
 
