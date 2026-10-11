@@ -33,3 +33,29 @@ export function focusedRegions(
   }
   return regions
 }
+
+/**
+ * A request to frame a feature, framed once per `request`: bump it to frame the
+ * same feature again — after the camera has moved off it, say.
+ */
+export interface FeatureFocusRequest {
+  readonly tag: FeatureTag
+  readonly request: number
+}
+
+/** What `PartMesh`'s `focusFeature` takes: a tag, framed when it changes, or a request. */
+export type FeatureFocus = FeatureTag | FeatureFocusRequest
+
+/**
+ * The feature a focus asks to frame, and the key it is framed once under: a
+ * bare tag's key is the tag, so the same tag again frames nothing; a request's
+ * key carries its `request`, so a new one frames the same tag again. `null`
+ * for no focus.
+ */
+export function focusRequest(
+  focus: FeatureFocus | null | undefined,
+): { readonly tag: FeatureTag; readonly key: string } | null {
+  if (focus === null || focus === undefined) return null
+  if (typeof focus === 'string') return { tag: focus, key: `tag:${focus}` }
+  return { tag: focus.tag, key: `request:${focus.request}:${focus.tag}` }
+}
