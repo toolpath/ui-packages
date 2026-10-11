@@ -13,14 +13,38 @@
  *     unit every length in this domain is stored in.
  *   * An angle and a count are the same number in both systems and pass through.
  *   * A boolean or an enum (`CSP`, `HAND`, `thread-tip-type`) has no place in a
- *     numeric `Geometry` and is dropped without a note — nearly every
+ *     numeric `Geometry` and is dropped from it without a note — nearly every
  *     record carries them, and a note per tool would bury the ones that matter.
+ *     Two of them are carried beside the tool instead, under `CatalogTool`'s
+ *     names: `HAND` as `hand` (`true` is right-handed, the exporter's own
+ *     reading) and `CSP` as `coolantThrough`, each only where the record states
+ *     an actual boolean.
  *   * A key `FUSION_GEOMETRY_KINDS` does not classify is dropped *with* a
  *     note: nobody knows whether it is a length, and a guessed conversion is a
  *     wrong number that looks right.
  *   * `LB` — how far the tool stands out of its holder — is stored as `LBH`, the
  *     dictionary's name for the same quantity. The exporter makes the opposite
  *     move, so a round trip lands back on the key it started from.
+ *   * A tap's pitch `TP` is converted as a length, like every other length,
+ *     because that is how the exporter writes it (`FUSION_GEOMETRY_KINDS.TP`).
+ *     `GEOMETRY_FIELDS.TP` describes a pitch *in the tool's own unit system*,
+ *     so an inch tap's `TP` read here is millimetres, not inches; the two
+ *     directions are symmetric, and that is the only promise made about it.
+ *   * Values the exporter **fills** — `LB` from a stickout, `assemblyGaugeLength`,
+ *     `shoulder-diameter`, `shoulder-length` — are ordinary keys in the record
+ *     and come back on re-import with no provenance: nothing in Fusion's JSON
+ *     says a number was supplied rather than stated.
+ *
+ * ## What is not read
+ *
+ *   * A holder — an entry in its own right, not a tool.
+ *   * A type that does not mill or drill: the turning types, the additive and
+ *     cutting heads (laser, plasma, waterjet, electric arc wire), a probe and a
+ *     tool block. {@link fromFusionTool} returns `null` for them, as it does
+ *     for a holder, and a library read reports each as `skipped`. A milling
+ *     type this package has no form for — `form mill`, `corner chamfer end
+ *     mill` — is still read, as `'other'`.
+ *   * A record whose `unit` is not exactly `millimeters` or `inches`.
  *
  * Two readings are supplied where Fusion records commonly leave a gap, each
  * reported as `filled` and marked `derived` in the tool's provenance:
@@ -88,8 +112,15 @@ export interface FusionImport {
   readonly vendor?: string
   /** Fusion's `product-id`: the number a machinist orders by. */
   readonly catalogNumber?: string
-  /** Fusion's `post-process.number`: the tool's number in the shop's carousel. */
+  /**
+   * Fusion's `post-process.number`: the tool's number in the shop's carousel.
+   * Absent unless it is a positive integer — Fusion writes 0 for unassigned.
+   */
   readonly number?: number
+  /** Fusion's `HAND`: `true` is right-handed. Absent unless the record states a boolean. */
+  readonly hand?: 'right' | 'left'
+  /** Fusion's `CSP`: whether the tool has through-coolant. Absent unless a boolean. */
+  readonly coolantThrough?: boolean
   readonly notes: readonly ImportNote[]
 }
 
@@ -100,6 +131,26 @@ const UNITS: Readonly<Record<string, UnitSystem>> = {
   millimeters: 'millimeters',
   inches: 'inches',
 }
+
+/**
+ * Fusion types that are not milling or hole-making tools, from
+ * `fusion/digest.json`'s type list. `fitTools` has nothing to say about them,
+ * and reading one as `'other'` would offer a lathe insert to a pocket.
+ */
+export const NON_MILLING_TYPES: ReadonlySet<string> = new Set([
+  'electric arc wire',
+  'laser cutter',
+  'laser powder',
+  'laser wire',
+  'plasma cutter',
+  'probe',
+  'tool block',
+  'turning boring',
+  'turning general',
+  'turning grooving',
+  'turning threading',
+  'waterjet',
+])
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -126,7 +177,7 @@ const asText = (value: unknown): string | undefined =>
 export const readFusionTool = (json: unknown, fallbackSubject: string): FusionImport | null => {
   if (!isRecord(json)) return null
   const type = asText(json.type)
-  if (type === undefined || type === 'holder') return null
+  if (type === undefined || type === 'holder' || NON_MILLING_TYPES.has(type)) return null
   const unit = typeof json.unit === 'string' ? UNITS[json.unit] : undefined
   if (unit === undefined) return null
 
@@ -135,7 +186,9 @@ export const readFusionTool = (json: unknown, fallbackSubject: string): FusionIm
   const vendor = asText(json.vendor)
   const catalogNumber = asText(json['product-id'])
   const postProcess = isRecord(json['post-process']) ? json['post-process'] : {}
-  const number = asNumber(postProcess.number) ?? undefined
+  const assigned = asNumber(postProcess.number)
+  const number =
+    assigned !== null && Number.isInteger(assigned) && assigned > 0 ? assigned : undefined
   const subject = guid ?? catalogNumber ?? description ?? fallbackSubject
 
   const notes: ImportNote[] = []
@@ -155,6 +208,8 @@ export const readFusionTool = (json: unknown, fallbackSubject: string): FusionIm
 
   const geometry: Record<string, number> = {}
   const raw = isRecord(json.geometry) ? json.geometry : {}
+  const hand = typeof raw.HAND === 'boolean' ? (raw.HAND ? 'right' : 'left') : undefined
+  const coolantThrough = typeof raw.CSP === 'boolean' ? raw.CSP : undefined
   for (const [key, value] of Object.entries(raw)) {
     const kind = fusionValueKind(key)
     if (kind === 'boolean' || kind === 'enum') continue
@@ -168,7 +223,10 @@ export const readFusionTool = (json: unknown, fallbackSubject: string): FusionIm
     }
     const number = asNumber(value)
     if (number === null) {
-      note('dropped', `geometry.${key}`, `${JSON.stringify(value)} is not a number`)
+      // `String`, not `JSON.stringify`, for a number: the latter writes
+      // `Infinity` and `NaN` as `null`.
+      const shown = typeof value === 'number' ? String(value) : JSON.stringify(value)
+      note('dropped', `geometry.${key}`, `${shown} is not a number`)
       continue
     }
     const stated = kind === 'length' ? exported(convertLength(number, unit, 'millimeters')) : number
@@ -211,11 +269,16 @@ export const readFusionTool = (json: unknown, fallbackSubject: string): FusionIm
     ...(vendor === undefined ? {} : { vendor }),
     ...(catalogNumber === undefined ? {} : { catalogNumber }),
     ...(number === undefined ? {} : { number }),
+    ...(hand === undefined ? {} : { hand }),
+    ...(coolantThrough === undefined ? {} : { coolantThrough }),
   }
 }
 
 /**
  * A Fusion tool entry as a {@link Tool} in millimetres, or `null` for a holder,
- * anything that is not a tool, and a record with no recognisable `unit`.
+ * a type that does not mill or drill (turning, laser, plasma, waterjet,
+ * electric arc wire, probe, tool block), anything that is not a tool, and a
+ * record with no recognisable `unit`. Unlike a library read, a single read
+ * gives no note saying which.
  */
 export const fromFusionTool = (json: unknown): FusionImport | null => readFusionTool(json, UNNAMED)

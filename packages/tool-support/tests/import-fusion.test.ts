@@ -6,6 +6,10 @@
  * the two directions cannot drift apart unnoticed.
  */
 
+import { readFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { describe, expect, it } from 'vitest'
 
 import type { CatalogTool } from '../src/export/catalog.js'
@@ -13,6 +17,11 @@ import { fusionTool, type FusionTool } from '../src/export/fusion/index.js'
 import { fromFusionLibrary, fromFusionTool } from '../src/import/fusion/index.js'
 
 const GUID = '9da403e4-b6e7-4019-8f8b-d13955d7aae7'
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+const digest = JSON.parse(readFileSync(join(ROOT, 'fusion/digest.json'), 'utf8')) as {
+  types: Record<string, unknown>
+}
 
 const inchEndMill = {
   type: 'flat end mill',
@@ -112,8 +121,54 @@ describe('one tool', () => {
       })
       expect(read?.tool.geometry.DC).toBe(12.7)
       expect(read?.tool.geometry.SIG).toBe(90)
-      expect(read?.notes[0]?.kind).toBe('filled')
+      expect(read?.tool.provenance).toEqual({ DC: 'derived' })
+      expect(read?.notes.map((note) => [note.kind, note.field])).toEqual([
+        ['filled', 'geometry.DC'],
+      ])
     }
+  })
+
+  it('fills a spot drill’s DC from SFDM when DC is absent', () => {
+    const read = fromFusionTool({
+      type: 'spot drill',
+      unit: 'millimeters',
+      geometry: { SFDM: 10, SIG: 90 },
+    })
+    expect(read?.tool.geometry).toEqual({ DC: 10, SFDM: 10, SIG: 90 })
+    expect(read?.tool.provenance).toEqual({ DC: 'derived' })
+    expect(read?.notes.map((note) => [note.kind, note.field])).toEqual([['filled', 'geometry.DC']])
+  })
+
+  it.each([
+    ['absent', { DC: 0, SIG: 90 }],
+    ['zero', { DC: 0, SFDM: 0, SIG: 90 }],
+  ])('leaves a spot drill’s DC alone when SFDM is %s', (_, geometry) => {
+    const read = fromFusionTool({ type: 'spot drill', unit: 'millimeters', geometry })
+    expect(read?.tool.geometry).toEqual(geometry)
+    expect(read?.tool).not.toHaveProperty('provenance')
+    expect(read?.notes).toEqual([])
+  })
+
+  it('supplies no corner radius to a ball end mill with no diameter', () => {
+    const read = fromFusionTool({
+      type: 'ball end mill',
+      unit: 'millimeters',
+      geometry: { OAL: 50 },
+    })
+    expect(read?.tool.geometry).toEqual({ OAL: 50 })
+    expect(read?.tool).not.toHaveProperty('provenance')
+    expect(read?.notes).toEqual([])
+  })
+
+  it('supplies no corner radius to a flat end mill whose RE is 0', () => {
+    const read = fromFusionTool({
+      type: 'flat end mill',
+      unit: 'millimeters',
+      geometry: { DC: 8, RE: 0 },
+    })
+    expect(read?.tool.geometry).toEqual({ DC: 8, RE: 0 })
+    expect(read?.tool).not.toHaveProperty('provenance')
+    expect(read?.notes).toEqual([])
   })
 
   it('does not swap a chamfer mill’s DC for its SFDM', () => {
@@ -132,6 +187,16 @@ describe('one tool', () => {
     expect(read?.notes.map((note) => [note.kind, note.field])).toEqual([['coerced', 'type']])
   })
 
+  it('reads a corner chamfer end mill, which mills but has no form, as other', () => {
+    const read = fromFusionTool({
+      type: 'corner chamfer end mill',
+      unit: 'millimeters',
+      geometry: { DC: 10 },
+    })
+    expect(read?.tool.form).toBe('other')
+    expect(read?.notes.map((note) => [note.kind, note.field])).toEqual([['coerced', 'type']])
+  })
+
   it('drops a key whose unit is unknown, and says so', () => {
     const read = fromFusionTool({
       type: 'drill',
@@ -145,6 +210,95 @@ describe('one tool', () => {
   it('reads a numeric string', () => {
     const read = fromFusionTool({ type: 'drill', unit: 'millimeters', geometry: { DC: '6.5' } })
     expect(read?.tool.geometry.DC).toBe(6.5)
+  })
+
+  it('reads exponent notation and drops a blank or non-numeric string', () => {
+    const read = fromFusionTool({
+      type: 'drill',
+      unit: 'millimeters',
+      geometry: { DC: '1e3', OAL: ' ', LCF: 'abc' },
+    })
+    expect(read?.tool.geometry).toEqual({ DC: 1000 })
+    expect(read?.notes).toEqual([
+      {
+        subject: '(unnamed Fusion tool)',
+        kind: 'dropped',
+        field: 'geometry.OAL',
+        message: '" " is not a number',
+      },
+      {
+        subject: '(unnamed Fusion tool)',
+        kind: 'dropped',
+        field: 'geometry.LCF',
+        message: '"abc" is not a number',
+      },
+    ])
+  })
+
+  it('names a non-finite number as itself, not as null', () => {
+    const read = fromFusionTool({
+      type: 'drill',
+      unit: 'millimeters',
+      geometry: { DC: Number.POSITIVE_INFINITY, OAL: Number.NaN },
+    })
+    expect(read?.tool.geometry).toEqual({})
+    expect(read?.notes.map((note) => note.message)).toEqual([
+      'Infinity is not a number',
+      'NaN is not a number',
+    ])
+  })
+
+  it('keeps a positive integer tool number and nothing else', () => {
+    const numbered = (number: unknown) =>
+      fromFusionTool({ ...inchEndMill, 'post-process': { number } })
+    expect(numbered(12)?.number).toBe(12)
+    for (const number of [0, -1, 2.5]) {
+      expect(numbered(number)).not.toHaveProperty('number')
+    }
+  })
+
+  it('carries HAND as hand and CSP as coolantThrough, only from a boolean', () => {
+    const read = (geometry: Record<string, unknown>) =>
+      fromFusionTool({ type: 'drill', unit: 'millimeters', geometry: { DC: 6, ...geometry } })
+    expect(read({ HAND: true, CSP: true })).toMatchObject({ hand: 'right', coolantThrough: true })
+    expect(read({ HAND: false, CSP: false })).toMatchObject({ hand: 'left', coolantThrough: false })
+    const unstated = read({ HAND: 'true', CSP: 1 })
+    expect(unstated).not.toHaveProperty('hand')
+    expect(unstated).not.toHaveProperty('coolantThrough')
+    expect(unstated?.tool.geometry).toEqual({ DC: 6 })
+  })
+
+  it('refuses a unit spelled any other way than Fusion spells it', () => {
+    // Pinned: `Millimeters` is not Fusion's spelling, and a guess is refused.
+    expect(fromFusionTool({ type: 'drill', unit: 'Millimeters', geometry: { DC: 6 } })).toBeNull()
+  })
+
+  it.each(['turning general', 'probe'])(
+    'does not read a %s, which is not a milling tool',
+    (type) => {
+      expect(fromFusionTool({ type, unit: 'millimeters', geometry: { DC: 6 } })).toBeNull()
+    },
+  )
+
+  it('reads every digest type it does not skip, and skips exactly the non-milling ones', () => {
+    const skipped = Object.keys(digest.types).filter(
+      (type) => fromFusionTool({ type, unit: 'millimeters', geometry: {} }) === null,
+    )
+    expect(skipped.sort()).toEqual([
+      'electric arc wire',
+      'holder',
+      'laser cutter',
+      'laser powder',
+      'laser wire',
+      'plasma cutter',
+      'probe',
+      'tool block',
+      'turning boring',
+      'turning general',
+      'turning grooving',
+      'turning threading',
+      'waterjet',
+    ])
   })
 
   it('refuses a holder, a non-tool and a record with no unit', () => {
@@ -183,36 +337,110 @@ describe('a library', () => {
   it('reads a document with no data array as no tools, and says so', () => {
     const read = fromFusionLibrary({ version: 33 })
     expect(read.tools).toEqual([])
-    expect(read.notes[0]?.kind).toBe('skipped')
+    expect(read.notes.map((note) => [note.subject, note.kind, note.field])).toEqual([
+      ['(library)', 'skipped', 'data'],
+    ])
+  })
+
+  it('reads an empty data array as nothing, with nothing to say', () => {
+    expect(fromFusionLibrary({ version: 33, data: [] })).toEqual({ tools: [], notes: [] })
+  })
+
+  it('notes every entry that is not a record, by index', () => {
+    const read = fromFusionLibrary({ version: 33, data: [null, 5, 'x', []] })
+    expect(read.tools).toEqual([])
+    expect(read.notes.map((note) => [note.subject, note.kind])).toEqual([
+      ['data[0]', 'skipped'],
+      ['data[1]', 'skipped'],
+      ['data[2]', 'skipped'],
+      ['data[3]', 'skipped'],
+    ])
+  })
+
+  it('converts each tool by its own unit in a mixed library', () => {
+    const { tools } = fromFusionLibrary({
+      version: 33,
+      data: [inchEndMill, { type: 'drill', unit: 'millimeters', geometry: { DC: 6.8 } }],
+    })
+    expect(tools[0]?.tool.geometry.DC).toBe(9.525)
+    expect(tools[1]?.tool.geometry.DC).toBe(6.8)
+  })
+
+  it('notes a non-milling entry as skipped, and still not the holder', () => {
+    const { tools, notes } = fromFusionLibrary({
+      version: 33,
+      data: [holder, { type: 'turning general', unit: 'millimeters', guid: 't', geometry: {} }],
+    })
+    expect(tools).toEqual([])
+    expect(notes).toEqual([
+      {
+        subject: 'data[1]',
+        kind: 'skipped',
+        field: 'type',
+        message: 'a "turning general" is not a milling or hole-making tool, so it is not read',
+      },
+    ])
   })
 })
 
 describe('the round trip', () => {
-  const tools: CatalogTool[] = [
-    {
-      form: 'flat end mill',
-      guid: GUID,
-      unit: 'millimeters',
-      catalogNumber: 'PROD-001',
-      geometry: { DC: 6, SFDM: 6, OAL: 57, LCF: 18, NOF: 4, LBH: 24 },
+  // Values that are not inch-exact, so an inch record's six-decimal rounding
+  // is exercised. A chamfer mill and a spot drill state `tip-diameter`, which
+  // Fusion requires of them; without it the exporter returns `tool: null`.
+  const geometries: Record<string, Record<string, number>> = {
+    'flat end mill': { DC: 6, SFDM: 6, OAL: 57, LCF: 13.3, NOF: 3, LBH: 21.7 },
+    drill: { DC: 6.8, SFDM: 6.8, OAL: 74.3, LCF: 34.1, NOF: 2, SIG: 140, LBH: 40.2 },
+    'bull nose end mill': { DC: 10, SFDM: 10, OAL: 72.5, LCF: 22.2, NOF: 4, RE: 1.5, LBH: 30.3 },
+    'chamfer mill': {
+      DC: 1.1,
+      SFDM: 8,
+      OAL: 63.3,
+      LCF: 9.7,
+      NOF: 2,
+      TA: 45,
+      'tip-diameter': 1.1,
+      LBH: 25.1,
     },
-    {
-      form: 'drill',
-      guid: GUID,
-      unit: 'inches',
-      geometry: { DC: 12.7, SFDM: 12.7, OAL: 101.6, LCF: 50.8, NOF: 2, SIG: 118 },
+    'spot drill': {
+      DC: 8.2,
+      SFDM: 8.2,
+      OAL: 61.7,
+      LCF: 11.9,
+      NOF: 2,
+      SIG: 90,
+      'tip-diameter': 0.3,
+      LBH: 22.6,
     },
-  ]
+  }
 
-  it.each(tools.map((tool) => [`${tool.unit} ${tool.form}`, tool] as const))(
+  /** What the exporter fills and the importer then reads as stated. */
+  const ADDED = ['assemblyGaugeLength', 'shoulder-diameter', 'shoulder-length']
+
+  const cases = (['inches', 'millimeters'] as const).flatMap((unit) =>
+    Object.entries(geometries).map(
+      ([form, geometry]): CatalogTool => ({ form, guid: GUID, unit, geometry }),
+    ),
+  )
+
+  it.each(cases.map((tool) => [`${tool.unit} ${tool.form}`, tool] as const))(
     'an exported %s reads back to the geometry it started from',
     (_, tool) => {
       const written = fusionTool({ tool }).tool as FusionTool
+      expect(written).not.toBeNull()
       const read = fromFusionTool(written)
       expect(read?.tool.form).toBe(tool.form)
       expect(read?.guid).toBe(tool.guid)
       expect(read?.unit).toBe(tool.unit)
-      expect(read?.tool.geometry).toMatchObject(tool.geometry)
+      expect(read?.notes).toEqual([])
+      const geometry = read?.tool.geometry ?? {}
+      for (const [key, value] of Object.entries(tool.geometry)) {
+        expect(geometry[key], key).toBeCloseTo(value ?? Number.NaN, 4)
+      }
+      const extra = Object.keys(geometry).filter((key) => !(key in tool.geometry))
+      expect(extra.sort()).toEqual(ADDED)
+      // The exporter writes its defaults for HAND and CSP, and they come back.
+      expect(read?.hand).toBe('right')
+      expect(read?.coolantThrough).toBe(false)
     },
   )
 })

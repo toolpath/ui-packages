@@ -3,12 +3,13 @@
  * `ToolLibrary.toJson()` gives it — read into tools.
  *
  * Holders are left out without a note: they are entries in their own right in
- * Fusion, not tools that failed to read. Any other entry that is not a tool
- * Fusion would recognise is left out *with* one. A library is never refused for
+ * Fusion, not tools that failed to read. A type that does not mill or drill —
+ * turning, laser, plasma, waterjet, a probe — is left out *with* one, as is any
+ * other entry that is not a tool record this package can read. A library is never refused for
  * one bad entry, the rule the exporter keeps on the way out.
  */
 
-import { readFusionTool, type FusionImport, type ImportNote } from './tool.js'
+import { NON_MILLING_TYPES, readFusionTool, type FusionImport, type ImportNote } from './tool.js'
 
 /** One tool, and where it sits in the document's `data` array. */
 export interface FusionLibraryEntry extends FusionImport {
@@ -50,6 +51,15 @@ export const fromFusionLibrary = (doc: unknown): FusionLibraryImport => {
   data.forEach((entry: unknown, index) => {
     if (isRecord(entry) && entry.type === 'holder') return
     const subject = `data[${index}]`
+    if (isRecord(entry) && typeof entry.type === 'string' && NON_MILLING_TYPES.has(entry.type)) {
+      notes.push({
+        subject,
+        kind: 'skipped',
+        field: 'type',
+        message: `a ${JSON.stringify(entry.type)} is not a milling or hole-making tool, so it is not read`,
+      })
+      return
+    }
     const read = readFusionTool(entry, subject)
     if (read === null) {
       notes.push({

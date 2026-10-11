@@ -253,6 +253,7 @@ library, as `ToolLibrary.toJson()` gives it, read back into `Tool`s in
 millimetres so it can be fitted against a part.
 
 ```ts
+import { fitTools } from '@toolpath/tool-support'
 import { fromFusionLibrary } from '@toolpath/tool-support/import/fusion'
 
 const { tools, notes } = fromFusionLibrary(JSON.parse(library.toJson()))
@@ -267,8 +268,12 @@ Units are per tool in Fusion, so each record's lengths are converted by its own
 `unit`, using the same length table the exporter writes with; angles and counts
 pass through, booleans and enums are dropped, and a key whose unit is unknown is
 dropped with a note. Fusion's `LB` is stored as `LBH`, the dictionary's name for
-the same stickout. Holders are skipped, and a type with no `ToolForm` is read as
-`'other'` and said so. Two readings are supplied and reported as `filled`: a
+the same stickout. Holders are skipped silently; the types that do not mill or
+drill (turning, laser, plasma, waterjet, electric arc wire, probe, tool block)
+are skipped with a note; and a milling type with no `ToolForm` — `form mill` —
+is read as `'other'` and said so. `HAND` and `CSP` are carried beside the tool as
+`hand` and `coolantThrough`, and `post-process.number` as `number` when it is a
+positive integer (Fusion's 0 means unassigned). Two readings are supplied and reported as `filled`: a
 ball end mill with no corner radius has `RE = DC / 2`, and a spot or center
 drill whose `DC` is zero takes `SFDM`. `fromFusionTool` reads a single entry.
 
