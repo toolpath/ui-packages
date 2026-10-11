@@ -41,6 +41,27 @@ describe('CandidateList', () => {
     expect(row(/Pocket from \+Z/)).toHaveAttribute('aria-pressed', 'false')
   })
 
+  it('takes a heading of the app’s in place of the count, beside a compared face’s letter', () => {
+    list({ title: 'Features here' })
+    expect(screen.getByRole('button', { name: 'Features here' })).toBeInTheDocument()
+    expect(screen.queryByText('Candidate features (3)')).not.toBeInTheDocument()
+  })
+
+  it('lights a row hovered from outside, without choosing it', () => {
+    const onSelect = list({ hovered: 'P1' })
+    expect(row(/Pocket from \+Z/)).toHaveAttribute('data-hovered', 'true')
+    expect(row(/Pocket from \+Z/)).toHaveAttribute('aria-pressed', 'false')
+    expect(row(/Wall from \+X/)).not.toHaveAttribute('data-hovered')
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('lights no row for a tag it does not hold, or none', () => {
+    const { container } = render(
+      <CandidateList rows={rows} selected={null} onSelect={() => {}} hovered="nope" />,
+    )
+    expect(container.querySelector('[data-hovered]')).toBeNull()
+  })
+
   it('says how many rules each breaks, and which are required', () => {
     list()
     expect(within(row(/^Pocket from/)).getByText('2 rules')).toBeInTheDocument()

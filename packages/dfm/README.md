@@ -152,7 +152,38 @@ if (demand.sharpCorners) {
 ```
 
 This only checks geometry: diameter, flute length and corner radius against
-the feature. It does not recommend a tool.
+the feature. It does not recommend a tool. `rankFits` in
+`@toolpath/tool-support` puts the result in reading order:
+`rankFits(fits, forms, demand)`.
+
+## A feature list
+
+The Engine reports one set of faces once per reading — a pocket's floor is a
+`face` and part of the `pocket` — so a list of the report's features shows the
+same faces several times. `featureRows` makes one row per set of faces within a
+machining direction, shown as its most specific reading, with every reading in
+`tags`; a `profile` is left out. Rows sort a direction at a time, then by type
+rank, then by area, largest first, and each has a label and a short measurement:
+`⌀10 mm × 15 deep` for a hole, `40 × 40 mm, 15 deep` for a pocket.
+
+Which direction a feature is in and how specific a type is are the viewer's to
+say, so they are passed in; so are areas and the plan size, which no datasheet
+states and the viewer measures off the mesh:
+
+```ts
+import { featureRows } from '@toolpath/dfm/model'
+import { directionIndexOf, featureExtent, featureTypeRank } from '@toolpath/viewer'
+
+const areas = new Map(model.regions.map((region) => [region.idx, region.area]))
+const rows = featureRows(dfmFeatures(report.features), {
+  directionOf: (d) => directionIndexOf(model, d),
+  typeRank: featureTypeRank,
+  direction: activeDirection, // null: every direction
+  areaOf: (idx) => areas.get(idx) ?? 0,
+  sheets,
+  extentOf: (f) => featureExtent(model, geometry, f.tag, f.machiningDirection),
+})
+```
 
 ## Feature panel
 
@@ -206,7 +237,11 @@ in the details' `actions`, a folder badge in `status`.
 - **Rules broken** are `BrokenRule` rows: a colour, the rule's text, the figure
   that broke it, and optionally the limit and a note on hover. `brokenRules`
   builds them from this package's check; an app with a checker of its own
-  builds them from its hits.
+  builds them from its hits. `rules={null}` leaves the section out, for an app
+  that checks no rules.
+- **Candidates** take `hovered`, a tag lit as if under the pointer — the
+  feature the pointer is over on the part — and `title`, a heading in place of
+  `Candidate features (N)`.
 - **Measurements** are `featureMeasurements` rows, each with how it was worked
   out behind an ⓘ. `inchMark` writes inches as `0.46"`.
 - **Reach, the datasheet fields and the raw record** read the feature's

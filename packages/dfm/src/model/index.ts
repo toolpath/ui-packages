@@ -40,6 +40,12 @@ export {
 } from './feature-details.js'
 export { formsFor, type FeatureFormFacts } from './feature-forms.js'
 export {
+  featureRows,
+  type FeatureExtent,
+  type FeatureRow,
+  type FeatureRowsOptions,
+} from './feature-rows.js'
+export {
   PINCH_TOOL_MM,
   featureSheet,
   isNoReading,

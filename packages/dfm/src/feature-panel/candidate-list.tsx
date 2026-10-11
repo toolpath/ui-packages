@@ -49,6 +49,14 @@ export interface CandidateListProps {
   onSelect: (tag: string) => void
   /** A row under the pointer, and leaving it: left out, the rows preview nothing. */
   onHover?: (tag: string | null) => void
+  /**
+   * A row to show as under the pointer from outside the list — the feature
+   * the pointer is over on the part, say. It is lit as a hovered row is, and
+   * marked `data-hovered`; it is not chosen.
+   */
+  hovered?: string | null
+  /** In place of the heading `Candidate features (N)`. */
+  title?: ReactNode
   /** While comparing faces: this list's face. */
   face?: ComparedFaceList
   look?: FeaturePanelLook
@@ -86,12 +94,14 @@ export const CandidateList: FC<CandidateListProps> = ({
   selected,
   onSelect,
   onHover,
+  hovered = null,
+  title,
   face,
   look: lookOption,
   folds,
 }): ReactElement => {
   const look = resolveLook(lookOption)
-  const count = `Candidate features (${rows.length})`
+  const count = title ?? `Candidate features (${rows.length})`
   return (
     <div className="border-b border-gray-100 p-2 dark:border-zinc-800">
       <FoldSection
@@ -127,6 +137,7 @@ export const CandidateList: FC<CandidateListProps> = ({
               key={row.feature.tag}
               row={row}
               chosen={row.feature.tag === selected}
+              lit={row.feature.tag === hovered}
               onSelect={onSelect}
               onHover={onHover}
               look={look}
@@ -141,10 +152,12 @@ export const CandidateList: FC<CandidateListProps> = ({
 const Row: FC<{
   row: CandidateRow
   chosen: boolean
+  /** Hovered from outside the list. */
+  lit: boolean
   onSelect: (tag: string) => void
   onHover?: (tag: string | null) => void
   look: ResolvedLook
-}> = ({ row, chosen, onSelect, onHover, look }): ReactElement => {
+}> = ({ row, chosen, lit, onSelect, onHover, look }): ReactElement => {
   const { feature } = row
   const info = look.selected === 'info'
   return (
@@ -160,6 +173,7 @@ const Row: FC<{
         data-list-item="candidates"
         data-follow
         aria-pressed={chosen}
+        data-hovered={lit || undefined}
         onClick={() => onSelect(feature.tag)}
         onPointerEnter={onHover ? () => onHover(feature.tag) : undefined}
         onPointerLeave={onHover ? () => onHover(null) : undefined}
@@ -170,6 +184,7 @@ const Row: FC<{
           info
             ? 'hover:bg-gray-50 dark:hover:bg-zinc-800/60'
             : 'hover:bg-gray-100 dark:hover:bg-zinc-800',
+          lit && (info ? 'bg-gray-50 dark:bg-zinc-800/60' : 'bg-gray-100 dark:bg-zinc-800'),
           chosen && (info ? 'font-medium' : 'bg-gray-100 font-semibold dark:bg-zinc-800'),
         )}
       >

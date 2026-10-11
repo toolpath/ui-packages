@@ -44,8 +44,12 @@ export interface FeatureDetailsProps {
   status?: ReactNode
   /** Under the title, before the sections: a sentence of the app's, its own action. */
   children?: ReactNode
-  /** The rules it breaks, as rows: see `brokenRules`. */
-  rules: readonly BrokenRule[]
+  /**
+   * The rules it breaks, as rows: see `brokenRules`. Empty, or left out, says
+   * None; `null` leaves the "Rules broken" section out, for an app that
+   * checks no rules.
+   */
+  rules?: readonly BrokenRule[] | null
   /** Its measurements and milling considerations: `featureMeasurements`. */
   measurements: Loadable<readonly Measurement[]>
   /** Its raw report entry and datasheet, for the reach chart. Null where the app has none. */
@@ -81,7 +85,7 @@ export const FeatureDetails: FC<FeatureDetailsProps> = ({
   actions,
   status,
   children,
-  rules,
+  rules = [],
   measurements,
   record,
   PopOut,
@@ -131,9 +135,11 @@ export const FeatureDetails: FC<FeatureDetailsProps> = ({
         {children}
       </div>
 
-      <FoldSection id="rules" title="Rules broken" folds={folds}>
-        <BrokenRuleList rules={rules} look={look} />
-      </FoldSection>
+      {rules ? (
+        <FoldSection id="rules" title="Rules broken" folds={folds}>
+          <BrokenRuleList rules={rules} look={look} />
+        </FoldSection>
+      ) : null}
 
       <MeasurementSections measurements={measurements} look={look} folds={folds} />
 
