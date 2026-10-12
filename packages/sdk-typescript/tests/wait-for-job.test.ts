@@ -162,14 +162,37 @@ describe('waitForJob', () => {
     const stream = streamResponse([jobEvent('running')], { open: true })
     const { client } = clientWith(stream.response)
     const controller = new AbortController()
+    const reason = new Error('Stopped waiting')
 
     // Aborts once the first event has been handled, while the next read is waiting on the server.
     const waiting = waitForJob(client, 'job-1', {
       signal: controller.signal,
-      onUpdate: () => queueMicrotask(() => controller.abort(new Error('Stopped waiting'))),
+      onUpdate: () => queueMicrotask(() => controller.abort(reason)),
     })
 
-    await expect(waiting).rejects.toThrow('Stopped waiting')
+    await expect(waiting).rejects.toBe(reason)
     await stream.cancelled
+  })
+
+  it("rejects with the signal's reason when aborted before the response arrives", async () => {
+    const controller = new AbortController()
+    const reason = new Error('Stopped waiting')
+    // As `fetch` does, the pending request rejects with the abort's reason, which the generated
+    // client would otherwise wrap in a `FetchError`.
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+          controller.abort(reason)
+        }),
+    )
+    const client = createToolpathClient({
+      apiKey: 'tp_test',
+      baseUrl: 'https://api.example.test',
+      fetch,
+    })
+
+    await expect(waitForJob(client, 'job-1', { signal: controller.signal })).rejects.toBe(reason)
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 })

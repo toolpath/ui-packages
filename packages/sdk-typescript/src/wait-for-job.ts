@@ -4,7 +4,10 @@ import { JobDetailFromJSON, JobDetailStatusEnum, type JobDetail } from './genera
 export interface WaitForJobOptions {
   /** Called with the job each time the stream sends it: once on connecting, then on every change. */
   onUpdate?: (job: JobDetail) => void
-  /** Stops waiting. The open stream is closed and `waitForJob` rejects with the signal's reason. */
+  /**
+   * Stops waiting. The request, or the stream it opened, is closed and `waitForJob` rejects with the
+   * signal's reason, whether or not the response has arrived.
+   */
   signal?: AbortSignal
 }
 
@@ -88,21 +91,28 @@ export const waitForJob = async (
   { onUpdate, signal }: WaitForJobOptions = {},
 ): Promise<JobDetail> => {
   signal?.throwIfAborted()
-  const response = await client.jobs.streamJobEventsRaw({ id: jobId }, { signal })
-  const body = response.raw.body
-  if (!body) {
-    throw new Error(`The event stream for job ${jobId} has no body`)
-  }
+  try {
+    const response = await client.jobs.streamJobEventsRaw({ id: jobId }, { signal })
+    const body = response.raw.body
+    if (!body) {
+      throw new Error(`The event stream for job ${jobId} has no body`)
+    }
 
-  for await (const job of readJobEvents(body, signal)) {
-    onUpdate?.(job)
+    for await (const job of readJobEvents(body, signal)) {
+      onUpdate?.(job)
+      signal?.throwIfAborted()
+      if (job.status === JobDetailStatusEnum.Succeeded) {
+        return job
+      }
+      if (job.status === JobDetailStatusEnum.Failed) {
+        throw new JobFailedError(job)
+      }
+    }
+  } catch (error) {
+    // An abort surfaces as the error of whatever it interrupted — the generated client wraps a
+    // request aborted before its response in a `FetchError` — so the signal's reason replaces it.
     signal?.throwIfAborted()
-    if (job.status === JobDetailStatusEnum.Succeeded) {
-      return job
-    }
-    if (job.status === JobDetailStatusEnum.Failed) {
-      throw new JobFailedError(job)
-    }
+    throw error
   }
   signal?.throwIfAborted()
   throw new Error(`The event stream for job ${jobId} ended before the job finished`)
