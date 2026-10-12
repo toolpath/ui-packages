@@ -1,4 +1,4 @@
-import { StrictMode, Suspense, useCallback, useMemo, useRef, useState } from 'react'
+import { StrictMode, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
@@ -87,9 +87,23 @@ interface CameraState {
   target: readonly [number, number, number]
   /** Camera position, used only by the example's navigation smoke tests. */
   position: readonly [number, number, number]
+  /**
+   * How many times the camera has come to rest — `camera-controls`' `sleep`,
+   * which fires once an update finds nothing left to move. A framing glides
+   * over several frames, and the readout shows each of them, so a number read
+   * mid-glide is not where the camera lands; waiting for this to go up is
+   * waiting for the move to finish.
+   */
+  rests: number
 }
 
-const AT_START: CameraState = { zoom: 1, distance: 0, target: [0, 0, 0], position: [0, 0, 0] }
+const AT_START: CameraState = {
+  zoom: 1,
+  distance: 0,
+  target: [0, 0, 0],
+  position: [0, 0, 0],
+  rests: 0,
+}
 
 const sameCamera = (a: CameraState, b: CameraState) =>
   a.zoom === b.zoom &&
@@ -99,7 +113,8 @@ const sameCamera = (a: CameraState, b: CameraState) =>
   a.target[2] === b.target[2] &&
   a.position[0] === b.position[0] &&
   a.position[1] === b.position[1] &&
-  a.position[2] === b.position[2]
+  a.position[2] === b.position[2] &&
+  a.rests === b.rests
 
 /**
  * The camera's own numbers, put on the page.
@@ -119,10 +134,13 @@ const CameraReadout = ({ onChange }: { onChange: (state: CameraState) => void })
   const camera = useThree((state) => state.camera)
   const controls = useThree((state) => state.controls) as {
     getTarget?: (into: THREE.Vector3) => THREE.Vector3
+    addEventListener?: (type: 'sleep', listener: () => void) => void
+    removeEventListener?: (type: 'sleep', listener: () => void) => void
   } | null
   const target = useMemo(() => new THREE.Vector3(), [])
+  const rests = useRef(0)
 
-  useFrame(() => {
+  const report = useCallback(() => {
     if (typeof controls?.getTarget !== 'function') return
     controls.getTarget(target)
     onChange({
@@ -130,8 +148,24 @@ const CameraReadout = ({ onChange }: { onChange: (state: CameraState) => void })
       distance: camera.position.distanceTo(target),
       target: [target.x, target.y, target.z],
       position: [camera.position.x, camera.position.y, camera.position.z],
+      rests: rests.current,
     })
-  })
+  }, [camera, controls, onChange, target])
+
+  // Reported from the event as well as from a frame: `sleep` fires inside the
+  // controls' own update, and the frame loop is on demand, so the frame it
+  // fires in may already have run this readout and there is no frame after it.
+  useEffect(() => {
+    if (typeof controls?.addEventListener !== 'function') return
+    const rest = () => {
+      rests.current += 1
+      report()
+    }
+    controls.addEventListener('sleep', rest)
+    return () => controls.removeEventListener?.('sleep', rest)
+  }, [controls, report])
+
+  useFrame(report)
 
   return null
 }
@@ -573,6 +607,7 @@ const App = () => {
           data-distance={pose.distance}
           data-target={pose.target.join(' ')}
           data-position={pose.position.join(' ')}
+          data-rests={pose.rests}
         >
           <strong>Camera:</strong> zoom {pose.zoom.toFixed(2)}, distance {pose.distance.toFixed(1)}{' '}
           mm, target {pose.target.map((axis) => axis.toFixed(1)).join(', ')}

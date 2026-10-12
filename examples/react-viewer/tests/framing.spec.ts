@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { openViewer, readCamera } from './canvas.js'
+import { openViewer, readCamera, restedCamera } from './canvas.js'
 
 /**
  * How far in the wheel may push, as a multiple of the fitted framing, when
@@ -36,22 +36,20 @@ for (const projection of ['orthographic', 'perspective'] as const) {
 
     await page.getByRole('button', { name: 'Frame detail' }).click()
 
+    // Where the framing landed, not where it was a frame or two before: the
+    // resize below is measured against this to five decimals.
+    const framed = await restedCamera(page, fitted.rests)
+
     // The framing reached past the band the scene alone allows, or the resize
     // could not undo anything and the rest of this proves nothing. Under an
     // orthographic camera that is the zoom; under a perspective one it is the
     // distance, which `minDistance` would otherwise hold at a tenth of the
     // fitted one.
-    //
-    // Polled, because the readout is painted from a frame: this waits for the
-    // framing to land and asserts what it landed on in one step.
     if (projection === 'orthographic') {
-      await expect.poll(async () => (await readCamera(page)).zoom).toBeGreaterThan(MAX_FRAME_RATIO)
+      expect(framed.zoom).toBeGreaterThan(MAX_FRAME_RATIO)
     } else {
-      await expect
-        .poll(async () => (await readCamera(page)).distance)
-        .toBeLessThan(fitted.distance / MAX_FRAME_RATIO)
+      expect(framed.distance).toBeLessThan(fitted.distance / MAX_FRAME_RATIO)
     }
-    const framed = await readCamera(page)
 
     await page.setViewportSize({ width: 1160, height: 700 })
     await page.waitForTimeout(300)
