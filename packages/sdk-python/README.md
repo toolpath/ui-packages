@@ -17,8 +17,7 @@ complete part-analysis flow.
 
 Every operation that queues work returns a `job_id`. Wait for it with `wait_for_job`, not by calling
 `get_job` in a loop. It follows the job's event stream (`GET /v1/jobs/{id}/events`), returns the job
-when it succeeds, and raises `JobFailedError` carrying the job when it fails. Every job reaches one of
-the two, so the one stream is enough; it raises `RuntimeError` if the connection is lost first:
+when it succeeds, and raises `JobFailedError` carrying the job when it fails:
 
 ```python
 from toolpath import AuthenticatedClient, wait_for_job
@@ -26,6 +25,12 @@ from toolpath import AuthenticatedClient, wait_for_job
 client = AuthenticatedClient("https://api.toolpath.com", token=api_key)
 job = await wait_for_job(client, job_id, on_update=lambda job: print(job.status, job.progress))
 ```
+
+Every job reaches one of the two, so the one stream is enough. Losing the open stream first raises
+`RuntimeError`: when the server closes it, and when reading it raises an `httpx.TransportError` — a
+reset or dropped connection, or nothing received for 60 seconds — which becomes the `RuntimeError`'s
+`__cause__`. Errors before the stream opens are httpx's own: `httpx.HTTPStatusError` for an error
+response, and `httpx.TransportError` when no response arrives.
 
 ## License
 
