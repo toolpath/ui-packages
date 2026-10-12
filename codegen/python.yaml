@@ -1,6 +1,5 @@
 project_name_override: toolpath
 package_name_override: toolpath
-package_version_override: 0.1.0
 
 # The Engine API serves binary artifacts under their real media type: GET
 # /v1/parts/{id}/thumbnail responds `image/png`. openapi-python-client recognizes only

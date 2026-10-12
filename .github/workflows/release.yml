@@ -68,6 +68,8 @@ jobs:
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && inputs.services_sha == '')
     runs-on: ubuntu-latest
+    outputs:
+      python_sdk_required: ${{ steps.pypi.outputs.required }}
     # Its own group, separate from the prerelease's, so neither can cancel or
     # delay the other.
     concurrency:
@@ -150,6 +152,65 @@ jobs:
         run: gh pr merge "${{ steps.changesets.outputs.pullRequestNumber }}" --auto --squash
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      # With no release PR pending, this run published (or found published) every npm
+      # version. The Python SDK shares @toolpath/api's version and follows whenever
+      # PyPI lacks it: after a release, a manual run, or a re-run.
+      - name: Check whether PyPI needs the Python SDK
+        id: pypi
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: node scripts/check-pypi-release.mjs
+
+  # Publishes the Python SDK (`toolpath`) to PyPI. Both SDKs are generated from one
+  # contract and share one version. PyPI's trusted publisher is bound to this file
+  # name and the `pypi` environment (docs/PUBLISHING-PYTHON-SDK.md).
+  python-sdk-publish:
+    needs: release
+    # PyPI never takes a version twice, so only main may publish one.
+    if: >-
+      needs.release.outputs.python_sdk_required == 'true' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/project/toolpath/
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: pypi-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          package-manager-cache: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: 0.11.28
+          python-version: '3.11'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm package:python-sdk
+
+      - name: Install the wheel in a clean environment
+        run: |
+          venv="$RUNNER_TEMP/toolpath-wheel-check"
+          uv venv "$venv"
+          uv pip install --python "$venv" artifacts/toolpath-*-py3-none-any.whl
+          "$venv/bin/python" -I -c "import toolpath"
+
+      # --check-url skips a version PyPI already has, so a re-run is safe.
+      - run: >-
+          uv publish --trusted-publishing always
+          --check-url https://pypi.org/simple/
+          artifacts/toolpath-*-py3-none-any.whl
 
   # Publishes @toolpath/api under npm's `staging` dist-tag from the contract Engine
   # staging serves. It commits nothing and never moves `latest`. It lives in this

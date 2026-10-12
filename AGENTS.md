@@ -255,8 +255,9 @@ What the sensors cannot carry:
   written as the flat end mill its numbers describe.
 - **The Changeset check watches `src/` and not the manifests.** `scripts/check-release-intent.mjs`
   lists `packages/ui/src/`, `packages/ui/tailwind-preset.cjs`, `packages/app-support/src/`,
-  `packages/viewer/src/`, `packages/tool-scraper/src/`, `packages/sdk-typescript/src/`, `openapi/`,
-  `codegen/typescript-fetch.yaml`, and `scripts/generate-sdks.mjs`. A `package.json` change that
+  `packages/viewer/src/`, `packages/tool-scraper/src/`, `packages/sdk-typescript/src/`,
+  `packages/sdk-python/toolpath/`, `openapi/`, `codegen/`, and
+  `scripts/generate-sdks.mjs`. A `package.json` change that
   alters `exports`, `files`, `engines`, or a dependency is consumer-visible and needs a Changeset
   under the rules below, but no check will ask for one. That part is judgment until the script's
   path list grows.
@@ -278,16 +279,16 @@ Fix camera reset after a report reload.
 
 Use the package and bump that match the change:
 
-| Changed area                                                                                                | Package                  |
-| ----------------------------------------------------------------------------------------------------------- | ------------------------ |
-| `packages/ui/src/` or `packages/ui/tailwind-preset.cjs`                                                     | `@toolpath/ui`           |
-| `packages/app-support/src/`                                                                                 | `@toolpath/app-support`  |
-| `packages/viewer/src/`                                                                                      | `@toolpath/viewer`       |
-| `packages/dfm/src/` or `packages/dfm/dfm.css`                                                               | `@toolpath/dfm`          |
-| `packages/sdk-typescript/src/`, `openapi/`, `codegen/typescript-fetch.yaml`, or `scripts/generate-sdks.mjs` | `@toolpath/api`          |
-| `packages/tool-drawing/src/`                                                                                | `@toolpath/tool-drawing` |
-| `packages/tool-scraper/src/`                                                                                | `@toolpath/tool-scraper` |
-| `packages/tool-support/src/`                                                                                | `@toolpath/tool-support` |
+| Changed area                                                                                                   | Package                  |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `packages/ui/src/` or `packages/ui/tailwind-preset.cjs`                                                        | `@toolpath/ui`           |
+| `packages/app-support/src/`                                                                                    | `@toolpath/app-support`  |
+| `packages/viewer/src/`                                                                                         | `@toolpath/viewer`       |
+| `packages/dfm/src/` or `packages/dfm/dfm.css`                                                                  | `@toolpath/dfm`          |
+| `packages/sdk-typescript/src/`, `packages/sdk-python/`, `openapi/`, `codegen/`, or `scripts/generate-sdks.mjs` | `@toolpath/api`          |
+| `packages/tool-drawing/src/`                                                                                   | `@toolpath/tool-drawing` |
+| `packages/tool-scraper/src/`                                                                                   | `@toolpath/tool-scraper` |
+| `packages/tool-support/src/`                                                                                   | `@toolpath/tool-support` |
 
 - Public package manifest changes that alter exports, dependencies, peer dependencies, or shipped files
   also require the relevant package Changeset.
@@ -304,9 +305,15 @@ changed without a matching Changeset. The `no-release-needed` label is the only 
 maintainer's call, and the pull request template requires the reason in writing. Do not reach for
 the label to get a check green.
 
-**`packages/sdk-python` is outside Changesets and takes no Changeset.** It is not an npm package,
-the release workflow does not version it, and adding one would put a package name in a changelog
-that never ships. Its version lives in its own `pyproject.toml`.
+**`packages/sdk-python` ships under `@toolpath/api`'s version.** Both SDKs are generated from one
+contract, so a Python change takes an `@toolpath/api` Changeset, never one of its own. `pnpm
+version-packages` runs `scripts/sync-python-sdk-version.mjs` after `changeset version`, so the
+release-metadata pull request bumps `packages/sdk-python/pyproject.toml` too, and `pnpm generate`
+reads the same version (`readSdkVersion` in `scripts/lib.mjs`). After a release run with no
+release PR pending, `scripts/check-pypi-release.mjs` asks PyPI for that version; when PyPI lacks it,
+the `python-sdk-publish` job in `.github/workflows/release.yml` builds the wheel, installs it in a
+clean environment, and publishes it through trusted publishing (`docs/PUBLISHING-PYTHON-SDK.md`).
+Staging prereleases are npm only.
 
 `packages/tool-scraper` publishes to npm as `@toolpath/tool-scraper` and takes a Changeset like any
 other public package. It was `private` for one release cycle, which kept it out of `changeset
