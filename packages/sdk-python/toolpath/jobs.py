@@ -54,33 +54,28 @@ async def wait_for_job(
 ) -> JobDetail:
     """Wait for a job on the job event stream (``GET /v1/jobs/{id}/events``), not by polling.
 
-    Returns the job once it succeeds and raises ``JobFailedError`` once it fails; both are final.
-    ``on_update`` is called with the job each time the stream sends it. The server ends every stream
-    after five minutes, so a stream that closes before the job is final is opened again, starting
-    from the job as it is now. An error response — an unknown job, an expired one, a refused key —
-    raises ``httpx.HTTPStatusError``.
+    Returns the job once it succeeds and raises ``JobFailedError`` once it fails. Every job reaches
+    one of the two — the Engine API fails a job whose worker stops — and the stream ends right after
+    it, so the one stream is all there is to read. ``on_update`` is called with the job each time the
+    stream sends it. A stream that ends before either, which only a lost connection does, raises
+    ``RuntimeError``; an error response — an unknown job, an expired one, a refused key — raises
+    ``httpx.HTTPStatusError``.
     """
-    while True:
-        received = False
-        async with client.get_async_httpx_client().stream(
-            "GET",
-            f"/v1/jobs/{job_id}/events",
-            headers={"Accept": "text/event-stream"},
-            timeout=_STREAM_TIMEOUT,
-        ) as response:
-            if response.is_error:
-                await response.aread()
-                response.raise_for_status()
-            async with aclosing(_job_events(response)) as jobs:
-                async for job in jobs:
-                    received = True
-                    if on_update is not None:
-                        on_update(job)
-                    if job.status is JobDetailStatus.SUCCEEDED:
-                        return job
-                    if job.status is JobDetailStatus.FAILED:
-                        raise JobFailedError(job)
-        # The server sends the job the moment a stream opens, so one that closed without it is not
-        # the five-minute limit. Opening it again would only repeat whatever closed it.
-        if not received:
-            raise RuntimeError(f"The event stream for job {job_id} closed without sending the job")
+    async with client.get_async_httpx_client().stream(
+        "GET",
+        f"/v1/jobs/{job_id}/events",
+        headers={"Accept": "text/event-stream"},
+        timeout=_STREAM_TIMEOUT,
+    ) as response:
+        if response.is_error:
+            await response.aread()
+            response.raise_for_status()
+        async with aclosing(_job_events(response)) as jobs:
+            async for job in jobs:
+                if on_update is not None:
+                    on_update(job)
+                if job.status is JobDetailStatus.SUCCEEDED:
+                    return job
+                if job.status is JobDetailStatus.FAILED:
+                    raise JobFailedError(job)
+    raise RuntimeError(f"The event stream for job {job_id} ended before the job finished")
