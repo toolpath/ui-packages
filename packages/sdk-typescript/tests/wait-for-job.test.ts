@@ -106,7 +106,7 @@ describe('waitForJob', () => {
     expect(statuses).toEqual(['running', 'succeeded'])
   })
 
-  it('rejects with the failed job, without reconnecting', async () => {
+  it('rejects with the failed job', async () => {
     const { response } = streamResponse([
       jobEvent('running'),
       jobEvent('failed', { error: 'kernel_error: no solid body', retriesRemaining: 0 }),
@@ -131,26 +131,17 @@ describe('waitForJob', () => {
     await stream.cancelled
   })
 
-  it('reopens a stream the server closed before the job finished', async () => {
+  it('rejects, without opening another, when the stream ends before the job is final', async () => {
     const { client, fetch } = clientWith(
       streamResponse([jobEvent('running', { progress: 10 })]).response,
-      streamResponse([jobEvent('running', { progress: 90 }), jobEvent('succeeded')]).response,
     )
     const progress: Array<number | null> = []
 
-    await waitForJob(client, 'job-1', { onUpdate: (update) => progress.push(update.progress) })
-
-    expect(fetch).toHaveBeenCalledTimes(2)
-    expect(progress).toEqual([10, 90, null])
-  })
-
-  it('rejects rather than reconnecting when a stream closes without sending the job', async () => {
-    const { client, fetch } = clientWith(streamResponse([': keepalive\n\n']).response)
-
-    await expect(waitForJob(client, 'job-1')).rejects.toThrow(
-      'The event stream for job job-1 closed without sending the job',
-    )
+    await expect(
+      waitForJob(client, 'job-1', { onUpdate: (update) => progress.push(update.progress) }),
+    ).rejects.toThrow('The event stream for job job-1 ended before the job finished')
     expect(fetch).toHaveBeenCalledTimes(1)
+    expect(progress).toEqual([10])
   })
 
   it('rejects with the response error when the stream cannot be opened', async () => {

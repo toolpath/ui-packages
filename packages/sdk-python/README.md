@@ -17,8 +17,8 @@ complete part-analysis flow.
 
 Every operation that queues work returns a `job_id`. Wait for it with `wait_for_job`, not by calling
 `get_job` in a loop. It follows the job's event stream (`GET /v1/jobs/{id}/events`), returns the job
-when it succeeds, raises `JobFailedError` carrying the job when it fails, and reopens the stream if
-the server closes it first:
+when it succeeds, and raises `JobFailedError` carrying the job when it fails. Every job reaches one of
+the two, so the one stream is enough; it raises `RuntimeError` if the connection is lost first:
 
 ```python
 from toolpath import AuthenticatedClient, wait_for_job

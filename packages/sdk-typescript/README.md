@@ -29,9 +29,10 @@ const report = await client.parts.getPart({ id: part.partId, jobId: analysis.job
 
 Every operation that queues work returns a `jobId`. Wait for it with `waitForJob`, not by calling
 `client.jobs.getJob()` in a loop. It follows the job's event stream (`GET /v1/jobs/{id}/events`):
-it resolves with the job when it succeeds, rejects with a `JobFailedError` carrying the job when it
-fails, and reopens the stream if the server closes it first. `onUpdate` receives every job the
-stream sends, and an `AbortSignal` passed as `signal` stops waiting.
+it resolves with the job when it succeeds, and rejects with a `JobFailedError` carrying the job when
+it fails. Every job reaches one of the two, so the one stream is enough; it rejects if the connection
+is lost first. `onUpdate` receives every job the stream sends, and an `AbortSignal` passed as `signal`
+stops waiting.
 
 The generated `client.jobs.streamJobEvents()` is not a substitute: it resolves only once the stream
 has closed, with the raw event text.

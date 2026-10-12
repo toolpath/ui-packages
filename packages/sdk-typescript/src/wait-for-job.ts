@@ -76,41 +76,34 @@ async function* readJobEvents(
 /**
  * Wait for a job on the Engine API's job event stream (`GET /v1/jobs/{id}/events`) rather than by
  * calling `getJob` in a loop. Resolves with the job once it succeeds, and rejects with a
- * {@link JobFailedError} once it fails; both are final. The server ends every stream after five
- * minutes, so a stream that closes before either is opened again, starting from the job as it is
- * now. An error response — an unknown job, an expired one, a refused key — rejects with the
- * generated client's `ResponseError`.
+ * {@link JobFailedError} once it fails. Every job reaches one of the two — the Engine API fails a
+ * job whose worker stops — and the stream ends right after it, so the one stream is all there is to
+ * read. It rejects if the stream ends before either, which only a lost connection does, and with
+ * the generated client's `ResponseError` for an error response: an unknown job, an expired one, a
+ * refused key.
  */
 export const waitForJob = async (
   client: Pick<ToolpathClient, 'jobs'>,
   jobId: string,
   { onUpdate, signal }: WaitForJobOptions = {},
 ): Promise<JobDetail> => {
-  for (;;) {
-    signal?.throwIfAborted()
-    const response = await client.jobs.streamJobEventsRaw({ id: jobId }, { signal })
-    const body = response.raw.body
-    if (!body) {
-      throw new Error(`The event stream for job ${jobId} has no body`)
-    }
+  signal?.throwIfAborted()
+  const response = await client.jobs.streamJobEventsRaw({ id: jobId }, { signal })
+  const body = response.raw.body
+  if (!body) {
+    throw new Error(`The event stream for job ${jobId} has no body`)
+  }
 
-    let received = false
-    for await (const job of readJobEvents(body, signal)) {
-      received = true
-      onUpdate?.(job)
-      signal?.throwIfAborted()
-      if (job.status === JobDetailStatusEnum.Succeeded) {
-        return job
-      }
-      if (job.status === JobDetailStatusEnum.Failed) {
-        throw new JobFailedError(job)
-      }
-    }
+  for await (const job of readJobEvents(body, signal)) {
+    onUpdate?.(job)
     signal?.throwIfAborted()
-    // The server sends the job the moment a stream opens, so one that closed without it is not the
-    // five-minute limit. Reopening it would only repeat whatever closed it.
-    if (!received) {
-      throw new Error(`The event stream for job ${jobId} closed without sending the job`)
+    if (job.status === JobDetailStatusEnum.Succeeded) {
+      return job
+    }
+    if (job.status === JobDetailStatusEnum.Failed) {
+      throw new JobFailedError(job)
     }
   }
+  signal?.throwIfAborted()
+  throw new Error(`The event stream for job ${jobId} ended before the job finished`)
 }
