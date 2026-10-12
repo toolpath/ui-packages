@@ -8,8 +8,9 @@ bootstrap publish. This is the only manual publish; do not add an npm token to t
 
 1. Add the package's Changeset and merge its source pull request normally. Its `repository.url`
    must be `https://github.com/toolpath/ui-packages.git`.
-2. Wait for the release-metadata pull request. CI recognizes that the package is new, leaves this
-   PR open, and comments with the command to run. It assigns the package's initial version.
+2. Wait for the release-metadata pull request. Other releases commit their versions straight to
+   `main`, but CI recognizes that this package is new, opens this PR instead, leaves it open, and
+   comments with the command to run. It assigns the package's initial version.
 3. Check out that release-metadata PR locally and run:
 
    ```sh

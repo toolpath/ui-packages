@@ -54,6 +54,6 @@ if (process.env.GITHUB_OUTPUT) {
 
 if (requiresBootstrap) {
   process.stdout.write(
-    `First npm publish required for: ${unpublishedPackages.join(', ')}. Auto-merge will be skipped.\n`,
+    `First npm publish required for: ${unpublishedPackages.join(', ')}. The release goes through a release-metadata PR for the bootstrap.\n`,
   )
 }

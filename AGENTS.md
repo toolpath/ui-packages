@@ -308,7 +308,7 @@ the label to get a check green.
 **`packages/sdk-python` ships under `@toolpath/api`'s version.** Both SDKs are generated from one
 contract, so a Python change takes an `@toolpath/api` Changeset, never one of its own. `pnpm
 version-packages` runs `scripts/sync-python-sdk-version.mjs` after `changeset version`, so the
-release-metadata pull request bumps `packages/sdk-python/pyproject.toml` too, and `pnpm generate`
+release commit bumps `packages/sdk-python/pyproject.toml` too, and `pnpm generate`
 reads the same version (`readSdkVersion` in `scripts/lib.mjs`). After a release run with no
 release PR pending, `scripts/check-pypi-release.mjs` asks PyPI for that version; when PyPI lacks it,
 the `python-sdk-publish` job in `.github/workflows/release.yml` builds the wheel, installs it in a
@@ -324,8 +324,17 @@ that window and never reached npm, so `0.1.0` is what the maintainer bootstrap i
 accept a trusted publisher for a package it has not seen. Every release after that is the
 workflow's.
 
-Do not manually edit package versions or changelogs. The release workflow generates them in its
-auto-merged release-metadata pull request.
+Do not manually edit package versions or changelogs. The release workflow generates them.
+
+**A merged Changeset releases at once.** On a push to `main` with pending Changesets, the `release`
+job in `.github/workflows/release.yml` runs `pnpm version-packages`, commits the result as
+`chore(release): version packages` straight to `main` as the release bot, and publishes in the same
+run. There is no release-metadata pull request: main's protection lets the release bot, and only
+it, push without one. If `main` moved during the run, the push is skipped and the job starts a
+fresh run on `main`, which releases those Changesets. The release commit starts one more run, which
+finds everything published and does nothing; it retries a publish that failed. The one exception is a package npm has never seen: that
+release still opens a release-metadata pull request and waits for the maintainer bootstrap in
+`docs/BOOTSTRAPPING-NPM-PACKAGES.md`.
 
 ### Staging prereleases
 

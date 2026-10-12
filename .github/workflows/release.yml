@@ -64,10 +64,18 @@ jobs:
 
   release:
     needs: quality
+    # Only main releases; a run elsewhere would also take main's place in the queue.
     if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.services_sha == '')
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.services_sha == ''))
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+      # Lets the job start a fresh release run when main moves under it.
+      actions: write
     outputs:
       python_sdk_required: ${{ steps.pypi.outputs.required }}
     # Its own group, separate from the prerelease's, so neither can cancel or
@@ -90,6 +98,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: npm install --global npm@11.19.0
 
+      # This token may push to main without a PR. Only the push in `version` uses it for
+      # git; the checkout keeps the workflow's own token, which may not.
       - name: Create Toolpath release-bot token
         id: app-token
         uses: actions/create-github-app-token@v2
@@ -98,11 +108,73 @@ jobs:
           private-key: ${{ secrets.TOOLPATH_ACTIONS_BOT_PK }}
           owner: toolpath
           repositories: ui-packages
+          permission-contents: write
+          permission-pull-requests: write
 
-      # Pending Changesets create or update the release-metadata PR. Once that
-      # PR merges, this action publishes only npm versions absent from npm.
-      - name: Version or publish packages
+      - name: Check for pending Changesets
+        id: pending
+        run: |
+          if find .changeset -maxdepth 1 -name '*.md' ! -name README.md | grep -q .; then
+            echo "pending=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pending=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # npm cannot configure a trusted publisher for a package until that package exists.
+      # A release with a new package goes through a release-metadata PR instead, left open
+      # so a maintainer can run the documented bootstrap (docs/BOOTSTRAPPING-NPM-PACKAGES.md).
+      - name: Check whether a release needs an initial npm publish
+        id: npm-bootstrap
+        if: steps.pending.outputs.pending == 'true'
+        run: node scripts/check-npm-package-bootstrap.mjs
+
+      # Every other release is versioned straight on main, with no release-metadata PR:
+      # the merge that brings a Changeset publishes it. Main's protection lets only the
+      # bot push without a PR.
+      - name: Version packages on main
+        id: version
+        if: >-
+          steps.pending.outputs.pending == 'true' &&
+          steps.npm-bootstrap.outputs.required != 'true'
+        run: |
+          pnpm version-packages
+          bot_id="$(gh api "users/${APP_SLUG}[bot]" --jq .id)"
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${bot_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git add --all
+          git commit --message 'chore(release): version packages'
+          # The empty extraheader drops the checkout's token, so git pushes as the bot.
+          bot_remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git -c http.https://github.com/.extraheader= push "$bot_remote" HEAD:main; then
+            echo "moved=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch origin main
+          if [ "$(git rev-parse origin/main)" = "$GITHUB_SHA" ]; then
+            echo "::error::The release bot could not push to main. If this repeats, check that" \
+              "${APP_SLUG} may bypass main's pull-request rule."
+            exit 1
+          fi
+          # main moved since this run checked it out (another merge, or a re-run of an old
+          # run). Publishing here would skip what moved it, so a fresh run on main releases
+          # these Changesets instead.
+          GH_TOKEN="$WORKFLOW_TOKEN" gh workflow run release.yml --ref main
+          echo "moved=true" >> "$GITHUB_OUTPUT"
+          echo "::notice::main moved during this release; a fresh run on main releases it."
+        env:
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          WORKFLOW_TOKEN: ${{ github.token }}
+
+      # With the Changesets spent, this publishes only npm versions absent from npm and
+      # creates their tags and GitHub releases. With a new package pending, it opens or
+      # updates the release-metadata PR instead.
+      - name: Publish packages
         id: changesets
+        if: >-
+          steps.pending.outputs.pending != 'true' ||
+          steps.npm-bootstrap.outputs.required == 'true' ||
+          steps.version.outputs.moved == 'false'
         uses: changesets/action@v1
         with:
           github-token: ${{ steps.app-token.outputs.token }}
@@ -111,20 +183,12 @@ jobs:
           commit: 'chore(release): version packages'
           title: 'chore(release): version packages'
 
-      # npm cannot configure a trusted publisher for a package until that package exists.
-      # Leave first-package release PRs open so a maintainer can run the documented bootstrap.
-      - name: Check whether a release needs an initial npm publish
-        id: npm-bootstrap
-        if: steps.changesets.outputs.pullRequestNumber != ''
-        run: node scripts/check-npm-package-bootstrap.mjs
-
       - name: Explain the initial npm publish
-        if: >-
-          steps.changesets.outputs.pullRequestNumber != '' &&
-          steps.npm-bootstrap.outputs.required == 'true'
+        if: steps.changesets.outputs.pullRequestNumber != ''
         run: |
           gh pr comment "${{ steps.changesets.outputs.pullRequestNumber }}" --body "$(cat <<'EOF'
-          This release adds a package that npm has not seen before. It will not auto-merge.
+          This release adds a package that npm has not seen before. It will not publish until
+          a maintainer bootstraps it.
 
           From a local checkout, run:
 
@@ -140,16 +204,6 @@ jobs:
           Then merge this release PR. Future releases publish automatically with trusted publishing.
           EOF
           )"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-
-      # The App-created PR triggers ordinary pull-request CI. GitHub merges it
-      # only after the repository's protected-branch requirements succeed.
-      - name: Enable auto-merge for the release-metadata PR
-        if: >-
-          steps.changesets.outputs.pullRequestNumber != '' &&
-          steps.npm-bootstrap.outputs.required != 'true'
-        run: gh pr merge "${{ steps.changesets.outputs.pullRequestNumber }}" --auto --squash
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
 
