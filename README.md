@@ -146,7 +146,8 @@ Docker daemon fails the gate before it ever reaches lint.
 enforces this and will fail the pull request without one. Add it with `pnpm changeset`, naming
 every package the change affects, and see AGENTS.md for which paths belong to which package and
 which bump to use. Never edit a package version or changelog by hand: the release workflow
-generates both.
+generates both. A merged Changeset releases in the same run, with no version-packages pull request;
+only a package npm has never seen still gets one, for its first publish.
 
 **The Python SDK follows `@toolpath/api`.** It shares that package's version, so a change to
 `packages/sdk-python` takes an `@toolpath/api` Changeset. It is not on PyPI: each version ships as a
