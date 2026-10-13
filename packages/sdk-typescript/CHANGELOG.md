@@ -1,5 +1,11 @@
 # @toolpath/api
 
+## 0.8.1
+
+### Patch Changes
+
+- f244263: Release the Python SDK (`toolpath`) as a wheel on a GitHub release, under the same version as `@toolpath/api`.
+
 ## 0.8.0
 
 ### Minor Changes
