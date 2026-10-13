@@ -97,12 +97,8 @@ export interface SharpCornerOptions {
 const MIN_FOLD_DEGREES = 20
 /** How far off a feature's machining direction a corner may run, in degrees. */
 const ALONG_TOLERANCE_DEGREES = 15
-/** How wide a corner is drawn, in CSS pixels, half of it on each face, its outline included. */
-const BAND_WIDTH = 8
-/** The thin dark edge each side of a corner, in CSS pixels; the rest of the band is its colour. */
-const OUTLINE_WIDTH = 1
-/** The edge's colour: dark, so a corner reads as an inked line on paint of its own colour. */
-const OUTLINE_COLOR = 0x1f2937
+/** How wide a corner is drawn, in CSS pixels, half of it on each face. */
+const BAND_WIDTH = 6
 /** How strongly a corner shows where it can be seen, and where the part stands in front of it. */
 const NEAR_OPACITY = 1
 const FAR_OPACITY = 0.35
@@ -565,13 +561,13 @@ export function sharpCornerBands(
  * draw goes first, so where a corner in view crosses one behind, the one in
  * view is what shows.
  *
- * Each band has a thin dark **outline** along both its edges. A corner lies on
- * the faces of a feature an application has usually painted for the very rule
- * that flagged it — in red, as like as not — and a corner in its rule's colour
- * vanished into that paint. Edged with a dark line it reads as an inked mark
- * there, in the rule's own colour, and as a red line with a crisp edge on a
- * part with no paint. A white edge and a darkened core were both tried: the
- * one read as a gap, the other as a shadow in the crease.
+ * A band is one plain colour, the theme's `sharpCorner`, so on faces painted
+ * the same colour — for the very rule that flagged the corner, say — it
+ * disappears. Edging it in white or in a dark line, and darkening it, were
+ * all tried there, and read as a gap, an inked line and a shadow in the
+ * crease. The answer is the application's: while the corners are shown, leave
+ * off the paint of the rule they stand for, since each corner is that rule's
+ * mark, more exactly than its paint.
  */
 export interface SharpCornerDrawing {
   readonly object: Group
@@ -631,11 +627,8 @@ const BAND_VERTEX = /* glsl */ `
   uniform float uHovered;
   uniform vec2 uResolution;
   varying float vHovered;
-  varying float vAcross;
 
   void main() {
-    // 0 on the corner, 1 at the band's edge on the face: where the outline is.
-    vAcross = aSide;
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     vec3 across = mat3(modelViewMatrix) * aPerp;
     float reach = aReach * length(across);
@@ -661,19 +654,13 @@ const BAND_FRAGMENT = /* glsl */ `
 
   uniform vec3 diffuse;
   uniform vec3 hoverColor;
-  uniform vec3 outline;
   uniform float opacity;
-  uniform float uCore;
   varying float vHovered;
-  varying float vAcross;
 
   void main() {
     #include <clipping_planes_fragment>
-    // The corner's colour out to uCore of the way across, the outline past it.
-    float soft = fwidth(vAcross);
     // The corner under the pointer in the hover colour, as the part's faces are, not wider.
-    vec3 core = mix(diffuse, hoverColor, vHovered);
-    vec3 color = mix(core, outline, smoothstep(uCore - soft, uCore + soft, vAcross));
+    vec3 color = mix(diffuse, hoverColor, vHovered);
     // And twice as strong: plain even where the part hides it.
     gl_FragColor = vec4(color, min(1.0, opacity * mix(1.0, 2.0, vHovered)));
     #include <colorspace_fragment>
@@ -695,9 +682,7 @@ export function createSharpCornerDrawing(
       uniforms: {
         diffuse: { value: new Color(theme.sharpCorner) },
         hoverColor: { value: new Color(theme.hover) },
-        outline: { value: new Color(OUTLINE_COLOR) },
         opacity: { value: opacity },
-        uCore: { value: 1 - OUTLINE_WIDTH / (BAND_WIDTH / 2) },
         uHalfWidth: { value: BAND_WIDTH / 2 },
         uHovered: hovered,
         uResolution: resolution,

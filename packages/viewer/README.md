@@ -848,6 +848,10 @@ matter, and there is nothing left worth tuning. The colour is the `sharpCorner` 
 or measure the corners yourself, use `surfaceCreases(geometry, model)` and
 `sharpCornerPositions(creases, model, options)`.
 
+If your application paints the features a rule flags, leave that rule's paint off while the corners
+are shown. A corner drawn in the rule's colour disappears into paint of the same colour, and the
+corner is the rule's mark, more exactly than the paint is.
+
 ### Custom colours
 
 Use `highlights` for colours that mean something in your app, such as difficulty, setup, or cost.
