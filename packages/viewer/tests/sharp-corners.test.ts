@@ -595,7 +595,7 @@ describe('createPart — sharp corners', () => {
     })
   })
 
-  it('draws the hovered corner up', () => {
+  it('marks the hovered corner, and only while it is hovered', () => {
     const part = corner()
     part.setSharpCorners({ features: ['corner'] })
     const hovered = () => lines(part)[0]!.material.uniforms['uHovered']!.value as number
@@ -605,6 +605,28 @@ describe('createPart — sharp corners', () => {
 
     part.setHoveredSharpCorner(null)
     expect(hovered()).toBe(-1)
+  })
+
+  /**
+   * Widening the corner under the pointer looked bad. It is shown the way a
+   * hovered face is, in the theme's hover colour, at the width it always has.
+   */
+  it('shows the hovered corner in the hover colour, at its own width', () => {
+    const part = corner()
+    part.setSharpCorners({ features: ['corner'] })
+    const [band] = lines(part)
+    const width = band!.material.uniforms['uHalfWidth']!.value as number
+
+    part.setHoveredSharpCorner(0)
+
+    expect(band!.material.uniforms['uHalfWidth']!.value).toBe(width)
+    expect(band!.material.uniforms['uHoverWidth']).toBeUndefined()
+    expect((band!.material.uniforms['hoverColor']!.value as Color).getHex()).toBe(
+      DEFAULT_THEME.hover,
+    )
+
+    part.setTheme(resolveTheme({ hover: 0x00aaff }))
+    expect((band!.material.uniforms['hoverColor']!.value as Color).getHex()).toBe(0x00aaff)
   })
 
   /**

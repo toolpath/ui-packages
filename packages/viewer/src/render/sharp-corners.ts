@@ -103,8 +103,6 @@ const BAND_WIDTH = 9
 const OUTLINE_WIDTH = 1.5
 /** The outline's colour: light, so the corner stands out on paint of any colour, its own included. */
 const OUTLINE_COLOR = 0xffffff
-/** How much wider the corner under the pointer is drawn. */
-const HOVER_WIDTH = 1.5
 /** How strongly a corner shows where it can be seen, and where the part stands in front of it. */
 const NEAR_OPACITY = 1
 const FAR_OPACITY = 0.35
@@ -577,7 +575,10 @@ export interface SharpCornerDrawing {
   readonly object: Group
   /** Draws these corners of `creases`. None draws nothing. */
   setCorners(creases: SurfaceCreases, corners: readonly SharpCorner[]): void
-  /** Draws one corner up — wider and stronger — as the one under the pointer. `null` for none. */
+  /**
+   * Draws one corner as the one under the pointer: the same width, in the
+   * theme's `hover` colour, and plain behind the part. `null` for none.
+   */
   setHovered(index: number | null): void
   /** Draws nothing, and keeps what it had for the next time. */
   clear(): void
@@ -625,7 +626,6 @@ const BAND_VERTEX = /* glsl */ `
   attribute float aReach;
   attribute float aCorner;
   uniform float uHalfWidth;
-  uniform float uHoverWidth;
   uniform float uHovered;
   uniform vec2 uResolution;
   varying float vHovered;
@@ -645,8 +645,7 @@ const BAND_VERTEX = /* glsl */ `
     vec3 sight = perspective ? normalize(-mvPosition.xyz) : vec3(0.0, 0.0, 1.0);
     float shown = length(across - sight * dot(across, sight));
     vHovered = abs(aCorner - uHovered) < 0.5 ? 1.0 : 0.0;
-    float halfWidth = uHalfWidth * mix(1.0, uHoverWidth, vHovered);
-    float offset = min(halfWidth * pixel / max(shown, 0.25), reach);
+    float offset = min(uHalfWidth * pixel / max(shown, 0.25), reach);
 
     mvPosition.xyz += across * offset * aSide;
     gl_Position = projectionMatrix * mvPosition;
@@ -659,6 +658,7 @@ const BAND_FRAGMENT = /* glsl */ `
   #include <clipping_planes_pars_fragment>
 
   uniform vec3 diffuse;
+  uniform vec3 hoverColor;
   uniform vec3 outline;
   uniform float opacity;
   uniform float uCore;
@@ -669,8 +669,10 @@ const BAND_FRAGMENT = /* glsl */ `
     #include <clipping_planes_fragment>
     // The corner's colour out to uCore of the way across, the outline past it.
     float soft = fwidth(vAcross);
-    vec3 color = mix(diffuse, outline, smoothstep(uCore - soft, uCore + soft, vAcross));
-    // The corner under the pointer, twice as strong: plain even where the part hides it.
+    // The corner under the pointer in the hover colour, as the part's faces are, not wider.
+    vec3 core = mix(diffuse, hoverColor, vHovered);
+    vec3 color = mix(core, outline, smoothstep(uCore - soft, uCore + soft, vAcross));
+    // And twice as strong: plain even where the part hides it.
     gl_FragColor = vec4(color, min(1.0, opacity * mix(1.0, 2.0, vHovered)));
     #include <colorspace_fragment>
   }
@@ -690,11 +692,11 @@ export function createSharpCornerDrawing(
     const band = new ShaderMaterial({
       uniforms: {
         diffuse: { value: new Color(theme.sharpCorner) },
+        hoverColor: { value: new Color(theme.hover) },
         outline: { value: new Color(OUTLINE_COLOR) },
         opacity: { value: opacity },
         uCore: { value: 1 - OUTLINE_WIDTH / (BAND_WIDTH / 2) },
         uHalfWidth: { value: BAND_WIDTH / 2 },
-        uHoverWidth: { value: HOVER_WIDTH },
         uHovered: hovered,
         uResolution: resolution,
       },
@@ -783,6 +785,7 @@ export function createSharpCornerDrawing(
     setTheme(next) {
       for (const band of [nearMaterial, farMaterial]) {
         ;(band.uniforms['diffuse']!.value as Color).setHex(next.sharpCorner)
+        ;(band.uniforms['hoverColor']!.value as Color).setHex(next.hover)
       }
     },
 

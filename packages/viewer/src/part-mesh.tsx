@@ -248,7 +248,7 @@ export const PartMesh = ({
       {
         ...rest,
         hoveredFeatures,
-        // On a corner the corner is what is hovered, drawn up by the part; the
+        // On a corner the corner is what is hovered, in the hover colour; the
         // face it lies on is not painted as if the pointer meant it.
         hoverRegion: hoverCorner.current === null ? hoverRegion.current : null,
       },

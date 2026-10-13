@@ -821,8 +821,8 @@ const flagged = Object.entries(sheets)
 Tags are matched without regard to case, so the lower-cased keys an application keeps its sheets
 under work as they are.
 
-With `hover` on, the pointer on a corner is on the corner: it is drawn up — wider, and solid — the
-face under it is not painted as hovered, and the pick `onHover` reports carries it as
+With `hover` on, the pointer on a corner is on the corner: it takes the theme's `hover` colour at
+the same width, the face under it is not painted as hovered, and the pick `onHover` reports carries it as
 `pick.sharpCorner`. That is a `SharpCorner`: the flagged `feature` it belongs to, its `start` and `end`,
 its `length` (how deep a tool would have to reach, mm), and the `angle` between its faces (90 for a
 square corner). What a hover card says about it is the application's call; with the feature's sheet,
