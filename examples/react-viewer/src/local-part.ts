@@ -1,8 +1,6 @@
 import { normalizePartReport, smoothRegionNormals } from '@toolpath/viewer'
 import { parsePartGeometry } from '@toolpath/viewer/engine'
-// The DFM rules' own reading of a datasheet, from source: this example depends
-// on the viewer alone, and an application reads it from `@toolpath/dfm/model`.
-import { type FeatureSheet, featureSheet } from '../../../packages/dfm/src/model/feature-sheet'
+import { type FeatureSheet, featureSheet } from '@toolpath/dfm/model'
 import type { ExampleModel } from './models'
 
 let opened = 0

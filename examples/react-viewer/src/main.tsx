@@ -39,8 +39,7 @@ import {
   type ViewerToolbarControls,
 } from '@toolpath/viewer'
 import { AnalysisOptions } from './analysis-options'
-// Its type only, from the DFM rules' own source: see `local-part.ts`.
-import type { FeatureSheet } from '../../../packages/dfm/src/model/feature-sheet'
+import type { FeatureSheet } from '@toolpath/dfm/model'
 import { partFromFiles } from './local-part'
 import { type ExampleModel, MODELS, modelFromQuery } from './models'
 import stockMeshFixture from '../../../packages/viewer/fixtures/mesh/stock-box.json'

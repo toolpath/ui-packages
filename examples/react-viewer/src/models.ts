@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { FeatureSheet } from '../../../packages/dfm/src/model/feature-sheet'
+import type { FeatureSheet } from '@toolpath/dfm/model'
 import {
   buildRegionIndex,
   smoothRegionNormals,
