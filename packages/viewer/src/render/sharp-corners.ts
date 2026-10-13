@@ -98,11 +98,11 @@ const MIN_FOLD_DEGREES = 20
 /** How far off a feature's machining direction a corner may run, in degrees. */
 const ALONG_TOLERANCE_DEGREES = 15
 /** How wide a corner is drawn, in CSS pixels, half of it on each face, its outline included. */
-const BAND_WIDTH = 9
-/** The light edge each side of a corner, in CSS pixels; the rest of the band is its colour. */
-const OUTLINE_WIDTH = 1.5
-/** The outline's colour: light, so the corner stands out on paint of any colour, its own included. */
-const OUTLINE_COLOR = 0xffffff
+const BAND_WIDTH = 8
+/** The thin dark edge each side of a corner, in CSS pixels; the rest of the band is its colour. */
+const OUTLINE_WIDTH = 1
+/** The edge's colour: dark, so a corner reads as an inked line on paint of its own colour. */
+const OUTLINE_COLOR = 0x1f2937
 /** How strongly a corner shows where it can be seen, and where the part stands in front of it. */
 const NEAR_OPACITY = 1
 const FAR_OPACITY = 0.35
@@ -565,11 +565,13 @@ export function sharpCornerBands(
  * draw goes first, so where a corner in view crosses one behind, the one in
  * view is what shows.
  *
- * Each band has a light **outline** along both its edges. A corner lies on the
- * faces of a feature an application has usually painted for the very rule that
- * flagged it — in red, as like as not — and a corner in one colour vanishes
- * into paint of a near one, while a dark one reads as a shadow in the crease.
- * Edged in white, a corner of any colour shows on paint of any colour.
+ * Each band has a thin dark **outline** along both its edges. A corner lies on
+ * the faces of a feature an application has usually painted for the very rule
+ * that flagged it — in red, as like as not — and a corner in its rule's colour
+ * vanished into that paint. Edged with a dark line it reads as an inked mark
+ * there, in the rule's own colour, and as a red line with a crisp edge on a
+ * part with no paint. A white edge and a darkened core were both tried: the
+ * one read as a gap, the other as a shadow in the crease.
  */
 export interface SharpCornerDrawing {
   readonly object: Group
