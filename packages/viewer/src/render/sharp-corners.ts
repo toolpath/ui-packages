@@ -239,12 +239,10 @@ export function surfaceCreases(
 
 /** What `options` would draw, as a string: equal keys draw the same lines. */
 export function sharpCornerKey(options: SharpCornerOptions): string {
-  return [
-    options.features
-      .map((tag) => tag.toLowerCase())
-      .sort()
-      .join(','),
-  ].join('|')
+  return options.features
+    .map((tag) => tag.toLowerCase())
+    .sort()
+    .join(',')
 }
 
 /**
