@@ -148,6 +148,11 @@ every package the change affects, and see AGENTS.md for which paths belong to wh
 which bump to use. Never edit a package version or changelog by hand: the release workflow
 generates both.
 
+**The Python SDK follows `@toolpath/api`.** It shares that package's version, so a change to
+`packages/sdk-python` takes an `@toolpath/api` Changeset. It is not on PyPI: each version ships as a
+wheel on the GitHub release `python-sdk-v<version>`, which the release workflow creates. See
+[Python SDK releases](docs/PYTHON-SDK-RELEASES.md).
+
 **Staging prereleases.** `@toolpath/api` is also published under the `staging` dist-tag, as
 `<next stable>-staging.<datetime>.g<services sha7>`, from the contract Engine staging serves — by
 services' staging workflow after acceptance, or by running `release.yml` with a `services_sha`
