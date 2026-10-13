@@ -10,6 +10,7 @@ import {
   LessEqualDepth,
   type Matrix4,
   Mesh,
+  MeshBasicMaterial,
   NotEqualStencilFunc,
   type Plane,
   ReplaceStencilOp,
@@ -544,9 +545,18 @@ export function sharpCornerBands(
  *
  * Two draws of one geometry, split by the depth test — the near one passes
  * where the band is in front of whatever else is at that pixel, the far one
- * exactly where it is not. The part's own surface is pushed back a hair
- * (`polygonOffset` in `render/part.ts`) for its edge lines, which is what lets
- * a band lying on it win the tie.
+ * exactly where it is not. A band lies on the very face it marks, so the two
+ * tie, and the bands settle the tie themselves: each is pulled a hair toward
+ * the camera (`polygonOffset`). Leaning on the part's own offset instead let
+ * the near and far draws fight over a focused face, whose material has none.
+ *
+ * And the test needs the part's depth to be there. A solid part writes it; in
+ * wireframe or focus its faded faces do not, and every corner, even one behind
+ * the part, read as in view. So in those modes the drawing lays the part's
+ * depth down itself, just before the bands: a copy of the part that writes
+ * depth and no colour ({@link SharpCornerDrawing.setPartDepth}). It comes after
+ * everything else that tests depth and before the measure tool, so it hides
+ * nothing but the corners behind the part.
  *
  * And each pixel is drawn **once**, by one stencil bit both draws test and
  * set, so where bands overlap a translucent one does not blend twice. The near
@@ -562,12 +572,23 @@ export interface SharpCornerDrawing {
   /** Draws nothing, and keeps what it had for the next time. */
   clear(): void
   setTheme(theme: ViewerTheme): void
+  /**
+   * Lays the part's depth down before the bands, for a part that is not
+   * writing its own: in wireframe, or faded around a focus. Off for a solid one.
+   */
+  setPartDepth(on: boolean): void
   setClippingPlanes(planes: Plane[] | null): void
   dispose(): void
 }
 
-/** Drawn over the part's own edges (4) and under the measure tool. */
-const SHARP_CORNER_RENDER_ORDER = 5
+/**
+ * The part's depth, then the near draw, then the far one: after everything
+ * else on the part that tests depth — the stock (5, 6), the section's plane
+ * (5), a tool mark (6) — and before the measure tool (7) and what follows it,
+ * none of which tests depth. So the depth laid down for the bands in wireframe
+ * hides nothing else.
+ */
+const SHARP_CORNER_RENDER_ORDER = { depth: 6.25, near: 6.5, far: 6.75 } as const
 
 /**
  * The stencil bit that marks a pixel as drawn. The top one: the section cap
@@ -636,7 +657,10 @@ const BAND_FRAGMENT = /* glsl */ `
   }
 `
 
-export function createSharpCornerDrawing(theme: ViewerTheme): SharpCornerDrawing {
+export function createSharpCornerDrawing(
+  theme: ViewerTheme,
+  part: BufferGeometry,
+): SharpCornerDrawing {
   let geometry = new BufferGeometry()
   // Shared by both draws, and kept to the viewport each frame.
   const resolution = { value: new Vector2(1, 1) }
@@ -661,6 +685,10 @@ export function createSharpCornerDrawing(theme: ViewerTheme): SharpCornerDrawing
       clipping: true,
     })
     band.depthFunc = depthFunc
+    // Wins the tie with the face the band lies on, whatever drew that face.
+    band.polygonOffset = true
+    band.polygonOffsetFactor = -1
+    band.polygonOffsetUnits = -1
     band.stencilWrite = true
     band.stencilRef = SHARP_CORNER_STENCIL_BIT
     band.stencilFuncMask = SHARP_CORNER_STENCIL_BIT
@@ -676,11 +704,29 @@ export function createSharpCornerDrawing(theme: ViewerTheme): SharpCornerDrawing
 
   const near = new Mesh(geometry, nearMaterial)
   const far = new Mesh(geometry, farMaterial)
-  near.renderOrder = SHARP_CORNER_RENDER_ORDER
-  far.renderOrder = SHARP_CORNER_RENDER_ORDER + 1
+  near.name = 'sharpCornersNear'
+  far.name = 'sharpCornersFar'
+  near.renderOrder = SHARP_CORNER_RENDER_ORDER.near
+  far.renderOrder = SHARP_CORNER_RENDER_ORDER.far
   // Bands must never win a pick: the part's faces are what a click is about.
   near.raycast = () => {}
   far.raycast = () => {}
+
+  // The part's depth and no colour, pushed back as the part's own surface is.
+  // Transparent only to be drawn among the transparent things, in its order.
+  const depthMaterial = new MeshBasicMaterial({
+    colorWrite: false,
+    depthWrite: true,
+    transparent: true,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
+  })
+  const depth = new Mesh(part, depthMaterial)
+  depth.name = 'sharpCornersDepth'
+  depth.renderOrder = SHARP_CORNER_RENDER_ORDER.depth
+  depth.visible = false
+  depth.raycast = () => {}
   // The band's width is in pixels, so it needs the viewport it is drawn into.
   near.onBeforeRender = (renderer) => {
     renderer.getViewport(viewport)
@@ -688,7 +734,7 @@ export function createSharpCornerDrawing(theme: ViewerTheme): SharpCornerDrawing
   }
 
   const object = new Group()
-  object.add(far, near)
+  object.add(depth, far, near)
   object.visible = false
 
   return {
@@ -719,16 +765,23 @@ export function createSharpCornerDrawing(theme: ViewerTheme): SharpCornerDrawing
       }
     },
 
+    setPartDepth(on) {
+      depth.visible = on
+    },
+
     setClippingPlanes(planes) {
       nearMaterial.clippingPlanes = planes
       farMaterial.clippingPlanes = planes
+      depthMaterial.clippingPlanes = planes
     },
 
     dispose() {
       object.clear()
+      // Only the bands' own geometry: the part's belongs to the part.
       geometry.dispose()
       nearMaterial.dispose()
       farMaterial.dispose()
+      depthMaterial.dispose()
     },
   }
 }

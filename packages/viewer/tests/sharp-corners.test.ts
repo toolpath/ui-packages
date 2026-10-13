@@ -3,7 +3,9 @@ import {
   type Color,
   Float32BufferAttribute,
   type Mesh,
+  type MeshBasicMaterial,
   PerspectiveCamera,
+  Plane,
   type ShaderMaterial,
   Vector3,
 } from 'three'
@@ -11,6 +13,7 @@ import { describe, expect, it } from 'vitest'
 import { parsePartGeometry } from '../src/engine/geometry.js'
 import { buildRegionIndex } from '../src/model/region-index.js'
 import type { PartModel, PartModelFeature, PartModelRegion, Vec3 } from '../src/model/types.js'
+import { MEASURE_RENDER_ORDER } from '../src/render/measure.js'
 import { type PartObject, createPart } from '../src/render/part.js'
 import {
   SHARP_CORNER_STENCIL_BIT,
@@ -366,7 +369,8 @@ describe('sharpCornerBands', () => {
 describe('createPart — sharp corners', () => {
   /** A floor and a wall meeting in an inside corner along Y, one feature cut along Y over both. */
   function corner(): PartObject {
-    const features = [feature('corner', [0, 1], { x: 0, y: 1, z: 0 })]
+    // The floor alone as well, for something to focus on.
+    const features = [feature('corner', [0, 1], { x: 0, y: 1, z: 0 }), feature('floor', [0])]
     const { regions: table } = regions(2)
     const model: PartModel = {
       partId: 'corner',
@@ -381,11 +385,20 @@ describe('createPart — sharp corners', () => {
     return createPart(model, mesh(FLOOR, WALL_UP), DEFAULT_THEME)
   }
 
-  /** The two draws — near and far — of the sharp-corner group, once it exists. */
-  const lines = (part: PartObject) =>
-    part.object.children
-      .slice(3)
-      .flatMap((group) => group.children as Mesh<BufferGeometry, ShaderMaterial>[])
+  type Band = Mesh<BufferGeometry, ShaderMaterial>
+
+  /** The two draws — far and near — of the sharp-corner group, once it exists. */
+  const lines = (part: PartObject): Band[] =>
+    ['sharpCornersFar', 'sharpCornersNear'].flatMap((name) => {
+      const band = part.object.getObjectByName(name)
+      return band ? [band as Band] : []
+    })
+
+  /** The copy of the part that lays its depth down for the bands. */
+  const depthOf = (part: PartObject) =>
+    part.object.getObjectByName('sharpCornersDepth') as
+      | Mesh<BufferGeometry, MeshBasicMaterial>
+      | undefined
 
   it('builds nothing until something is flagged', () => {
     const part = corner()
@@ -428,6 +441,89 @@ describe('createPart — sharp corners', () => {
       expect(line.material.stencilWriteMask).toBe(SHARP_CORNER_STENCIL_BIT)
     }
     expect(near!.renderOrder).toBeLessThan(far!.renderOrder)
+  })
+
+  /**
+   * A band lies on the face it marks, so the two tie for depth. The bands
+   * settle it themselves rather than lean on the part's own offset: a focused
+   * face is drawn by a material with none, and there the near and far draws
+   * fought, speckling the corner.
+   */
+  it('pulls its bands toward the camera, to win the tie with any face', () => {
+    const part = corner()
+
+    part.setSharpCorners({ features: ['corner'] })
+
+    for (const band of lines(part)) {
+      expect(band.material.polygonOffset).toBe(true)
+      expect(band.material.polygonOffsetFactor).toBeLessThan(0)
+      expect(band.material.polygonOffsetUnits).toBeLessThan(0)
+    }
+  })
+
+  /**
+   * In wireframe and focus the part's faded faces write no depth, and every
+   * corner read as in view — even one behind the part. There the drawing lays
+   * the part's depth down for the bands itself.
+   */
+  describe("the part's depth, for the bands", () => {
+    it('is laid down in wireframe, and not on a solid part', () => {
+      const part = corner()
+      part.setSharpCorners({ features: ['corner'] })
+      expect(depthOf(part)?.visible).toBe(false)
+
+      part.setDisplay('wireframe')
+      expect(depthOf(part)?.visible).toBe(true)
+
+      part.setDisplay('solid')
+      expect(depthOf(part)?.visible).toBe(false)
+    })
+
+    it('is laid down around a focus', () => {
+      const part = corner()
+      part.setSharpCorners({ features: ['corner'] })
+
+      part.setFocus(['floor'], {})
+
+      expect(depthOf(part)?.visible).toBe(true)
+    })
+
+    it('is laid down for corners turned on while already in wireframe', () => {
+      const part = corner()
+      part.setDisplay('wireframe')
+
+      part.setSharpCorners({ features: ['corner'] })
+
+      expect(depthOf(part)?.visible).toBe(true)
+    })
+
+    it("is the part's own geometry, cut by the same section, and draws no colour", () => {
+      const part = corner()
+      part.setSharpCorners({ features: ['corner'] })
+      part.setClippingPlanes([new Plane(new Vector3(0, 0, 1), 0)])
+
+      const depth = depthOf(part)!
+      expect(depth.geometry).toBe(part.mesh.geometry)
+      expect(depth.material.clippingPlanes).toHaveLength(1)
+      expect(depth.material.colorWrite).toBe(false)
+      expect(depth.material.depthWrite).toBe(true)
+    })
+
+    /**
+     * Anything drawn after the depth that tested it would be hidden behind a
+     * part that is meant to be see-through. So it comes after the stock and
+     * a tool mark (6) and before the measure tool (7), which does not test it.
+     */
+    it('comes just before the bands, after everything else that tests depth', () => {
+      const part = corner()
+      part.setSharpCorners({ features: ['corner'] })
+
+      const [far, near] = lines(part)
+      const depth = depthOf(part)!
+      expect(depth.renderOrder).toBeGreaterThan(MEASURE_RENDER_ORDER - 1)
+      expect(depth.renderOrder).toBeLessThan(near!.renderOrder)
+      expect(far!.renderOrder).toBeLessThan(MEASURE_RENDER_ORDER)
+    })
   })
 
   it('hides when nothing is flagged, and when switched off', () => {

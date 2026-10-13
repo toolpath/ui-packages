@@ -335,6 +335,8 @@ export function createPart(
     }
     focusState.value = focused
     focusMesh.visible = focused
+    // A part writing no depth of its own leaves the corners none to be hidden by.
+    sharpLines?.setPartDepth(transparent)
   }
 
   const object = new Group()
@@ -484,8 +486,9 @@ export function createPart(
       }
       creases ??= surfaceCreases(geometry, model)
       if (!sharpLines) {
-        sharpLines = createSharpCornerDrawing(currentTheme)
+        sharpLines = createSharpCornerDrawing(currentTheme, geometry)
         sharpLines.setClippingPlanes(clipping)
+        sharpLines.setPartDepth(wireframe.value || focused)
         object.add(sharpLines.object)
       }
       corners = findSharpCorners(creases, model, options)
