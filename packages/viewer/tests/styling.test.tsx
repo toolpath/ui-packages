@@ -69,6 +69,19 @@ describe('viewer styling hooks', () => {
     expect(markup).toContain('aria-pressed="true"')
   })
 
+  it('puts the sharp-corners button on the default bar, labelled for what a press does', () => {
+    const render = (pressed: boolean) =>
+      renderToStaticMarkup(
+        <ViewerToolbarProvider controls={{ sharpCorners: { pressed, onClick: () => {} } }}>
+          <ViewerToolbar />
+        </ViewerToolbarProvider>,
+      )
+
+    expect(render(true)).toContain('data-viewer-toolbar-action="sharpCorners"')
+    expect(render(true)).toContain('aria-label="Hide sharp corners"')
+    expect(render(false)).toContain('aria-label="Show sharp corners"')
+  })
+
   it('requires a provider for compound toolbar controls', () => {
     expect(() => renderToStaticMarkup(<ViewerToolbar.StockButton />)).toThrow(
       'useViewerToolbar must be used inside <ViewerToolbarProvider>',

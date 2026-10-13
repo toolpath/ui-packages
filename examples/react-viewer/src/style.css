@@ -93,6 +93,10 @@ strong {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
+.viewer-hover-eyebrow-sharp {
+  color: #f87171;
+}
 .viewer-hover-card dl {
   display: grid;
   gap: 0.3rem;
@@ -305,4 +309,8 @@ strong {
 }
 .toolpath-measure-label[data-axis='z'] {
   border-color: #6f9bff;
+}
+
+.open-error {
+  color: #fca5a5;
 }

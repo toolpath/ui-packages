@@ -27,6 +27,7 @@ import {
 } from './render/section.js'
 import { useTapGuard } from './tap.js'
 import { createPart, type PartDisplay } from './render/part.js'
+import { type SharpCornerOptions, sharpCornerKey } from './render/sharp-corners.js'
 import { regionAdjacency } from './render/adjacency.js'
 import { type PartPick, buildPick, viewDirection } from './render/picking.js'
 import { trackDoubleTaps } from './render/tap.js'
@@ -34,6 +35,7 @@ import { useRetarget, useSectionStore, useViewerControls } from './viewer.js'
 import { SectionView, resolveSectionPlane } from './section-view.js'
 import { useContentBox } from './content-box.js'
 import { type ViewerTheme, resolveTheme, themesEqual } from './render/theme.js'
+import type { ViewerCamera } from './render/camera.js'
 
 export interface PartMeshProps {
   /** The normalized report. `engine/normalize.ts` produces it. */
@@ -134,6 +136,14 @@ export interface PartMeshProps {
   onPick?: (pick: PartPick) => void
   theme?: Partial<ViewerTheme>
   showEdges?: boolean
+  /**
+   * Draws the sharp corners of the features the DFM rules flag — `features`,
+   * those whose `featureSheet(datasheet).sharpCorners` is set — bold, and
+   * faintly through the part where it hides them. The rules decide which
+   * corners; the mesh only says where they are. Off when omitted or `null`.
+   * Coloured by the theme's `sharpCorner`.
+   */
+  sharpCorners?: SharpCornerOptions | null
   /** Wireframe shows region boundaries and any hovered/painted faces, with no triangle diagonals. */
   display?: PartDisplay
   /**
@@ -173,10 +183,11 @@ export const PartMesh = ({
   onPick,
   theme,
   showEdges = true,
+  sharpCorners = null,
   display = 'solid',
   children,
 }: PartMeshProps) => {
-  const { camera, controls, invalidate } = useThree()
+  const { camera, controls, invalidate, size } = useThree()
   const context = useMemo(() => ({ model, geometry }), [model, geometry])
   const viewerControls = useViewerControls()
   const resolved = useStableTheme(theme)
@@ -186,6 +197,8 @@ export const PartMesh = ({
   currentTheme.current = resolved
   const part = useMemo(() => createPart(model, geometry, currentTheme.current), [geometry, model])
   const hoverRegion = useRef<number | null>(null)
+  // The sharp corner under the pointer, which takes the hover from its face.
+  const hoverCorner = useRef<number | null>(null)
   // Read from effects that must clear a card after its callback changes, while
   // keeping the pointer handlers stable enough to avoid a React round-trip.
   const onHoverRef = useRef(onHover)
@@ -232,11 +245,26 @@ export const PartMesh = ({
     const { hoveredFeatureIds: hoveredFeatures, ...rest } = layers.current
     applyHighlightLayers(
       part,
-      { ...rest, hoveredFeatures, hoverRegion: hoverRegion.current },
+      {
+        ...rest,
+        hoveredFeatures,
+        // On a corner the corner is what is hovered, drawn up by the part; the
+        // face it lies on is not painted as if the pointer meant it.
+        hoverRegion: hoverCorner.current === null ? hoverRegion.current : null,
+      },
       currentTheme.current,
     )
     invalidate()
   }, [invalidate, part])
+
+  /** Puts the hover down, wherever it was, and says so. */
+  const dropHover = useCallback(() => {
+    hoverRegion.current = null
+    hoverCorner.current = null
+    part.setHoveredSharpCorner(null)
+    repaint()
+    onHoverRef.current?.(null)
+  }, [part, repaint])
 
   useEffect(() => () => part.dispose(), [part])
 
@@ -279,6 +307,17 @@ export const PartMesh = ({
     part.setClippingPlanes(cut ? [cut.plane] : null)
     invalidate()
   }, [cut, invalidate, part])
+
+  // Keyed by content, like the focus above: callers pass object literals.
+  const sharpCornersRef = useRef(sharpCorners)
+  sharpCornersRef.current = sharpCorners
+  const sharpKey = sharpCorners ? sharpCornerKey(sharpCorners) : ''
+  useLayoutEffect(() => {
+    part.setSharpCorners(sharpCornersRef.current)
+    // The corners just changed under a hover that named one of them.
+    if (hoverCorner.current !== null) dropHover()
+    invalidate()
+  }, [dropHover, invalidate, part, sharpKey])
 
   const reportedSection = useRef<string>('')
   useLayoutEffect(() => {
@@ -333,7 +372,7 @@ export const PartMesh = ({
     const normal = event.face?.normal ?? UP
     const source = event.nativeEvent
 
-    return buildPick({
+    const pick = buildPick({
       model,
       region,
       triangleIndex,
@@ -351,6 +390,8 @@ export const PartMesh = ({
         secondary: 'button' in source && source.button === 2,
       },
     })
+    const corner = part.sharpCornerAt({ point: event.point, region }, camera as ViewerCamera, size)
+    return corner ? { ...pick, sharpCorner: corner } : pick
   }
 
   // Hover is region-level, so moving between triangles of one face is not a new
@@ -358,8 +399,11 @@ export const PartMesh = ({
   // through a state update the consumer would have to round-trip.
   const emitHover = (next: PartPick | null) => {
     const region = next?.region ?? null
-    if (hoverRegion.current === region) return
+    const corner = next?.sharpCorner?.index ?? null
+    if (hoverRegion.current === region && hoverCorner.current === corner) return
     hoverRegion.current = region
+    hoverCorner.current = corner
+    part.setHoveredSharpCorner(corner)
     repaint()
     onHover?.(next)
   }
@@ -369,19 +413,15 @@ export const PartMesh = ({
   // crosses a region boundary.
   useLayoutEffect(() => {
     if (hover || hoverRegion.current === null) return
-    hoverRegion.current = null
-    repaint()
-    onHoverRef.current?.(null)
-  }, [hover, repaint])
+    dropHover()
+  }, [dropHover, hover])
 
   // A tool taking the pointer takes the hover with it, or the face under the
   // pointer at that moment would stay painted until the pointer left the part.
   useLayoutEffect(() => {
     if (!engaged || hoverRegion.current === null) return
-    hoverRegion.current = null
-    repaint()
-    onHoverRef.current?.(null)
-  }, [engaged, repaint])
+    dropHover()
+  }, [dropHover, engaged])
 
   const dragSection = useCallback(
     (constant: number) => {

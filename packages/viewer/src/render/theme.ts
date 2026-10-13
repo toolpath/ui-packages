@@ -29,6 +29,8 @@ export interface ViewerTheme {
   /** `EdgesGeometry` line color and opacity. */
   readonly edge: number
   readonly edgeOpacity: number
+  /** The sharp corners `<PartMesh sharpCorners>` draws. */
+  readonly sharpCorner: number
   /**
    * The capped face of a section cut: its fill, and the hatch lines drawn over
    * it. The cap's edge takes {@link ViewerTheme.sectionHandleOutline}.
@@ -143,6 +145,8 @@ export const DEFAULT_THEME: ViewerTheme = {
   picked: 0xf97316,
   edge: 0x000000,
   edgeOpacity: 0.5,
+  // Red, which the direction palette's note keeps free for sharp corners.
+  sharpCorner: 0xdc2626,
   sectionCap: 0xdfe2ea,
   sectionHatch: 0x8a90a6,
   sectionOutline: 0x6bb0b3,
@@ -187,6 +191,7 @@ export function themesEqual(a: ViewerTheme, b: ViewerTheme): boolean {
     a.picked === b.picked &&
     a.edge === b.edge &&
     a.edgeOpacity === b.edgeOpacity &&
+    a.sharpCorner === b.sharpCorner &&
     a.sectionCap === b.sectionCap &&
     a.sectionHatch === b.sectionHatch &&
     a.sectionOutline === b.sectionOutline &&
