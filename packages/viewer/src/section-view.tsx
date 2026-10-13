@@ -16,7 +16,8 @@ import {
   Vector2,
   Vector3,
 } from 'three'
-import { CONE_AXIS } from './render/directions.js'
+import { ArrowMesh } from './arrow-mesh.js'
+import { ARROW_AXIS, handleGeometry } from './render/arrow.js'
 import {
   HANDLE_PIXELS,
   SECTION_GIZMO_FRAME_SCALE,
@@ -157,7 +158,7 @@ export const SectionView = ({
   // into the half that stays, so an arrow along it would be buried under the
   // cap it is meant to drag.
   const handleQuaternion = useMemo(
-    () => new Quaternion().setFromUnitVectors(CONE_AXIS, plane.normal.clone().negate()),
+    () => new Quaternion().setFromUnitVectors(ARROW_AXIS, plane.normal.clone().negate()),
     [plane],
   )
 
@@ -168,6 +169,8 @@ export const SectionView = ({
   useEffect(() => () => frameSurface.dispose(), [frameSurface])
   const frameEdges = useMemo(() => new EdgesGeometry(frameSurface), [frameSurface])
   useEffect(() => () => frameEdges.dispose(), [frameEdges])
+  const handleShape = useMemo(() => handleGeometry(), [])
+  useEffect(() => () => handleShape.dispose(), [handleShape])
 
   // The stencil materials, the mask target and the cap material are built once
   // and updated in place: a drag moves the plane on every pointer event, and
@@ -383,38 +386,16 @@ export const SectionView = ({
             quaternion={handleQuaternion}
             renderOrder={SECTION_RENDER_ORDER.handle}
           >
-            {/* Handlers on each mesh rather than on the group. Either works —
-                R3F bubbles from the hit mesh to an ancestor — but the ray hits
-                several parts of the gizmo, and stopping propagation at the mesh
-                is what keeps that from counting as two presses. */}
-            <mesh {...grab}>
-              <sphereGeometry args={[0.1, 16, 12]} />
-              <meshBasicMaterial
-                color={hovered ? theme.hover : resolvedHandleColor}
-                depthTest={false}
-              />
-            </mesh>
-            <mesh {...grab}>
-              <cylinderGeometry args={[0.035, 0.035, 0.9, 12]} />
-              <meshBasicMaterial
-                color={hovered ? theme.hover : resolvedHandleColor}
-                depthTest={false}
-              />
-            </mesh>
-            <mesh position={[0, 0.61, 0]} {...grab}>
-              <coneGeometry args={[0.15, 0.3, 20]} />
-              <meshBasicMaterial
-                color={hovered ? theme.hover : resolvedHandleColor}
-                depthTest={false}
-              />
-            </mesh>
-            <mesh position={[0, -0.61, 0]} rotation={[Math.PI, 0, 0]} {...grab}>
-              <coneGeometry args={[0.15, 0.3, 20]} />
-              <meshBasicMaterial
-                color={hovered ? theme.hover : resolvedHandleColor}
-                depthTest={false}
-              />
-            </mesh>
+            {/* Drawn on top, so it is found wherever the cut is, and one mesh
+                to a ray: the handlers stop propagation there, which is what
+                keeps a press from also reaching the part behind it. */}
+            <ArrowMesh
+              geometry={handleShape}
+              color={hovered ? theme.hover : resolvedHandleColor}
+              opacity={1}
+              onTop
+              events={grab}
+            />
           </group>
         </>
       ) : null}
