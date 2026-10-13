@@ -77,7 +77,10 @@ jobs:
       # Lets the job start a fresh release run when main moves under it.
       actions: write
     outputs:
-      python_sdk_required: ${{ steps.pypi.outputs.required }}
+      python_sdk_required: ${{ steps.python-sdk.outputs.required }}
+      python_sdk_tag: ${{ steps.python-sdk.outputs.tag }}
+      # The commit this run released, for the Python job to build the same versions.
+      released_sha: ${{ steps.python-sdk.outputs.sha }}
     # Its own group, separate from the prerelease's, so neither can cancel or
     # delay the other.
     concurrency:
@@ -208,36 +211,37 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
 
       # With no release PR pending, this run published (or found published) every npm
-      # version. The Python SDK shares @toolpath/api's version and follows whenever
-      # PyPI lacks it: after a release, a manual run, or a re-run.
-      - name: Check whether PyPI needs the Python SDK
-        id: pypi
+      # version. The Python SDK shares @toolpath/api's version and follows whenever its
+      # GitHub release is missing: after a release, a manual run, or a re-run.
+      - name: Check whether the Python SDK needs a release
+        id: python-sdk
         if: steps.changesets.outputs.hasChangesets == 'false'
-        run: node scripts/check-pypi-release.mjs
+        run: |
+          node scripts/check-python-sdk-release.mjs
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
 
-  # Publishes the Python SDK (`toolpath`) to PyPI. Both SDKs are generated from one
-  # contract and share one version. PyPI's trusted publisher is bound to this file
-  # name and the `pypi` environment (docs/PUBLISHING-PYTHON-SDK.md).
-  python-sdk-publish:
+  # Attaches the Python SDK (`toolpath`) wheel to a GitHub release, `python-sdk-v<version>`,
+  # for `uv add` / `pip install` from its URL (docs/PYTHON-SDK-RELEASES.md). Both SDKs are
+  # generated from one contract and share one version.
+  python-sdk-release:
     needs: release
-    # PyPI never takes a version twice, so only main may publish one.
+    # A released version is permanent, so only main may release one.
     if: >-
       needs.release.outputs.python_sdk_required == 'true' &&
       github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment:
-      name: pypi
-      url: https://pypi.org/project/toolpath/
     permissions:
-      contents: read
-      id-token: write
+      contents: write
     concurrency:
-      group: pypi-release
+      group: python-sdk-release
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ needs.release.outputs.released_sha }}
           persist-credentials: false
 
       - uses: pnpm/action-setup@v6
@@ -260,11 +264,31 @@ jobs:
           uv pip install --python "$venv" artifacts/toolpath-*-py3-none-any.whl
           "$venv/bin/python" -I -c "import toolpath"
 
-      # --check-url skips a version PyPI already has, so a re-run is safe.
-      - run: >-
-          uv publish --trusted-publishing always
-          --check-url https://pypi.org/simple/
-          artifacts/toolpath-*-py3-none-any.whl
+      # Skips a release another run created meanwhile, so a re-run is safe.
+      - name: Create the GitHub release
+        run: |
+          if answer="$(gh release view "$TAG" 2>&1)"; then
+            echo "Release $TAG exists."
+            exit 0
+          fi
+          if [[ "$answer" != *"release not found"* ]]; then
+            echo "$answer" >&2
+            exit 1
+          fi
+          wheel="artifacts/toolpath-${TAG#python-sdk-v}-py3-none-any.whl"
+          if [ ! -f "$wheel" ]; then
+            echo "::error::The build did not produce $wheel; its version does not match $TAG."
+            exit 1
+          fi
+          downloads="https://github.com/${GITHUB_REPOSITORY}/releases/download"
+          url="${downloads}/${TAG}/$(basename "$wheel")"
+          notes="$(printf 'Install with uv:\n\n```sh\nuv add "toolpath @ %s"\n```\n' "$url")"
+          gh release create "$TAG" "$wheel" --target "$RELEASED_SHA" --latest=false \
+            --title "toolpath (Python SDK) ${TAG#python-sdk-v}" --notes "$notes"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.python_sdk_tag }}
+          RELEASED_SHA: ${{ needs.release.outputs.released_sha }}
 
   # Publishes @toolpath/api under npm's `staging` dist-tag from the contract Engine
   # staging serves. It commits nothing and never moves `latest`. It lives in this

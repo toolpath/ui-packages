@@ -2,7 +2,7 @@
 
 This repository publishes libraries. It is not an application: nothing here is deployed, and
 every meaningful change lands in somebody else's `node_modules`. Six npm packages and one
-PyPI package ship from this tree, alongside the examples that prove they work and the
+Python package ship from this tree, alongside the examples that prove they work and the
 generation pipeline that keeps two of them honest against the API.
 
 That single fact sets the priorities. An accidental export is permanent, a wrong version bump
@@ -21,7 +21,7 @@ cost for everyone downstream. Those are the risks worth spending review attentio
 | `@toolpath/tool-drawing` | `packages/tool-drawing/`   | npm — 2D tool/holder elevation        |
 | `@toolpath/tool-scraper` | `packages/tool-scraper/`   | npm — vendor tool-catalog scraping    |
 | `@toolpath/tool-support` | `packages/tool-support/`   | npm — the cutting-tool domain         |
-| `toolpath`               | `packages/sdk-python/`     | PyPI — generated Python SDK           |
+| `toolpath`               | `packages/sdk-python/`     | GitHub release — generated Python SDK |
 
 `examples/typescript`, `examples/python`, and `examples/react-viewer` are workspace members but
 are never published. They exist to exercise a package the way a consumer would.
@@ -310,9 +310,10 @@ contract, so a Python change takes an `@toolpath/api` Changeset, never one of it
 version-packages` runs `scripts/sync-python-sdk-version.mjs` after `changeset version`, so the
 release commit bumps `packages/sdk-python/pyproject.toml` too, and `pnpm generate`
 reads the same version (`readSdkVersion` in `scripts/lib.mjs`). After a release run with no
-release PR pending, `scripts/check-pypi-release.mjs` asks PyPI for that version; when PyPI lacks it,
-the `python-sdk-publish` job in `.github/workflows/release.yml` builds the wheel, installs it in a
-clean environment, and publishes it through trusted publishing (`docs/PUBLISHING-PYTHON-SDK.md`).
+release PR pending, `scripts/check-python-sdk-release.mjs` looks for the GitHub release
+`python-sdk-v<version>`; when it is missing, the `python-sdk-release` job in
+`.github/workflows/release.yml` builds the wheel, installs it in a clean environment, and attaches
+it to a new release of that tag (`docs/PYTHON-SDK-RELEASES.md`). It is not published to PyPI.
 Staging prereleases are npm only.
 
 `packages/tool-scraper` publishes to npm as `@toolpath/tool-scraper` and takes a Changeset like any

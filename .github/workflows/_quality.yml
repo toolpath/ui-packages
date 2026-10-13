@@ -27,5 +27,5 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ hashFiles('examples/react-viewer/package.json') }}
       - run: pnpm --filter @toolpath/example-react-viewer exec playwright install chromium
       - run: pnpm check
-      # Proves the Python SDK still builds as the wheel the release publishes to PyPI.
+      # Proves the Python SDK still builds as the wheel the release attaches to GitHub.
       - run: pnpm package:python-sdk
