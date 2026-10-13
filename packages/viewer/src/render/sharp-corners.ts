@@ -20,6 +20,7 @@ import {
 } from 'three'
 import type { FeatureTag, PartModel, Vec3 } from '../model/types.js'
 import { visualSurfaces } from '../model/surfaces.js'
+import { keyFor } from './adjacency.js'
 import type { ViewerCamera, ViewportSize } from './camera.js'
 import { screenPoint } from './measure.js'
 import type { ViewerTheme } from './theme.js'
@@ -46,8 +47,9 @@ import type { ViewerTheme } from './theme.js'
  * - **Which way it folds.** Concave where each triangle's far corner stands in
  *   front of the other's plane: an inside corner.
  *
- * Endpoints are matched by **quantised position**, as `regionAdjacency` does,
- * not by exact float: the two triangles either side of an edge belong to two
+ * Endpoints are matched by **quantised position** — `keyFor`, the key
+ * `regionAdjacency` uses, so the two agree on a shared vertex — not by exact
+ * float: the two triangles either side of an edge belong to two
  * surfaces tessellated separately, and the pairing is the whole measurement.
  * The Engine's meshes are watertight — every edge on the parts measured is met
  * by exactly two triangles — so an edge met once is a hole in a mesh from
@@ -102,9 +104,6 @@ const HOVER_WIDTH = 1.5
 const NEAR_OPACITY = 1
 const FAR_OPACITY = 0.35
 
-/** How finely positions are matched, in model units — as `regionAdjacency` matches them. */
-const GRID = 1e-4
-
 const DEGREES = 180 / Math.PI
 
 /** Finds and measures every crease between two visual surfaces. See {@link SurfaceCreases}. */
@@ -153,7 +152,7 @@ export function surfaceCreases(
   }
 
   const keyOf = (vertex: number): string =>
-    `${Math.round(position.getX(vertex) / GRID)},${Math.round(position.getY(vertex) / GRID)},${Math.round(position.getZ(vertex) / GRID)}`
+    keyFor(position.getX(vertex), position.getY(vertex), position.getZ(vertex))
 
   /** The first triangle corner seen on each edge: `triangle * 3 + corner`, the edge running corner → corner + 1. `-1` once paired. */
   const open = new Map<string, number>()
@@ -321,8 +320,7 @@ export function findSharpCorners(
   }
 
   // Segments of one feature that share an end are one corner the mesh split.
-  const keyOf = (at: number) =>
-    `${Math.round(positions[at]! / GRID)},${Math.round(positions[at + 1]! / GRID)},${Math.round(positions[at + 2]! / GRID)}`
+  const keyOf = (at: number) => keyFor(positions[at]!, positions[at + 1]!, positions[at + 2]!)
   const parent = kept.map((_, at) => at)
   const root = (at: number): number => {
     while (parent[at] !== at) at = parent[at] = parent[parent[at]!]!
