@@ -1,8 +1,22 @@
 import { spawn } from 'node:child_process'
-import { dirname, resolve, sep } from 'node:path'
+import { readFile } from 'node:fs/promises'
+import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+
+// The Python SDK is generated from the same contract as @toolpath/api and ships under its version.
+export const readSdkVersion = async () => {
+  const manifest = await readFile(
+    join(repositoryRoot, 'packages/sdk-typescript/package.json'),
+    'utf8',
+  )
+  const { version } = JSON.parse(manifest)
+  if (!version) {
+    throw new Error('packages/sdk-typescript/package.json does not declare a version')
+  }
+  return version
+}
 
 export const assertInsideRepository = (path) => {
   const resolvedPath = resolve(path)

@@ -1,7 +1,7 @@
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { assertInsideRepository, repositoryRoot, run } from './lib.mjs'
+import { assertInsideRepository, readSdkVersion, repositoryRoot, run } from './lib.mjs'
 
 const openApiPath = join(repositoryRoot, 'openapi/openapi.json')
 const typescriptRoot = join(repositoryRoot, 'packages/sdk-typescript')
@@ -13,11 +13,7 @@ const [openApiChecksum, releaseMetadata] = await Promise.all([
   readFile(join(repositoryRoot, 'openapi/release.json'), 'utf8').then(JSON.parse),
 ])
 const openApiSha256 = openApiChecksum.trim().split(/\s+/)[0]
-const pythonConfig = await readFile(join(repositoryRoot, 'codegen/python.yaml'), 'utf8')
-const pythonVersion = pythonConfig.match(/^package_version_override:\s*(.+)$/m)?.[1]?.trim()
-if (!pythonVersion) {
-  throw new Error('Python generator config does not declare package_version_override')
-}
+const pythonVersion = await readSdkVersion()
 
 const typescriptStagingRoot = await mkdtemp(join(tmpdir(), 'toolpath-typescript-codegen-'))
 const pythonStagingRoot = await mkdtemp(join(tmpdir(), 'toolpath-python-codegen-'))
