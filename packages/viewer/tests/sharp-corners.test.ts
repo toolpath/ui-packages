@@ -607,6 +607,26 @@ describe('createPart — sharp corners', () => {
     expect(hovered()).toBe(-1)
   })
 
+  /**
+   * A corner lies on its feature's faces, which an application has usually
+   * painted for the rule that flagged it, and in one colour it vanished into
+   * paint of a near one. A light edge each side lets any colour show on any.
+   */
+  it('edges every band with a light outline', () => {
+    const part = corner()
+
+    part.setSharpCorners({ features: ['corner'] })
+
+    for (const band of lines(part)) {
+      expect((band.material.uniforms['outline']!.value as Color).getHex()).toBe(0xffffff)
+      // The corner's colour out to here across each half of the band, the outline past it.
+      const core = band.material.uniforms['uCore']!.value as number
+      expect(core).toBeGreaterThan(0)
+      expect(core).toBeLessThan(1)
+      expect(band.material.fragmentShader).toContain('smoothstep(uCore')
+    }
+  })
+
   it('takes the theme colour', () => {
     const part = corner()
 

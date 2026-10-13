@@ -97,8 +97,12 @@ export interface SharpCornerOptions {
 const MIN_FOLD_DEGREES = 20
 /** How far off a feature's machining direction a corner may run, in degrees. */
 const ALONG_TOLERANCE_DEGREES = 15
-/** How wide a corner is drawn, in CSS pixels, half of it on each face. */
-const BAND_WIDTH = 6
+/** How wide a corner is drawn, in CSS pixels, half of it on each face, its outline included. */
+const BAND_WIDTH = 9
+/** The light edge each side of a corner, in CSS pixels; the rest of the band is its colour. */
+const OUTLINE_WIDTH = 1.5
+/** The outline's colour: light, so the corner stands out on paint of any colour, its own included. */
+const OUTLINE_COLOR = 0xffffff
 /** How much wider the corner under the pointer is drawn. */
 const HOVER_WIDTH = 1.5
 /** How strongly a corner shows where it can be seen, and where the part stands in front of it. */
@@ -562,6 +566,12 @@ export function sharpCornerBands(
  * set, so where bands overlap a translucent one does not blend twice. The near
  * draw goes first, so where a corner in view crosses one behind, the one in
  * view is what shows.
+ *
+ * Each band has a light **outline** along both its edges. A corner lies on the
+ * faces of a feature an application has usually painted for the very rule that
+ * flagged it — in red, as like as not — and a corner in one colour vanishes
+ * into paint of a near one, while a dark one reads as a shadow in the crease.
+ * Edged in white, a corner of any colour shows on paint of any colour.
  */
 export interface SharpCornerDrawing {
   readonly object: Group
@@ -619,8 +629,11 @@ const BAND_VERTEX = /* glsl */ `
   uniform float uHovered;
   uniform vec2 uResolution;
   varying float vHovered;
+  varying float vAcross;
 
   void main() {
+    // 0 on the corner, 1 at the band's edge on the face: where the outline is.
+    vAcross = aSide;
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     vec3 across = mat3(modelViewMatrix) * aPerp;
     float reach = aReach * length(across);
@@ -646,13 +659,19 @@ const BAND_FRAGMENT = /* glsl */ `
   #include <clipping_planes_pars_fragment>
 
   uniform vec3 diffuse;
+  uniform vec3 outline;
   uniform float opacity;
+  uniform float uCore;
   varying float vHovered;
+  varying float vAcross;
 
   void main() {
     #include <clipping_planes_fragment>
+    // The corner's colour out to uCore of the way across, the outline past it.
+    float soft = fwidth(vAcross);
+    vec3 color = mix(diffuse, outline, smoothstep(uCore - soft, uCore + soft, vAcross));
     // The corner under the pointer, twice as strong: plain even where the part hides it.
-    gl_FragColor = vec4(diffuse, min(1.0, opacity * mix(1.0, 2.0, vHovered)));
+    gl_FragColor = vec4(color, min(1.0, opacity * mix(1.0, 2.0, vHovered)));
     #include <colorspace_fragment>
   }
 `
@@ -671,7 +690,9 @@ export function createSharpCornerDrawing(
     const band = new ShaderMaterial({
       uniforms: {
         diffuse: { value: new Color(theme.sharpCorner) },
+        outline: { value: new Color(OUTLINE_COLOR) },
         opacity: { value: opacity },
+        uCore: { value: 1 - OUTLINE_WIDTH / (BAND_WIDTH / 2) },
         uHalfWidth: { value: BAND_WIDTH / 2 },
         uHoverWidth: { value: HOVER_WIDTH },
         uHovered: hovered,
