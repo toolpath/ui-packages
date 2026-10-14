@@ -39,10 +39,11 @@
  *
  * With those, the decisions that follow from them: what holds what
  * ({@link holderTakesTool}, {@link gripRanges}), what a shop keeps clamped
- * ({@link clampWanted}), whether a tool cuts a feature ({@link fitAgainst}),
- * whether the whole stack clears the material around it ({@link clearance},
- * {@link assemblyAgainst}), and the feature in section ({@link sectionOutline})
- * that draws what the sweep checked.
+ * ({@link clampWanted}), whether a tool cuts a feature ({@link fitAgainst}) and
+ * the order a list of them reads in ({@link rankFits}), whether the whole stack
+ * clears the material around it ({@link clearance}, {@link assemblyAgainst}),
+ * and the feature in section ({@link sectionOutline}) that draws what the sweep
+ * checked.
  */
 
 export {
@@ -146,6 +147,8 @@ export { heightAt, type ReachCurve } from './reach.js'
 export type { FeatureDemand } from './demand.js'
 
 export { DRILLING_FORMS, fitAgainst, fitTools, type FitFailure, type ToolFit } from './fit.js'
+
+export { fitClass, leavesCornerRadius, rankFits, type FitClass } from './rank.js'
 
 export {
   ASSEMBLY_PARTS,

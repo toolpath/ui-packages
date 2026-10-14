@@ -14,7 +14,12 @@ import type { FeatureTag, PartModel } from './model/types.js'
 import { PartContext } from './part-context.js'
 import type { FeatureHighlight, RegionHighlight } from './render/paint.js'
 import { applyHighlightLayers } from './render/paint.js'
-import { focusStateKey, type FocusOptions } from './render/focus.js'
+import {
+  focusRequest,
+  focusStateKey,
+  type FeatureFocus,
+  type FocusOptions,
+} from './render/focus.js'
 import {
   DISABLED_SECTION,
   type SectionOptions,
@@ -117,10 +122,12 @@ export interface PartMeshProps {
    */
   onAdjacency?: (adjacency: ReadonlyMap<number, ReadonlySet<number>>) => void
   /**
-   * A feature to frame. Framed when it changes, so setting it to the feature
-   * already framed does nothing — a zoom is a request, not a state to hold.
+   * A feature to frame. A tag is framed when it changes, so setting it to the
+   * feature already framed does nothing — a zoom is a request, not a state to
+   * hold. To frame the same feature again, pass `{ tag, request }` and change
+   * `request`: each new one is framed once.
    */
-  focusFeature?: FeatureTag | null
+  focusFeature?: FeatureFocus | null
   onHover?: (pick: PartPick | null) => void
   /**
    * A click on the part.
@@ -247,13 +254,16 @@ export const PartMesh = ({
     onAdjacency?.(adjacency)
   }, [adjacency, onAdjacency])
 
-  const framed = useRef<FeatureTag | null>(null)
+  const framed = useRef<string | null>(null)
+  const frameRequest = focusRequest(focusFeature)
+  const frameTag = frameRequest?.tag ?? null
+  const frameKey = frameRequest?.key ?? null
   useEffect(() => {
-    if (focusFeature === null || focusFeature === framed.current) return
-    framed.current = focusFeature
-    const box = part.boxForFeature(focusFeature)
+    if (frameTag === null || frameKey === framed.current) return
+    framed.current = frameKey
+    const box = part.boxForFeature(frameTag)
     if (box) viewerControls.frameBox(box)
-  }, [focusFeature, part, viewerControls])
+  }, [frameTag, frameKey, part, viewerControls])
 
   useLayoutEffect(() => {
     part.setTheme(resolved)

@@ -89,6 +89,15 @@ describe('FeatureDetails', () => {
     expect(screen.queryByRole('button', { name: 'Milling considerations' })).not.toBeInTheDocument()
   })
 
+  it('leaves the rules out for null, and says None when they are left out', () => {
+    const { unmount } = details({ rules: null })
+    expect(headings()).toEqual(['Measurements', 'Milling considerations', 'Reach'])
+    unmount()
+    details({ rules: undefined })
+    expect(headings()[0]).toBe('Rules broken')
+    expect(screen.getByText('None')).toBeInTheDocument()
+  })
+
   it('writes a rule as a sentence with a grey figure, or as a result in its colour with its limit', () => {
     const { unmount } = details()
     expect(screen.queryByText('≥ 1')).not.toBeInTheDocument()

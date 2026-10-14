@@ -17,6 +17,7 @@ export {
   type DfmSources,
   type RuleResult,
 } from './dfm-flags.js'
+export { featureDemand } from './demand.js'
 export type { DfmMetric, DfmOp, DfmQuantity, FactsKind } from './dfm-metrics.js'
 export {
   CRITICAL_COLOR,
@@ -37,6 +38,13 @@ export {
   type Measurement,
   type SurfaceToolKind,
 } from './feature-details.js'
+export { formsFor, type FeatureFormFacts } from './feature-forms.js'
+export {
+  featureRows,
+  type FeatureExtent,
+  type FeatureRow,
+  type FeatureRowsOptions,
+} from './feature-rows.js'
 export {
   PINCH_TOOL_MM,
   featureSheet,

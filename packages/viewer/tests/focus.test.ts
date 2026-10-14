@@ -1,7 +1,7 @@
 import { DoubleSide, Mesh, MeshLambertMaterial } from 'three'
 import { describe, expect, it } from 'vitest'
 import { parsePartGeometry } from '../src/engine/geometry.js'
-import { DEFAULT_FOCUS_OPACITY, focusStateKey } from '../src/render/focus.js'
+import { DEFAULT_FOCUS_OPACITY, focusRequest, focusStateKey } from '../src/render/focus.js'
 import { createPart } from '../src/render/part.js'
 import { DEFAULT_THEME } from '../src/render/theme.js'
 import { cubeModel, loadMeshFixture } from './fixtures.js'
@@ -84,5 +84,28 @@ describe('selection-driven focus', () => {
 
     expect(material.transparent).toBe(true)
     expect(material.depthWrite).toBe(false)
+  })
+})
+
+describe('focusRequest', () => {
+  it('keys a bare tag by the tag, so the same tag again frames nothing new', () => {
+    expect(focusRequest('pocket')).toEqual({ tag: 'pocket', key: 'tag:pocket' })
+    expect(focusRequest('pocket')?.key).toBe(focusRequest('pocket')?.key)
+  })
+
+  it('keys a request by its number, so a new one frames the same tag again', () => {
+    const first = focusRequest({ tag: 'pocket', request: 1 })
+    const again = focusRequest({ tag: 'pocket', request: 2 })
+    expect(first?.tag).toBe('pocket')
+    expect(again?.tag).toBe('pocket')
+    expect(first?.key).not.toBe(again?.key)
+    expect(focusRequest({ tag: 'pocket', request: 1 })?.key).toBe(first?.key)
+    // A request is never mistaken for a bare tag of the same name.
+    expect(first?.key).not.toBe(focusRequest('pocket')?.key)
+  })
+
+  it('is null for no focus', () => {
+    expect(focusRequest(null)).toBeNull()
+    expect(focusRequest(undefined)).toBeNull()
   })
 })

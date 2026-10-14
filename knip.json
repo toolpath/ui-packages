@@ -45,6 +45,7 @@
         "src/export/index.ts",
         "src/export/fusion/index.ts",
         "src/export/mastercam/index.ts",
+        "src/import/fusion/index.ts",
         "tests/**/*.test.ts"
       ],
       "project": ["src/**/*.ts", "tests/**/*.ts"]

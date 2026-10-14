@@ -491,17 +491,17 @@ Draws the part and handles clicks. You only use it directly when you
 
 **Interaction**
 
-| Prop              | Type                               | What it does                                                                                    |
-| ----------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `onPick`          | `(pick: PartPick) => void`         | Left- or right-click on the part.                                                               |
-| `onHover`         | `(pick: PartPick \| null) => void` | The pointer moved onto a different face, or off the part (`null`).                              |
-| `hover`           | `boolean` (`true`)                 | Paint and report faces under the pointer. `false` leaves click picking on and clears any hover. |
-| `activeDirection` | `number \| null`                   | Only match features machined from this direction (an index into `candidateDirections`).         |
-| `focusFeature`    | `string \| null`                   | Zoom to this feature. The camera moves each time the value changes.                             |
-| `section`         | `SectionOptions`                   | Cut the part open. Omit it to follow the viewer's own cut. See [Section view](#section-view).   |
-| `onSectionChange` | `(state: SectionState) => void`    | Called when the cut moves or goes away. With `section`, passing it also shows the drag handle.  |
-| `onAdjacency`     | `(map) => void`                    | Called once per mesh with which faces touch which.                                              |
-| `children`        | `ReactNode`                        | Objects drawn on the part. They read its model and mesh with `usePartContext()`.                |
+| Prop              | Type                                 | What it does                                                                                    |
+| ----------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `onPick`          | `(pick: PartPick) => void`           | Left- or right-click on the part.                                                               |
+| `onHover`         | `(pick: PartPick \| null) => void`   | The pointer moved onto a different face, or off the part (`null`).                              |
+| `hover`           | `boolean` (`true`)                   | Paint and report faces under the pointer. `false` leaves click picking on and clears any hover. |
+| `activeDirection` | `number \| null`                     | Only match features machined from this direction (an index into `candidateDirections`).         |
+| `focusFeature`    | `string \| { tag, request } \| null` | Zoom to this feature. The camera moves each time the value changes; see below to zoom again.    |
+| `section`         | `SectionOptions`                     | Cut the part open. Omit it to follow the viewer's own cut. See [Section view](#section-view).   |
+| `onSectionChange` | `(state: SectionState) => void`      | Called when the cut moves or goes away. With `section`, passing it also shows the drag handle.  |
+| `onAdjacency`     | `(map) => void`                      | Called once per mesh with which faces touch which.                                              |
+| `children`        | `ReactNode`                          | Objects drawn on the part. They read its model and mesh with `usePartContext()`.                |
 
 Hovering over the part is handled for you. You only need `onHover` if you want to show the hovered
 feature elsewhere in your UI.
@@ -655,7 +655,9 @@ events and are left out of framing.
 
 Inside `<PartMesh>` or `<EnginePart>`, `usePartContext()` gives the part's `model` and `geometry`,
 and `featureTriangles(model, geometry, tag)` a feature's triangles, for working out where a tool
-stands.
+stands. `featureExtent(model, geometry, tag, direction)` is its size seen down a machining
+direction — `across`, its plan size, largest first, and `along`, its depth — which a datasheet does
+not state for a pocket.
 
 ### `<Grid>` and `<Axes>`
 
@@ -733,6 +735,17 @@ const [hovered, setHovered] = useState<string | null>(null)
 `feature.tag` is the feature's ID. Always use it to refer to a feature, never the feature's
 position in the array.
 
+A tag in `focusFeature` frames once: passing the same tag again, or `null` and then the same tag,
+does nothing. To frame the feature again after the camera has moved — a "Show this feature" button
+pressed twice — pass a request and count it up:
+
+```tsx
+const [focus, setFocus] = useState<FeatureFocusRequest | null>(null)
+const show = (tag: string) => setFocus((was) => ({ tag, request: (was?.request ?? 0) + 1 }))
+
+<EnginePart report={report} focusFeature={focus} />
+```
+
 ### Clicking the same face again to go through its matches
 
 Clicking the same face repeatedly can step through its matching features, like most CAD tools do.
@@ -788,6 +801,13 @@ direction. A face that can't be reached from that direction gives `pick.best ===
 To list features by direction, use `groupByDirection(model)`. To label a direction, use
 `directionLabel(direction)`, which gives `+Z`, `−X`, or `0.707, 0, 0.707`. To colour a direction
 the same way as its arrow, use `directionColor(index)`.
+
+To start on the direction a CAM setup cuts from, use `nearestDirectionIndex(model, axis)`. It returns
+the index of the candidate within 1° of the setup's tool axis, or `-1` if none is that close. Pass
+a third argument for a wider tolerance in degrees. The axis has to point the way the candidates do,
+from the part toward the tool: the opposite axis is a different setup and never matches.
+`directionIndexOf` needs an exact match, so it only works for a direction read out of the same
+report.
 
 ### Custom colours
 
@@ -1241,21 +1261,23 @@ is a complete app built this way, with no API key needed.
 
 ### Helpers
 
-| Helper                                                   | What it does                                                |
-| -------------------------------------------------------- | ----------------------------------------------------------- |
-| `normalizePartReport(report)`                            | Checks an API report and converts it to a `PartModel`.      |
-| `buildRegionIndex({ regions, features, triangleCount })` | Builds the lookups between triangles, faces, and features.  |
-| `model.regionIndex.featuresForRegion(i)`                 | The features that own a face.                               |
-| `model.regionIndex.regionsForFeature(tag)`               | The faces that make up a feature.                           |
-| `focusForPick(pick, lastRegion, lastFocus)`              | Steps through a face's matches on repeated clicks.          |
-| `rankOwners` / `bestOwner`                               | The ranking `onPick` uses, if you want to run it yourself.  |
-| `groupByDirection(model)`                                | Features grouped by machining direction.                    |
-| `featureTriangles(model, geometry, tag)`                 | A feature's triangles and outward normals, as plain arrays. |
-| `directionLabel(v)` / `directionColor(i)`                | A direction's label and colour.                             |
-| `sectionFromPick({ point, normal })`                     | Turns a clicked surface into a section plane.               |
-| `measurementLabel(measurement, format?)`                 | Writes a measurement the way `<MeasureTool>` labels it.     |
-| `snapAt(hit, edges, camera, viewport)`                   | Where a point on the part snaps to, for a tool of your own. |
-| `engineGeometryCache.clear()`                            | Frees every cached mesh.                                    |
+| Helper                                                   | What it does                                                 |
+| -------------------------------------------------------- | ------------------------------------------------------------ |
+| `normalizePartReport(report)`                            | Checks an API report and converts it to a `PartModel`.       |
+| `buildRegionIndex({ regions, features, triangleCount })` | Builds the lookups between triangles, faces, and features.   |
+| `model.regionIndex.featuresForRegion(i)`                 | The features that own a face.                                |
+| `model.regionIndex.regionsForFeature(tag)`               | The faces that make up a feature.                            |
+| `focusForPick(pick, lastRegion, lastFocus)`              | Steps through a face's matches on repeated clicks.           |
+| `rankOwners` / `bestOwner`                               | The ranking `onPick` uses, if you want to run it yourself.   |
+| `groupByDirection(model)`                                | Features grouped by machining direction.                     |
+| `nearestDirectionIndex(model, axis, toleranceDeg?)`      | The candidate direction nearest an outside axis, or `-1`.    |
+| `featureTriangles(model, geometry, tag)`                 | A feature's triangles and outward normals, as plain arrays.  |
+| `featureExtent(model, geometry, tag, direction)`         | A feature's plan size and depth down a direction, or `null`. |
+| `directionLabel(v)` / `directionColor(i)`                | A direction's label and colour.                              |
+| `sectionFromPick({ point, normal })`                     | Turns a clicked surface into a section plane.                |
+| `measurementLabel(measurement, format?)`                 | Writes a measurement the way `<MeasureTool>` labels it.      |
+| `snapAt(hit, edges, camera, viewport)`                   | Where a point on the part snaps to, for a tool of your own.  |
+| `engineGeometryCache.clear()`                            | Frees every cached mesh.                                     |
 
 The package also exports lower-level geometry, camera, and view-cube functions that the components
 use. They're listed in `dist/index.d.ts`.

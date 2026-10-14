@@ -108,6 +108,83 @@ This is not the clearance overlay in `@toolpath/tool-drawing/clearance`: that
 draws the walls beside a cutting tool, to show whether the tool fits. This
 draws the walls alone.
 
+## Tools that fit a feature
+
+`featureDemand` reads what a feature asks of a tool off its sheet: the widest
+cutter that reaches its tightest corner, a hole's drill and end mill limits,
+depth, reach below the part top, floor fillet and reach curve. Every number is
+in millimetres, and a field the datasheet does not state is left out, not set
+to zero. `formsFor` gives the tool forms that can cut the feature type, from the
+catalog's feature defaults. Together with `fitTools` from
+`@toolpath/tool-support`, they filter a library — here one read from Fusion:
+
+```ts
+import { featureDemand, formsFor, readReachCurve } from '@toolpath/dfm/model'
+import { fitTools } from '@toolpath/tool-support'
+import { fromFusionLibrary } from '@toolpath/tool-support/import/fusion'
+
+const { tools: entries } = fromFusionLibrary(JSON.parse(libraryJson))
+const tools = entries.map((entry) => ({ ...entry.tool, guid: entry.guid }))
+
+const reachCurve = readReachCurve(datasheet)
+const demand = featureDemand({ features, feature, sheets, reachCurve })
+const sheet = sheets[feature.tag.toLowerCase()]
+const forms = formsFor(feature.featureType, sheet) // null: any form
+const candidates = forms ? tools.filter((tool) => forms.some((form) => form === tool.form)) : tools
+const fits = fitTools(candidates, [demand])
+```
+
+`tests/model/tool-fit-pipeline.test.ts` runs this snippet end to end.
+
+A pocket with square inside corners fits no end mill, as in the catalog: its
+corner limit is only the Engine's tolerance reading a corner with no radius
+(0.012 mm in a 40 mm pocket). `featureDemand` marks it `sharpCorners` — the
+same reading the `sharpCorner` rule flags — and each failure then says it is
+the corners, with the radius the tool would leave:
+
+```ts
+if (demand.sharpCorners) {
+  const closest = fits.filter((fit) =>
+    fit.failures.every((failure) => failure.kind === 'sharp-corner'),
+  )
+  // "⌀6 mm leaves R3 mm in corners drawn sharp, which no end mill finishes"
+}
+```
+
+This only checks geometry: diameter, flute length and corner radius against
+the feature. It does not recommend a tool. `rankFits` in
+`@toolpath/tool-support` puts the result in reading order:
+`rankFits(fits, forms, demand)`.
+
+## A feature list
+
+The Engine reports one set of faces once per reading — a pocket's floor is a
+`face` and part of the `pocket` — so a list of the report's features shows the
+same faces several times. `featureRows` makes one row per set of faces within a
+machining direction, shown as its most specific reading, with every reading in
+`tags`; a `profile` is left out. Rows sort a direction at a time, then by type
+rank, then by area, largest first, and each has a label and a short measurement:
+`⌀10 mm × 15 deep` for a hole, `40 × 40 mm, 15 deep` for a pocket.
+
+Which direction a feature is in and how specific a type is are the viewer's to
+say, so they are passed in; so are areas and the plan size, which no datasheet
+states and the viewer measures off the mesh:
+
+```ts
+import { featureRows } from '@toolpath/dfm/model'
+import { directionIndexOf, featureExtent, featureTypeRank } from '@toolpath/viewer'
+
+const areas = new Map(model.regions.map((region) => [region.idx, region.area]))
+const rows = featureRows(dfmFeatures(report.features), {
+  directionOf: (d) => directionIndexOf(model, d),
+  typeRank: featureTypeRank,
+  direction: activeDirection, // null: every direction
+  areaOf: (idx) => areas.get(idx) ?? 0,
+  sheets,
+  extentOf: (f) => featureExtent(model, geometry, f.tag, f.machiningDirection),
+})
+```
+
 ## Feature panel
 
 `FeaturePanel` is the card a click on the part opens: every feature the face
@@ -160,7 +237,11 @@ in the details' `actions`, a folder badge in `status`.
 - **Rules broken** are `BrokenRule` rows: a colour, the rule's text, the figure
   that broke it, and optionally the limit and a note on hover. `brokenRules`
   builds them from this package's check; an app with a checker of its own
-  builds them from its hits.
+  builds them from its hits. `rules={null}` leaves the section out, for an app
+  that checks no rules.
+- **Candidates** take `hovered`, a tag lit as if under the pointer — the
+  feature the pointer is over on the part — and `title`, a heading in place of
+  `Candidate features (N)`.
 - **Measurements** are `featureMeasurements` rows, each with how it was worked
   out behind an ⓘ. `inchMark` writes inches as `0.46"`.
 - **Reach, the datasheet fields and the raw record** read the feature's

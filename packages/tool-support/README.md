@@ -77,6 +77,7 @@ vendor published in — that is what lets an inch tool and a metric tool compare
 | `stickoutLimits`, `defaultStickout`                                               | The collet-shaped way into the range above              |
 | `hasNeck`, `shankOf`, `heightAt`, `belowGageLine`                                 | The four that used to be written twice                  |
 | `fitAgainst`, `fitTools`, `DRILLING_FORMS`                                        | Whether a cutter cuts a feature                         |
+| `rankFits`, `fitClass`, `leavesCornerRadius`                                      | The order a tool list for one feature reads in          |
 | `clearance`, `toolSilhouette`, `holderSilhouette`, `toolCollisions`               | Whether the stack clears the material around it         |
 | `assemblyAgainst`, `NOT_MODELLED`                                                 | Whether there is a way to _hold_ it that reaches        |
 | `sectionOutline`, `materialProfile`, `ASSEMBLY_PARTS`, `SILHOUETTE_PARTS`         | The feature in section, and what an assembly is made of |
@@ -245,6 +246,74 @@ The rules each type must satisfy are Autodesk's own published JSON Schema,
 reduced into `fusion/digest.json` at the repository root. `pnpm
 fusion:check-upstream` asks Autodesk weekly whether it has moved, and a test
 fails if the table this package reads drifts from it.
+
+## Importing from Fusion
+
+`@toolpath/tool-support/import/fusion` is the other direction: a Fusion tool
+library, as `ToolLibrary.toJson()` gives it, read back into `Tool`s in
+millimetres so it can be fitted against a part.
+
+```ts
+import { fitTools } from '@toolpath/tool-support'
+import { fromFusionLibrary } from '@toolpath/tool-support/import/fusion'
+
+const { tools, notes } = fromFusionLibrary(JSON.parse(library.toJson()))
+const fits = fitTools(
+  tools.map((entry) => entry.tool),
+  demands,
+)
+// entry.guid and entry.index lead back to the original record in `data[]`.
+```
+
+A feature whose inside corners are drawn sharp (`sharpCorners` on its demand)
+fits no end mill: each leaves its own radius there. Rather than calling every
+tool too wide, each such failure has `kind: 'sharp-corner'` and the radius the
+tool leaves, so a list that comes up empty can still offer the closest:
+
+```ts
+const closest = fits.filter(
+  (fit) => !fit.fits && fit.failures.every((failure) => failure.kind === 'sharp-corner'),
+)
+// fit.failures[0].leavesCornerRadius: DC / 2, what the corners keep.
+```
+
+`rankFits` puts a list in the order it reads in. `fitClass` sorts each fit into
+`'fits'`, `'corner-only'` (every failure is a sharp corner) or `'fails'`, and the
+classes come in that order. Fits, and failures, lead with the form's place in the
+`forms` given (`formsFor` in `@toolpath/dfm/model` gives one, `null` ignores
+form); where the demand states a floor fillet, the corner radius closest under it
+comes first and one over it after; then the largest cutting diameter. Corner-only
+misses lead with the smallest radius they leave (`leavesCornerRadius`). Ties keep
+the input order. It orders by geometry and form, and recommends nothing.
+
+```ts
+import { fitClass, rankFits } from '@toolpath/tool-support'
+
+const ranked = rankFits(fits, formsFor(feature.featureType, sheet), demand)
+const usable = ranked.filter((fit) => fitClass(fit) !== 'fails')
+```
+
+The lengths in a failure's `reason` are rounded to the micron, so a tool read
+from inches says `⌀15 mm`, not `⌀14.99999999999989 mm`; the check itself is made
+on the value as stated.
+
+A tool wider than `maxToolSomewhere`, the room the feature has anywhere, is
+still refused for that.
+
+Units are per tool in Fusion, so each record's lengths are converted by its own
+`unit`, using the same length table the exporter writes with; angles and counts
+pass through, booleans and enums are dropped, and a key whose unit is unknown is
+dropped with a note. Fusion's `LB` is stored as `LBH`, the dictionary's name for
+the same stickout. Holders are skipped silently; the types that do not mill or
+drill (turning, laser, plasma, waterjet, electric arc wire, probe, tool block)
+are skipped with a note; and a milling type with no `ToolForm` — `form mill` —
+is read as `'other'` and said so. `HAND` and `CSP` are carried beside the tool as
+`hand` and `coolantThrough`, and `post-process.number` as `number` when it is a
+positive integer (Fusion's 0 means unassigned). Two readings are supplied and reported as `filled`: a
+ball end mill with no corner radius has `RE = DC / 2`, and a spot or center
+drill whose `DC` is zero takes `SFDM`. `skipped` counts what was left out —
+`{ holders, nonMilling, unreadable }` — so a caller can say so without reading
+the notes. `fromFusionTool` reads a single entry.
 
 ## Status
 

@@ -52,6 +52,16 @@ export const DRILLING_FORMS: ReadonlySet<ToolForm> = new Set<ToolForm>([
 export interface FitFailure {
   readonly featureTag: string
   readonly reason: string
+  /**
+   * Set where a caller may want to tell the failure apart from the rest.
+   * `'sharp-corner'`: the tool fits the feature but not its corners, which are
+   * drawn sharp (`FeatureDemand.sharpCorners`) — no end mill finishes them,
+   * and this one would leave `leavesCornerRadius` in them. A list that runs
+   * out of tools can offer these as the closest, and say why.
+   */
+  readonly kind?: 'sharp-corner'
+  /** For a `'sharp-corner'` failure: the radius the tool leaves in the corners, `DC / 2`. */
+  readonly leavesCornerRadius?: number
 }
 
 export interface ToolFit<T> {
@@ -60,6 +70,14 @@ export interface ToolFit<T> {
   /** Empty when the tool fits. One entry per feature that ruled it out. */
   readonly failures: readonly FitFailure[]
 }
+
+/**
+ * A length for a reason string, rounded to the micron with trailing zeros
+ * dropped: `6.35`, `3.175`, `15` — not the `14.99999999999989` a unit
+ * conversion leaves. Only the words are rounded; every comparison is made on
+ * the value as stated.
+ */
+const mm = (value: number): string => String(Number(value.toFixed(3)))
 
 /** Whether one tool can cut one feature, and why not where it cannot. */
 export const fitAgainst = (
@@ -80,12 +98,27 @@ export const fitAgainst = (
     ? (demand.maxDrillDiameter ?? demand.holeDiameter ?? demand.maxToolDiameter)
     : (demand.maxEndmillDiameter ?? demand.maxToolDiameter)
 
-  if (diameter !== undefined && widest !== undefined && diameter > widest) {
-    say(`⌀${diameter} mm is wider than the ${widest} mm this feature admits`)
+  const room = demand.maxToolSomewhere
+  if (diameter !== undefined && room !== undefined && diameter > room) {
+    say(`⌀${mm(diameter)} mm is wider than the ${mm(room)} mm this feature has room for anywhere`)
+  } else if (diameter !== undefined && demand.sharpCorners) {
+    // A sharp corner has no room in it, and `widest` is at most the
+    // tolerance's reading of that: every cutter misses it by its own radius.
+    // Not a fit — the catalog's rule — but said as what it is, so a list that
+    // runs out of tools can offer the ones that miss only the corners.
+    const radius = diameter / 2
+    failures.push({
+      featureTag: demand.featureTag,
+      reason: `⌀${mm(diameter)} mm leaves R${mm(radius)} mm in corners drawn sharp, which no end mill finishes`,
+      kind: 'sharp-corner',
+      leavesCornerRadius: radius,
+    })
+  } else if (diameter !== undefined && widest !== undefined && diameter > widest) {
+    say(`⌀${mm(diameter)} mm is wider than the ${mm(widest)} mm this feature admits`)
   }
 
   if (fluteLength !== undefined && demand.depth !== undefined && fluteLength < demand.depth) {
-    say(`${fluteLength} mm of flute does not reach ${demand.depth} mm deep`)
+    say(`${mm(fluteLength)} mm of flute does not reach ${mm(demand.depth)} mm deep`)
   }
 
   // A corner radius larger than the floor fillet leaves material the floor does
@@ -96,7 +129,7 @@ export const fitAgainst = (
     demand.floorRadius !== undefined &&
     cornerRadius > demand.floorRadius
   ) {
-    say(`a ${cornerRadius} mm corner does not fit a ${demand.floorRadius} mm floor fillet`)
+    say(`a ${mm(cornerRadius)} mm corner does not fit a ${mm(demand.floorRadius)} mm floor fillet`)
   }
 
   return failures

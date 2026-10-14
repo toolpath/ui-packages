@@ -88,6 +88,92 @@ describe('a hole’s two limits, and which applies', () => {
   })
 })
 
+describe('a feature drawn with sharp inside corners', () => {
+  // The Engine's 40 × 40 pocket with square corners: its tightest clearance is
+  // the tolerance's reading of a corner with no room in it.
+  const sharp: FeatureDemand = {
+    featureTag: 'pocket-sharp',
+    maxToolDiameter: 0.0123,
+    sharpCorners: true,
+    maxToolSomewhere: 40,
+    depth: 15,
+  }
+
+  it('rules every end mill out for the corners, with the radius it leaves', () => {
+    expect(fitAgainst({ ...endmill, geometry: { DC: 6.35, LCF: 20 } }, sharp)).toEqual([
+      {
+        featureTag: 'pocket-sharp',
+        reason: '⌀6.35 mm leaves R3.175 mm in corners drawn sharp, which no end mill finishes',
+        kind: 'sharp-corner',
+        leavesCornerRadius: 3.175,
+      },
+    ])
+  })
+
+  it('says so even where the corner limit reads zero and is left out', () => {
+    const { maxToolDiameter: _, ...unstated } = sharp
+    const [failure] = fitAgainst({ ...endmill, geometry: { DC: 3, LCF: 20 } }, unstated)
+    expect(failure?.kind).toBe('sharp-corner')
+    expect(failure?.leavesCornerRadius).toBe(1.5)
+  })
+
+  it('still bounds the tool by the room the feature has, and checks the rest', () => {
+    const [wide, ...none] = fitAgainst({ ...endmill, geometry: { DC: 50, LCF: 60 } }, sharp)
+    expect(none).toEqual([])
+    expect(wide?.kind).toBeUndefined()
+    expect(wide?.reason).toBe('⌀50 mm is wider than the 40 mm this feature has room for anywhere')
+
+    const short = fitAgainst({ ...endmill, geometry: { DC: 6, LCF: 10 } }, sharp)
+    expect(short.map((f) => f.kind)).toEqual(['sharp-corner', undefined])
+  })
+
+  it('leaves a narrow feature with no sharp corners as it was', () => {
+    const slot: FeatureDemand = { featureTag: 'slot-1', maxToolDiameter: 4, maxToolSomewhere: 4 }
+    expect(fitAgainst({ ...endmill, geometry: { DC: 4 } }, slot)).toEqual([])
+    const [failure] = fitAgainst({ ...endmill, geometry: { DC: 6 } }, slot)
+    expect(failure?.kind).toBeUndefined()
+    expect(failure?.reason).toContain('wider than')
+  })
+})
+
+describe('the lengths a reason states', () => {
+  it('rounds them to the micron, as a unit conversion leaves noise in them', () => {
+    // 0.590551 in read back to millimetres, and a depth that is not quite 15.
+    const failures = fitAgainst(
+      { form: 'flat end mill', geometry: { DC: 14.99999999999989, LCF: 9.9999996, RE: 1.23456 } },
+      { featureTag: 'p', maxToolDiameter: 12.7000001, depth: 15.0000004, floorRadius: 0.5 },
+    )
+    expect(failures.map((f) => f.reason)).toEqual([
+      '⌀15 mm is wider than the 12.7 mm this feature admits',
+      '10 mm of flute does not reach 15 mm deep',
+      'a 1.235 mm corner does not fit a 0.5 mm floor fillet',
+    ])
+  })
+
+  it('rounds the room and the radius a sharp corner leaves', () => {
+    const sharp: FeatureDemand = {
+      featureTag: 'p',
+      sharpCorners: true,
+      maxToolSomewhere: 19.99999999,
+    }
+    expect(fitAgainst({ ...endmill, geometry: { DC: 6.3500000001 } }, sharp)[0]?.reason).toBe(
+      '⌀6.35 mm leaves R3.175 mm in corners drawn sharp, which no end mill finishes',
+    )
+    expect(fitAgainst({ ...endmill, geometry: { DC: 25.00000002 } }, sharp)[0]?.reason).toBe(
+      '⌀25 mm is wider than the 20 mm this feature has room for anywhere',
+    )
+  })
+
+  it('compares the value as stated, not as rounded', () => {
+    // Rounded, 6.0000001 reads as the 6 it is checked against; it is still wider.
+    const [failure] = fitAgainst(
+      { ...endmill, geometry: { DC: 6.0000001 } },
+      { featureTag: 'p', maxToolDiameter: 6 },
+    )
+    expect(failure?.reason).toBe('⌀6 mm is wider than the 6 mm this feature admits')
+  })
+})
+
 describe('which tools cut every demand', () => {
   it('keeps a near miss and says which feature ruled it out', () => {
     // A tool that clears four of five features is not an answer, but knowing

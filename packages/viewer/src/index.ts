@@ -166,9 +166,11 @@ export {
   directionIndexOf,
   directionLabel,
   groupByDirection,
+  nearestDirectionIndex,
   sameDirection,
 } from './model/directions.js'
 export { regionNormals } from './model/normals.js'
+export { featureExtent, type FeatureExtent } from './model/extent.js'
 export {
   DEFAULT_THEME,
   DIRECTION_COLORS,
@@ -231,7 +233,7 @@ export type { SurfaceOf } from './model/surfaces.js'
 export type { RankingContext } from './render/selection.js'
 export type { PartObject, RegionPaint } from './render/part.js'
 export type { FeatureHighlight, HighlightLayers, RegionHighlight } from './render/paint.js'
-export type { FocusOptions } from './render/focus.js'
+export type { FeatureFocus, FeatureFocusRequest, FocusOptions } from './render/focus.js'
 export type { ViewerTheme } from './render/theme.js'
 export type { PartMeshProps } from './part-mesh.js'
 export type { PartContextValue } from './part-context.js'
