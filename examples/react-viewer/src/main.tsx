@@ -22,6 +22,8 @@ import {
   Viewer,
   CONTROL_SCHEME_OPTIONS,
   measurementLabel,
+  sharpCornerPositions,
+  surfaceCreases,
   type MeasureMode,
   type Measurement,
   type PartModel,
@@ -30,12 +32,16 @@ import {
   type ControlScheme,
   type SectionOptions,
   type SectionState,
+  type SharpCorner,
+  type SharpCornerOptions,
   type StockPosition,
   type ViewerHandle,
   type ViewerToolbarControls,
 } from '@toolpath/viewer'
 import { AnalysisOptions } from './analysis-options'
-import { MODELS, modelFromQuery } from './models'
+import type { FeatureSheet } from '@toolpath/dfm/model'
+import { partFromFiles } from './local-part'
+import { type ExampleModel, MODELS, modelFromQuery } from './models'
 import stockMeshFixture from '../../../packages/viewer/fixtures/mesh/stock-box.json'
 import './style.css'
 
@@ -76,6 +82,9 @@ const initialControls: ControlScheme = CONTROL_SCHEME_OPTIONS.some(
  * on. The cube is the default, and the one the browser suite is written about.
  */
 const startingModel = modelFromQuery(params)
+/** `?sharp=on` opens with the Sharp corners button pressed. */
+const initialSharp = params.get('sharp') === 'on'
+const NO_FEATURES: readonly string[] = []
 
 /** Where the camera is, as numbers rather than as pixels. */
 interface CameraState {
@@ -153,8 +162,24 @@ const featureLabel = (featureType: string) =>
     .map((word) => word[0]?.toUpperCase() + word.slice(1))
     .join(' ')
 
-/** What every normalized part report can say without a DFM datasheet. */
-const HoverDetails = ({ pick, model }: { pick: PartPick; model: PartModel }) => {
+interface HoverDetailsProps {
+  pick: PartPick
+  model: PartModel
+  /** The DFM rules' reading of each feature's datasheet, by lower-cased tag, where the part has them. */
+  sheets: ExampleModel['sheets']
+}
+
+/** What every normalized part report can say without a DFM datasheet — or, on a sharp corner, about it. */
+const HoverDetails = ({ pick, model, sheets }: HoverDetailsProps) => {
+  if (pick.sharpCorner) {
+    return (
+      <SharpCornerDetails
+        corner={pick.sharpCorner}
+        model={model}
+        sheet={sheets?.[pick.sharpCorner.feature.toLowerCase()]}
+      />
+    )
+  }
   const feature = pick.best ? model.features.find(({ tag }) => tag === pick.best) : undefined
   const region = model.regions.find(({ idx }) => idx === pick.region)
   const direction = feature
@@ -186,8 +211,59 @@ const HoverDetails = ({ pick, model }: { pick: PartPick; model: PartModel }) => 
   )
 }
 
+/**
+ * A sharp corner under the pointer, laid out as a feature is: that it is a
+ * sharp corner, the feature it is in, and its figures — the angle between its
+ * walls, how deep it runs, which way it is cut, and, where the part has its
+ * datasheets, the widest tool that fits the feature. Facts only: whoever reads
+ * it knows what a sharp corner means.
+ */
+const SharpCornerDetails = ({
+  corner,
+  model,
+  sheet,
+}: {
+  corner: SharpCorner
+  model: PartModel
+  sheet: FeatureSheet | undefined
+}) => {
+  const feature = model.features.find(({ tag }) => tag === corner.feature)
+  const tool = sheet?.pinchDiameter
+  return (
+    <>
+      <p className="viewer-hover-eyebrow viewer-hover-eyebrow-sharp">Sharp corner</p>
+      <strong>{feature ? featureLabel(feature.featureType) : 'Flagged feature'}</strong>
+      <dl>
+        <div>
+          <dt>Angle</dt>
+          <dd>{corner.angle.toFixed(0)}°</dd>
+        </div>
+        <div>
+          <dt>Depth</dt>
+          <dd>{corner.length.toFixed(2)} mm</dd>
+        </div>
+        {feature ? (
+          <div>
+            <dt>Cut from</dt>
+            <dd>{directionLabel(feature.machiningDirection)}</dd>
+          </div>
+        ) : null}
+        {tool !== undefined ? (
+          <div>
+            <dt>Widest tool</dt>
+            <dd>Ø{tool.toFixed(2)} mm</dd>
+          </div>
+        ) : null}
+      </dl>
+    </>
+  )
+}
+
 const App = () => {
   const [part, setPart] = useState(startingModel)
+  // The built-in parts, and any real part opened from disk this session.
+  const [parts, setParts] = useState<readonly ExampleModel[]>(MODELS)
+  const [openError, setOpenError] = useState<string | null>(null)
   // Query params select the opening preset for browser coverage; the picker
   // below changes the live controls without remounting the viewer.
   const [controls, setControls] = useState<ControlScheme>(initialControls)
@@ -235,6 +311,29 @@ const App = () => {
   const [stockMeshSize, setStockMeshSize] = useState('40')
   const [stockPosition, setStockPosition] = useState<StockPosition>('model_centered')
   const [stockPositionOffset, setStockPositionOffset] = useState(0)
+  /**
+   * Sharp corners, wired the way an application wires them: one toolbar
+   * button, and the features the DFM rules flag handed to the part. Which
+   * corners count is the rules' call; nothing about it is offered to users.
+   */
+  const [sharpOn, setSharpOn] = useState(initialSharp)
+  const flagged = part.sharpCorners ?? NO_FEATURES
+  const sharpCorners = useMemo(
+    (): SharpCornerOptions | null => (sharpOn ? { features: flagged } : null),
+    [flagged, sharpOn],
+  )
+  // The same walk the part makes, repeated here only to say what was drawn.
+  const creases = useMemo(
+    () => (sharpOn ? surfaceCreases(part.geometry, part.model) : null),
+    [part.geometry, part.model, sharpOn],
+  )
+  const sharpDrawn = useMemo(
+    () =>
+      creases && sharpCorners
+        ? measureSegments(sharpCornerPositions(creases, part.model, sharpCorners))
+        : null,
+    [creases, part.model, sharpCorners],
+  )
   const stockSize = useMemo(
     () =>
       fixedBoxStockBounds(
@@ -258,6 +357,19 @@ const App = () => {
     (next: CameraState) => setPose((held) => (sameCamera(held, next) ? held : next)),
     [],
   )
+  // A new part is a new scene: the viewer is keyed on it, so it remounts,
+  // frames the new part, and drops the cut and the measurements with the
+  // tools that made them.
+  const choosePart = (next: ExampleModel) => {
+    setPart(next)
+    setCut(null)
+    setMeasured([])
+    setSelected([])
+    setHovered([])
+    setHoverPick(null)
+    heldSelection.current = []
+    setDirection(null)
+  }
   const toolbarControls: ViewerToolbarControls = {
     fit: { onClick: () => viewerRef.current?.fit() },
     reset: { onClick: () => viewerRef.current?.reset() },
@@ -276,6 +388,7 @@ const App = () => {
         setWireframe(false)
       },
     },
+    sharpCorners: { pressed: sharpOn, onClick: () => setSharpOn((on) => !on) },
     hover: { pressed: featureHover, onClick: () => setFeatureHover((enabled) => !enabled) },
     focus: { pressed: focus, onClick: () => setFocus((enabled) => !enabled) },
     wireframe: {
@@ -325,22 +438,11 @@ const App = () => {
           <select
             value={part.id}
             onChange={(event) => {
-              const next = MODELS.find((entry) => entry.id === event.target.value)
-              if (!next) return
-              // A new part is a new scene: the viewer is keyed on it, so it
-              // remounts, frames the new part, and drops the cut and the
-              // measurements with the tools that made them.
-              setPart(next)
-              setCut(null)
-              setMeasured([])
-              setSelected([])
-              setHovered([])
-              setHoverPick(null)
-              heldSelection.current = []
-              setDirection(null)
+              const next = parts.find((entry) => entry.id === event.target.value)
+              if (next) choosePart(next)
             }}
           >
-            {MODELS.map((entry) => (
+            {parts.map((entry) => (
               <option key={entry.id} value={entry.id}>
                 {entry.name}
               </option>
@@ -360,6 +462,30 @@ const App = () => {
             ))}
           </select>
         </label>
+        <label className="model-picker">
+          Open an Engine part (report .json with its .glb or .stl)
+          <input
+            type="file"
+            multiple
+            accept=".json,.glb,.stl"
+            onChange={(event) => {
+              const input = event.currentTarget
+              const files = Array.from(input.files ?? [])
+              input.value = ''
+              if (files.length === 0) return
+              partFromFiles(files).then(
+                (next) => {
+                  setOpenError(null)
+                  setParts((held) => [...held, next])
+                  choosePart(next)
+                },
+                (error: unknown) =>
+                  setOpenError(error instanceof Error ? error.message : String(error)),
+              )
+            }}
+          />
+        </label>
+        {openError ? <p className="small-note open-error">{openError}</p> : null}
         <p>{part.hint}</p>
         <p>
           <strong>Stock:</strong>{' '}
@@ -555,6 +681,12 @@ const App = () => {
         <p>
           <strong>Direction:</strong> {direction === null ? 'all' : String(direction)}
         </p>
+        <p data-testid="sharp-corners" data-segments={sharpDrawn?.segments ?? 0}>
+          <strong>Sharp corners:</strong>{' '}
+          {sharpDrawn
+            ? `${sharpDrawn.segments} segments, ${sharpDrawn.length.toFixed(1)} mm, on ${flagged.length} ${flagged.length === 1 ? 'feature' : 'features'} the DFM rules flag`
+            : 'off'}
+        </p>
         <p>
           <strong>Projection:</strong> {projection}
         </p>
@@ -581,7 +713,7 @@ const App = () => {
       <div className="viewer">
         <ViewerToolbarProvider controls={toolbarControls}>
           <HoverCard pick={hoverPick} className="viewer-hover-card">
-            {(pick) => <HoverDetails pick={pick} model={part.model} />}
+            {(pick) => <HoverDetails pick={pick} model={part.model} sheets={part.sheets} />}
           </HoverCard>
           <ViewerToolbar>
             <AnalysisOptions
@@ -639,6 +771,7 @@ const App = () => {
               <ViewerToolbar.BananaButton />
               <ViewerToolbar.Divider />
               <ViewerToolbar.DirectionsButton />
+              <ViewerToolbar.SharpCornersButton />
               <ViewerToolbar.HoverButton />
               <ViewerToolbar.FocusButton />
               <ViewerToolbar.WireframeButton />
@@ -688,6 +821,7 @@ const App = () => {
               selection={selected}
               focus={focus ? {} : undefined}
               display={wireframe ? 'wireframe' : 'solid'}
+              sharpCorners={sharpCorners}
               regionHighlights={highlights}
               hover={featureHover}
               activeDirection={showDirections ? direction : null}
@@ -780,6 +914,19 @@ function describeCut(sectioning: boolean, cut: SectionState | null): string {
   if (!cut) return 'none — click a face, or a plane behind the part'
   if (cut.plane) return `${cut.plane.label ?? 'Part surface'}, ${(cut.depth ?? 0).toFixed(2)} mm in`
   return `${Math.round(cut.offset * 100)}%`
+}
+
+/** How many segments an `x y z x y z` list holds, and how long they are end to end. */
+function measureSegments(positions: Float32Array): { segments: number; length: number } {
+  let length = 0
+  for (let at = 0; at + 5 < positions.length; at += 6) {
+    length += Math.hypot(
+      positions[at + 3]! - positions[at]!,
+      positions[at + 4]! - positions[at + 1]!,
+      positions[at + 5]! - positions[at + 2]!,
+    )
+  }
+  return { segments: positions.length / 6, length }
 }
 
 /**

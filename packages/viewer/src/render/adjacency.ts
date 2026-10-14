@@ -30,7 +30,13 @@ import type { PartModel } from '../model/types.js'
 /** How finely positions are matched, in model units. A micron either way. */
 const GRID = 1e-4
 
-const keyFor = (x: number, y: number, z: number): string =>
+/**
+ * A position's key: two corners within {@link GRID} of each other share one.
+ * Every walk over the mesh's edges keys its vertices this way — this one and
+ * the sharp-corner walk in `sharp-corners.ts` — so they agree on what counts
+ * as a shared vertex.
+ */
+export const keyFor = (x: number, y: number, z: number): string =>
   `${Math.round(x / GRID)},${Math.round(y / GRID)},${Math.round(z / GRID)}`
 
 /**

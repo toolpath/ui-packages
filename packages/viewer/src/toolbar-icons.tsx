@@ -84,6 +84,14 @@ const DfmIcon = () => (
   </SvgIcon>
 )
 
+/** A wall meeting a floor square, and a round cutter that cannot reach into it. */
+const SharpCornersIcon = () => (
+  <SvgIcon>
+    <path d="M4 3v17h17" />
+    <circle cx="9" cy="15" r="4" />
+  </SvgIcon>
+)
+
 const HoverIcon = () => (
   <SvgIcon>
     <path d="M4 4h16v12H9l-5 4zm4 5h8m-8 3h5" />
@@ -125,6 +133,7 @@ export type ToolbarIconName =
   | 'tools'
   | 'directions'
   | 'dfm'
+  | 'sharpCorners'
   | 'hover'
   | 'focus'
   | 'wireframe'
@@ -142,6 +151,7 @@ const ICONS: Record<ToolbarIconName, () => ReactNode> = {
   tools: ToolsIcon,
   directions: DirectionsIcon,
   dfm: DfmIcon,
+  sharpCorners: SharpCornersIcon,
   hover: HoverIcon,
   focus: FocusIcon,
   wireframe: WireframeIcon,

@@ -131,6 +131,8 @@ export {
 export { gridGeometry, gridSpec } from './render/grid.js'
 export { BANANA_GAP, bananaFrameBounds, bananaPosition } from './render/banana.js'
 export { regionEdgesGeometry } from './render/edges.js'
+export { findSharpCorners, sharpCornerPositions, surfaceCreases } from './render/sharp-corners.js'
+export type { SharpCorner, SharpCornerOptions, SurfaceCreases } from './render/sharp-corners.js'
 export { visualSurfaces } from './model/surfaces.js'
 export { CadCameraControls } from './camera.js'
 export {
