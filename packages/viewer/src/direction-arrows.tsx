@@ -1,10 +1,12 @@
 import { type ThreeEvent, useThree } from '@react-three/fiber'
-import { useMemo } from 'react'
-import { type Box3, Quaternion, Vector3 } from 'three'
+import { useEffect, useMemo } from 'react'
+import { type Box3, type BufferGeometry, Quaternion, Vector3 } from 'three'
 import type { Vec3 } from './model/types.js'
+import { ArrowMesh } from './arrow-mesh.js'
 import { useContentBox } from './content-box.js'
+import { ARROW_AXIS, arrowGeometry } from './render/arrow.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
-import { CONE_AXIS, HEAD, HEAD_RADIUS, SHAFT_RADIUS, arrowPlacement } from './render/directions.js'
+import { arrowPlacement } from './render/directions.js'
 import { type ViewerTheme, directionColor, resolveTheme } from './render/theme.js'
 
 const FURNITURE = { [EXCLUDE_FROM_FRAME]: true }
@@ -77,6 +79,10 @@ export const DirectionArrows = ({
 }: DirectionArrowsProps) => {
   const box = useContentBox()
   const resolved = useMemo(() => resolveTheme(theme), [theme])
+  // One arrow, one long, shared by every arrow drawn: each is placed, aimed and
+  // scaled, and none is ever rebuilt.
+  const geometry = useMemo(() => arrowGeometry(), [])
+  useEffect(() => () => geometry.dispose(), [geometry])
   const shown = shownDirection === undefined ? activeDirection : shownDirection
   /** Whether this candidate is one of the ones asked for. */
   const drawn = (index: number): boolean => {
@@ -99,6 +105,7 @@ export const DirectionArrows = ({
             key={`candidate-${index}`}
             direction={direction}
             box={box}
+            geometry={geometry}
             color={directionColor(index)}
             opacity={0.9}
             onPick={onPickDirection ? () => onPickDirection(index) : undefined}
@@ -110,13 +117,21 @@ export const DirectionArrows = ({
           key={`named-${named.index}`}
           direction={named.direction}
           box={box}
+          geometry={geometry}
           color={named.color}
           opacity={0.9}
           onPick={onPickDirection ? () => onPickDirection(named.index) : undefined}
         />
       ))}
       {previewDirection ? (
-        <Arrow direction={previewDirection} box={box} color={resolved.hover} opacity={0.95} onTop />
+        <Arrow
+          direction={previewDirection}
+          box={box}
+          geometry={geometry}
+          color={resolved.hover}
+          opacity={0.95}
+          onTop
+        />
       ) : null}
     </group>
   )
@@ -125,31 +140,29 @@ export const DirectionArrows = ({
 interface ArrowProps {
   direction: Vec3
   box: Box3
+  geometry: BufferGeometry
   color: number
   opacity: number
   onPick?: () => void
   onTop?: boolean
 }
 
-const Arrow = ({ direction, box, color, opacity, onPick, onTop = false }: ArrowProps) => {
+const Arrow = ({ direction, box, geometry, color, opacity, onPick, onTop = false }: ArrowProps) => {
   const invalidate = useThree((state) => state.invalidate)
+  // Re-aimed rather than rebuilt as the angle changes: a preview drags at
+  // interaction rate, and tearing down a mesh per frame is how one stutters.
   const { tip, length, quaternion } = useMemo(() => {
     const placement = arrowPlacement(direction, box)
     const aim = new Quaternion().setFromUnitVectors(
-      CONE_AXIS,
+      ARROW_AXIS,
       new Vector3(direction.x, direction.y, direction.z).normalize(),
     )
     return { tip: placement.tip, length: placement.length, quaternion: aim }
   }, [box, direction])
 
-  // Re-aimed rather than rebuilt as the angle changes: a preview drags at
-  // interaction rate, and tearing down a mesh per frame is how one stutters.
-  const head = length * HEAD
-  const shaft = length * (1 - HEAD)
-
-  // On each mesh rather than on the group: the ray hits both the head and the
-  // shaft, and stopping propagation at the mesh is what keeps one press on an
-  // arrow from being counted twice.
+  // Propagation stops at the arrow: the part is behind it, and a press that
+  // reached the part as well would change the selection along with the
+  // direction.
   const press = onPick
     ? {
         onClick: (event: ThreeEvent<MouseEvent>) => {
@@ -161,15 +174,8 @@ const Arrow = ({ direction, box, color, opacity, onPick, onTop = false }: ArrowP
     : {}
 
   return (
-    <group position={tip} quaternion={quaternion} renderOrder={onTop ? 10 : 3}>
-      <mesh position={[0, head * 0.5, 0]} rotation={[Math.PI, 0, 0]} {...press}>
-        <coneGeometry args={[length * HEAD_RADIUS, head, 20]} />
-        <meshBasicMaterial color={color} transparent opacity={opacity} depthTest={!onTop} />
-      </mesh>
-      <mesh position={[0, head + shaft * 0.5, 0]} {...press}>
-        <cylinderGeometry args={[length * SHAFT_RADIUS, length * SHAFT_RADIUS, shaft, 12]} />
-        <meshBasicMaterial color={color} transparent opacity={opacity} depthTest={!onTop} />
-      </mesh>
+    <group position={tip} quaternion={quaternion} scale={length} renderOrder={onTop ? 10 : 3}>
+      <ArrowMesh geometry={geometry} color={color} opacity={opacity} onTop={onTop} events={press} />
     </group>
   )
 }
