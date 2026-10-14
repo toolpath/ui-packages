@@ -11,6 +11,7 @@ export { brokenRules, featureColor, type BrokenRule } from './broken-rules.js'
 export { featureTypeLabel, hitFigure } from './dfm-explain.js'
 export {
   checkPart,
+  sharpCornerFeatures,
   withSurroundedFaces,
   type DfmCheck,
   type DfmHit,

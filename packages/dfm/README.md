@@ -74,6 +74,9 @@ const check = checkPart(features, { sheets, datasheets, regionAreas }, rules.rul
 datasheet; `datasheets` is the datasheets as the API sent them, both by
 lower-cased feature tag; `regionAreas` is each face's area by region index.
 
+`sharpCornerFeatures(check, features)` lists the features whose sharp corners
+the rules flag, for `sharpCorners={{ features }}` on `@toolpath/viewer`'s part.
+
 Put `ruleListKeys` on the panel that holds the list, so the arrow keys walk the
 rules from anywhere in it.
 

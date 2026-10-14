@@ -286,7 +286,11 @@ export const featureSheet = (datasheet: unknown): FeatureSheet => {
   const walled = kind !== 'Hole' && sheet.hasWall === true
   const clearance = walled ? fit : undefined
   const cornerRadius = clearance ? insideCornerRadius(clearance) : undefined
-  const sharp = cornerRadius !== undefined && cornerRadius < SHARP_RADIUS_MM && !cramped
+  // A corner of no radius is sharp whether or not a tool fits besides: a feature no cutter fits
+  // breaks no "largest tool" rule (a tool of nothing is no measure), and a shop's rules may have
+  // no rule for room, so leaving it unflagged left a face of it unpainted however badly every
+  // other reading of that face did.
+  const sharp = cornerRadius !== undefined && cornerRadius < SHARP_RADIUS_MM
   const threading = kind === 'Hole' ? threadingOf(facts) : undefined
   const undercut = undercutOf(facts)
   const pinched = (readPinch(datasheet)?.discs ?? []).filter(
