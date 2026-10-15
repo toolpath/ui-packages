@@ -1,5 +1,25 @@
 # @toolpath/viewer
 
+## 2.3.0
+
+### Minor Changes
+
+- 5ecda52: Add sharp corners: `sharpCorners` on `<PartMesh>` and `<EnginePart>` draws the sharp corners of the features the DFM rules flag (`featureSheet(datasheet).sharpCorners` from `@toolpath/dfm/model`) as red bands painted on the faces either side, strong in view and faint through the part. The rules decide which corners; the mesh only locates each flagged feature's inside corners along its machining direction. `ViewerToolbar.SharpCornersButton` turns them on and off from a new `sharpCorners` toolbar control. With hover on, the corner under the pointer takes the hover colour and is reported on the pick as `pick.sharpCorner` — its feature, ends, length and the angle between its faces — for a hover card to describe. Adds the `sharpCorner` theme colour, and exports `surfaceCreases`, `findSharpCorners` and `sharpCornerPositions`.
+
+## 2.2.1
+
+### Patch Changes
+
+- e3366b3: Draw direction arrows and the section handle as single, softly shaded meshes — a straight cone head, slim shaft and rounded tail — instead of flat-coloured cones on cylinders.
+
+## 2.2.0
+
+### Minor Changes
+
+- cb8c5f2: `ViewerToolbar.DfmButton` shows or hides an application's DFM flags on the part, from a `dfm`
+  toolbar control: "Show DFM flags" / "Hide DFM flags", with a warning-octagon icon. The standard
+  toolbar places it after the direction highlight button when a `dfm` control is given.
+
 ## 2.1.0
 
 ### Minor Changes

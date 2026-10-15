@@ -19,6 +19,18 @@ import {
 import type { FeatureTag, PartModel } from '../model/types.js'
 import { regionEdgesGeometry } from './edges.js'
 import { focusOpacity, focusedRegions, type FocusOptions } from './focus.js'
+import type { ViewerCamera, ViewportSize } from './camera.js'
+import {
+  type SharpCorner,
+  type SharpCornerDrawing,
+  type SharpCornerOptions,
+  type SurfaceCreases,
+  createSharpCornerDrawing,
+  findSharpCorners,
+  sharpCornerAt,
+  sharpCornerKey,
+  surfaceCreases,
+} from './sharp-corners.js'
 import type { ViewerTheme } from './theme.js'
 
 /** The vertex attribute carrying each vertex's column in the state texture. */
@@ -72,6 +84,25 @@ export interface PartObject {
   setTheme(theme: ViewerTheme): void
   /** Semantic edges only in wireframe; painted faces remain visible for interaction. */
   setDisplay(display: PartDisplay, showEdges?: boolean): void
+  /**
+   * Draws the sharp corners of the features the DFM rules flag, bold and
+   * through the part — see `render/sharp-corners.ts`. `null` hides them. Setting what is already drawn
+   * costs a string comparison, so a caller may pass a fresh object each render.
+   */
+  setSharpCorners(options: SharpCornerOptions | null): void
+  /** The corners drawn now, in the order their `index` counts; none while they are off. */
+  sharpCorners(): readonly SharpCorner[]
+  /**
+   * The drawn corner under a pointer on the part — `point` in world space,
+   * `region` the face it hit — or `null`. See `sharpCornerAt`.
+   */
+  sharpCornerAt(
+    hit: { readonly point: Vector3; readonly region: number },
+    camera: ViewerCamera,
+    viewport: ViewportSize,
+  ): SharpCorner | null
+  /** Draws one corner up as the one under the pointer; `null` for none. */
+  setHoveredSharpCorner(index: number | null): void
   dispose(): void
 }
 
@@ -182,6 +213,14 @@ export function createPart(
   const wireframe = { value: false }
   let focused = false
   let currentTheme = theme
+  let clipping: Plane[] | null = null
+
+  // Found and built on first use: most parts are never asked for them, and
+  // finding them is a pass over every edge of the mesh.
+  let creases: SurfaceCreases | null = null
+  let sharpLines: SharpCornerDrawing | null = null
+  let sharpKey = ''
+  let corners: readonly SharpCorner[] = []
 
   const material = new MeshLambertMaterial({
     color: theme.part,
@@ -296,6 +335,8 @@ export function createPart(
     }
     focusState.value = focused
     focusMesh.visible = focused
+    // A part writing no depth of its own leaves the corners none to be hidden by.
+    sharpLines?.setPartDepth(transparent)
   }
 
   const object = new Group()
@@ -404,9 +445,11 @@ export function createPart(
 
     setClippingPlanes(planes) {
       const value = planes === null ? null : [...planes]
+      clipping = value
       material.clippingPlanes = value
       focusMaterial.clippingPlanes = value
       edgeMaterial.clippingPlanes = value
+      sharpLines?.setClippingPlanes(value)
     },
 
     setTheme(next) {
@@ -417,6 +460,7 @@ export function createPart(
       focusMaterial.emissive.setHex(next.partEmissive)
       edgeMaterial.color.setHex(wireframe.value ? next.part : next.edge)
       edgeMaterial.opacity = wireframe.value ? 1 : next.edgeOpacity
+      sharpLines?.setTheme(next)
     },
 
     setDisplay(display, showEdges = true) {
@@ -430,6 +474,40 @@ export function createPart(
       edgeMaterial.opacity = enabled ? 1 : currentTheme.edgeOpacity
     },
 
+    setSharpCorners(options) {
+      const key = options === null ? '' : sharpCornerKey(options)
+      if (key === sharpKey) return
+      sharpKey = key
+      // Nothing flagged is nothing to find, so the walk waits for something that is.
+      if (options === null || options.features.length === 0) {
+        corners = []
+        sharpLines?.clear()
+        return
+      }
+      creases ??= surfaceCreases(geometry, model)
+      if (!sharpLines) {
+        sharpLines = createSharpCornerDrawing(currentTheme, geometry)
+        sharpLines.setClippingPlanes(clipping)
+        sharpLines.setPartDepth(wireframe.value || focused)
+        object.add(sharpLines.object)
+      }
+      corners = findSharpCorners(creases, model, options)
+      sharpLines.setCorners(creases, corners)
+    },
+
+    sharpCorners() {
+      return corners
+    },
+
+    sharpCornerAt(hit, camera, viewport) {
+      if (!creases || corners.length === 0) return null
+      return sharpCornerAt(corners, creases, hit, camera, viewport, mesh.matrixWorld)
+    },
+
+    setHoveredSharpCorner(index) {
+      sharpLines?.setHovered(index)
+    },
+
     dispose() {
       object.clear()
       // Only what this part put there. Another may have taken the geometry over
@@ -441,6 +519,7 @@ export function createPart(
       focusMaterial.dispose()
       edgeGeometry.dispose()
       edgeMaterial.dispose()
+      sharpLines?.dispose()
       stateTexture.dispose()
       opacityTexture.dispose()
     },

@@ -25,6 +25,9 @@ export interface ViewerToolbarControls {
   /** Tools drawn on the part: see `<ToolMarks>`. */
   tools?: ViewerToolbarControl
   directions?: ViewerToolbarControl
+  dfm?: ViewerToolbarControl
+  /** The DFM rules' sharp corners, drawn on the part: see `sharpCorners` on `<PartMesh>`. */
+  sharpCorners?: ViewerToolbarControl
   hover?: ViewerToolbarControl
   focus?: ViewerToolbarControl
   wireframe?: ViewerToolbarControl
@@ -133,6 +136,20 @@ const DirectionsButton = () => (
     label={() => 'Highlight faces by direction'}
   />
 )
+const DfmButton = () => (
+  <ToolbarButton
+    action="dfm"
+    icon="dfm"
+    label={(pressed) => (pressed ? 'Hide DFM flags' : 'Show DFM flags')}
+  />
+)
+const SharpCornersButton = () => (
+  <ToolbarButton
+    action="sharpCorners"
+    icon="sharpCorners"
+    label={(pressed) => (pressed ? 'Hide sharp corners' : 'Show sharp corners')}
+  />
+)
 const HoverButton = () => (
   <ToolbarButton
     action="hover"
@@ -203,6 +220,8 @@ const DefaultControls = () => {
   ].filter(Boolean)
   const analysis = [
     controls.directions ? <DirectionsButton key="directions" /> : null,
+    controls.dfm ? <DfmButton key="dfm" /> : null,
+    controls.sharpCorners ? <SharpCornersButton key="sharpCorners" /> : null,
     controls.hover ? <HoverButton key="hover" /> : null,
     controls.focus ? <FocusButton key="focus" /> : null,
     controls.wireframe ? <WireframeButton key="wireframe" /> : null,
@@ -261,6 +280,8 @@ export const ViewerToolbar = Object.assign(ViewerToolbarRoot, {
   BananaButton,
   ToolsButton,
   DirectionsButton,
+  DfmButton,
+  SharpCornersButton,
   HoverButton,
   FocusButton,
   WireframeButton,

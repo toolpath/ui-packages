@@ -22,15 +22,15 @@ It takes **zero runtime dependencies** and imports no React, no DOM, no `fs`, an
 no `@toolpath/api`. Everything else in the tree depends on it and it depends on
 nothing.
 
-| Package                      | Directory                    | At      | What it is                                           |
-| ---------------------------- | ---------------------------- | ------- | ---------------------------------------------------- |
-| `@toolpath/ui`               | `packages/ui/`               | 0.1.3   | React + Tailwind component kit and theme             |
-| `@toolpath/viewer`           | `packages/viewer/`           | 1.1.0   | three.js / R3F 3D part viewer                        |
-| `@toolpath/api`              | `packages/sdk-typescript/`   | 0.4.0   | Generated TypeScript SDK                             |
-| `@toolpath/tool-drawing`     | `packages/tool-drawing/`     | 0.2.0   | 2D tool + holder elevation                           |
-| `@toolpath/tool-scraper`     | `packages/tool-scraper/`     | 2.2.0   | Vendor catalog scraping → records                    |
-| **`@toolpath/tool-support`** | **`packages/tool-support/`** | **new** | **The cutting-tool domain**                          |
-| `toolpath`                   | `packages/sdk-python/`       | 0.1.0   | PyPI — generated Python SDK. Untouched by this plan. |
+| Package                      | Directory                    | At      | What it is                                                     |
+| ---------------------------- | ---------------------------- | ------- | -------------------------------------------------------------- |
+| `@toolpath/ui`               | `packages/ui/`               | 0.1.3   | React + Tailwind component kit and theme                       |
+| `@toolpath/viewer`           | `packages/viewer/`           | 1.1.0   | three.js / R3F 3D part viewer                                  |
+| `@toolpath/api`              | `packages/sdk-typescript/`   | 0.4.0   | Generated TypeScript SDK                                       |
+| `@toolpath/tool-drawing`     | `packages/tool-drawing/`     | 0.2.0   | 2D tool + holder elevation                                     |
+| `@toolpath/tool-scraper`     | `packages/tool-scraper/`     | 2.2.0   | Vendor catalog scraping → records                              |
+| **`@toolpath/tool-support`** | **`packages/tool-support/`** | **new** | **The cutting-tool domain**                                    |
+| `toolpath`                   | `packages/sdk-python/`       | 0.1.0   | GitHub release — generated Python SDK. Untouched by this plan. |
 
 ```
                     @toolpath/tool-support        depends on nothing

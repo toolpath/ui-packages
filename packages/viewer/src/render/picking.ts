@@ -1,6 +1,7 @@
 import type { Camera, Vector3 } from 'three'
 import type { FeatureTag, PartModel, Vec3 } from '../model/types.js'
 import { bestOwner, rankOwners } from './selection.js'
+import type { SharpCorner } from './sharp-corners.js'
 
 /**
  * Which modifier keys were down when the pick happened.
@@ -71,6 +72,13 @@ export interface PartPick {
    * part, and is nobody else's to answer.
    */
   readonly doubled: boolean
+  /**
+   * The sharp corner under the pointer, when `<PartMesh sharpCorners>` is
+   * drawing them and the pointer is on one: within a few pixels of it, on one
+   * of the two faces that meet there. The face is still `region`; this says the
+   * pointer is on the corner drawn over it.
+   */
+  readonly sharpCorner?: SharpCorner
 }
 
 /** A unit vector from the part toward the camera, for the owner ranking. */

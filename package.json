@@ -42,7 +42,7 @@
     "format:check": "prettier --check .",
     "prepare": "husky",
     "changeset": "changeset",
-    "version-packages": "changeset version",
+    "version-packages": "changeset version && node scripts/sync-python-sdk-version.mjs",
     "bootstrap:npm-package": "node scripts/bootstrap-npm-package.mjs",
     "release:npm": "pnpm package:typescript-sdk && pnpm build:ui && pnpm build:viewer && pnpm --filter @toolpath/tool-support build && pnpm --filter @toolpath/app-support build && pnpm --filter @toolpath/tool-drawing build && pnpm --filter @toolpath/dfm build && pnpm --filter @toolpath/tool-scraper build && changeset publish",
     "release:sdk-prerelease": "node scripts/publish-sdk-prerelease.mjs",

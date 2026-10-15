@@ -36,7 +36,7 @@ const OTHER = { x: 0.5, y: 0.62 }
  * part is behind it, so a click that misses the arrow lands on a face — which
  * is what makes "the selection did not change" a real assertion about it.
  */
-const ARROW = { x: 0.33, y: 0.27 }
+const ARROW = { x: 0.353, y: 0.259 }
 
 /**
  * What each point hits, named.

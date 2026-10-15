@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { FeatureSheet } from '@toolpath/dfm/model'
 import {
   buildRegionIndex,
   smoothRegionNormals,
@@ -30,6 +31,19 @@ export interface ExampleModel {
   readonly hint: string
   readonly model: PartModel
   readonly geometry: THREE.BufferGeometry
+  /**
+   * The features the DFM rules flag with a sharp corner, for the Sharp corners
+   * button. An Engine part takes them from its datasheets (`local-part.ts`);
+   * these parts have no Engine behind them, so the one that has a sharp corner
+   * says so by hand.
+   */
+  readonly sharpCorners?: readonly string[]
+  /**
+   * The DFM rules' reading of each feature's datasheet, by lower-cased tag:
+   * what the hover card says milling a sharp corner would leave. Only an
+   * Engine part opened with its datasheets has them.
+   */
+  readonly sheets?: Readonly<Record<string, FeatureSheet>>
 }
 
 /** The six axis directions, so the arrows have something to draw on every part. */
@@ -193,6 +207,96 @@ function pocketedBlock(): ExampleModel {
     // as a seam round the block at the floor's height and nothing worse.
     [new THREE.BoxGeometry(60, 40, 10).translate(0, 0, -5), extrude(walls, 8, 0)],
   )
+}
+
+/**
+ * The same block with the pocket's corners left square, and built as **one
+ * closed solid**: every edge is met by exactly one triangle from each side, as
+ * an Engine mesh is, which is what lets the sharp-corner overlay find them.
+ *
+ * Its walls and floor are one `pocket` feature cut from +Z, flagged with a
+ * sharp corner as the DFM rules would flag it. Of its eight inside creases,
+ * the four up Z are the corners no end mill makes and are drawn; the four
+ * round the floor are a flat end mill's ordinary work and are not.
+ */
+function sharpPocket(): ExampleModel {
+  const [bottom, floor, top] = [-10, 0, 8]
+  const outer = [
+    [-30, -20],
+    [30, -20],
+    [30, 20],
+    [-30, 20],
+  ] as const
+  const inner = [
+    [-20, -12],
+    [20, -12],
+    [20, 12],
+    [-20, 12],
+  ] as const
+  const at = ([x, y]: readonly [number, number], z: number) => [x, y, z]
+  const positions: number[] = []
+  // Corners counter-clockwise as seen from outside the solid, so each normal
+  // points out of it.
+  const quad = (a: number[], b: number[], c: number[], d: number[]) =>
+    positions.push(...a, ...b, ...c, ...a, ...c, ...d)
+
+  quad(at(outer[0], bottom), at(outer[3], bottom), at(outer[2], bottom), at(outer[1], bottom))
+  quad(at(inner[0], floor), at(inner[1], floor), at(inner[2], floor), at(inner[3], floor))
+  for (let side = 0; side < 4; side += 1) {
+    const next = (side + 1) % 4
+    // Outside wall, facing away from the middle.
+    quad(
+      at(outer[side], bottom),
+      at(outer[next], bottom),
+      at(outer[next], top),
+      at(outer[side], top),
+    )
+    // The rim between the outside and the pocket, one trapezoid a side.
+    quad(at(outer[side], top), at(outer[next], top), at(inner[next], top), at(inner[side], top))
+    // Pocket wall, facing into the pocket.
+    quad(at(inner[next], floor), at(inner[side], floor), at(inner[side], top), at(inner[next], top))
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  const part = partFromGeometry(
+    'sharp-pocket',
+    'Square-cornered pocket',
+    'A 40.00 × 24.00 mm pocket, 8.00 mm deep, with square corners. Show sharp corners: the four up its walls are the ones no end mill makes.',
+    [geometry],
+  )
+
+  // The pocket's own faces: every corner of every triangle inside its outline.
+  const position = part.geometry.getAttribute('position')
+  const inPocket = (region: PartModelRegion) => {
+    for (let vertex = region.triangles.start * 3; vertex < region.triangles.end * 3; vertex += 1) {
+      if (Math.abs(position.getX(vertex)) > 20.001 || Math.abs(position.getY(vertex)) > 12.001) {
+        return false
+      }
+    }
+    return true
+  }
+  const pocket: PartModelFeature = {
+    tag: 'pocket',
+    featureType: 'pocket',
+    machiningDirection: { x: 0, y: 0, z: 1 },
+    axis: { x: 0, y: 0, z: 1 },
+    regionIdxs: part.model.regions.filter(inPocket).map((region) => region.idx),
+  }
+  const features = [...part.model.features, pocket]
+  return {
+    ...part,
+    model: {
+      ...part.model,
+      features,
+      regionIndex: buildRegionIndex({
+        regions: part.model.regions,
+        features,
+        triangleCount: part.model.mesh.triangleCount,
+      }),
+    },
+    sharpCorners: ['pocket'],
+  }
 }
 
 /** A Ø40 disc, 12 tall, with a Ø24 boss 14 tall on it and a Ø8 bore through both. */
@@ -419,6 +523,7 @@ export const MODELS: readonly ExampleModel[] = [
   drilledPlate(),
   chamferedBlock(),
   pocketedBlock(),
+  sharpPocket(),
   steppedBoss(),
   toyBrick(),
 ]

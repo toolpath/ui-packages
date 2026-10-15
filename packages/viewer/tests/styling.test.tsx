@@ -14,6 +14,7 @@ describe('viewer styling hooks', () => {
           banana: { pressed: false, onClick: () => {} },
           tools: { pressed: true, onClick: () => {} },
           directions: { pressed: false, onClick: () => {} },
+          dfm: { pressed: true, onClick: () => {} },
           hover: { pressed: false, onClick: () => {} },
           focus: { pressed: false, onClick: () => {} },
           wireframe: { pressed: false, onClick: () => {} },
@@ -34,6 +35,8 @@ describe('viewer styling hooks', () => {
     expect(markup).toContain('data-viewer-toolbar-action="stock"')
     expect(markup).toContain('data-viewer-toolbar-action="tools"')
     expect(markup).toContain('aria-label="Hide tools on the part"')
+    expect(markup).toContain('data-viewer-toolbar-action="dfm"')
+    expect(markup).toContain('aria-label="Hide DFM flags"')
     expect(markup).toContain('class="viewer-toolbar-icon"')
     expect(markup).toContain('class="viewer-toolbar-tooltip"')
     expect(markup).toContain('class="viewer-toolbar-divider"')
@@ -64,6 +67,19 @@ describe('viewer styling hooks', () => {
     expect(markup).not.toContain('aria-pressed="false"')
     expect(markup).toContain('data-viewer-toolbar-action="banana"')
     expect(markup).toContain('aria-pressed="true"')
+  })
+
+  it('puts the sharp-corners button on the default bar, labelled for what a press does', () => {
+    const render = (pressed: boolean) =>
+      renderToStaticMarkup(
+        <ViewerToolbarProvider controls={{ sharpCorners: { pressed, onClick: () => {} } }}>
+          <ViewerToolbar />
+        </ViewerToolbarProvider>,
+      )
+
+    expect(render(true)).toContain('data-viewer-toolbar-action="sharpCorners"')
+    expect(render(true)).toContain('aria-label="Hide sharp corners"')
+    expect(render(false)).toContain('aria-label="Show sharp corners"')
   })
 
   it('requires a provider for compound toolbar controls', () => {

@@ -68,6 +68,11 @@ jobs:
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && inputs.services_sha == '')
     runs-on: ubuntu-latest
+    outputs:
+      python_sdk_required: ${{ steps.python-sdk.outputs.required }}
+      python_sdk_tag: ${{ steps.python-sdk.outputs.tag }}
+      # The commit this run released, for the Python job to build the same versions.
+      released_sha: ${{ steps.python-sdk.outputs.sha }}
     # Its own group, separate from the prerelease's, so neither can cancel or
     # delay the other.
     concurrency:
@@ -150,6 +155,86 @@ jobs:
         run: gh pr merge "${{ steps.changesets.outputs.pullRequestNumber }}" --auto --squash
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      # With no release PR pending, this run published (or found published) every npm
+      # version. The Python SDK shares @toolpath/api's version and follows whenever its
+      # GitHub release is missing: after a release, a manual run, or a re-run.
+      - name: Check whether the Python SDK needs a release
+        id: python-sdk
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: |
+          node scripts/check-python-sdk-release.mjs
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  # Attaches the Python SDK (`toolpath`) wheel to a GitHub release, `python-sdk-v<version>`,
+  # for `uv add` / `pip install` from its URL (docs/PYTHON-SDK-RELEASES.md). Both SDKs are
+  # generated from one contract and share one version.
+  python-sdk-release:
+    needs: release
+    # A released version is permanent, so only main may release one.
+    if: >-
+      needs.release.outputs.python_sdk_required == 'true' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: python-sdk-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.released_sha }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          package-manager-cache: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: 0.11.28
+          python-version: '3.11'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm package:python-sdk
+
+      - name: Install the wheel in a clean environment
+        run: |
+          venv="$RUNNER_TEMP/toolpath-wheel-check"
+          uv venv "$venv"
+          uv pip install --python "$venv" artifacts/toolpath-*-py3-none-any.whl
+          "$venv/bin/python" -I -c "import toolpath"
+
+      # Skips a release another run created meanwhile, so a re-run is safe.
+      - name: Create the GitHub release
+        run: |
+          if answer="$(gh release view "$TAG" 2>&1)"; then
+            echo "Release $TAG exists."
+            exit 0
+          fi
+          if [[ "$answer" != *"release not found"* ]]; then
+            echo "$answer" >&2
+            exit 1
+          fi
+          wheel="artifacts/toolpath-${TAG#python-sdk-v}-py3-none-any.whl"
+          if [ ! -f "$wheel" ]; then
+            echo "::error::The build did not produce $wheel; its version does not match $TAG."
+            exit 1
+          fi
+          downloads="https://github.com/${GITHUB_REPOSITORY}/releases/download"
+          url="${downloads}/${TAG}/$(basename "$wheel")"
+          notes="$(printf 'Install with uv:\n\n```sh\nuv add "toolpath @ %s"\n```\n' "$url")"
+          gh release create "$TAG" "$wheel" --target "$RELEASED_SHA" --latest=false \
+            --title "toolpath (Python SDK) ${TAG#python-sdk-v}" --notes "$notes"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.python_sdk_tag }}
+          RELEASED_SHA: ${{ needs.release.outputs.released_sha }}
 
   # Publishes @toolpath/api under npm's `staging` dist-tag from the contract Engine
   # staging serves. It commits nothing and never moves `latest`. It lives in this

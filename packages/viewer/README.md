@@ -357,9 +357,9 @@ individual buttons to use only the controls and order your application needs.
 </ViewerToolbarProvider>
 ```
 
-`ViewerToolbar.Controls`, `Divider`, and the fourteen `*Button` components are available on
+`ViewerToolbar.Controls`, `Divider`, and the sixteen `*Button` components are available on
 `ViewerToolbar`: `StockButton`, `AxesButton`, `GridButton`, `BananaButton`, `ToolsButton`, `DirectionsButton`,
-`HoverButton`, `FocusButton`, `WireframeButton`, `SectionButton`, `MeasureButton`, `FitButton`,
+`DfmButton` (shows or hides an application's DFM flags), `SharpCornersButton`, `HoverButton`, `FocusButton`, `WireframeButton`, `SectionButton`, `MeasureButton`, `FitButton`,
 `ResetButton`, and `TopButton`. A rendered button requires its matching provider control. For an
 application-specific toolbar component, `useViewerToolbar()` reads the same controls from inside
 the provider.
@@ -388,19 +388,19 @@ override any of these selectors in your application stylesheet.
 The following `data-*` attributes identify generated elements without depending on labels, which
 can change with state or localization:
 
-| Attribute                             | Element and values                                                                                                                                       |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `data-viewer-root="true"`             | `<Viewer>` wrapper                                                                                                                                       |
-| `data-viewer-canvas-container="true"` | R3F canvas event container                                                                                                                               |
-| `data-viewer-canvas-frame="true"`     | R3F canvas-sizing frame                                                                                                                                  |
-| `data-viewer-canvas="true"`           | The `<canvas>` itself                                                                                                                                    |
-| `data-viewer-hover-card="true"`       | `<HoverCard>` shell                                                                                                                                      |
-| `data-viewer-toolbar="true"`          | Toolbar stack                                                                                                                                            |
-| `data-viewer-toolbar-controls="true"` | Controls group                                                                                                                                           |
-| `data-viewer-toolbar-action`          | Standard button: `stock`, `axes`, `grid`, `banana`, `tools`, `directions`, `hover`, `focus`, `wireframe`, `section`, `measure`, `fit`, `reset`, or `top` |
-| `data-viewer-toolbar-icon="true"`     | Standard button SVG                                                                                                                                      |
-| `data-viewer-toolbar-tooltip="true"`  | Standard button tooltip                                                                                                                                  |
-| `data-viewer-toolbar-divider="true"`  | Toolbar separator                                                                                                                                        |
+| Attribute                             | Element and values                                                                                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data-viewer-root="true"`             | `<Viewer>` wrapper                                                                                                                                                              |
+| `data-viewer-canvas-container="true"` | R3F canvas event container                                                                                                                                                      |
+| `data-viewer-canvas-frame="true"`     | R3F canvas-sizing frame                                                                                                                                                         |
+| `data-viewer-canvas="true"`           | The `<canvas>` itself                                                                                                                                                           |
+| `data-viewer-hover-card="true"`       | `<HoverCard>` shell                                                                                                                                                             |
+| `data-viewer-toolbar="true"`          | Toolbar stack                                                                                                                                                                   |
+| `data-viewer-toolbar-controls="true"` | Controls group                                                                                                                                                                  |
+| `data-viewer-toolbar-action`          | Standard button: `stock`, `axes`, `grid`, `banana`, `tools`, `directions`, `dfm`, `sharpCorners`, `hover`, `focus`, `wireframe`, `section`, `measure`, `fit`, `reset`, or `top` |
+| `data-viewer-toolbar-icon="true"`     | Standard button SVG                                                                                                                                                             |
+| `data-viewer-toolbar-tooltip="true"`  | Standard button tooltip                                                                                                                                                         |
+| `data-viewer-toolbar-divider="true"`  | Toolbar separator                                                                                                                                                               |
 
 Toggle buttons also carry standard `aria-pressed="true"` or `"false"`; use that to style their
 current state. `Fit`, `Reset`, and `Top view` are actions rather than toggles, so they omit the
@@ -477,17 +477,18 @@ Draws the part and handles clicks. You only use it directly when you
 
 **Colours**
 
-| Prop                | Type                                 | What it does                                                                                          |
-| ------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `selection`         | `string[]`                           | Feature tags to highlight as selected (orange).                                                       |
-| `highlights`        | `FeatureHighlight[]`                 | Your own colour per feature, e.g. difficulty or setup.                                                |
-| `regionHighlights`  | `RegionHighlight[]`                  | Your own colour per face.                                                                             |
-| `candidates`        | `string[]`                           | Other possible matches, faintly tinted by machining direction.                                        |
-| `pickedRegions`     | `number[]`                           | Faces to mark as just clicked.                                                                        |
-| `hoveredFeatureIds` | `string[]`                           | Features to show as hovered, e.g. when hovering a list row.                                           |
-| `showEdges`         | `boolean` (`true`)                   | Draw outlines between faces.                                                                          |
-| `display`           | `'solid' \| 'wireframe'` (`'solid'`) | Wireframe draws face boundaries without triangle diagonals. Painted and hovered faces remain visible. |
-| `theme`             | `Partial<ViewerTheme>`               | Override the part's colours.                                                                          |
+| Prop                | Type                                  | What it does                                                                                          |
+| ------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `selection`         | `string[]`                            | Feature tags to highlight as selected (orange).                                                       |
+| `highlights`        | `FeatureHighlight[]`                  | Your own colour per feature, e.g. difficulty or setup.                                                |
+| `regionHighlights`  | `RegionHighlight[]`                   | Your own colour per face.                                                                             |
+| `candidates`        | `string[]`                            | Other possible matches, faintly tinted by machining direction.                                        |
+| `pickedRegions`     | `number[]`                            | Faces to mark as just clicked.                                                                        |
+| `hoveredFeatureIds` | `string[]`                            | Features to show as hovered, e.g. when hovering a list row.                                           |
+| `showEdges`         | `boolean` (`true`)                    | Draw outlines between faces.                                                                          |
+| `sharpCorners`      | `SharpCornerOptions \| null` (`null`) | Draw the sharp corners the DFM rules flag. See [Showing sharp corners](#showing-sharp-corners).       |
+| `display`           | `'solid' \| 'wireframe'` (`'solid'`)  | Wireframe draws face boundaries without triangle diagonals. Painted and hovered faces remain visible. |
+| `theme`             | `Partial<ViewerTheme>`                | Override the part's colours.                                                                          |
 
 **Interaction**
 
@@ -789,6 +790,68 @@ To list features by direction, use `groupByDirection(model)`. To label a directi
 `directionLabel(direction)`, which gives `+Z`, `−X`, or `0.707, 0, 0.707`. To colour a direction
 the same way as its arrow, use `directionColor(index)`.
 
+### Showing sharp corners
+
+`sharpCorners` draws a part's sharp corners as red bands painted on the two faces that meet there: strong where you can see them, faint
+where the part is in front of them. **Which corners is the DFM rules' call, not the viewer's.** Pass
+the features the rules flag with a sharp corner — those whose `featureSheet(datasheet).sharpCorners`
+is set, from `@toolpath/dfm/model` — and the viewer draws each one's inside corners that run along
+its machining direction: the vertical corners between its walls that no end mill makes. Nothing else
+is drawn — not a hole's rim, not an outside edge, not a floor meeting a wall.
+
+The mesh only says where those corners are. It needs the closed mesh the Engine produces (every edge
+shared by exactly two triangles) and the report's regions, which tell a real edge from tessellation.
+
+```tsx
+const flagged = Object.entries(sheets)
+  .filter(([, sheet]) => sheet.sharpCorners)
+  .map(([tag]) => tag)
+
+<ViewerToolbarProvider
+  controls={{ sharpCorners: { pressed: shown, onClick: () => setShown((on) => !on) } }}
+>
+  <ViewerToolbar />
+  <Viewer>
+    <EnginePart report={report} sharpCorners={shown ? { features: flagged } : null} />
+  </Viewer>
+</ViewerToolbarProvider>
+```
+
+`ViewerToolbar.SharpCornersButton` turns them on and off; there is nothing else to offer users.
+Tags are matched without regard to case, so the lower-cased keys an application keeps its sheets
+under work as they are.
+
+With `hover` on, the pointer on a corner is on the corner: it takes the theme's `hover` colour at
+the same width, the face under it is not painted as hovered, and the pick `onHover` reports carries it as
+`pick.sharpCorner`. That is a `SharpCorner`: the flagged `feature` it belongs to, its `start` and `end`,
+its `length` (how deep a tool would have to reach, mm), and the `angle` between its faces (90 for a
+square corner). What a hover card says about it is the application's call; with the feature's sheet,
+the widest tool that fits it (`pinchDiameter`) says what milling would leave there — that tool's radius.
+
+```tsx
+<HoverCard pick={pick}>
+  {(pick) =>
+    pick.sharpCorner ? (
+      <SharpCornerDetails corner={pick.sharpCorner} />
+    ) : (
+      <FeatureDetails pick={pick} />
+    )
+  }
+</HoverCard>
+```
+
+`findSharpCorners(creases, model, options)` lists the same corners without a pointer.
+
+`features` is the only option. How sharp a fold must be to count, how closely it must follow the
+machining direction, and how the bands look are fixed: the rules have already decided which corners
+matter, and there is nothing left worth tuning. The colour is the `sharpCorner` theme key. To count
+or measure the corners yourself, use `surfaceCreases(geometry, model)` and
+`sharpCornerPositions(creases, model, options)`.
+
+If your application paints the features a rule flags, leave that rule's paint off while the corners
+are shown. A corner drawn in the rule's colour disappears into paint of the same colour, and the
+corner is the rule's mark, more exactly than the paint is.
+
 ### Custom colours
 
 Use `highlights` for colours that mean something in your app, such as difficulty, setup, or cost.
@@ -986,7 +1049,8 @@ hatch lines, `sectionHandle` overrides the drag arrow's colour, and `sectionOutl
 cutting-plane sheet and preview that `<SectionTool>` draws. Without a `sectionHandle` override, the
 drag arrow uses the cutting plane's direction colour. `measure` and `measureSnap` are
 `<MeasureTool>`'s lines and its snap indicator; a distance's X, Y, Z legs take `AXIS_COLORS`, the
-same hues as the section tool's global planes.
+same hues as the section tool's global planes. `sharpCorner` is the colour of
+[sharp corners](#showing-sharp-corners).
 
 `HIGHLIGHT_COLORS` has the standard selection colours (`default`, `toolIssue`, `geometryIssue`).
 `DIRECTION_COLORS` has the 9 direction colours, which repeat for parts with more than 9 directions.
@@ -1241,21 +1305,24 @@ is a complete app built this way, with no API key needed.
 
 ### Helpers
 
-| Helper                                                   | What it does                                                |
-| -------------------------------------------------------- | ----------------------------------------------------------- |
-| `normalizePartReport(report)`                            | Checks an API report and converts it to a `PartModel`.      |
-| `buildRegionIndex({ regions, features, triangleCount })` | Builds the lookups between triangles, faces, and features.  |
-| `model.regionIndex.featuresForRegion(i)`                 | The features that own a face.                               |
-| `model.regionIndex.regionsForFeature(tag)`               | The faces that make up a feature.                           |
-| `focusForPick(pick, lastRegion, lastFocus)`              | Steps through a face's matches on repeated clicks.          |
-| `rankOwners` / `bestOwner`                               | The ranking `onPick` uses, if you want to run it yourself.  |
-| `groupByDirection(model)`                                | Features grouped by machining direction.                    |
-| `featureTriangles(model, geometry, tag)`                 | A feature's triangles and outward normals, as plain arrays. |
-| `directionLabel(v)` / `directionColor(i)`                | A direction's label and colour.                             |
-| `sectionFromPick({ point, normal })`                     | Turns a clicked surface into a section plane.               |
-| `measurementLabel(measurement, format?)`                 | Writes a measurement the way `<MeasureTool>` labels it.     |
-| `snapAt(hit, edges, camera, viewport)`                   | Where a point on the part snaps to, for a tool of your own. |
-| `engineGeometryCache.clear()`                            | Frees every cached mesh.                                    |
+| Helper                                                   | What it does                                                         |
+| -------------------------------------------------------- | -------------------------------------------------------------------- |
+| `normalizePartReport(report)`                            | Checks an API report and converts it to a `PartModel`.               |
+| `buildRegionIndex({ regions, features, triangleCount })` | Builds the lookups between triangles, faces, and features.           |
+| `model.regionIndex.featuresForRegion(i)`                 | The features that own a face.                                        |
+| `model.regionIndex.regionsForFeature(tag)`               | The faces that make up a feature.                                    |
+| `focusForPick(pick, lastRegion, lastFocus)`              | Steps through a face's matches on repeated clicks.                   |
+| `rankOwners` / `bestOwner`                               | The ranking `onPick` uses, if you want to run it yourself.           |
+| `groupByDirection(model)`                                | Features grouped by machining direction.                             |
+| `featureTriangles(model, geometry, tag)`                 | A feature's triangles and outward normals, as plain arrays.          |
+| `directionLabel(v)` / `directionColor(i)`                | A direction's label and colour.                                      |
+| `sectionFromPick({ point, normal })`                     | Turns a clicked surface into a section plane.                        |
+| `measurementLabel(measurement, format?)`                 | Writes a measurement the way `<MeasureTool>` labels it.              |
+| `snapAt(hit, edges, camera, viewport)`                   | Where a point on the part snaps to, for a tool of your own.          |
+| `surfaceCreases(geometry, model)`                        | Every edge between two faces, with its angle and which way it folds. |
+| `sharpCornerPositions(creases, model, options)`          | The ones `sharpCorners` would draw, as line segment endpoints.       |
+| `findSharpCorners(creases, model, options)`              | The same, as whole corners: feature, ends, length and angle.         |
+| `engineGeometryCache.clear()`                            | Frees every cached mesh.                                             |
 
 The package also exports lower-level geometry, camera, and view-cube functions that the components
 use. They're listed in `dist/index.d.ts`.
@@ -1269,7 +1336,7 @@ use. They're listed in `dist/index.d.ts`.
 `MeasureMode`, `Measurement`, `DistanceMeasurement`, `AngleMeasurement`, `Snap`, `SnapKind`,
 `ViewerTheme`, `ViewName`, `DirectionArrowsProps`, `NamedDirection`, `GridProps`, `AxesProps`,
 `ViewCubeProps`, `ViewerToolbarProps`, `ViewerToolbarControlsProps`, `ViewerToolbarControls`,
-`ViewerToolbarControl`.
+`ViewerToolbarControl`, `SharpCorner`, `SharpCornerOptions`, `SurfaceCreases`.
 
 `FeatureType` and `ShapeKind` accept any string, because newer Engine versions add new values.
 Handle values you don't recognize.
