@@ -261,3 +261,39 @@ def test_joins_multi_line_data_and_strips_one_space_after_the_colon() -> None:
 
     assert len(running) > 1
     assert [update.status for update in updates] == [JobDetailStatus.RUNNING, JobDetailStatus.SUCCEEDED]
+
+
+def test_ignores_a_byte_order_mark_before_the_first_event() -> None:
+    client = streaming(["﻿" + job_event("succeeded")])
+
+    assert wait(client).status is JobDetailStatus.SUCCEEDED
+
+
+def test_skips_a_job_in_a_status_this_sdk_does_not_know() -> None:
+    updates: list[JobDetail] = []
+    client = streaming([job_event("running"), job_event("paused"), job_event("succeeded")])
+
+    wait(client, updates)
+
+    assert [update.status for update in updates] == [JobDetailStatus.RUNNING, JobDetailStatus.SUCCEEDED]
+
+
+def test_replaces_only_the_read_timeout_keeping_the_clients_others() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200, headers={"Content-Type": "text/event-stream"}, stream=EventStream([job_event("succeeded")], None)
+        )
+
+    client = AuthenticatedClient(
+        "https://api.example.test",
+        token="tp_test",
+        timeout=httpx.Timeout(3.0, pool=7.0),
+        httpx_args={"transport": httpx.MockTransport(handler)},
+    )
+
+    wait(client)
+
+    assert requests[0].extensions["timeout"] == {"connect": 3.0, "read": 60.0, "write": 3.0, "pool": 7.0}

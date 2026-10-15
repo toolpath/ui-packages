@@ -13,10 +13,15 @@ import httpx
 from .generated.client import AuthenticatedClient
 from .generated.models import JobDetail, JobDetailStatus
 
-# The server sends keep-alive comments on an idle stream, well inside the read timeout, so a read
-# that waits this long means the connection is gone rather than quiet. It replaces any timeout set on
-# the client, which a stream open for minutes could otherwise trip.
-_STREAM_TIMEOUT = httpx.Timeout(30.0, read=60.0)
+# The server sends keep-alive comments on an idle stream, well inside this, so a read that waits
+# this long means the connection is gone rather than quiet. It replaces only the client's read
+# timeout, which a stream open for minutes could otherwise trip; connect, write and pool stay the
+# client's own.
+_STREAM_READ_TIMEOUT = 60.0
+
+# The job statuses this SDK's ``JobDetail`` can hold. An event naming any other — one a later API
+# release adds — is skipped rather than failing the wait, since only the final two end it.
+_KNOWN_STATUSES = frozenset(status.value for status in JobDetailStatus)
 
 # A line ends at CRLF, LF, or CR, and nowhere else: ``str.splitlines`` and httpx's ``aiter_lines``
 # also break at U+2028, U+0085 and the like, which JSON leaves unescaped inside a string.
@@ -34,15 +39,21 @@ class JobFailedError(RuntimeError):
 async def _job_events(response: httpx.Response, job_id: str | UUID) -> AsyncIterator[JobDetail]:
     """The ``job`` events of a server-sent event stream, parsed as the text arrives.
 
-    Comment lines — the server's keep-alives — and events of any other name are skipped. An
-    ``httpx.TransportError`` while reading is raised as ``RuntimeError``, with it as the cause.
+    Comment lines — the server's keep-alives — events of any other name, and jobs in a status this
+    SDK does not know are skipped. An ``httpx.TransportError`` while reading is raised as
+    ``RuntimeError``, with it as the cause.
     """
     pending = ""
+    first = True
     after_cr = False
     event = ""
     data: list[str] = []
     try:
         async for chunk in response.aiter_text():
+            if first:
+                # A stream may open with a byte order mark, which is not part of its first line.
+                chunk = chunk.removeprefix("\ufeff")
+                first = False
             if not chunk:
                 continue
             # A CR that ended the last chunk ended its line there, so an LF that starts this one is
@@ -54,7 +65,9 @@ async def _job_events(response: httpx.Response, job_id: str | UUID) -> AsyncIter
             for line in lines:
                 if line == "":
                     if event == "job" and data:
-                        yield JobDetail.from_dict(json.loads("\n".join(data)))
+                        fields = json.loads("\n".join(data))
+                        if fields.get("status") in _KNOWN_STATUSES:
+                            yield JobDetail.from_dict(fields)
                     event = ""
                     data = []
                 elif not line.startswith(":"):
@@ -81,17 +94,23 @@ async def wait_for_job(
     it, so the one stream is all there is to read. ``on_update`` is called with the job each time the
     stream sends it.
 
-    Losing the open stream before either raises ``RuntimeError``: when the server closes it, and when
-    reading it raises an ``httpx.TransportError`` — a reset or dropped connection, or nothing received
-    for 60 seconds — which becomes the ``RuntimeError``'s ``__cause__``. Errors before the stream opens
+    The stream ending before either raises ``RuntimeError``. The server closes it early when the job
+    expired or was deleted while it waited, or when it could not read the job, and reading it can
+    raise an ``httpx.TransportError`` — a reset or dropped connection, or nothing received for 60
+    seconds — which becomes the ``RuntimeError``'s ``__cause__``. Calling ``wait_for_job`` once more
+    is safe, since a new stream starts with the job as it is now, and ``get_job`` says which it was. Errors before the stream opens
     are httpx's own: ``httpx.HTTPStatusError`` for an error response — an unknown job, an expired one,
     a refused key — and ``httpx.TransportError`` when no response arrives.
     """
-    async with client.get_async_httpx_client().stream(
+    httpx_client = client.get_async_httpx_client()
+    timeout = httpx_client.timeout
+    async with httpx_client.stream(
         "GET",
         f"/v1/jobs/{job_id}/events",
         headers={"Accept": "text/event-stream"},
-        timeout=_STREAM_TIMEOUT,
+        timeout=httpx.Timeout(
+            connect=timeout.connect, read=_STREAM_READ_TIMEOUT, write=timeout.write, pool=timeout.pool
+        ),
     ) as response:
         if response.is_error:
             await response.aread()

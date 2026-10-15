@@ -1,5 +1,10 @@
 import type { ToolpathClient } from './client.js'
-import { JobDetailFromJSON, JobDetailStatusEnum, type JobDetail } from './generated/index.js'
+import {
+  JobDetailFromJSON,
+  JobDetailStatusEnum,
+  ResponseError,
+  type JobDetail,
+} from './generated/index.js'
 
 export interface WaitForJobOptions {
   /** Called with the job each time the stream sends it: once on connecting, then on every change. */
@@ -39,6 +44,7 @@ async function* readJobEvents(
   }
   signal?.addEventListener('abort', cancel, { once: true })
   let pending = ''
+  let afterCr = false
   let event = ''
   let data: Array<string> = []
   try {
@@ -47,9 +53,14 @@ async function* readJobEvents(
       if (done) {
         return
       }
-      // A line ends at CRLF, LF, or CR. A CR that ends the chunk may be half of a CRLF, so it waits
-      // in `pending` for the next one.
-      const lines = (pending + value).split(/\r\n|\n|\r(?!$)/)
+      // A line ends at CRLF, LF, or CR. A CR that ended the last chunk ended its line there, so an
+      // LF that starts this one is the rest of that CRLF rather than another, empty line.
+      const chunk: string = afterCr && value.startsWith('\n') ? value.slice(1) : value
+      if (chunk === '') {
+        continue
+      }
+      afterCr = chunk.endsWith('\r')
+      const lines = (pending + chunk).split(/\r\n|\n|\r/)
       pending = lines.pop() ?? ''
       for (const line of lines) {
         if (line === '') {
@@ -77,13 +88,34 @@ async function* readJobEvents(
 }
 
 /**
+ * The same error over a copy of its response whose body has been read in full. An unread body holds
+ * its connection open until it is garbage-collected, so a caller retrying on a 404 or 410 would
+ * otherwise collect connections; the copy keeps the problem details readable.
+ */
+const withBufferedBody = async (error: ResponseError): Promise<ResponseError> => {
+  const { response } = error
+  const body = await response.arrayBuffer().catch(() => new ArrayBuffer(0))
+  const buffered = new Response(body.byteLength > 0 ? body : null, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  })
+  return new ResponseError(buffered, error.message)
+}
+
+/**
  * Wait for a job on the Engine API's job event stream (`GET /v1/jobs/{id}/events`) rather than by
  * calling `getJob` in a loop. Resolves with the job once it succeeds, and rejects with a
  * {@link JobFailedError} once it fails. Every job reaches one of the two — the Engine API fails a
  * job whose worker stops — and the stream ends right after it, so the one stream is all there is to
- * read. It rejects if the stream ends before either, which only a lost connection does, and with
- * the generated client's `ResponseError` for an error response: an unknown job, an expired one, a
- * refused key.
+ * read.
+ *
+ * It rejects if the stream ends before either. That is a lost connection, or the server closing the
+ * stream because the job expired or was deleted while it waited, or because it could not read the
+ * job. Opening it once more is safe — a new stream starts with the job as it is now — and
+ * `client.jobs.getJob()` says which it was. An error response rejects with the generated client's
+ * `ResponseError`: an unknown job, an expired one, a refused key. Its body has been read and is
+ * kept on `error.response`, so the problem `code` is still readable there.
  */
 export const waitForJob = async (
   client: Pick<ToolpathClient, 'jobs'>,
@@ -112,6 +144,9 @@ export const waitForJob = async (
     // An abort surfaces as the error of whatever it interrupted — the generated client wraps a
     // request aborted before its response in a `FetchError` — so the signal's reason replaces it.
     signal?.throwIfAborted()
+    if (error instanceof ResponseError) {
+      throw await withBufferedBody(error)
+    }
     throw error
   }
   signal?.throwIfAborted()

@@ -32,10 +32,12 @@ client = AuthenticatedClient("https://api.toolpath.com", token=api_key)
 job = await wait_for_job(client, job_id, on_update=lambda job: print(job.status, job.progress))
 ```
 
-Every job reaches one of the two, so the one stream is enough. Losing the open stream first raises
-`RuntimeError`: when the server closes it, and when reading it raises an `httpx.TransportError` — a
-reset or dropped connection, or nothing received for 60 seconds — which becomes the `RuntimeError`'s
-`__cause__`. Errors before the stream opens are httpx's own: `httpx.HTTPStatusError` for an error
+Every job reaches one of the two, so the one stream is enough. The stream ending first raises
+`RuntimeError`. The server closes it early when the job expired or was deleted while it waited, or
+when it could not read the job, and reading it can raise an `httpx.TransportError` — a reset or
+dropped connection, or nothing received for 60 seconds — which becomes the `RuntimeError`'s
+`__cause__`. Calling `wait_for_job` once more is safe, since a new stream starts with the job as it
+is now, and `get_job` says which it was. Errors before the stream opens are httpx's own: `httpx.HTTPStatusError` for an error
 response, and `httpx.TransportError` when no response arrives.
 
 ## License
