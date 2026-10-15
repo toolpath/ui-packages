@@ -106,6 +106,14 @@ describe('waitForJob', () => {
     expect(statuses).toEqual(['running', 'succeeded'])
   })
 
+  it('dispatches an event ended by a bare CR without waiting for the next chunk', async () => {
+    // Left open: the event must be handled from this chunk alone.
+    const stream = streamResponse([jobEvent('succeeded').replaceAll('\n', '\r')], { open: true })
+    const { client } = clientWith(stream.response)
+
+    await expect(waitForJob(client, 'job-1')).resolves.toMatchObject({ status: 'succeeded' })
+  })
+
   it('rejects with the failed job', async () => {
     const { response } = streamResponse([
       jobEvent('running'),
@@ -144,18 +152,22 @@ describe('waitForJob', () => {
     expect(progress).toEqual([10])
   })
 
-  it('rejects with the response error when the stream cannot be opened', async () => {
-    const { client } = clientWith(
-      new Response(JSON.stringify({ code: 'job_not_found', status: 404 }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/problem+json' },
-      }),
-    )
+  it('rejects with the response error, its body read and still readable, when the stream cannot be opened', async () => {
+    const notFound = new Response(JSON.stringify({ code: 'job_not_found', status: 404 }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/problem+json' },
+    })
+    const { client } = clientWith(notFound)
 
     const failure = await waitForJob(client, 'job-1').catch((error: unknown) => error)
 
     expect(failure).toBeInstanceOf(ResponseError)
-    expect((failure as ResponseError).response.status).toBe(404)
+    const { response } = failure as ResponseError
+    expect(response.status).toBe(404)
+    expect(response.headers.get('Content-Type')).toBe('application/problem+json')
+    // The server's body was drained, so its connection is free; the problem is on the copy.
+    expect(notFound.bodyUsed).toBe(true)
+    await expect(response.json()).resolves.toEqual({ code: 'job_not_found', status: 404 })
   })
 
   it('stops waiting when its signal is aborted', async () => {

@@ -30,9 +30,12 @@ const report = await client.parts.getPart({ id: part.partId, jobId: analysis.job
 Every operation that queues work returns a `jobId`. Wait for it with `waitForJob`, not by calling
 `client.jobs.getJob()` in a loop. It follows the job's event stream (`GET /v1/jobs/{id}/events`):
 it resolves with the job when it succeeds, and rejects with a `JobFailedError` carrying the job when
-it fails. Every job reaches one of the two, so the one stream is enough; it rejects if the connection
-is lost first. `onUpdate` receives every job the stream sends, and an `AbortSignal` passed as `signal`
-stops waiting.
+it fails. Every job reaches one of the two, so the one stream is enough. It rejects if the stream
+ends first: the connection was lost, or the server closed the stream because the job expired or was
+deleted, or because it could not read the job. Opening it once more is safe, since a new stream
+starts with the job as it is now, and `client.jobs.getJob()` says which it was. An error response
+rejects with `ResponseError`, whose `response` still holds the problem details. `onUpdate` receives
+every job the stream sends, and an `AbortSignal` passed as `signal` stops waiting.
 
 The generated `client.jobs.streamJobEvents()` is not a substitute: it resolves only once the stream
 has closed, with the raw event text.
