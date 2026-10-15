@@ -70,8 +70,8 @@ const GeometryStock = ({
 }: StockAppearanceProps & { geometry: BufferGeometry }) => {
   const invalidate = useThree((state) => state.invalidate)
   const stock = useMemo(
-    () => createStock(geometry, renderStyle === 'legacy-workpiece'),
-    [geometry, renderStyle],
+    () => createStock(geometry, renderStyle === 'legacy-workpiece', invalidate),
+    [geometry, renderStyle, invalidate],
   )
   useEffect(() => () => stock.dispose(), [stock])
   useLayoutEffect(() => {
