@@ -49,6 +49,8 @@ export function createEngineGeometryCache(
   maximumEntries = 8,
 ): EngineGeometryCache {
   const resources = new Map<string, EngineGeometryResource>()
+  const requests = new WeakMap<EngineGeometryResource, string>()
+  let failures = new WeakMap<CacheablePart, EngineGeometryResource>()
   let accessSequence = 0
   const touch = (resource: EngineGeometryResource) => {
     resource.lastAccess = ++accessSequence
@@ -74,21 +76,50 @@ export function createEngineGeometryCache(
     }
   }
 
+  const rememberFailure = (
+    part: CacheablePart,
+    requestKey: string,
+    resource: EngineGeometryResource,
+  ) => {
+    const attempts = failures
+    void resource.promise.then(() => {
+      if (resource.status === 'rejected' && requests.get(resource) === requestKey) {
+        attempts.set(part, resource)
+      }
+    })
+  }
+
   return {
     get(part) {
       const key = engineGeometryResourceKey(part.mesh)
       const existing = resources.get(key)
-      if (existing) {
+      if (existing?.status === 'fulfilled') {
+        failures.delete(part)
         touch(existing)
         return existing
       }
 
-      const resource = {
+      // A failed attempt belongs to its report, not an unbounded list of URLs.
+      // Keep it stable across Suspense retries while allowing a fresh report/URL.
+      const requestKey = JSON.stringify([part.mesh.glbUrl, part.mesh.stlUrl])
+      const failed = failures.get(part)
+      if (failed && requests.get(failed) === requestKey) {
+        touch(failed)
+        return failed
+      }
+      if (existing) {
+        rememberFailure(part, requestKey, existing)
+        touch(existing)
+        return existing
+      }
+
+      const resource: EngineGeometryResource = {
         status: 'pending',
         promise: Promise.resolve(),
         references: 0,
         lastAccess: ++accessSequence,
-      } as EngineGeometryResource
+      }
+      requests.set(resource, requestKey)
       resource.promise = loadGeometry(part).then(
         (geometry) => {
           resource.status = 'fulfilled'
@@ -101,6 +132,7 @@ export function createEngineGeometryCache(
         },
       )
       resources.set(key, resource)
+      rememberFailure(part, requestKey, resource)
       return resource
     },
     retain(resource) {
@@ -115,6 +147,7 @@ export function createEngineGeometryCache(
     clear() {
       for (const resource of resources.values()) resource.geometry?.dispose()
       resources.clear()
+      failures = new WeakMap()
     },
   }
 }
