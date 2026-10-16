@@ -59,7 +59,7 @@
 - 8e66848: New package: the logic a Toolpath application reuses, split from the component
   kit that renders it.
 
-  `@toolpath/ui` is styling and display — the surface Storybook documents. Storage
+  `@toolpath/ui` supplies styling and display. Storage
   policy is neither, and `loadUnit`, `saveUnit` and `useUnit` shipped there in
   0.2.0 and 0.3.0 anyway. They live here now, unchanged in behavior, and leave
   `@toolpath/ui` in its next major.

@@ -15,9 +15,8 @@
   +import { useUnit } from '@toolpath/app-support/react'
   ```
 
-  They were never this package's to hold. `@toolpath/ui` is styling and display —
-  the surface Storybook documents — and where a person's unit preference is stored
-  is not that. They shipped here in 0.2.0 and 0.3.0 and are removed in the next
+  `@toolpath/ui` supplies styling and display; storing a person's unit preference
+  is an application concern. They shipped here in 0.2.0 and 0.3.0 and are removed in the next
   release either way; taking them out now is the smallest window in which an
   application depends on the wrong package for them.
 
