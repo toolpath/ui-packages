@@ -1,7 +1,25 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
+import type { PartModel } from '../model/types.js'
 import { PartMesh, type PartMeshProps } from '../part-mesh.js'
 import { type EngineGeometryResource, engineGeometryCache } from './geometry-cache.js'
 import { normalizePartReport } from './normalize.js'
+
+// Initial Suspense retries discard useMemo results. Weak ownership preserves the
+// normalized model for the same report without retaining discarded reports.
+const models = new WeakMap<object, PartModel>()
+
+const modelForReport = (report: unknown): PartModel => {
+  if (typeof report !== 'object' || report === null) {
+    return normalizePartReport(report)
+  }
+  const existing = models.get(report)
+  if (existing) {
+    return existing
+  }
+  const model = normalizePartReport(report)
+  models.set(report, model)
+  return model
+}
 
 export interface EnginePartProps extends Omit<PartMeshProps, 'model' | 'geometry'> {
   /**
@@ -24,7 +42,7 @@ export interface EnginePartProps extends Omit<PartMeshProps, 'model' | 'geometry
  * through props.
  */
 export const EnginePart = ({ report, ...props }: EnginePartProps) => {
-  const model = useMemo(() => normalizePartReport(report), [report])
+  const model = modelForReport(report)
   const resource = useGeometryResource(model)
 
   useEffect(() => {
