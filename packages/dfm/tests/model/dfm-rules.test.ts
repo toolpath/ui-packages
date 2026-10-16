@@ -18,6 +18,7 @@ import {
   withSubject,
   type DfmRule,
 } from '../../src/model/dfm-rules.js'
+import { TURNING_RULES } from '../../src/model/turning-metrics.js'
 
 const rule = (over: Partial<DfmRule> = {}): DfmRule => ({
   id: 'r1',
@@ -210,5 +211,49 @@ describe('colour precedence', () => {
     expect(compareColors('#123456', yellow)).toBeGreaterThan(0)
     expect(compareColors('#123456', '#abcdef')).toBeLessThan(0)
     expect(compareColors(red, red)).toBe(0)
+  })
+})
+
+describe('turning rules', () => {
+  const turning = (over: Partial<DfmRule> = {}): DfmRule =>
+    rule({ subject: 'groove', metric: 'grooveWidth', op: 'lte', value: 1.5, ...over })
+
+  it('keeps turning rules in the turning vocabulary, and drops milling-only ones', () => {
+    const stored = [
+      turning({ id: 'groove' }),
+      turning({ id: 'bore', subject: 'id', metric: 'ld', op: 'gte', value: 4 }),
+      turning({ id: 'milled', subject: 'milled', metric: 'present', value: 0 }),
+      turning({ id: 'featureLd', subject: 'any', metric: 'featureLd', op: 'gte', value: 5 }),
+    ]
+    expect(parseRules(stored, TURNING_RULES)?.map((each) => each.id)).toEqual(['groove', 'bore'])
+  })
+
+  it('still reads milling by default, which drops turning-only subjects and measures', () => {
+    const stored = [turning({ id: 'groove' }), turning({ id: 'width', subject: 'any' })]
+    expect(parseRules(stored)).toEqual([])
+  })
+
+  it('falls back on "any size" for a measure turning does not know', () => {
+    expect(makeRule('groove', 'featureLd', 'mm', undefined, TURNING_RULES).metric).toBe('present')
+    expect(makeRule('groove', 'grooveWidth', 'inch', undefined, TURNING_RULES).value).toBe(1.5875)
+    // Holes report no groove figure: the measure moves to one they have.
+    const moved = withSubject(turning(), 'hole', 'mm', TURNING_RULES)
+    expect(moved).toMatchObject({ subject: 'hole', metric: 'present' })
+    expect(withSubject(turning({ metric: 'ld' }), 'id', 'mm', TURNING_RULES).metric).toBe('ld')
+    expect(withMetric(turning(), 'grooveDepth', 'mm', TURNING_RULES)).toMatchObject({
+      metric: 'grooveDepth',
+      op: 'gte',
+      value: 5,
+    })
+  })
+
+  it('writes a turning rule in its own words', () => {
+    expect(describeRule(turning(), 'mm', TURNING_RULES)).toBe('Grooves with groove width ≤ 1.5 mm')
+    expect(describeRule(turning({ op: 'lt' }), 'mm', TURNING_RULES)).toBe(
+      'Grooves with groove width < 1.5 mm',
+    )
+    expect(describeRule(turning({ subject: 'od', metric: 'present' }), 'mm', TURNING_RULES)).toBe(
+      'Outside (OD) features, any size',
+    )
   })
 })

@@ -1,0 +1,668 @@
+[
+  {
+    "featureTag": "23f5aed7b55f055e",
+    "featureType": "face",
+    "approach": "PlusZ",
+    "regionIdxs": [15],
+    "datasheet": {
+      "rMax": 10,
+      "rMin": 5.000000000000002,
+      "zMax": 110,
+      "zMin": 110,
+      "facts": {
+        "z": 110,
+        "kind": "Face"
+      },
+      "mounting": "Radial",
+      "axialReach": {
+        "verticalOffset": [0, 0],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "slopeSpans": [
+        {
+          "zMax": 110,
+          "zMin": 110,
+          "facing": "PlusZ",
+          "steepestFallMinusZDeg": -90,
+          "steepestRiseMinusZDeg": 90
+        }
+      ],
+      "featureType": "Face",
+      "toleranceBand": {
+        "atolMax": 0.127,
+        "atolIgnore": 0.00254,
+        "atolDeviate": 0.0254
+      },
+      "radialReachPlusZ": {
+        "verticalOffset": [0, 0],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "axialStockToLeave": 0,
+      "radialReachMinusZ": {
+        "verticalOffset": [
+          4.999999999999998, 4.999999999999998, 11.176678445231316, 11.593639575972992,
+          12.017667844523848, 12.434628975265527, 12.858657243816383, 13.000000000000002
+        ],
+        "horizontalOffset": [0.02, 39.78, 40.18, 40.6, 41.02, 41.44, 41.86, 110.42]
+      },
+      "radialStockToLeave": 0
+    }
+  },
+  {
+    "featureTag": "3c0add8cf6779e91",
+    "featureType": "od_profile",
+    "approach": "PlusZ",
+    "regionIdxs": [9],
+    "datasheet": {
+      "rMax": 10,
+      "rMin": 10,
+      "zMax": 110,
+      "zMin": 97,
+      "facts": {
+        "kind": "OdProfile"
+      },
+      "mounting": "Radial",
+      "axialReach": {
+        "verticalOffset": [13, 13],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "slopeSpans": [
+        {
+          "zMax": 110,
+          "zMin": 97,
+          "steepestFallMinusZDeg": 0,
+          "steepestRiseMinusZDeg": 0
+        }
+      ],
+      "featureType": "OdProfile",
+      "toleranceBand": {
+        "atolMax": 0.127,
+        "atolIgnore": 0.00254,
+        "atolDeviate": 0.0254
+      },
+      "radialReachPlusZ": {
+        "verticalOffset": [0, 0],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "axialStockToLeave": 0,
+      "radialReachMinusZ": {
+        "verticalOffset": [
+          0, 0, 6.219081272086402, 6.4946996466444595, 6.7773851590117005, 7.053003533569758,
+          7.356890459364536, 7.653710247350137, 7.957597173144919, 8.000000000000004
+        ],
+        "horizontalOffset": [
+          0.02, 26.94, 27.22, 27.5, 27.78, 28.060000000000002, 28.36, 28.66, 28.96, 110.42
+        ]
+      },
+      "radialStockToLeave": 0
+    }
+  },
+  {
+    "featureTag": "6800db7db501fb6f",
+    "featureType": "od_groove",
+    "approach": "PlusZ",
+    "regionIdxs": [10, 11, 14],
+    "datasheet": {
+      "rMax": 10,
+      "rMin": 8,
+      "zMax": 97,
+      "zMin": 93,
+      "facts": {
+        "kind": "OdGroove",
+        "depth": 2,
+        "width": 4
+      },
+      "mounting": "Radial",
+      "axialReach": {
+        "verticalOffset": [17, 17],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "slopeSpans": [
+        {
+          "zMax": 97,
+          "zMin": 97,
+          "facing": "MinusZ",
+          "steepestFallMinusZDeg": 90,
+          "steepestRiseMinusZDeg": -90
+        },
+        {
+          "zMax": 97,
+          "zMin": 93,
+          "steepestFallMinusZDeg": 0,
+          "steepestRiseMinusZDeg": 0
+        },
+        {
+          "zMax": 93,
+          "zMin": 93,
+          "facing": "PlusZ",
+          "steepestFallMinusZDeg": -90,
+          "steepestRiseMinusZDeg": 90
+        }
+      ],
+      "featureType": "OdGroove",
+      "toleranceBand": {
+        "atolMax": 0.127,
+        "atolIgnore": 0.00254,
+        "atolDeviate": 0.0254
+      },
+      "minConcaveRadius": 0,
+      "radialReachPlusZ": {
+        "verticalOffset": [2, 2],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "axialStockToLeave": 0,
+      "radialReachMinusZ": {
+        "verticalOffset": [
+          2, 2, 8.056537102475243, 8.296819787987396, 8.537102473499548, 8.7773851590117,
+          9.01766784452385, 9.279151943463546, 9.533568904594063, 9.795053003533756,
+          10.000000000000004
+        ],
+        "horizontalOffset": [
+          0.02, 22.82, 23.06, 23.3, 23.54, 23.78, 24.02, 24.28, 24.54, 24.8, 110.42
+        ]
+      },
+      "radialStockToLeave": 0
+    }
+  },
+  {
+    "featureTag": "fe82d65f6f64849a",
+    "featureType": "od_groove",
+    "approach": "MinusZ",
+    "regionIdxs": [10, 11, 14],
+    "datasheet": {
+      "rMax": 10,
+      "rMin": 8,
+      "zMax": 97,
+      "zMin": 93,
+      "facts": {
+        "kind": "OdGroove",
+        "depth": 2,
+        "width": 4
+      },
+      "mounting": "Radial",
+      "axialReach": {
+        "verticalOffset": [97, 97],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "slopeSpans": [
+        {
+          "zMax": 97,
+          "zMin": 97,
+          "facing": "MinusZ",
+          "steepestFallMinusZDeg": 90,
+          "steepestRiseMinusZDeg": -90
+        },
+        {
+          "zMax": 97,
+          "zMin": 93,
+          "steepestFallMinusZDeg": 0,
+          "steepestRiseMinusZDeg": 0
+        },
+        {
+          "zMax": 93,
+          "zMin": 93,
+          "facing": "PlusZ",
+          "steepestFallMinusZDeg": -90,
+          "steepestRiseMinusZDeg": 90
+        }
+      ],
+      "featureType": "OdGroove",
+      "toleranceBand": {
+        "atolMax": 0.127,
+        "atolIgnore": 0.00254,
+        "atolDeviate": 0.0254
+      },
+      "minConcaveRadius": 0,
+      "radialReachPlusZ": {
+        "verticalOffset": [2, 2],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "axialStockToLeave": 0,
+      "radialReachMinusZ": {
+        "verticalOffset": [
+          2, 2, 8.056537102475243, 8.296819787987396, 8.537102473499548, 8.7773851590117,
+          9.01766784452385, 9.279151943463546, 9.533568904594063, 9.795053003533756,
+          10.000000000000004
+        ],
+        "horizontalOffset": [
+          0.02, 22.82, 23.06, 23.3, 23.54, 23.78, 24.02, 24.28, 24.54, 24.8, 110.42
+        ]
+      },
+      "radialStockToLeave": 0
+    }
+  },
+  {
+    "featureTag": "e0718a542344cdbc",
+    "featureType": "od_profile",
+    "approach": "PlusZ",
+    "regionIdxs": [8, 20, 26],
+    "datasheet": {
+      "rMax": 18.000000000000004,
+      "rMin": 10,
+      "zMax": 93,
+      "zMin": 68,
+      "facts": {
+        "kind": "OdProfile"
+      },
+      "mounting": "Radial",
+      "axialReach": {
+        "verticalOffset": [
+          40, 40, 40.014134275618375, 40.07773851590106, 40.15547703180212, 40.23321554770318,
+          40.31802120141343, 40.39575971731449, 40.47349823321555, 40.5583038869258,
+          40.63604240282686, 40.71378091872792, 40.79858657243817, 40.87632508833923,
+          40.95406360424029, 41.03886925795052, 41.116607773851584, 41.194346289752644,
+          41.27915194346289, 41.35689045936395, 41.434628975265014, 41.51943462897526,
+          41.59717314487632, 41.67491166077738, 41.75971731448763, 41.83745583038869,
+          41.91519434628975, 41.99293286219081, 42
+        ],
+        "horizontalOffset": [
+          0.02, 5.94, 6, 6.0600000000000005, 6.140000000000001, 6.22, 6.3, 6.38, 6.46, 6.54, 6.62,
+          6.7, 6.78, 6.86, 6.94, 7.0200000000000005, 7.1000000000000005, 7.18, 7.26, 7.34, 7.42,
+          7.5, 7.58, 7.66, 7.74, 7.82, 7.9, 7.98, 110.42
+        ]
+      },
+      "slopeSpans": [
+        {
+          "zMax": 93,
+          "zMin": 70,
+          "steepestFallMinusZDeg": 0,
+          "steepestRiseMinusZDeg": 0
+        },
+        {
+          "zMax": 70,
+          "zMin": 70,
+          "facing": "PlusZ",
+          "steepestFallMinusZDeg": -90,
+          "steepestRiseMinusZDeg": 90
+        },
+        {
+          "zMax": 70,
+          "zMin": 68,
+          "steepestFallMinusZDeg": -44.99999999997435,
+          "steepestRiseMinusZDeg": 44.99999999997435
+        }
+      ],
+      "featureType": "OdProfile",
+      "toleranceBand": {
+        "atolMax": 0.127,
+        "atolIgnore": 0.00254,
+        "atolDeviate": 0.0254
+      },
+      "minConcaveRadius": 0,
+      "radialReachPlusZ": {
+        "verticalOffset": [0, 0],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "axialStockToLeave": 0,
+      "radialReachMinusZ": {
+        "verticalOffset": [
+          6.014134275620155, 6.035335689047699, 6.056537102475243, 6.077738515902784,
+          6.098939929330328, 6.113074204948688, 6.134275618376233, 6.155477031803777,
+          6.1766784452313175, 6.197879858658862, 6.219081272086402, 6.233215547704766,
+          6.254416961132307, 6.275618374559851, 6.2968197879873955, 6.318021201414936,
+          6.33922261484248, 6.353356890460841, 6.374558303888385, 6.395759717315926,
+          6.41696113074347, 6.438162544171014, 6.459363957598555, 6.473498233216919,
+          6.4946996466444595, 6.515901060072004, 6.537102473499548, 6.558303886927089,
+          6.579505300354633, 6.593639575972993, 6.6148409894005376, 6.636042402828078,
+          6.6572438162556224, 6.678445229683167, 6.699646643110707, 6.713780918729071,
+          6.734982332156612, 6.756183745584156, 6.7773851590117005, 6.798586572439241,
+          6.819787985866785, 6.833922261485146, 6.85512367491269, 6.876325088340231,
+          6.897526501767775, 6.918727915195319, 6.93992932862286, 6.954063604241224,
+          6.9752650176687645, 6.996466431096309, 7.017667844523849, 7.038869257951394,
+          7.053003533569758, 7.074204946997298, 7.0954063604248425, 7.116607773852383,
+          7.137809187279927, 7.159010600707472, 7.173144876325832, 7.194346289753376,
+          7.215547703180917, 7.236749116608461, 7.257950530036005, 7.279151943463546,
+          7.29328621908191, 7.314487632509451, 7.335689045936995, 7.356890459364536,
+          7.37809187279208, 7.399293286219624, 7.413427561837985, 7.434628975265529,
+          7.4558303886930695, 7.477031802120614, 7.498233215548154, 7.519434628975699,
+          7.533568904594063, 7.554770318021603, 7.5759717314491475, 7.597173144876688,
+          7.618374558304232, 7.639575971731773, 7.653710247350137, 7.674911660777681,
+          7.696113074205222, 7.717314487632766, 7.738515901060307, 7.759717314487851,
+          7.7738515901062115, 7.795053003533756, 7.8162544169613, 7.837455830388841,
+          7.858657243816385, 7.879858657243929, 7.8939929328622895, 7.915194346289834,
+          7.936395759717374, 7.957597173144919, 7.978798586572459, 8.000000000000004
+        ],
+        "horizontalOffset": [
+          0.02, 0.04, 0.06, 0.08, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2, 0.22, 0.24, 0.26, 0.28, 0.3,
+          0.32, 0.34, 0.36, 0.38, 0.4, 0.42, 0.44, 0.46, 0.48, 0.5, 0.52, 0.54, 0.56, 0.58, 0.6,
+          0.62, 0.64, 0.66, 0.68, 0.7000000000000001, 0.72, 0.74, 0.76, 0.78, 0.8,
+          0.8200000000000001, 0.84, 0.86, 0.88, 0.9, 0.92, 0.9400000000000001, 0.96, 0.98, 1, 1.02,
+          1.04, 1.06, 1.08, 1.1, 1.12, 1.1400000000000001, 1.16, 1.18, 1.2, 1.22, 1.24, 1.26, 1.28,
+          1.3, 1.32, 1.34, 1.36, 1.3800000000000001, 1.4000000000000001, 1.42, 1.44, 1.46, 1.48,
+          1.5, 1.52, 1.54, 1.56, 1.58, 1.6, 1.62, 1.6400000000000001, 1.6600000000000001, 1.68, 1.7,
+          1.72, 1.74, 1.76, 1.78, 1.8, 1.82, 1.84, 1.86, 1.8800000000000001, 1.9000000000000001,
+          1.92, 1.94, 1.96, 1.98, 110.42
+        ]
+      },
+      "radialStockToLeave": 0
+    }
+  },
+  {
+    "featureTag": "afcc31f979af181d",
+    "featureType": "od_profile",
+    "approach": "PlusZ",
+    "regionIdxs": [5],
+    "datasheet": {
+      "rMax": 18,
+      "rMin": 18,
+      "zMax": 68,
+      "zMin": 30,
+      "facts": {
+        "kind": "OdProfile"
+      },
+      "mounting": "Radial",
+      "axialReach": {
+        "verticalOffset": [
+          38.014134275618375, 38.03533568904594, 38.0565371024735, 38.07773851590106,
+          38.09893992932862, 38.113074204947, 38.13427561837456, 38.15547703180212,
+          38.17667844522968, 38.197879858657245, 38.21908127208481, 38.23321554770318,
+          38.254416961130744, 38.275618374558306, 38.29681978798587, 38.31802120141343,
+          38.33922261484099, 38.35335689045937, 38.37455830388693, 38.39575971731449,
+          38.41696113074205, 38.438162544169614, 38.459363957597176, 38.47349823321555,
+          38.49469964664311, 38.515901060070675, 38.53710247349824, 38.5583038869258,
+          38.57950530035336, 38.593639575971736, 38.6148409893993, 38.63604240282686,
+          38.65724381625442, 38.678445229681984, 38.699646643109546, 38.71378091872792,
+          38.73498233215548, 38.756183745583044, 38.777385159010606, 38.79858657243817,
+          38.81978798586573, 38.833922261484105, 38.85512367491167, 38.87632508833923,
+          38.89752650176679, 38.91872791519435, 38.939929328621915, 38.95406360424029,
+          38.97526501766785, 38.9964664310954, 39.01766784452296, 39.03886925795052,
+          39.0530035335689, 39.07420494699646, 39.09540636042402, 39.116607773851584,
+          39.137809187279146, 39.15901060070671, 39.17314487632508, 39.194346289752644,
+          39.215547703180206, 39.23674911660777, 39.25795053003533, 39.27915194346289,
+          39.29328621908127, 39.31448763250883, 39.33568904593639, 39.35689045936395,
+          39.378091872791515, 39.39929328621908, 39.41342756183745, 39.434628975265014,
+          39.455830388692576, 39.47703180212014, 39.4982332155477, 39.51943462897526,
+          39.533568904593636, 39.5547703180212, 39.57597173144876, 39.59717314487632,
+          39.618374558303884, 39.639575971731446, 39.65371024734982, 39.67491166077738,
+          39.696113074204945, 39.71731448763251, 39.73851590106007, 39.75971731448763,
+          39.773851590106005, 39.79505300353357, 39.81625441696113, 39.83745583038869,
+          39.85865724381625, 39.879858657243815, 39.89399293286219, 39.91519434628975,
+          39.936395759717314, 39.957597173144876, 39.97879858657244, 40, 80
+        ],
+        "horizontalOffset": [
+          0.02, 0.04, 0.06, 0.08, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2, 0.22, 0.24, 0.26, 0.28, 0.3,
+          0.32, 0.34, 0.36, 0.38, 0.4, 0.42, 0.44, 0.46, 0.48, 0.5, 0.52, 0.54, 0.56, 0.58, 0.6,
+          0.62, 0.64, 0.66, 0.68, 0.7000000000000001, 0.72, 0.74, 0.76, 0.78, 0.8,
+          0.8200000000000001, 0.84, 0.86, 0.88, 0.9, 0.92, 0.9400000000000001, 0.96, 0.98, 1, 1.02,
+          1.04, 1.06, 1.08, 1.1, 1.12, 1.1400000000000001, 1.16, 1.18, 1.2, 1.22, 1.24, 1.26, 1.28,
+          1.3, 1.32, 1.34, 1.36, 1.3800000000000001, 1.4000000000000001, 1.42, 1.44, 1.46, 1.48,
+          1.5, 1.52, 1.54, 1.56, 1.58, 1.6, 1.62, 1.6400000000000001, 1.6600000000000001, 1.68, 1.7,
+          1.72, 1.74, 1.76, 1.78, 1.8, 1.82, 1.84, 1.86, 1.8800000000000001, 1.9000000000000001,
+          1.92, 1.94, 1.96, 1.98, 7.98, 110.42
+        ]
+      },
+      "slopeSpans": [
+        {
+          "zMax": 68,
+          "zMin": 30,
+          "steepestFallMinusZDeg": 0,
+          "steepestRiseMinusZDeg": 0
+        }
+      ],
+      "featureType": "OdProfile",
+      "toleranceBand": {
+        "atolMax": 0.127,
+        "atolIgnore": 0.00254,
+        "atolDeviate": 0.0254
+      },
+      "radialReachPlusZ": {
+        "verticalOffset": [3.552713678800501e-15, 3.552713678800501e-15],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "axialStockToLeave": 0,
+      "radialReachMinusZ": {
+        "verticalOffset": [0, 0],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "radialStockToLeave": 0
+    }
+  },
+  {
+    "featureTag": "853642dd09770e64",
+    "featureType": "od_profile",
+    "approach": "MinusZ",
+    "regionIdxs": [5],
+    "datasheet": {
+      "rMax": 18,
+      "rMin": 18,
+      "zMax": 68,
+      "zMin": 30,
+      "facts": {
+        "kind": "OdProfile"
+      },
+      "mounting": "Radial",
+      "axialReach": {
+        "verticalOffset": [38, 38, 68],
+        "horizontalOffset": [0.02, 5.94, 110.42]
+      },
+      "slopeSpans": [
+        {
+          "zMax": 68,
+          "zMin": 30,
+          "steepestFallMinusZDeg": 0,
+          "steepestRiseMinusZDeg": 0
+        }
+      ],
+      "featureType": "OdProfile",
+      "toleranceBand": {
+        "atolMax": 0.127,
+        "atolIgnore": 0.00254,
+        "atolDeviate": 0.0254
+      },
+      "radialReachPlusZ": {
+        "verticalOffset": [3.552713678800501e-15, 3.552713678800501e-15],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "axialStockToLeave": 0,
+      "radialReachMinusZ": {
+        "verticalOffset": [0, 0],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "radialStockToLeave": 0
+    }
+  },
+  {
+    "featureTag": "e22414643961088e",
+    "featureType": "od_profile",
+    "approach": "MinusZ",
+    "regionIdxs": [7, 27],
+    "datasheet": {
+      "rMax": 17.999999999999996,
+      "rMin": 12,
+      "zMax": 30,
+      "zMin": 0,
+      "facts": {
+        "kind": "OdProfile"
+      },
+      "mounting": "Radial",
+      "axialReach": {
+        "verticalOffset": [30, 30],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "slopeSpans": [
+        {
+          "zMax": 30,
+          "zMin": 30,
+          "facing": "MinusZ",
+          "steepestFallMinusZDeg": 90,
+          "steepestRiseMinusZDeg": -90
+        },
+        {
+          "zMax": 30,
+          "zMin": 0,
+          "steepestFallMinusZDeg": 0,
+          "steepestRiseMinusZDeg": 0
+        }
+      ],
+      "featureType": "OdProfile",
+      "toleranceBand": {
+        "atolMax": 0.127,
+        "atolIgnore": 0.00254,
+        "atolDeviate": 0.0254
+      },
+      "minConcaveRadius": 0,
+      "radialReachPlusZ": {
+        "verticalOffset": [6, 6, 6.0000000000000036],
+        "horizontalOffset": [0.02, 37.800000000000004, 110.42]
+      },
+      "axialStockToLeave": 0,
+      "radialReachMinusZ": {
+        "verticalOffset": [0, 0],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "radialStockToLeave": 0
+    }
+  },
+  {
+    "featureTag": "d291675608681159",
+    "featureType": "face",
+    "approach": "MinusZ",
+    "regionIdxs": [17],
+    "datasheet": {
+      "rMax": 12,
+      "rMin": 5.000000000000002,
+      "zMax": 0,
+      "zMin": 0,
+      "facts": {
+        "z": 0,
+        "kind": "Face"
+      },
+      "mounting": "Radial",
+      "axialReach": {
+        "verticalOffset": [0, 0],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "slopeSpans": [
+        {
+          "zMax": 0,
+          "zMin": 0,
+          "facing": "MinusZ",
+          "steepestFallMinusZDeg": 90,
+          "steepestRiseMinusZDeg": -90
+        }
+      ],
+      "featureType": "Face",
+      "toleranceBand": {
+        "atolMax": 0.127,
+        "atolIgnore": 0.00254,
+        "atolDeviate": 0.0254
+      },
+      "radialReachPlusZ": {
+        "verticalOffset": [6.999999999999999, 6.999999999999999, 13, 13.000000000000004],
+        "horizontalOffset": [0.02, 29.86, 67.42, 110.42]
+      },
+      "axialStockToLeave": 0,
+      "radialReachMinusZ": {
+        "verticalOffset": [0, 0],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "radialStockToLeave": 0
+    }
+  },
+  {
+    "featureTag": "133d2ae3c98c6acd",
+    "featureType": "axial_hole",
+    "approach": "PlusZ",
+    "regionIdxs": [19],
+    "datasheet": {
+      "rMax": 5,
+      "rMin": 5,
+      "zMax": 110,
+      "zMin": 0,
+      "facts": {
+        "kind": "AxialHole",
+        "depth": 110,
+        "steps": [
+          {
+            "zMax": 110,
+            "zMin": 0,
+            "diameter": 10
+          }
+        ],
+        "through": true
+      },
+      "mounting": "Axial",
+      "axialReach": {
+        "verticalOffset": [110, 110],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "slopeSpans": [
+        {
+          "zMax": 110,
+          "zMin": 0,
+          "steepestFallMinusZDeg": 0,
+          "steepestRiseMinusZDeg": 0
+        }
+      ],
+      "featureType": "AxialHole",
+      "toleranceBand": {
+        "atolMax": 0.127,
+        "atolIgnore": 0.00254,
+        "atolDeviate": 0.0254
+      },
+      "radialReachPlusZ": {
+        "verticalOffset": [13.000000000000004, 13.000000000000004],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "axialStockToLeave": 0,
+      "radialReachMinusZ": {
+        "verticalOffset": [13.000000000000004, 13.000000000000004],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "radialStockToLeave": 0
+    }
+  },
+  {
+    "featureTag": "fdc376988b2fa1a0",
+    "featureType": "axial_hole",
+    "approach": "MinusZ",
+    "regionIdxs": [19],
+    "datasheet": {
+      "rMax": 5,
+      "rMin": 5,
+      "zMax": 110,
+      "zMin": 0,
+      "facts": {
+        "kind": "AxialHole",
+        "depth": 110,
+        "steps": [
+          {
+            "zMax": 110,
+            "zMin": 0,
+            "diameter": 10
+          }
+        ],
+        "through": true
+      },
+      "mounting": "Axial",
+      "axialReach": {
+        "verticalOffset": [110, 110],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "slopeSpans": [
+        {
+          "zMax": 110,
+          "zMin": 0,
+          "steepestFallMinusZDeg": 0,
+          "steepestRiseMinusZDeg": 0
+        }
+      ],
+      "featureType": "AxialHole",
+      "toleranceBand": {
+        "atolMax": 0.127,
+        "atolIgnore": 0.00254,
+        "atolDeviate": 0.0254
+      },
+      "radialReachPlusZ": {
+        "verticalOffset": [13.000000000000004, 13.000000000000004],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "axialStockToLeave": 0,
+      "radialReachMinusZ": {
+        "verticalOffset": [13.000000000000004, 13.000000000000004],
+        "horizontalOffset": [0.02, 110.42]
+      },
+      "radialStockToLeave": 0
+    }
+  }
+]

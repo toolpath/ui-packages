@@ -8,6 +8,7 @@ import { FoldSection } from './fold-section.js'
 import type { FoldStore } from './fold-store.js'
 import { resolveLook, secondaryText, type FeaturePanelLook, type ResolvedLook } from './look.js'
 import type { FeatureIdentity } from './types.js'
+import type { RuleVocabulary } from '../model/dfm-metrics.js'
 
 /**
  * Up, down, Home and End through the candidates: put them on whatever holds
@@ -53,6 +54,8 @@ export interface CandidateListProps {
   face?: ComparedFaceList
   look?: FeaturePanelLook
   folds?: FoldStore
+  /** How the rows' features are named: milling where left out. */
+  vocabulary?: RuleVocabulary
 }
 
 /** A compared face's name: A, B, C… */
@@ -89,6 +92,7 @@ export const CandidateList: FC<CandidateListProps> = ({
   face,
   look: lookOption,
   folds,
+  vocabulary,
 }): ReactElement => {
   const look = resolveLook(lookOption)
   const count = `Candidate features (${rows.length})`
@@ -130,6 +134,7 @@ export const CandidateList: FC<CandidateListProps> = ({
               onSelect={onSelect}
               onHover={onHover}
               look={look}
+              vocabulary={vocabulary}
             />
           ))}
         </ul>
@@ -144,7 +149,8 @@ const Row: FC<{
   onSelect: (tag: string) => void
   onHover?: (tag: string | null) => void
   look: ResolvedLook
-}> = ({ row, chosen, onSelect, onHover, look }): ReactElement => {
+  vocabulary?: RuleVocabulary
+}> = ({ row, chosen, onSelect, onHover, look, vocabulary }): ReactElement => {
   const { feature } = row
   const info = look.selected === 'info'
   return (
@@ -180,7 +186,7 @@ const Row: FC<{
             <span aria-hidden className="size-4 shrink-0" />
           )}
           <span className="min-w-0 flex-1 truncate">
-            <FeatureName feature={feature} label={row.label} look={look} />
+            <FeatureName feature={feature} label={row.label} look={look} vocabulary={vocabulary} />
           </span>
           {row.ruleCount ? (
             <span className={cn('text-2xs tabular-nums', secondaryText(look))}>

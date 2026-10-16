@@ -1,4 +1,7 @@
 import { MM_PER_INCH } from '@toolpath/tool-support'
+import { directionLabel } from './direction-label.js'
+import { featureTypeLabel, type DfmFeature } from './geometry.js'
+import type { TurnedFactsKind } from './turning-metrics.js'
 import type { Units } from './units.js'
 
 /*
@@ -46,6 +49,9 @@ export type FactsKind =
   | 'Dovetail'
   | 'Tslot'
 
+/** A datasheet's `facts.kind`, milled or turned. */
+type AnyFactsKind = FactsKind | TurnedFactsKind
+
 export interface DfmMetric {
   key: string
   /** As the rule sentence reads it: "L/D", "depth below top". */
@@ -60,7 +66,7 @@ export interface DfmMetric {
   /** What it means, in a few plain words. */
   hint: string
   /** The kinds of datasheet that report it; every kind when left out. */
-  kinds?: readonly FactsKind[]
+  kinds?: readonly AnyFactsKind[]
   /**
    * Where it sits in the datasheet, first found wins: a chamfer keeps its
    * cutter band under its surface reading (`facts.three.cd`). Left out for a
@@ -76,7 +82,7 @@ interface MetricSpec extends Omit<DfmMetric, 'start' | 'path'> {
   path?: string | readonly string[]
 }
 
-const define = ({ start, path, ...spec }: MetricSpec): DfmMetric => ({
+export const define = ({ start, path, ...spec }: MetricSpec): DfmMetric => ({
   ...spec,
   start: typeof start === 'number' ? { mm: start, inch: start } : start,
   ...(path === undefined ? {} : { path: typeof path === 'string' ? [path] : path }),
@@ -117,7 +123,7 @@ export const PRESENCE_METRIC = define({
   hint: 'Flags every feature of this type, whatever its geometry',
 })
 
-export const LD_METRIC = define({
+const LD_METRIC = define({
   key: 'ld',
   label: 'L/D to top of part',
   group: SIZE,
@@ -993,7 +999,7 @@ export interface DfmSubject {
   /** "Groups" or "Feature types", for choosing. */
   group: string
   /** The datasheet kinds its features report; every kind when left out. */
-  kinds?: readonly FactsKind[]
+  kinds?: readonly AnyFactsKind[]
 }
 
 const HOLE_KINDS: readonly FactsKind[] = ['Hole']
@@ -1096,7 +1102,7 @@ export const QUICK_SUBJECTS: readonly string[] = [
 ]
 
 /** The measures a quick look is about. */
-export const QUICK_METRICS: readonly string[] = [
+const QUICK_METRICS: readonly string[] = [
   'present',
   'ld',
   'featureLd',
@@ -1115,20 +1121,77 @@ export const QUICK_METRICS: readonly string[] = [
   'tilted',
 ]
 
-export const subjectInfo = (value: string): DfmSubject | undefined =>
-  FEATURE_SUBJECTS.find((each) => each.value === value)
+/* ---------- Vocabularies ---------- */
 
-export const metricInfo = (key: string): DfmMetric | undefined =>
-  FEATURE_METRICS.find((each) => each.key === key)
+/** Which kind of machining a set of rules is about: a milled part's features, or a turned part's. */
+export type RuleProcess = 'milling' | 'turning'
+
+/**
+ * Everything a set of rules can say, for one process: its measures, its
+ * subjects, the short lists offered first, and how a feature that breaks a
+ * rule is named in a list. Pure data, so the editor, the checker and the
+ * rule-set file read milling and turning rules the same way.
+ */
+export interface RuleVocabulary {
+  process: RuleProcess
+  metrics: readonly DfmMetric[]
+  subjects: readonly DfmSubject[]
+  quickSubjects: readonly string[]
+  quickMetrics: readonly string[]
+  /** What a new or moved rule falls back on when its own measure is unknown: L/D for milling, "any size" for turning. */
+  fallbackMetric: DfmMetric
+  /**
+   * A feature as a list or the feature panel names it: `{ name: 'Blind hole',
+   * detail: 'from +Z' }`, or for a turned one `{ name: 'OD groove', detail:
+   * 'from both ends' }`. The detail follows "Machined" in the feature panel.
+   */
+  featureLabel: (feature: Pick<DfmFeature, 'featureType' | 'machiningDirection'>) => {
+    name: string
+    detail: string
+  }
+  /** The feature panel's heading over what a feature asks of the machining: `Milling considerations`. */
+  considerationsTitle: string
+  /** What an exported set is saved as. */
+  fileName: string
+}
+
+/** Milling rules: the measures and subjects above, which the Engine's milled features report. */
+export const MILLING_RULES: RuleVocabulary = {
+  process: 'milling',
+  metrics: FEATURE_METRICS,
+  subjects: FEATURE_SUBJECTS,
+  quickSubjects: QUICK_SUBJECTS,
+  quickMetrics: QUICK_METRICS,
+  fallbackMetric: LD_METRIC,
+  featureLabel: (feature) => ({
+    name: featureTypeLabel(feature.featureType),
+    detail: `from ${directionLabel(feature.machiningDirection)}`,
+  }),
+  considerationsTitle: 'Milling considerations',
+  fileName: 'dfm-rules.json',
+}
+
+export const subjectInfo = (
+  value: string,
+  vocabulary: RuleVocabulary = MILLING_RULES,
+): DfmSubject | undefined => vocabulary.subjects.find((each) => each.value === value)
+
+export const metricInfo = (
+  key: string,
+  vocabulary: RuleVocabulary = MILLING_RULES,
+): DfmMetric | undefined => vocabulary.metrics.find((each) => each.key === key)
 
 /**
  * The measures a subject's features can have: those every kind reports, and
  * those its kinds do. Any feature, of whatever kind, can have any of them.
  */
-export const metricsForSubject = (subject: string): readonly DfmMetric[] => {
-  const kinds = subjectInfo(subject)?.kinds
-  if (!kinds) return FEATURE_METRICS
-  return FEATURE_METRICS.filter(
+export const metricsForSubject = (
+  subject: string,
+  vocabulary: RuleVocabulary = MILLING_RULES,
+): readonly DfmMetric[] => {
+  const kinds = subjectInfo(subject, vocabulary)?.kinds
+  if (!kinds) return vocabulary.metrics
+  return vocabulary.metrics.filter(
     (each) => !each.kinds || each.kinds.some((kind) => kinds.includes(kind)),
   )
 }

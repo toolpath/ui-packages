@@ -2,7 +2,7 @@ import { useMemo, type FC, type ReactElement } from 'react'
 import type { FeatureSheets } from '../model/feature-sheet.js'
 import type { DfmFeature } from '../model/geometry.js'
 import { featureRows, type FeatureRow } from '../model/hole-groups.js'
-import { directionLabel } from './direction-label.js'
+import { directionLabel } from '../model/direction-label.js'
 import { FeatureButton, type FeatureRowContext } from './feature-button.js'
 import { HoleGroupRow } from './hole-group-row.js'
 

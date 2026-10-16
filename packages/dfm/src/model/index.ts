@@ -17,7 +17,16 @@ export {
   type DfmSources,
   type RuleResult,
 } from './dfm-flags.js'
-export type { DfmMetric, DfmOp, DfmQuantity, FactsKind } from './dfm-metrics.js'
+export {
+  MILLING_RULES,
+  type DfmMetric,
+  type DfmOp,
+  type DfmQuantity,
+  type DfmSubject,
+  type FactsKind,
+  type RuleProcess,
+  type RuleVocabulary,
+} from './dfm-metrics.js'
 export {
   CRITICAL_COLOR,
   RULE_COLORS,
@@ -69,4 +78,11 @@ export {
   serializeRuleSet,
   type RuleSetFile,
 } from './rule-set-file.js'
+export {
+  checkTurnedPart,
+  turnedStretches,
+  type TurnedReportFeature,
+  type TurnedStretch,
+} from './turned-check.js'
+export { TURNING_RULES, turnedTypeLabel, type TurnedFactsKind } from './turning-metrics.js'
 export type { Units } from './units.js'

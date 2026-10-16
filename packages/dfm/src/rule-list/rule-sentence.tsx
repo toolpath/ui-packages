@@ -10,6 +10,7 @@ import {
   type DfmRule,
   type RangeLow,
 } from '../model/dfm-rules.js'
+import type { RuleVocabulary } from '../model/dfm-metrics.js'
 import type { Units } from '../model/units.js'
 import { Comparison } from './comparison.js'
 import { LOW_SYMBOLS, ONE_SIDED_CHOICES, OP_TITLES, rangeEnd } from './ops.js'
@@ -27,6 +28,7 @@ const RANGE_LOW: Choices = {
 interface SentenceProps {
   rule: DfmRule
   units: Units
+  vocabulary: RuleVocabulary
   onChange: (rule: DfmRule) => void
   autoFocus: boolean
 }
@@ -44,10 +46,11 @@ interface SentenceProps {
 export const RuleSentence: FC<SentenceProps> = ({
   rule,
   units,
+  vocabulary,
   onChange,
   autoFocus,
 }): ReactElement => {
-  const info = metricInfo(rule.metric)
+  const info = metricInfo(rule.metric, vocabulary)
   // A yes/no, or "any size", has no comparison or number to set.
   const flag = info?.quantity === 'flag' || info?.quantity === 'presence'
   const presence = info?.quantity === 'presence'
@@ -64,8 +67,8 @@ export const RuleSentence: FC<SentenceProps> = ({
       <Picker
         label="Features"
         value={rule.subject}
-        choices={subjectChoices(rule.subject, allSubjects)}
-        onChange={(value) => onChange(withSubject(rule, value, units))}
+        choices={subjectChoices(rule.subject, allSubjects, vocabulary)}
+        onChange={(value) => onChange(withSubject(rule, value, units, vocabulary))}
         onMore={() => setAllSubjects(true)}
       />
       {presence ? ', ' : ' with '}
@@ -98,8 +101,8 @@ export const RuleSentence: FC<SentenceProps> = ({
           label="Measure"
           title={info?.hint}
           value={rule.metric}
-          choices={metricChoices(rule.subject, rule.metric, allMetrics)}
-          onChange={(value) => onChange(withMetric(rule, value, units))}
+          choices={metricChoices(rule.subject, rule.metric, allMetrics, vocabulary)}
+          onChange={(value) => onChange(withMetric(rule, value, units, vocabulary))}
           onMore={() => setAllMetrics(true)}
           autoFocus={autoFocus}
         />

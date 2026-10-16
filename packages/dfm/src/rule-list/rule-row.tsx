@@ -2,6 +2,7 @@ import { useRef, useState, type FC, type KeyboardEvent, type ReactElement } from
 import { CaretRightIcon, TrashIcon } from '@phosphor-icons/react'
 import { IconButton, cn } from '@toolpath/ui'
 import type { RuleResult } from '../model/dfm-flags.js'
+import type { RuleVocabulary } from '../model/dfm-metrics.js'
 import type { DfmRule } from '../model/dfm-rules.js'
 import { FeatureRows } from './feature-rows.js'
 import { RuleSentence } from './rule-sentence.js'
@@ -9,8 +10,9 @@ import { FOCUS_RING } from './styles.js'
 import { ColorPicker, Swatch } from './swatch.js'
 import type { RuleListProps } from './types.js'
 
-interface RowProps extends Omit<RuleListProps, 'rules'> {
+interface RowProps extends Omit<RuleListProps, 'rules' | 'vocabulary'> {
   rule: DfmRule
+  vocabulary: RuleVocabulary
   result: RuleResult | null
   checking: boolean
   open: boolean
@@ -39,6 +41,7 @@ export const RuleRow: FC<RowProps> = ({
   features,
   sheets,
   units,
+  vocabulary,
   ...list
 }): ReactElement => {
   const [picking, setPicking] = useState(false)
@@ -112,7 +115,13 @@ export const RuleRow: FC<RowProps> = ({
           listItem="rules"
           className="mt-1.5"
         />
-        <RuleSentence rule={rule} units={units} onChange={onChange} autoFocus={focusOnMount} />
+        <RuleSentence
+          rule={rule}
+          units={units}
+          vocabulary={vocabulary}
+          onChange={onChange}
+          autoFocus={focusOnMount}
+        />
         {/* The count, one size for every rule; remove floats to its left on hover, taking no room of its own. */}
         <div className="relative mt-1 shrink-0">
           <IconButton
@@ -160,6 +169,7 @@ export const RuleRow: FC<RowProps> = ({
           features={features}
           sheets={sheets}
           units={units}
+          vocabulary={vocabulary}
           onBack={() => swatchRef.current?.focus()}
           {...list}
         />

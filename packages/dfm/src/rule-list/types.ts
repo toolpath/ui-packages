@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { DfmCheck } from '../model/dfm-flags.js'
+import type { RuleVocabulary } from '../model/dfm-metrics.js'
 import type { DfmRule } from '../model/dfm-rules.js'
 import type { FeatureSheets } from '../model/feature-sheet.js'
 import type { DfmFeature } from '../model/geometry.js'
@@ -37,6 +38,12 @@ export interface RuleListProps {
   selectedGroup: readonly string[] | null
   onInspect: (tag: string, group?: readonly string[]) => void
   onHover: (hovered: Hovered) => void
+  /**
+   * What the rules can say, and how a broken feature is named: `MILLING_RULES`
+   * where left out, `TURNING_RULES` for a turned part — whose `features` are
+   * its stretches (`turnedStretches`) and whose `sheets` are `{}`.
+   */
+  vocabulary?: RuleVocabulary
   /**
    * At the end of the footer's row, after Copy LLM prompt: the app's own
    * buttons — a way back to its default rules, say.

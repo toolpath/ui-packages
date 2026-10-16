@@ -1,6 +1,7 @@
 import { useRef, type FC, type ReactElement, type ReactNode } from 'react'
 import { CheckIcon, CopyIcon, DownloadSimpleIcon, UploadSimpleIcon } from '@phosphor-icons/react'
 import { Button, cn } from '@toolpath/ui'
+import type { RuleVocabulary } from '../model/dfm-metrics.js'
 import { llmRulePrompt, parseRuleSetFile, serializeRuleSet } from '../model/rule-set-file.js'
 import type { DfmRules } from './types.js'
 import { useTimedValue } from './use-timed-value.js'
@@ -11,19 +12,19 @@ const NOTE_MS = 4000
 /** How long "Copied" stands in for "Copy LLM prompt", ms. */
 const COPIED_MS = 2000
 
-/** The name an exported set is saved under. */
-const EXPORT_FILE_NAME = 'dfm-rules.json'
-
 /**
  * The footer under the rules: import a set from a file, export this one, and
  * copy a prompt that has an LLM write one, then the app's own buttons. A set
  * is one JSON file (`rule-set-file.ts`), so it can be kept per customer or
- * material and passed around.
+ * material and passed around. A set is one process's rules: it is saved
+ * under the vocabulary's file name, and one of the other process's is
+ * refused on import.
  */
-export const RuleSetActions: FC<{ rules: DfmRules; actions?: ReactNode }> = ({
-  rules,
-  actions,
-}): ReactElement => {
+export const RuleSetActions: FC<{
+  rules: DfmRules
+  actions?: ReactNode
+  vocabulary: RuleVocabulary
+}> = ({ rules, actions, vocabulary }): ReactElement => {
   const [note, setNote] = useTimedValue<string>(NOTE_MS)
   const [copied, setCopied] = useTimedValue<true>(COPIED_MS)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -37,7 +38,7 @@ export const RuleSetActions: FC<{ rules: DfmRules; actions?: ReactNode }> = ({
       setNote('Could not import: the file could not be read.')
       return
     }
-    const read = parseRuleSetFile(text)
+    const read = parseRuleSetFile(text, vocabulary)
     if ('error' in read) {
       setNote(`Could not import: ${read.error}`)
       return
@@ -47,7 +48,7 @@ export const RuleSetActions: FC<{ rules: DfmRules; actions?: ReactNode }> = ({
   }
   const copyPrompt = async (): Promise<void> => {
     try {
-      await navigator.clipboard.writeText(llmRulePrompt(rules.rules))
+      await navigator.clipboard.writeText(llmRulePrompt(rules.rules, vocabulary))
     } catch {
       setNote('Could not copy the prompt. Allow clipboard access and try again.')
       return
@@ -62,7 +63,7 @@ export const RuleSetActions: FC<{ rules: DfmRules; actions?: ReactNode }> = ({
         <Button variant="secondary" onClick={() => fileInput.current?.click()}>
           <ActionLabel icon={<UploadSimpleIcon weight="bold" />}>Import…</ActionLabel>
         </Button>
-        <Button variant="secondary" onClick={() => downloadRuleSet(rules)}>
+        <Button variant="secondary" onClick={() => downloadRuleSet(rules, vocabulary)}>
           <ActionLabel icon={<DownloadSimpleIcon weight="bold" />}>Export</ActionLabel>
         </Button>
         <Button
@@ -120,14 +121,14 @@ const ActionLabel: FC<ActionLabelProps> = ({ icon, children, hidden = false }): 
   </span>
 )
 
-/** Saves the rules as a rule-set file, through the browser's download. */
-const downloadRuleSet = (rules: DfmRules): void => {
+/** Saves the rules as a rule-set file, through the browser's download, under the vocabulary's file name. */
+const downloadRuleSet = (rules: DfmRules, vocabulary: RuleVocabulary): void => {
   const url = URL.createObjectURL(
-    new Blob([serializeRuleSet(rules.rules)], { type: 'application/json' }),
+    new Blob([serializeRuleSet(rules.rules, {}, vocabulary)], { type: 'application/json' }),
   )
   const link = document.createElement('a')
   link.href = url
-  link.download = EXPORT_FILE_NAME
+  link.download = vocabulary.fileName
   link.click()
   URL.revokeObjectURL(url)
 }

@@ -7,7 +7,7 @@ import type { FeatureRecord } from '../model/feature-record.js'
 import { readReachCurve, type FeatureProfile } from '../model/reach.js'
 import type { Units } from '../model/units.js'
 import { ReachChart } from '../reach/reach-chart.js'
-import { directionLabel } from '../rule-list/direction-label.js'
+import { MILLING_RULES, type RuleVocabulary } from '../model/dfm-metrics.js'
 import { Swatch } from '../rule-list/swatch.js'
 import { FeatureName, RequiredBadge } from './feature-name.js'
 import { FoldSection } from './fold-section.js'
@@ -57,6 +57,11 @@ export interface FeatureDetailsProps {
   PopOut?: PopOutWindow
   look?: FeaturePanelLook
   folds?: FoldStore
+  /**
+   * Which process the feature is read for: how it is named, the way it is cut
+   * from, and the heading over its considerations. Milling where left out.
+   */
+  vocabulary?: RuleVocabulary
 }
 
 /**
@@ -87,9 +92,11 @@ export const FeatureDetails: FC<FeatureDetailsProps> = ({
   PopOut,
   look: lookOption,
   folds,
+  vocabulary = MILLING_RULES,
 }): ReactElement => {
   const look = resolveLook(lookOption)
-  const name = <FeatureName feature={feature} label={label} look={look} />
+  const name = <FeatureName feature={feature} label={label} look={look} vocabulary={vocabulary} />
+  const { detail: cutFrom } = vocabulary.featureLabel(feature)
   // Which sections are popped out. They stay out as the feature read changes, and follow it.
   const [out, setOut] = useState<ReadonlySet<PopOutId>>(new Set())
   const openOut = useCallback((id: PopOutId) => setOut((was) => new Set(was).add(id)), [])
@@ -113,7 +120,7 @@ export const FeatureDetails: FC<FeatureDetailsProps> = ({
             </h3>
             <p className={cn('flex flex-wrap items-center gap-1.5 text-xs', secondaryText(look))}>
               <Swatch color={directionColor} className="size-2.5" />
-              Machined from {directionLabel(feature.machiningDirection)}
+              {cutFrom ? `Machined ${cutFrom}` : 'Machined'}
               {required ? <RequiredBadge /> : null}
               {status}
             </p>
@@ -135,7 +142,12 @@ export const FeatureDetails: FC<FeatureDetailsProps> = ({
         <BrokenRuleList rules={rules} look={look} />
       </FoldSection>
 
-      <MeasurementSections measurements={measurements} look={look} folds={folds} />
+      <MeasurementSections
+        measurements={measurements}
+        considerationsTitle={vocabulary.considerationsTitle}
+        look={look}
+        folds={folds}
+      />
 
       <ReachSection
         record={record}
@@ -225,9 +237,10 @@ const None: FC<{ look: ResolvedLook }> = ({ look }): ReactElement => (
  */
 const MeasurementSections: FC<{
   measurements: Loadable<readonly Measurement[]>
+  considerationsTitle: string
   look: ResolvedLook
   folds?: FoldStore
-}> = ({ measurements, look, folds }): ReactElement => {
+}> = ({ measurements, considerationsTitle, look, folds }): ReactElement => {
   // One shape of tree whether read or not, so the Measurements fold is not remounted as they arrive.
   if (measurements.status !== 'ready') {
     return (
@@ -250,7 +263,7 @@ const MeasurementSections: FC<{
         <MeasurementList rows={measured} look={look} />
       </FoldSection>
       {milling.length > 0 ? (
-        <FoldSection id="milling" title="Milling considerations" folds={folds}>
+        <FoldSection id="milling" title={considerationsTitle} folds={folds}>
           <MeasurementList rows={milling} look={look} />
         </FoldSection>
       ) : null}

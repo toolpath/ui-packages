@@ -7,6 +7,7 @@ import {
 } from '../../src/index.js'
 import {
   RULE_COLORS,
+  TURNING_RULES,
   featureProfile,
   type BrokenRule,
   type Measurement,
@@ -264,5 +265,28 @@ describe('FeatureDetails: what it survives', () => {
     expect(
       screen.getByText('Milled features with L/D ≥ 1').closest('[tabindex="0"]'),
     ).not.toBeNull()
+  })
+})
+
+describe('a turned feature', () => {
+  it('is named, said to be cut from its ends, and given turning considerations', () => {
+    const stretch = {
+      tag: 'G1',
+      featureType: 'od_groove',
+      machiningDirection: { x: 0, y: 0, z: 0 },
+      approaches: ['PlusZ', 'MinusZ'],
+    }
+    details({ feature: stretch, vocabulary: TURNING_RULES })
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('OD groove from both ends')
+    expect(screen.getByText('Machined from both ends')).toBeInTheDocument()
+    expect(screen.getByText('Turning considerations')).toBeInTheDocument()
+    expect(screen.queryByText('Milling considerations')).not.toBeInTheDocument()
+  })
+
+  it('says only "Machined" where no end reaches it', () => {
+    const unknown = { tag: 'U1', featureType: 'unknown', machiningDirection: { x: 0, y: 0, z: 0 } }
+    details({ feature: unknown, vocabulary: TURNING_RULES })
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(/^Unknown$/)
+    expect(screen.getByText('Machined')).toBeInTheDocument()
   })
 })
