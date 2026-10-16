@@ -4,7 +4,8 @@
  * walls beside a feature, how high and how far out.
  *
  * The rules are an input. The app keeps them and decides what they start as;
- * the list only shows and edits them. The rules and the checker themselves,
+ * the list only shows and edits them, as milling rules or, given
+ * `TURNING_RULES`, turning rules. The rules and the checker themselves,
  * with no React, are `@toolpath/dfm/model`.
  */
 
@@ -12,6 +13,8 @@ export { RuleList, ruleListKeys } from './rule-list/rule-list.js'
 export { Swatch, type SwatchProps } from './rule-list/swatch.js'
 export { isField, listKeys } from './rule-list/list-keys.js'
 export type { DfmRules, Hovered, RuleListProps } from './rule-list/types.js'
+export { MILLING_RULES, type RuleProcess, type RuleVocabulary } from './model/dfm-metrics.js'
+export { TURNING_RULES } from './model/turning-metrics.js'
 export { ReachChart, ReachDrawing } from './reach/reach-chart.js'
 export type { ReachChartProps } from './reach/types.js'
 export { storageFolds, type FoldStore } from './feature-panel/fold-store.js'

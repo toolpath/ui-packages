@@ -5,6 +5,7 @@ import { CandidateList, candidateListKeys, type CandidateRow } from './candidate
 import { ComparisonTable, type ComparedFace } from './comparison-table.js'
 import type { FoldStore } from './fold-store.js'
 import { resolveLook, secondaryText, type FeaturePanelLook } from './look.js'
+import type { RuleVocabulary } from '../model/dfm-metrics.js'
 
 /** One face being inspected: the features it could mean, and the one being read. */
 export interface InspectedFace {
@@ -34,6 +35,8 @@ export interface FeaturePanelProps {
   className?: string
   look?: FeaturePanelLook
   folds?: FoldStore
+  /** How the candidates are named: milling where left out (see `FeatureDetails`). */
+  vocabulary?: RuleVocabulary
   /** The active face's feature: its `<FeatureDetails>`. */
   children?: ReactNode
 }
@@ -72,6 +75,7 @@ export const FeaturePanel: FC<FeaturePanelProps> = ({
   className,
   look: lookOption,
   folds,
+  vocabulary,
   children,
 }): ReactElement => {
   const look = resolveLook(lookOption)
@@ -124,6 +128,7 @@ export const FeaturePanel: FC<FeaturePanelProps> = ({
                 }}
                 look={lookOption}
                 folds={folds}
+                vocabulary={vocabulary}
               />
             ))}
             {comparison ? (
@@ -145,6 +150,7 @@ export const FeaturePanel: FC<FeaturePanelProps> = ({
             onHover={onHover}
             look={lookOption}
             folds={folds}
+            vocabulary={vocabulary}
           />
         ) : null}
         {face?.selected ? (

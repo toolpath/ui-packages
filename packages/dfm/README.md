@@ -34,11 +34,11 @@ Add the styles after Tailwind and the `@toolpath/ui` theme:
 
 ## Exports
 
-| Entry point             | What it is                                                                                                                                                                                             |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `@toolpath/dfm`         | `RuleList`, `Swatch`, the list's keyboard helpers, `ReachChart`, `ReachDrawing`, the feature panel (`FeaturePanel`, `FeatureDetails`, `CandidateList`, `ComparisonTable`, `storageFolds`), their types |
-| `@toolpath/dfm/model`   | The rules, `checkPart`, the rule-set file, the feature panel's rows, pinch points — no React, no DOM                                                                                                   |
-| `@toolpath/dfm/dfm.css` | Lets the app's Tailwind see the list's and chart's classes                                                                                                                                             |
+| Entry point             | What it is                                                                                                                                                                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@toolpath/dfm`         | `RuleList`, `Swatch`, the list's keyboard helpers, `ReachChart`, `ReachDrawing`, the feature panel (`FeaturePanel`, `FeatureDetails`, `CandidateList`, `ComparisonTable`, `storageFolds`), their types, and the two rule vocabularies (`MILLING_RULES`, `TURNING_RULES`) |
+| `@toolpath/dfm/model`   | The rules, `checkPart` and `checkTurnedPart`, the rule-set file, the feature panel's rows, pinch points — no React, no DOM                                                                                                                                               |
+| `@toolpath/dfm/dfm.css` | Lets the app's Tailwind see the list's and chart's classes                                                                                                                                                                                                               |
 
 ## The rules are an input
 
@@ -80,6 +80,42 @@ rules from anywhere in it.
 `actions` puts the app's own buttons at the end of the footer's row, after
 Import…, Export and Copy LLM prompt — a way back to the app's default rules,
 say, since the package has none of its own.
+
+## Turning rules
+
+The same list edits turning rules: pass `vocabulary={TURNING_RULES}`, and it
+offers turned subjects (grooves, threads, axial holes, OD and ID features) and
+their measures, saves its set as `dfm-turning-rules.json`, and writes its LLM
+prompt for a lathe. Each vocabulary keeps its own rules: an import refuses the
+other process's file, and `parseRules(raw, TURNING_RULES)` drops milling ones.
+Every helper that reads a rule takes the vocabulary last, and reads milling
+where it is left out.
+
+```tsx
+import { RuleList, TURNING_RULES } from '@toolpath/dfm'
+import { checkTurnedPart, turnedStretches } from '@toolpath/dfm/model'
+
+// From a part analysis's `turning.features`.
+const stretches = turnedStretches(report.turning.features)
+const check = checkTurnedPart(stretches, rules.rules)
+
+<RuleList
+  rules={rules}
+  vocabulary={TURNING_RULES}
+  check={check}
+  features={stretches}
+  sheets={{}}
+  units="mm"
+  {...rest}
+/>
+```
+
+The Engine reports a stretch both ends of the part reach as two features, one
+per end; `turnedStretches` makes them one again, under the first one's tag. A
+stretch breaks a rule only if it breaks it from every end it is cut from, and
+every stretch counts — a turned face has one reading — so nothing is left in
+`otherTags`. Turning is experimental in the API, so a datasheet field that is
+missing or malformed is no figure, never an error.
 
 ## Reach chart
 
@@ -156,6 +192,12 @@ The parts work alone too. An app with an inspect panel of its own puts
 `CandidateList` and `FeatureDetails` in it and fills their slots with its own
 controls — a folder in a row's `detail`, a Pin button in its `action`, Zoom to
 in the details' `actions`, a folder badge in `status`.
+
+A turned feature reads the same way: give `FeaturePanel`, `CandidateList` and
+`FeatureDetails` `vocabulary={TURNING_RULES}` and a stretch from
+`turnedStretches`, and the feature is named as a turned one — "OD groove from
+both ends", "Machined from both ends" — with its considerations under
+"Turning considerations". Milling is the default.
 
 - **Rules broken** are `BrokenRule` rows: a colour, the rule's text, the figure
   that broke it, and optionally the limit and a note on hover. `brokenRules`

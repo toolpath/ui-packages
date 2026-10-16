@@ -1,11 +1,11 @@
 import type { FC, ReactElement } from 'react'
 import { cn } from '@toolpath/ui'
-import { featureTypeLabel, hitFigure } from '../model/dfm-explain.js'
+import { hitFigure } from '../model/dfm-explain.js'
 import type { DfmCheck, DfmHit } from '../model/dfm-flags.js'
+import type { RuleVocabulary } from '../model/dfm-metrics.js'
 import type { DfmRule } from '../model/dfm-rules.js'
 import type { DfmFeature } from '../model/geometry.js'
 import type { Units } from '../model/units.js'
-import { directionLabel } from './direction-label.js'
 import { FOCUS_RING } from './styles.js'
 import type { Hovered } from './types.js'
 
@@ -14,6 +14,8 @@ export interface FeatureRowContext {
   rule: DfmRule
   check: DfmCheck
   units: Units
+  /** How a feature's row names it. */
+  vocabulary: RuleVocabulary
   selected: string | null
   selectedGroup: readonly string[] | null
   onInspect: (tag: string, group?: readonly string[]) => void
@@ -53,6 +55,7 @@ export const FeatureButton: FC<FeatureRowContext & { tag: string }> = ({
   rule,
   check,
   units,
+  vocabulary,
   selected,
   selectedGroup,
   onInspect,
@@ -60,6 +63,9 @@ export const FeatureButton: FC<FeatureRowContext & { tag: string }> = ({
   onBack,
 }): ReactElement => {
   const feature = featureOf.get(tag)
+  const { name, detail } = feature
+    ? vocabulary.featureLabel(feature)
+    : { name: 'Feature', detail: '' }
   return (
     <button
       type="button"
@@ -78,10 +84,7 @@ export const FeatureButton: FC<FeatureRowContext & { tag: string }> = ({
       className={FEATURE_ROW}
     >
       <span className="min-w-0 flex-1 truncate">
-        {featureTypeLabel(feature?.featureType ?? 'feature')}{' '}
-        <span className="font-normal text-gray-300 dark:text-zinc-500">
-          {feature ? `from ${directionLabel(feature.machiningDirection)}` : ''}
-        </span>
+        {name} <span className="font-normal text-gray-300 dark:text-zinc-500">{detail}</span>
       </span>
       <HitFigure hit={ruleHit(check, rule, tag)} units={units} />
     </button>

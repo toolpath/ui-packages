@@ -1,7 +1,6 @@
 import type { FC, ReactElement, ReactNode } from 'react'
 import { cn } from '@toolpath/ui'
-import { featureTypeLabel } from '../model/geometry.js'
-import { directionLabel } from '../rule-list/direction-label.js'
+import { MILLING_RULES, type RuleVocabulary } from '../model/dfm-metrics.js'
 import { faintText, type ResolvedLook } from './look.js'
 import type { FeatureIdentity } from './types.js'
 
@@ -14,14 +13,22 @@ export const FeatureName: FC<{
   feature: FeatureIdentity
   label?: ReactNode
   look: ResolvedLook
-}> = ({ feature, label, look }): ReactElement => (
-  <>
-    {label ?? featureTypeLabel(feature.featureType)}{' '}
-    <span className={cn('font-normal', faintText(look))}>
-      from {directionLabel(feature.machiningDirection)}
-    </span>
-  </>
-)
+  /** How the feature is named: milling where left out. */
+  vocabulary?: RuleVocabulary
+}> = ({ feature, label, look, vocabulary = MILLING_RULES }): ReactElement => {
+  const { name, detail } = vocabulary.featureLabel(feature)
+  return (
+    <>
+      {label ?? name}
+      {detail ? (
+        <>
+          {' '}
+          <span className={cn('font-normal', faintText(look))}>{detail}</span>
+        </>
+      ) : null}
+    </>
+  )
+}
 
 /** A feature the plan cannot do without: it owns a face no other feature does. */
 export const RequiredBadge: FC = (): ReactElement => (

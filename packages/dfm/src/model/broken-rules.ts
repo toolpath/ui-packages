@@ -1,5 +1,6 @@
 import { hitFigure } from './dfm-explain.js'
 import type { DfmCheck, DfmHit } from './dfm-flags.js'
+import { MILLING_RULES, type RuleVocabulary } from './dfm-metrics.js'
 import { compareColors, describeRule } from './dfm-rules.js'
 import type { Units } from './units.js'
 
@@ -45,14 +46,22 @@ export const worstHits = (hits: readonly DfmHit[]): DfmHit[] => {
   })
 }
 
-/** The rules a feature breaks, as its details list them: one a measure, the worst, palette first. */
-export const brokenRules = (check: DfmCheck, tag: string, units: Units): BrokenRule[] =>
+/**
+ * The rules a feature breaks, as its details list them: one a measure, the
+ * worst, palette first, each written in the vocabulary its rules are in.
+ */
+export const brokenRules = (
+  check: DfmCheck,
+  tag: string,
+  units: Units,
+  vocabulary: RuleVocabulary = MILLING_RULES,
+): BrokenRule[] =>
   worstHits(check.hitsByTag.get(tag.toLowerCase()) ?? []).map((hit) => {
     const figure = hitFigure(hit, units)
     return {
       key: hit.rule.id,
       color: hit.rule.color,
-      text: describeRule(hit.rule, units),
+      text: describeRule(hit.rule, units, vocabulary),
       ...(figure ? { figure } : {}),
     }
   })

@@ -290,6 +290,42 @@ export interface DfmCheck {
   paintedWhole: ReadonlyMap<string, { tag: string; color: string }>
 }
 
+/**
+ * The colour a feature's hits paint it: the one earliest in the palette
+ * (`compareColors`). Undefined where it breaks nothing.
+ */
+export const worstColor = (hits: readonly DfmHit[] | undefined): string | undefined =>
+  hits?.map((hit) => hit.rule.color).sort(compareColors)[0]
+
+/**
+ * Each rule in order, with the features that break it, worst first — the
+ * furthest past the rule — split into the required ones and the rest.
+ */
+export const ruleResults = (
+  rules: readonly DfmRule[],
+  features: readonly DfmFeature[],
+  hitsByTag: ReadonlyMap<string, DfmHit[]>,
+  required: ReadonlySet<string>,
+): RuleResult[] =>
+  rules.map((rule) => {
+    const hits = features.flatMap((feature) => {
+      const tag = feature.tag.toLowerCase()
+      const hit = hitsByTag.get(tag)?.find((each) => each.rule.id === rule.id)
+      return hit
+        ? [{ tag: feature.tag, value: hit.value, metric: hit.metric, required: required.has(tag) }]
+        : []
+    })
+    const [first] = hits
+    // A yes/no has no figure to rank by; the sort is stable, so those keep the report's order.
+    const up = first ? worseUpward(rule, first.metric) : true
+    hits.sort((a, b) => (up ? b.value - a.value : a.value - b.value))
+    return {
+      rule,
+      tags: hits.filter((hit) => hit.required).map((hit) => hit.tag),
+      otherTags: hits.filter((hit) => !hit.required).map((hit) => hit.tag),
+    }
+  })
+
 /** The words in a feature type that make it more than the plain feature it is built on. */
 const QUALIFIERS = ['undercut', 'filleted', 'tslot', 'dovetail'] as const
 
@@ -343,11 +379,6 @@ const unavoidableFaces = (
   hitsByTag: ReadonlyMap<string, DfmHit[]>,
   regionAreas: ReadonlyMap<number, number>,
 ): Pick<DfmCheck, 'paintedFaces' | 'paintedWhole'> => {
-  const worstColor = (feature: DfmFeature): string | undefined =>
-    hitsByTag
-      .get(feature.tag.toLowerCase())
-      ?.map((hit) => hit.rule.color)
-      .sort(compareColors)[0]
   const areaOf = (feature: DfmFeature): number =>
     [...new Set(feature.regionIdxs)].reduce(
       (sum, region) => sum + (regionAreas.get(region) ?? 0),
@@ -364,7 +395,7 @@ const unavoidableFaces = (
   for (const [region, candidates] of owners) {
     const colored = candidates.map((feature) => ({
       feature,
-      color: worstColor(feature),
+      color: worstColor(hitsByTag.get(feature.tag.toLowerCase())),
       area: areaOf(feature),
     }))
     const isContour = ({ feature }: (typeof colored)[number]): boolean =>
@@ -467,28 +498,10 @@ export const checkPart = (
       featureHits(features, feature, sources, rules),
     ]),
   )
-  const byRule = rules.map((rule) => {
-    const hits = features.flatMap((feature) => {
-      const tag = feature.tag.toLowerCase()
-      const hit = hitsByTag.get(tag)?.find((each) => each.rule.id === rule.id)
-      return hit
-        ? [{ tag: feature.tag, value: hit.value, metric: hit.metric, required: required.has(tag) }]
-        : []
-    })
-    const [first] = hits
-    // A yes/no has no figure to rank by; the sort is stable, so those keep the report's order.
-    const up = first ? worseUpward(rule, first.metric) : true
-    hits.sort((a, b) => (up ? b.value - a.value : a.value - b.value))
-    return {
-      rule,
-      tags: hits.filter((hit) => hit.required).map((hit) => hit.tag),
-      otherTags: hits.filter((hit) => !hit.required).map((hit) => hit.tag),
-    }
-  })
   return {
     hitsByTag,
     required,
-    byRule,
+    byRule: ruleResults(rules, features, hitsByTag, required),
     ...unavoidableFaces(features, hitsByTag, sources.regionAreas),
   }
 }

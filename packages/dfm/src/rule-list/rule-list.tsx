@@ -1,6 +1,6 @@
 import { useMemo, useState, type FC, type ReactElement } from 'react'
 import { ScrollArea } from '@toolpath/ui'
-import { PRESENCE_METRIC } from '../model/dfm-metrics.js'
+import { MILLING_RULES, PRESENCE_METRIC } from '../model/dfm-metrics.js'
 import { makeRule, type DfmRule } from '../model/dfm-rules.js'
 import { listKeys } from './list-keys.js'
 import { NewRule } from './new-rule.js'
@@ -38,6 +38,7 @@ export const RuleList: FC<RuleListProps> = ({
   sheets,
   units,
   actions,
+  vocabulary = MILLING_RULES,
   ...list
 }): ReactElement => {
   const [openIds, setOpenIds] = useState<ReadonlySet<string>>(new Set())
@@ -80,6 +81,7 @@ export const RuleList: FC<RuleListProps> = ({
       features={features}
       sheets={sheets}
       units={units}
+      vocabulary={vocabulary}
       {...list}
     />
   )
@@ -91,14 +93,15 @@ export const RuleList: FC<RuleListProps> = ({
         {active.map(row)}
         {none.map(row)}
         <NewRule
+          vocabulary={vocabulary}
           onAdd={(subject) => {
-            const rule = makeRule(subject, PRESENCE_METRIC.key, units)
+            const rule = makeRule(subject, PRESENCE_METRIC.key, units, undefined, vocabulary)
             rules.add(rule)
             setAdded(rule.id)
           }}
         />
       </ul>
-      <RuleSetActions rules={rules} actions={actions} />
+      <RuleSetActions rules={rules} actions={actions} vocabulary={vocabulary} />
     </ScrollArea>
   )
 }

@@ -5,6 +5,8 @@ import { describeRule, RULE_COLORS, type DfmRule } from '../../src/model/dfm-rul
 import { metricInfo } from '../../src/model/dfm-metrics.js'
 import { featureSheet } from '../../src/model/feature-sheet.js'
 import type { DfmFeature } from '../../src/model/geometry.js'
+import { checkTurnedPart, turnedStretches } from '../../src/model/turned-check.js'
+import { TURNING_RULES } from '../../src/model/turning-metrics.js'
 
 const [RED = '', , YELLOW = ''] = RULE_COLORS.map((each) => each.value)
 
@@ -126,5 +128,30 @@ describe('featureColor', () => {
   it("is a required feature's worst colour, and nothing for one that is not required", () => {
     expect(featureColor(emptyCheck({ hitsByTag: hits, required: new Set(['a']) }), 'A')).toBe(RED)
     expect(featureColor(emptyCheck({ hitsByTag: hits }), 'A')).toBeUndefined()
+  })
+})
+
+describe('brokenRules for a turned part', () => {
+  const groove = {
+    featureTag: 'G1',
+    featureType: 'od_groove',
+    approach: 'PlusZ' as const,
+    regionIdxs: [4],
+    datasheet: { rMin: 8, rMax: 10, facts: { kind: 'OdGroove', width: 1.2, depth: 2 } },
+  }
+  const rules = [
+    rule({ id: 'narrow', subject: 'groove', metric: 'grooveWidth', op: 'lte', value: 1.5 }),
+  ]
+  const check = checkTurnedPart(turnedStretches([groove]), rules)
+
+  it('writes the rule in turning words, with the figure that broke it', () => {
+    expect(brokenRules(check, 'g1', 'mm', TURNING_RULES)).toEqual([
+      {
+        key: 'narrow',
+        color: YELLOW,
+        text: 'Grooves with groove width ≤ 1.5 mm',
+        figure: '1.2 mm',
+      },
+    ])
   })
 })

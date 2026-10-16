@@ -1,18 +1,17 @@
 import {
-  FEATURE_METRICS,
-  FEATURE_SUBJECTS,
-  LD_METRIC,
+  MILLING_RULES,
   metricInfo,
   metricsForSubject,
   subjectInfo,
   type DfmMetric,
   type DfmOp,
   type DfmQuantity,
+  type RuleVocabulary,
 } from './dfm-metrics.js'
 import { MM_PER_INCH } from '@toolpath/tool-support'
 import { FIELD_LENGTH_PLACES, LENGTH_PLACES, type Units } from './units.js'
 
-export { FEATURE_METRICS, FEATURE_SUBJECTS, metricInfo, metricsForSubject }
+export { metricInfo, metricsForSubject }
 export type { DfmMetric, DfmOp, DfmQuantity }
 
 /**
@@ -29,6 +28,10 @@ export type { DfmMetric, DfmOp, DfmQuantity }
  * any size* — and wears a colour of its own, which is what the features that
  * break it are painted on the part. A range starts at ≤ and <, so *4 ≤ L/D
  * < 8* and *L/D ≥ 8* meet without overlapping.
+ *
+ * Milling rules and turning rules are written alike, each from its own
+ * vocabulary (`RuleVocabulary`): every helper here that reads a subject or a
+ * measure takes one, and reads milling where it is left out.
  *
  * Where a feature breaks more than one rule, the colour earliest in
  * {@link RULE_COLORS} shows, so what the part looks like never hangs on the
@@ -67,9 +70,9 @@ export const opSymbol = (op: DfmOp): string => OP_SYMBOLS[op]
 export interface DfmRule {
   /** Stable, so a list can key its rows and a feature can name the rule it broke. */
   id: string
-  /** Which features: a value from {@link FEATURE_SUBJECTS}. */
+  /** Which features: a value from its vocabulary's subjects — `FEATURE_SUBJECTS` for milling. */
   subject: string
-  /** What is measured: a key from {@link FEATURE_METRICS}. */
+  /** What is measured: a key from its vocabulary's metrics — `FEATURE_METRICS` for milling. */
   metric: string
   op: DfmOp
   /** Canonical — mm or a ratio. Ignored by a yes/no metric. The low end of a range. */
@@ -142,7 +145,8 @@ const RETIRED_COLORS: Record<string, string> = {
   '#6bb0b3': '#00a2c7',
 }
 
-export const subjectLabel = (value: string): string => subjectInfo(value)?.label ?? value
+export const subjectLabel = (value: string, vocabulary: RuleVocabulary = MILLING_RULES): string =>
+  subjectInfo(value, vocabulary)?.label ?? value
 
 /* ---------- Typing and reading values ---------- */
 
@@ -235,9 +239,13 @@ export const formatMeasured = (quantity: DfmQuantity, value: number, units: Unit
  * A rule as one plain line: "Holes with L/D ≥ 8", "Holes with 4 ≤ L/D < 8",
  * "Any feature with a sharp inside corner", "Undercut T-slots, any size".
  */
-export const describeRule = (rule: DfmRule, units: Units): string => {
-  const info = metricInfo(rule.metric)
-  const subject = subjectLabel(rule.subject)
+export const describeRule = (
+  rule: DfmRule,
+  units: Units,
+  vocabulary: RuleVocabulary = MILLING_RULES,
+): string => {
+  const info = metricInfo(rule.metric, vocabulary)
+  const subject = subjectLabel(rule.subject, vocabulary)
   if (!info) return subject
   if (info.quantity === 'presence') return `${subject}, ${info.label}`
   if (info.quantity === 'flag') return `${subject} with ${info.label}`
@@ -253,14 +261,18 @@ export const describeRule = (rule: DfmRule, units: Units): string => {
 /** A fresh id for a rule: unique enough within the list. */
 export const newRuleId = (): string => Math.random().toString(36).slice(2, 10)
 
-/** A new rule for a subject and metric, at the metric's own starting value in the reader's units. */
+/**
+ * A new rule for a subject and metric, at the metric's own starting value in
+ * the reader's units. A metric the vocabulary does not know is its fallback.
+ */
 export const makeRule = (
   subject: string,
   metricKey: string,
   units: Units,
   color = WARNING_COLOR,
+  vocabulary: RuleVocabulary = MILLING_RULES,
 ): DfmRule => {
-  const info = metricInfo(metricKey) ?? LD_METRIC
+  const info = metricInfo(metricKey, vocabulary) ?? vocabulary.fallbackMetric
   return {
     id: newRuleId(),
     subject,
@@ -284,8 +296,13 @@ export const highOf = (rule: DfmRule): RangeHigh => rule.highOp ?? 'lt'
 const withoutRange = ({ max: _max, lowOp: _low, highOp: _high, ...rest }: DfmRule): DfmRule => rest
 
 /** A rule with its metric moved: the metric's own way and starting value, since the old ones meant something else. */
-export const withMetric = (rule: DfmRule, metricKey: string, units: Units): DfmRule => {
-  const info = metricInfo(metricKey)
+export const withMetric = (
+  rule: DfmRule,
+  metricKey: string,
+  units: Units,
+  vocabulary: RuleVocabulary = MILLING_RULES,
+): DfmRule => {
+  const info = metricInfo(metricKey, vocabulary)
   if (!info) return rule
   return { ...withoutRange(rule), metric: info.key, op: info.op, value: info.start[units] }
 }
@@ -297,12 +314,17 @@ export const withOp = (rule: DfmRule, op: DfmOp): DfmRule =>
     : { ...withoutRange(rule), op }
 
 /** A rule with its subject moved, and its metric too when the new subject has no such measure. */
-export const withSubject = (rule: DfmRule, subject: string, units: Units): DfmRule => {
-  const metrics = metricsForSubject(subject)
+export const withSubject = (
+  rule: DfmRule,
+  subject: string,
+  units: Units,
+  vocabulary: RuleVocabulary = MILLING_RULES,
+): DfmRule => {
+  const metrics = metricsForSubject(subject, vocabulary)
   const moved = { ...rule, subject }
   return metrics.some((each) => each.key === rule.metric)
     ? moved
-    : withMetric(moved, (metrics[0] ?? LD_METRIC).key, units)
+    : withMetric(moved, (metrics[0] ?? vocabulary.fallbackMetric).key, units, vocabulary)
 }
 
 /* ---------- Checking ---------- */
@@ -350,8 +372,8 @@ const isValue = (value: unknown, metric: DfmMetric | undefined): value is number
   (value >= 0 || metric?.signed === true) &&
   (metric?.quantity !== 'count' || Number.isInteger(value))
 
-/** One stored rule, checked: a known subject and metric, values it can take, a colour. Null if not. */
-const parseRule = (raw: unknown): DfmRule | null => {
+/** One stored rule, checked: a subject and metric the vocabulary knows, values it can take, a colour. Null if not. */
+const parseRule = (raw: unknown, vocabulary: RuleVocabulary): DfmRule | null => {
   if (!raw || typeof raw !== 'object') return null
   const {
     id,
@@ -364,11 +386,11 @@ const parseRule = (raw: unknown): DfmRule | null => {
     highOp,
     color,
   } = raw as Record<string, unknown>
-  const info = typeof key === 'string' ? metricInfo(key) : undefined
+  const info = typeof key === 'string' ? metricInfo(key, vocabulary) : undefined
   const valid =
     typeof id === 'string' &&
     typeof subject === 'string' &&
-    subjectInfo(subject) !== undefined &&
+    subjectInfo(subject, vocabulary) !== undefined &&
     typeof key === 'string' &&
     info !== undefined &&
     OPS.includes(op as DfmOp) &&
@@ -395,6 +417,13 @@ const parseRule = (raw: unknown): DfmRule | null => {
   }
 }
 
-/** Stored rules, the ones that read; null when what is stored is not a list at all. */
-export const parseRules = (raw: unknown): DfmRule[] | null =>
-  Array.isArray(raw) ? raw.flatMap((each) => parseRule(each) ?? []) : null
+/**
+ * Stored rules, the ones that read in this vocabulary — a turning rule is
+ * dropped as milling reads it, and the other way round; null when what is
+ * stored is not a list at all.
+ */
+export const parseRules = (
+  raw: unknown,
+  vocabulary: RuleVocabulary = MILLING_RULES,
+): DfmRule[] | null =>
+  Array.isArray(raw) ? raw.flatMap((each) => parseRule(each, vocabulary) ?? []) : null
