@@ -1,9 +1,8 @@
 /**
  * What this package is: **styling and display, and nothing else.**
  *
- * It is the component kit Storybook documents — a resource for reusable UI
- * elements and a guide for building them. Storage policy, routing, API calls
- * and application state are somebody else's job, and `@toolpath/app-support`
+ * It is the component kit for reusable UI elements. Storage policy, routing,
+ * API calls and application state are somebody else's job, and `@toolpath/app-support`
  * is that somebody.
  *
  * Nothing noticed when that stopped being true. `loadUnit`, `saveUnit` and

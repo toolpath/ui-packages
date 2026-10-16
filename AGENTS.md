@@ -1,430 +1,99 @@
-# Toolpath UI Packages Agent Guide
+# Working on Toolpath UI packages
 
-This repository publishes libraries. It is not an application: nothing here is deployed, and
-every meaningful change lands in somebody else's `node_modules`. Six npm packages and one
-Python package ship from this tree, alongside the examples that prove they work and the
-generation pipeline that keeps two of them honest against the API.
+This public repository ships reusable packages and consumer examples. Preserve compatibility for users who install a published version independently of Toolpath apps. Keep this guide focused on decisions; package READMEs document usage, and source/tests define implementation details.
 
-That single fact sets the priorities. An accidental export is permanent, a wrong version bump
-ships a break, and a dependency moved from `peerDependencies` to `dependencies` is an install
-cost for everyone downstream. Those are the risks worth spending review attention on.
+## Domain model and terminology
 
-## What ships
+Toolpath analyzes CAD geometry to help a shop decide whether and how to machine a part. Applications own their users, persistence, workflows, and commercial quotes.
 
-| Package                  | Source                     | Published as                          |
-| ------------------------ | -------------------------- | ------------------------------------- |
-| `@toolpath/ui`           | `packages/ui/`             | npm — React component kit + theme     |
-| `@toolpath/app-support`  | `packages/app-support/`    | npm — the logic an application reuses |
-| `@toolpath/viewer`       | `packages/viewer/`         | npm — three.js/R3F part viewer        |
-| `@toolpath/dfm`          | `packages/dfm/`            | npm — DFM rules, checker, rule list   |
-| `@toolpath/api`          | `packages/sdk-typescript/` | npm — generated TypeScript SDK        |
-| `@toolpath/tool-drawing` | `packages/tool-drawing/`   | npm — 2D tool/holder elevation        |
-| `@toolpath/tool-scraper` | `packages/tool-scraper/`   | npm — vendor tool-catalog scraping    |
-| `@toolpath/tool-support` | `packages/tool-support/`   | npm — the cutting-tool domain         |
-| `toolpath`               | `packages/sdk-python/`     | GitHub release — generated Python SDK |
+| Term                              | Meaning here                                                                                                                                                                                                                                              |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Organization / API key            | A key scopes Engine resources to an organization and grants Core, DFM, and Quoting access separately. It is not an application's user or session.                                                                                                         |
+| Part / job / report               | A part identifies uploaded CAD; a job is asynchronous work; a report is an immutable analysis result. Upload acceptance is not completed analysis. Keep `partId`, `jobId`/`jobUuid`, and `reportId` distinct.                                             |
+| Region / feature                  | A region is a CAD surface indexed within a report. A feature interprets regions from a machining direction; several features can share a region. API `featureId` and viewer `featureTag` serve different interfaces; do not substitute one for the other. |
+| Feature datasheet / DFM           | Datasheets enrich features with machining details. DFM rules assess manufacturability; the application supplies its rules and chooses how to present results.                                                                                             |
+| Plan / setup / action / toolpaths | A plan describes machining intent grouped into setups and actions. Calculated toolpaths are a separate asynchronous result; their machining time is one input to a commercial quote.                                                                      |
+| Material / stock                  | Material is what is cut; stock is the starting workpiece. Supported shapes and controls come from the selected API contract.                                                                                                                              |
+| Tool / holder / assembly          | A tool cuts; a holder mounts it; an assembly combines them with its stickout. Parametric holders and measured holder profiles are alternative representations; see the tool-support README.                                                               |
 
-`examples/typescript`, `examples/python`, and `examples/react-viewer` are workspace members but
-are never published. They exist to exercise a package the way a consumer would.
+Engine dimensions and normalized tool geometry use millimetres; surface areas use square millimetres and angles use degrees. Viewer geometry uses a Z-up frame. Read each field's units, especially feeds/speeds. A catalog's `UnitSystem` describes its source, not the units of stored geometry. Convert at explicit boundaries using `@toolpath/tool-support`'s `MM_PER_INCH`; Fusion presets must already use the export's unit system.
 
-## Project Map
+## Package boundaries
 
-- `packages/*/src/` is the shipped source. `packages/*/tests/` is its Vitest coverage.
-- `packages/*/dist/` is build output. Never edit it, never commit a fix into it.
-- `packages/sdk-typescript/src/generated/` and `packages/sdk-python/toolpath/generated/` are
-  **generated**. `openapi/openapi.json` plus `codegen/*.yaml` and `scripts/generate-sdks.mjs`
-  produce them; `pnpm generate:check` fails if the checked-in output drifts from a fresh run.
-  A hand edit there survives exactly until the next generation.
-- `openapi/` holds the pinned API contract and its `openapi.sha256`. `pnpm openapi:adopt` moves
-  it forward; `pnpm openapi:verify` proves the checked-in document matches its hash.
-- `fusion/` holds the same thing for a document this repository does not own: Autodesk's
-  tool-library JSON Schema, which `@toolpath/tool-support/export/fusion` writes against and
-  which Autodesk moves without announcement. The 2.6 MB schema is **not** vendored — `digest.json`
-  is a derived reduction of it (what each tool type requires and permits) and `schema.sha256`
-  hashes both the upstream document and the digest. `pnpm fusion:adopt` is the only thing that
-  may write either; `pnpm fusion:verify` proves they agree, and `pnpm fusion:check-upstream`
-  asks Autodesk whether the original has changed.
-- `mastercam/` holds the same thing for Mastercam's tool-database schema, which arrives inside
-  a `.TOOLDB` a maintainer is handed rather than at a URL. `digest.json` is a derived reduction —
-  the 79 `CREATE TABLE` statements with their columns and index keys, plus the reference rows
-  Mastercam ships under fixed guids — and `schema.sha256` hashes both it and the reference.
-  `pnpm mastercam:adopt` is the only thing that may write either, and it also writes
-  `packages/tool-support/src/export/mastercam/schema.generated.ts`, because the package imports
-  no `fs` and cannot read the digest at runtime. **The reference database is not vendored and
-  neither is its name**: it is somebody's shop library, and the digest carries only the schema and
-  Mastercam's own rows. `pnpm mastercam:verify` proves the pinned pair agree; the generated module
-  is held against them by `pnpm test`.
-- `packages/viewer/src/model/` and `src/render/` are pure — geometry, selection, camera, theme.
-  The `.tsx` files at `packages/viewer/src/` are the React surface over them. New behavior that
-  can be pure belongs in `model/` or `render/`, where it is cheap to test without a canvas.
-- `packages/ui/src/` is **styling and display, and nothing else**. It is the component kit
-  [Storybook](https://storybook.staging.toolpath.com) documents: a resource for reusable UI
-  elements and a guide for building them. Every directory under it is one component's — its
-  `.tsx`, and the hooks and helpers that component needs. Code that persists a preference,
-  reads a route, calls an API or holds application state does not belong here however small it
-  is, and a directory with no `.tsx` in it is that code arriving. It goes to
-  `packages/app-support/` instead.
-- `packages/app-support/src/` is the other half: the logic every Toolpath application was
-  otherwise going to write for itself — preferences, contexts, route helpers. It ships two entry
-  points, the root, which **imports no React** so a server route can read a stored value without
-  bundling a renderer, and `/react` for the hooks and contexts. Its one runtime dependency is
-  `@toolpath/tool-support`, and it never imports `@toolpath/ui`: the kit renders, this decides.
-  `tests/boundary.test.ts` is the sensor for both claims.
-- `packages/tool-drawing/src/` splits the same way the viewer does: `model/` and
-  `render/*.ts` are pure geometry and layout, the `.tsx` files are the React surface. It ships
-  three entry points — the root, `/geometry`, which imports no React and touches no DOM, and
-  `/clearance`, the optional overlay — and a new file has to be reachable from one of them.
-- `packages/dfm/src/` splits the same way: `model/` is the DFM rules and the part checker, pure
-  and shipped as `/model`, which imports no React and touches no DOM; `rule-list/` is the React
-  rule list on the root entry, and `reach/` is the React reach chart, also on the root. The
-  rules are an input: the package ships no default rules and stores nothing — the app keeps
-  them. `tests/subpaths.test.ts` is the sensor that `/model` reaches no React, DOM or
-  `@toolpath/ui`, and that the root reaches no three.js.
-- `packages/tool-scraper/src/vendors/<brand>/` are the vendor adapters; everything above them in
-  `src/` is the shared core, and `src/node/` is the filesystem/CLI entry point that the library
-  half deliberately does not depend on.
-- `packages/tool-support/src/` is the cutting-tool domain — what a tool, holder, collet and
-  assembly are, and the arithmetic that follows. **It depends on nothing and every arrow points
-  into it**: no runtime dependency, no peer, no React, no DOM, no `fs`, no `@toolpath/api`. That is
-  the whole design, and it is what lets a Node ingest script, a server route and a React renderer
-  share one answer. `tests/boundary.test.ts` is the sensor.
-- `packages/viewer/fixtures/` holds captured Engine responses, kept byte-identical to what the
-  API returned. Do not reformat them.
-- `docs/` holds written plans, not steering. `docs/BOOTSTRAPPING-NPM-PACKAGES.md` is the one
-  procedure an agent may need to follow.
-- `examples/react-viewer/tests/` is the repo's only Playwright suite. `viewer.spec.ts` drives
-  the example's default page and `orthographic.spec.ts` its `?projection=orthographic` one;
-  each has click points scanned under its own camera, and `canvas.ts` holds what they share.
+Read the affected package's README, manifest, and public entry points before editing. There are eight npm packages and a Python SDK; examples are not published packages.
 
-## Commands
+| Directory / package                                                             | Responsibility and boundary                                                                                                                                                        |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/ui` / `@toolpath/ui`                                                  | React controls and theme. Keep application persistence, routing, and API calls out; component-specific hooks/helpers stay with their component. Imports no Toolpath sibling.       |
+| `packages/app-support` / `@toolpath/app-support`                                | Shared application logic. Root imports no React; hooks/contexts use `/react`. Never imports UI.                                                                                    |
+| `packages/viewer` / `@toolpath/viewer`                                          | 3D visualization; `/engine` adapts Engine reports. Keep geometry, camera, picking, and selection logic in `model/` and `render/` where possible. Applications own selection state. |
+| `packages/dfm` / `@toolpath/dfm`                                                | DFM rules/checker at React/DOM-free `/model`; React presentation at root. Ships no default rules or persistence.                                                                   |
+| `packages/tool-support` / `@toolpath/tool-support`                              | Tool/holder domain, units, and CAM exporters. No runtime/peer dependencies or external imports, including React, DOM, Node builtins, and SDK types.                                |
+| `packages/tool-drawing` / `@toolpath/tool-drawing`                              | Tool/holder drawings; React/DOM-free `/geometry`, optional `/clearance` overlay. Keep calculation/layout separate from React.                                                      |
+| `packages/tool-scraper` / `@toolpath/tool-scraper`                              | Catalog ingestion. Keep filesystem/CLI behavior under `src/node/`, vendors independent, and shared core outside vendor adapters.                                                   |
+| `packages/sdk-typescript` / `@toolpath/api`; `packages/sdk-python` / `toolpath` | Generated Engine clients plus maintained client/upload helpers. Both SDKs follow the same contract and release version.                                                            |
 
-Run from the repository root. This is a pnpm 10 / Turborepo workspace on Node 24; do not
-substitute `npm`, `npx`, or a bare `tsc`.
+- Public imports go through declared `exports`, including documented CSS subpaths. Do not make consumers import source/private paths. New entry points also need matching source entries in `knip.json`.
+- Review emitted declarations, shipped files, peer ranges, CSS assets, and runtime requirements as part of the public API. Workspace resolution alone does not prove a packed package works. Keep React and the viewer's three/R3F ecosystem as peers; do not bundle duplicate renderers.
+- `pnpm knip` reports reachability, not consumer intent. Remove an internal export when appropriate; expose a type needed by a public signature through the supported entry point. Do not delete public APIs merely because this repo has no caller.
+- Add runtime dependencies only with a concrete need and user approval. Keep DOM access out of server-safe entry points and Node-only imports out of browser paths.
+- Scraper requests go through `packages/tool-scraper/src/fetch.ts`; preserve provenance receipts. Do not add vendors or increase scrape scope/request volume without being asked. Assert vendor CSV conventions against the adapter's actual output.
+- Mastercam type codes and radius classes must agree with demonstrated reference data; do not guess unknown codes. Preserve `ExportNote` reports for coercions, skipped data, and shared-tool numbering limits. A SQLite round-trip does not prove Mastercam accepts or simulates the library correctly; see `packages/tool-support/src/export/mastercam/schema.ts`.
 
-| Purpose                              | Command                                             |
-| ------------------------------------ | --------------------------------------------------- |
-| Install dependencies                 | `pnpm install --frozen-lockfile`                    |
-| The full gate                        | `pnpm check`                                        |
-| Lint (ESLint + Ruff + yamllint)      | `pnpm lint`                                         |
-| Type-check every workspace           | `pnpm check-types`                                  |
-| Build every workspace and package    | `pnpm build`                                        |
-| All tests                            | `pnpm test`                                         |
-| One package's tests                  | `pnpm --filter @toolpath/viewer test`               |
-| Browser tests only                   | `pnpm --filter @toolpath/example-react-viewer test` |
-| Verify the pinned OpenAPI document   | `pnpm openapi:verify`                               |
-| Verify the Fusion schema digest      | `pnpm fusion:verify`                                |
-| Adopt a new Fusion schema            | `pnpm fusion:adopt -- --fetch`                      |
-| Ask Autodesk if the schema moved     | `pnpm fusion:check-upstream`                        |
-| Verify the Mastercam schema digest   | `pnpm mastercam:verify`                             |
-| Adopt a Mastercam schema             | `pnpm mastercam:adopt -- <reference.TOOLDB>`        |
-| Regenerate the SDKs                  | `pnpm generate`                                     |
-| Prove the generated SDKs are current | `pnpm generate:check`                               |
-| Find dead code and unused deps       | `pnpm knip`                                         |
-| Add a Changeset                      | `pnpm changeset`                                    |
+## Contracts and generated files
 
-`pnpm check` runs `openapi:verify`, `fusion:verify`, `mastercam:verify`, `generate:check`, `lint`,
-`knip`, `build`, `check-types`, and `test`, in that order, so the cheap contract checks fail before
-a build does.
-
-`mastercam:adopt` has no `--fetch` and no upstream check to pair with it. Autodesk publishes its
-schema at a URL that can be polled; Mastercam's only exists inside a file somebody sends you, so
-there is nothing to ask on a schedule.
-
-`pnpm fusion:check-upstream` is **not** in the gate, and deliberately: it is the one check that
-calls a third party, so in `pnpm check` it would turn Autodesk's downtime into this repository's
-red build. `.github/workflows/fusion-schema.yml` runs it weekly instead. When it fails, run
-`pnpm fusion:adopt -- --fetch` — that moves `fusion/digest.json`, which fails the
-`export-fusion-schema` test until the table the exporter reads is reconciled with it. That chain
-is the point: an adopt cannot be a quiet file change.
-
-**Docker must be running for `pnpm check` and for `pnpm generate`.** `scripts/generate-sdks.mjs`
-runs the pinned `openapitools/openapi-generator-cli:v7.24.0` image, so `generate:check` fails at
-the second step of the gate — before lint — when the daemon is stopped. That failure is an
-environment prerequisite, not a finding about the change.
-
-Two things about `pnpm test` are worth knowing before reading its output:
-
-- It runs Playwright. `turbo run test` reaches every workspace with a `test` script, and
-  `examples/react-viewer` builds and runs its browser suite there. CI installs Chromium before
-  calling `pnpm check` for exactly this reason. A missing browser is a skipped check, not a
-  passing one.
-- It then runs `scripts/test-ui-package.mjs`, which is not a unit test: it runs `npm pack` on
-  `packages/ui` and asserts the tarball's contents. A file that stops shipping fails here.
-- It finishes with `scripts/check-release-build-order.mjs`, which reads `release:npm` and the
-  workspace graph and proves the first builds every published package, and builds each one before
-  the packages that import it. `release:npm` states its order by hand and runs only on `main`
-  after a release pull request merges, so without this its first execution is the release it
-  breaks.
-- `scripts/check-release-trigger.mjs` reads the release workflow's push path filter and proves
-  it runs on `.changeset/**` and on every published package's `src/**` and manifest. The filter is
-  a roster, and it fails silently: the merge succeeds, CI is green, and nothing publishes. A pull
-  request whose only release-relevant content was a Changeset used to do exactly that.
-- Also here is `scripts/check-bootstrap-publish.mjs`, which proves the one manual publish in the
-  repository goes through pnpm. Only pnpm rewrites a `workspace:` range to a real one at pack
-  time, and the bootstrap runs once per package, by hand, for a package npm has never seen — so
-  its first execution is the publish it breaks, permanently, because npm will not accept a second
-  upload of a version.
-
-## Rules with a sensor
-
-A rule with a sensor is a fact about the code — the gate fails and the work stops. A rule
-without one is a preference a reviewer carries in their head, and agents drift off those the
-longer a session runs. This table is deliberately short and deliberately honest: when a
-judgment rule starts being violated, give it a check rather than restating it here.
-
-| Rule                                                                      | Proven by                               |
-| ------------------------------------------------------------------------- | --------------------------------------- |
-| No component defined inside another component                             | `pnpm lint`                             |
-| Complete React hook dependency arrays                                     | `pnpm lint`                             |
-| Python style in `packages/sdk-python` and `examples/python`               | `pnpm lint` (Ruff)                      |
-| Workflow YAML style                                                       | `pnpm lint` (yamllint)                  |
-| The generated SDK sources match a fresh generation                        | `pnpm generate:check`                   |
-| `openapi/openapi.json` matches its recorded hash                          | `pnpm openapi:verify`                   |
-| `fusion/digest.json` is derived, not hand-edited                          | `pnpm fusion:verify`                    |
-| `mastercam/digest.json` is derived, not hand-edited                       | `pnpm mastercam:verify`                 |
-| The generated Mastercam schema matches the pinned digest                  | `pnpm test` (`export-mastercam-schema`) |
-| The SQLite encoder's output is a database SQLite reads back               | `pnpm test` (`sqlite-encoder`)          |
-| A Mastercam library round-trips its tools, holders and stickouts          | `pnpm test` (`export-mastercam`)        |
-| The encoder refuses two rows under one unique key                         | `pnpm test` (`sqlite-encoder`)          |
-| One tool set up in several holders is one tool row and several assemblies | `pnpm test` (`export-mastercam`)        |
-| `MCToolType` and `TlRadiusType` are paired as Mastercam pairs them        | `pnpm test` (`export-mastercam`)        |
-| The Fusion type table matches Autodesk's published schema                 | `pnpm test` (`export-fusion-schema`)    |
-| A scraper vendor adapter imports no other vendor                          | `pnpm test` (`vendor-boundary`)         |
-| Only a composition root reaches into `src/vendors/`                       | `pnpm test` (`vendor-boundary`)         |
-| Every scraper vendor directory has a `scrape.ts`                          | `pnpm test` (`vendor-boundary`)         |
-| Every tap family states whether it cuts its thread or forms it            | `pnpm test` (`tap-method`)              |
-| `@toolpath/tool-support` imports nothing and declares no dependency       | `pnpm test` (`boundary`)                |
-| `@toolpath/app-support`'s root entry imports no React                     | `pnpm test` (`boundary`)                |
-| `@toolpath/app-support` never imports `@toolpath/ui`                      | `pnpm test` (`boundary`)                |
-| One `25.4` in the whole tree                                              | `pnpm test` (`boundary`)                |
-| `release:npm` builds a package before the ones that import it             | `pnpm test` (`release-build-order`)     |
-| The bootstrap publish rewrites `workspace:` ranges, as pnpm does          | `pnpm test` (`bootstrap-publish`)       |
-| A Changeset on `main` starts a release run                                | `pnpm test` (`release-trigger`)         |
-| The viewer example mounts with a clean console, in both projections       | `pnpm test` (Playwright `openViewer`)   |
-| `@toolpath/ui` holds components only: every `src/` directory has a `.tsx` | `pnpm test` (`boundary`)                |
-| `@toolpath/ui` imports no Toolpath sibling                                | `pnpm test` (`boundary`)                |
-| `@toolpath/ui` ships its theme, `dist`, and `src` in the tarball          | `pnpm test` (`test-ui-package`)         |
-| `@toolpath/ui` theme tokens and the built bundle agree                    | `pnpm test` (`tailwind-preset`)         |
-| `@toolpath/tool-scraper` resolves and its errors are `instanceof`-safe    | `pnpm test` (`packaging`)               |
-| No unreferenced export, file, or dependency                               | `pnpm knip`                             |
-| A change under a package's `src/` carries a Changeset                     | CI (`release-intent.yml`)               |
-| Formatting                                                                | Prettier, via the pre-commit hook       |
-| TypeScript style beyond the above                                         | judgment                                |
-
-What the sensors cannot carry:
-
-- `packages/viewer`'s split — pure logic in `model/` and `render/`, React in the `.tsx` files —
-  is judgment. Nothing fails when a calculation moves into a component; the cost shows up later
-  as a behavior that can only be tested by rendering a canvas.
-- Which dependencies are peers is judgment. `@toolpath/viewer` peers `react`, `react-dom`,
-  `three`, `@react-three/fiber`, and `@react-three/drei`, and takes exactly one runtime
-  dependency; `@toolpath/ui` peers `react`, `react-dom`, and `tailwindcss`. A consumer that
-  ends up with two copies of `three` gets an empty scene, and no check in this repo sees it.
-- `packages/tool-scraper/tests/conventions.test.ts` holds the CSV conventions themselves, but
-  whether a vendor keeps them is asserted in that vendor's own test file, against the header
-  its adapter really writes. Do not add a literal copy of a header to the conventions test —
-  that second copy is the check being lost.
-- The ESLint config carries `react-hooks/exhaustive-deps` partly so the viewer's two deliberate
-  suppressions stay legal. A disable comment naming an unresolvable or disabled rule fails lint.
-- **`pnpm knip` proves a symbol is unreferenced, not that it should go.** In a published package
-  an unreferenced export has two correct fixes — drop the `export` keyword, or add it to the
-  package's public entry — and knip cannot tell them apart. Ask which the symbol was for: a
-  `Context` object or a provider's internal value type is plumbing, so un-export it; a type named
-  by a public signature a consumer cannot otherwise write is a gap in the public surface, so
-  publish it. `knip.json` models each package's entry points by hand because every manifest's
-  `exports` map points at `dist/`; an entry point added to a manifest needs its `src/` counterpart
-  added there too, or knip will call a whole live module dead.
-- **One tool set up in several holders is written as one tool row.** Mastercam's schema allows
-  it — `TlAssemblyComponent`'s key is `(TlAssemblyID, TlAssemblyItemID)` — but the reference
-  library never does: it holds 113 tool rows for 63 distinct tools and 63 holder rows for 7,
-  duplicating an item each time it goes into an assembly and giving the copy its own carousel
-  number. Sharing keeps the tool's guid as its `TlAssemblyItem.ID`, which is what makes a
-  re-export update a tool rather than add one, and costs one thing: `TlTool.ToolNumber` and the
-  legacy record hold a single number, so a tool at two carousel positions states the first and
-  reports the rest as an `ExportNote`. **This is not verified against Mastercam.**
-- **Mastercam publishes no table of its tool-type codes.** Every integer in
-  `packages/tool-support/src/export/mastercam/schema.ts` was read out of a real library and
-  cross-checked against the twenty legacy names the file also carries; twelve are confirmed that
-  way and the rest are not known. A form with no confirmed code is either coerced onto one whose
-  silhouette matches — a face mill onto a flat end mill — or skipped, and both are reported as an
-  `ExportNote`. Do not add a code without a library that demonstrates it: a wrong `MCToolType` is
-  not a rejected file, it is a library that loads and puts the wrong solid in a simulation.
-  **The code and `TlToolEndmill.TlRadiusType` are one decision, not two.** The reference pairs
-  them without exception — flat with none, ball with full, bull with corner, rounder with rounder —
-  so `resolveRadius` settles both together and geometry beats the catalog's word: a flat end mill
-  that states a corner radius is written as a bull nose, and a bull nose that states none is
-  written as the flat end mill its numbers describe.
-- **The Changeset check watches `src/` and not the manifests.** `scripts/check-release-intent.mjs`
-  lists `packages/ui/src/`, `packages/ui/tailwind-preset.cjs`, `packages/app-support/src/`,
-  `packages/viewer/src/`, `packages/tool-scraper/src/`, `packages/sdk-typescript/src/`,
-  `packages/sdk-python/toolpath/`, `openapi/`, `codegen/`, and
-  `scripts/generate-sdks.mjs`. A `package.json` change that
-  alters `exports`, `files`, `engines`, or a dependency is consumer-visible and needs a Changeset
-  under the rules below, but no check will ask for one. That part is judgment until the script's
-  path list grows.
+- `openapi/openapi.json` is the pinned SDK contract. `openapi/openapi.sha256` and `openapi/release.json` record its bytes and provenance; package metadata records the adopted API version/hash. SDK versions, API versions, source checkouts, and deployments are separate artifacts.
+- For an intentional contract upgrade, establish the target deployment first. Stable SDKs follow the healthy production release; staging-only contracts use the staging prerelease workflow. Do not silently adopt unreleased services source or change an example's server to hide a mismatch.
+- Adopt with `pnpm openapi:adopt -- /path/to/openapi.json`, then `pnpm generate`. Fix generator configuration or maintained wrappers, not `packages/sdk-typescript/src/generated/` or `packages/sdk-python/toolpath/generated/`. Review both SDKs and provenance changes together; `pnpm generate:check` regenerates files in place.
+- Consult `x-toolpath-experimental`, product grants, and metering in the selected contract. Do not invent fields from a newer staging example or infer that every endpoint accepts idempotency keys. Preserve asynchronous job states, error details, and documented direct presigned uploads; never send the API key to the upload URL.
+- Keep long-lived keys server-side unless an example deliberately demonstrates allowed-origin browser access. Origin restrictions do not make a browser key secret. Use placeholder credentials; do not read private `.env` files or expose keys, CAD contents, or presigned URLs in output, logs, or fixtures.
+- `fusion/` and `mastercam/` hold derived schema digests/hashes. Update through `pnpm fusion:adopt -- --fetch` or `pnpm mastercam:adopt -- <reference.TOOLDB>`; never hand-edit/reformat the derived files or `schema.generated.ts`. Do not commit the private Mastercam reference database, its filename, or shop records.
+- Preserve the retained bytes of `packages/viewer/fixtures/reports/`; fixtures are sanitized Engine-shaped data, not live credentials or usable URLs. Never commit build output (`dist`, caches, test reports).
 
 ## Public package releases
 
-When changing a public package in a consumer-visible way, always add a Changeset in the same pull
-request. Do this as part of the implementation; do not ask a human to create it later.
+- Every consumer-visible package change needs a Changeset in the same PR, including manifest changes to exports, shipped files, dependencies, peers, or runtime support. Name all affected packages; summaries become customer-facing release notes. Docs/examples/CI/test-only work needs none unless it changes what consumers receive.
+- Use `patch` for compatible fixes, `minor` for compatible capabilities/exports, and `major` for incompatible public types, signatures, behavior, or supported environments. Evaluate actual compatibility: widening a peer range is not inherently a breaking change. Describe breaks and migration steps explicitly.
+- `packages/sdk-python`, `openapi/`, `codegen/`, and SDK generation changes use an `@toolpath/api` Changeset. Python shares its version and ships as a wheel on GitHub release `python-sdk-v<version>`, not PyPI. See [Python releases](docs/PYTHON-SDK-RELEASES.md).
+- CI's [release-intent script](scripts/check-release-intent.mjs) checks selected source paths, not every consumer-visible manifest/asset change. The policy still applies outside that list. `no-release-needed` is a maintainer exemption with a written reason; never apply it to bypass a required release.
+- Do not manually edit package versions or changelogs. The [release workflow](.github/workflows/release.yml) versions and publishes packages; do not publish, merge release metadata, or change npm tags without authorization. Use Actions OIDC; never add npm tokens to workflows or config. A new package's one-time manual bootstrap is the documented exception; follow [the bootstrap runbook](docs/BOOTSTRAPPING-NPM-PACKAGES.md).
+- `@toolpath/api` staging prereleases use `staging`, never `latest`, and commit no stable contract/version changes. Follow `scripts/publish-sdk-prerelease.mjs` and `release.yml`; staging acceptance and stable production promotion are distinct workflows.
 
-Changesets are Markdown files in `.changeset/` with this form:
+## Working conventions
 
-```md
----
-'@toolpath/viewer': patch
----
+- Prefer const arrow functions, `Array<T>`, braced multiline conditionals, and individual React imports in maintained code. Follow the package's ESM/import conventions; generated code follows its generator.
+- Preserve controlled component state, focus/keyboard behavior, theme tokens, and CSS entry points. Avoid unnecessary rerenders and allocations in frame callbacks; keep expensive geometry work bounded and rendering responsive.
+- Test behavior changes in the owning package, preferably through pure logic. Use `examples/react-viewer/tests/` for interactions that need a real browser/canvas and examples for consumer integration. Verify built declarations and packed artifacts when exports, dependencies, or assets change.
+- Keep README examples consistent with the package's actual exports and supported peers. A local workspace version is not evidence that a capability is available in a published release.
 
-Fix camera reset after a report reload.
-```
+## Commands and verification
 
-Use the package and bump that match the change:
+Use the pinned toolchain in `.tool-versions` and `package.json`: Node 24, pnpm 10, Python/uv for Python checks. Published npm packages declare their own runtime floors; do not raise them to match the contributor toolchain.
 
-| Changed area                                                                                                   | Package                  |
-| -------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| `packages/ui/src/` or `packages/ui/tailwind-preset.cjs`                                                        | `@toolpath/ui`           |
-| `packages/app-support/src/`                                                                                    | `@toolpath/app-support`  |
-| `packages/viewer/src/`                                                                                         | `@toolpath/viewer`       |
-| `packages/dfm/src/` or `packages/dfm/dfm.css`                                                                  | `@toolpath/dfm`          |
-| `packages/sdk-typescript/src/`, `packages/sdk-python/`, `openapi/`, `codegen/`, or `scripts/generate-sdks.mjs` | `@toolpath/api`          |
-| `packages/tool-drawing/src/`                                                                                   | `@toolpath/tool-drawing` |
-| `packages/tool-scraper/src/`                                                                                   | `@toolpath/tool-scraper` |
-| `packages/tool-support/src/`                                                                                   | `@toolpath/tool-support` |
+| Purpose                         | Command from repo root                                                                                    |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Install                         | `pnpm install --frozen-lockfile`                                                                          |
+| Focused package checks          | `pnpm --filter @toolpath/viewer test` / `pnpm --filter @toolpath/viewer check-types` (substitute package) |
+| Full gate                       | `pnpm check`                                                                                              |
+| Contract / generated SDK checks | `pnpm openapi:verify` / `pnpm generate:check`                                                             |
+| CAM schema checks               | `pnpm fusion:verify` / `pnpm mastercam:verify`                                                            |
+| TypeScript SDK artifact check   | `pnpm release:typescript-sdk:check`                                                                       |
+| Python wheel build              | `pnpm package:python-sdk`                                                                                 |
+| Add release intent              | `pnpm changeset`                                                                                          |
 
-- Public package manifest changes that alter exports, dependencies, peer dependencies, or shipped files
-  also require the relevant package Changeset.
-- Use `patch` for a backwards-compatible fix.
-- Use `minor` for a backwards-compatible public capability or export.
-- Use `major` for an incompatible public API, type, peer-dependency, or behavioral change.
-- Name every affected package in one Changeset when work spans packages.
-- Do not add a Changeset for docs, examples, app-only work, CI, or test-only changes unless a package
-  consumer receives a change.
+`pnpm check` verifies pinned contracts/digests, regenerates SDKs, lints, runs knip, builds, checks types, and tests. Docker is required for the TypeScript generator; Python generation uses pinned `openapi-python-client` through uv. `pnpm test` includes Playwright, the UI tarball check, and release-script checks; Chromium must be installed. CI also builds the Python wheel. The TypeScript SDK artifact check is separate from `pnpm check`; run it for SDK packaging changes.
 
-This is enforced. `.github/workflows/release-intent.yml` runs
-`scripts/check-release-intent.mjs` on every pull request and fails when a release-sensitive path
-changed without a matching Changeset. The `no-release-needed` label is the only exit, it is a
-maintainer's call, and the pull request template requires the reason in writing. Do not reach for
-the label to get a check green.
+Run focused checks first, then `pnpm check` for consumer-visible work. For instruction/docs-only work, validate formatting, links, and stated commands without regenerating packages. Report checks as passed, failed, or skipped with reasons; missing Docker/Chromium is a prerequisite failure, never a pass. Formatting comes from Prettier via the pre-commit hook; avoid whole-repo formatting. Never bypass hooks or weaken checks to get a passing result.
 
-**`packages/sdk-python` ships under `@toolpath/api`'s version.** Both SDKs are generated from one
-contract, so a Python change takes an `@toolpath/api` Changeset, never one of its own. `pnpm
-version-packages` runs `scripts/sync-python-sdk-version.mjs` after `changeset version`, so the
-release-metadata pull request bumps `packages/sdk-python/pyproject.toml` too, and `pnpm generate`
-reads the same version (`readSdkVersion` in `scripts/lib.mjs`). After a release run with no
-release PR pending, `scripts/check-python-sdk-release.mjs` looks for the GitHub release
-`python-sdk-v<version>`; when it is missing, the `python-sdk-release` job in
-`.github/workflows/release.yml` builds the wheel, installs it in a clean environment, and attaches
-it to a new release of that tag (`docs/PYTHON-SDK-RELEASES.md`). It is not published to PyPI.
-Staging prereleases are npm only.
+## Documentation and sources
 
-`packages/tool-scraper` publishes to npm as `@toolpath/tool-scraper` and takes a Changeset like any
-other public package. It was `private` for one release cycle, which kept it out of `changeset
-publish` and out of the first-publish scan in `scripts/check-npm-package-bootstrap.mjs`; that scan
-still skips a private package, so a future one holds back no release. Its `0.1.0` was versioned in
-that window and never reached npm, so `0.1.0` is what the maintainer bootstrap in
-`docs/BOOTSTRAPPING-NPM-PACKAGES.md` publishes — the one manual publish npm requires before it will
-accept a trusted publisher for a package it has not seen. Every release after that is the
-workflow's.
+| Task                              | Start here                                                                                                                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Package usage and public exports  | `packages/<name>/README.md`, its `package.json`, and exported source entries                                                                                                         |
+| API routes, shapes, units, access | Pinned [OpenAPI](openapi/openapi.json) for SDK work; [public developer guides](https://developers.toolpath.com/) and the target server's `/v1/openapi.json` for deployment questions |
+| Viewer data and geometry behavior | [Fixture notes](packages/viewer/fixtures/README.md), `packages/viewer/src/{engine,model,render}/`, and package tests                                                                 |
+| UI/theme integration              | [UI README](packages/ui/README.md), `packages/ui/theme.css`, component source, and theme/packaging tests                                                                             |
+| Tool/holder and CAM semantics     | [Tool support](packages/tool-support/README.md), exporter source/tests, `fusion/`, and `mastercam/`                                                                                  |
+| CI, packaging, and publishing     | `package.json`, `.github/workflows/`, `scripts/`, [Python releases](docs/PYTHON-SDK-RELEASES.md), and [new npm packages](docs/BOOTSTRAPPING-NPM-PACKAGES.md)                         |
 
-Do not manually edit package versions or changelogs. The release workflow generates them in its
-auto-merged release-metadata pull request.
-
-### Staging prereleases
-
-`@toolpath/api` has a second channel: the `staging` dist-tag, for an internal application that
-needs a contract Engine staging serves before production does. Services' staging workflow sends a
-`repository_dispatch` (`engine-api-staging`) once staging acceptance passes, and the
-`sdk-prerelease` job in `.github/workflows/release.yml` runs `scripts/publish-sdk-prerelease.mjs`:
-it fetches `https://api.staging.toolpath.com/v1/openapi.json`, adopts and regenerates in the
-throwaway checkout, versions with `changeset version --snapshot staging`, and publishes
-`<next stable>-staging.<UTC datetime>.g<services sha7>` — `0.8.0-staging.20261009131500.g85efae8`
-— under `staging` only. It commits nothing, so `openapi/` and the stable release are untouched,
-and it refuses to finish if `latest` moved. The job stays in `release.yml` because npm's trusted
-publisher is bound to that file name. A `workflow_dispatch` with `services_sha` (and optionally
-`api_version`) runs the same job by hand; `dry_run` is on by default, and a run off `main` is
-always a dry run. Runbook: `npm view @toolpath/api dist-tags`,
-`npm view @toolpath/api@staging toolpath` (contract hash and version, both commits), and if
-`latest` ever moves, `npm dist-tag add @toolpath/api@<stable> latest`.
-
-## Safety
-
-- npm publishing uses GitHub Actions OIDC trusted publishing. Never add an npm token to a
-  workflow, a `.npmrc`, or the environment. The one exception is the documented manual bootstrap
-  publish for a brand-new package, in `docs/BOOTSTRAPPING-NPM-PACKAGES.md`.
-- Never ask a user to paste an API key, token, or private URL into chat, and never read, print,
-  summarize, stage, or commit a `.env` file. Checking that one exists is safe; reading it is not.
-- Examples and READMEs use placeholder keys. Keep them placeholders.
-- `@toolpath/tool-scraper` fetches from third-party vendor sites. Route requests through
-  `src/fetch.ts` rather than calling `fetch` from an adapter, keep the provenance receipt a
-  scrape produces, and do not raise request volume or add a vendor without the user asking.
-
-## Working Style
-
-- Explain the intended change in plain language before a broad or risky edit.
-- Make the smallest correct change. Do not refactor unrelated code or add dependencies without a
-  concrete need and the user's approval — in a published package, a new dependency is a decision
-  every consumer inherits.
-- Preserve unrelated work already present in the working tree. Never reset, discard, or overwrite it.
-- Treat tests as part of every behavior change, in the package that owns the behavior.
-- After meaningful changes, run the relevant checks and report what passed, failed, or was skipped.
-
-Before editing:
-
-- Search for an existing pattern or shared helper before adding an abstraction, dependency, or
-  duplicate. Check whether the behavior belongs in a package's pure layer rather than its React one.
-- Decide which package's public surface the change touches, and whether it needs a Changeset.
-
-After editing:
-
-- Run the narrowest relevant test/type loop first — `pnpm --filter <package> test` — then broaden
-  in proportion to cross-package risk, ending at `pnpm check` for anything consumer-visible.
-
-## Validation
-
-Run the narrowest relevant tests while implementing, then run the applicable broader checks before
-completion. Public package changes must include tests when behavior changes.
-
-Nothing configures coverage in this repo, so there is no coverage number to report. That is a gap
-in what can be measured, not a failing check — do not substitute a different tool and call it
-coverage.
-
-## Formatting
-
-The Husky pre-commit hook runs `lint-staged`, which runs Prettier over staged files. Run
-`pnpm format` only when the user asks or the hook cannot be used. Never bypass a failed hook with
-`--no-verify`.
-
-## Git Workflow
-
-- Inspect `git status` and the relevant diff before staging anything. Stage explicit paths only,
-  never `git add .` or `git add -A`.
-- Commit only when the user explicitly asks. Never add AI attribution or a co-author trailer; the
-  `commit` skill has the full message rules.
-- Never push as a side effect of committing. Push only when the user explicitly asks.
-- Never force-push, bypass hooks, run `git reset --hard`, run `git clean`, or use `git checkout --`
-  unless the user explicitly asks and understands the consequence.
-
-### Pull request descriptions
-
-Fill in `.github/pull_request_template.md` and keep it **as short as the change allows**. A
-description is a pointer to the diff, not a second copy of it.
-
-- State facts. No narration, no rationale the code or a Changeset already carries, no praise.
-- Summary is a few lines or a short bullet list. One line per behavior a consumer sees.
-- Name breaking changes and the opt-out for each. Nothing else earns a heading.
-- Do not restate Changeset prose, commit bodies, file lists, diffstats, or test names.
-- Under Validation, name only the commands actually run and their result.
-
-## Review guidelines
-
-IMPORTANT — these guidelines apply when reviewing code, and the `review-code` and `review-testing`
-skills build on them. Ignore them otherwise.
-
-- State objective facts only.
-- No praise.
-- No vague "might be" comments. Always give real evidence.
-- Focus on blocking risks first. In this repo those are consumer-facing: an unintended change to a
-  package's public surface, a version bump that does not match the change, a dependency or
-  peer-dependency shift, generated code edited by hand, and a behavior change shipped without a test.
-- Always check architecture correctness, performance impact, and maintainability.
-- Flag unbounded work, unnecessary rerenders, per-frame allocation in a render loop, and growth in
-  what a consumer downloads or installs.
+Historical plans in `docs/` do not override the current code, manifest, contract, or release workflow. Keep private services/kernel implementation details upstream; public packages consume the published API contract.

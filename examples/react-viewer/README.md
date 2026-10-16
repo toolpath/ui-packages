@@ -8,10 +8,11 @@ requires no Toolpath API key or Engine request. The extra parts exist for the me
 have holes, chamfers, a pocket and a bore to snap to, and each page states what its dimensions
 should measure.
 
-The bottom toolbar offers stock, axes, grid, direction coloring, wireframe, Section, Measure, Fit,
-Reset, and Top view. Stock is a fixed box with editable X/Y/Z dimensions and centered/top/bottom
-positioning; its X × Y × Z dimensions appear in the sidebar. Use Fit after showing or resizing stock
-to frame the whole blank. These values are a demonstration setting, not a machine-stock recommendation.
+The toolbar offers stock, axes, grid, direction coloring, wireframe, Section, Measure, Fit,
+Reset, and Top view. Stock can be a box/cylinder preview or one of the bundled GLB blanks.
+The sidebar controls dimensions and centered/top/bottom positioning for previews and reports
+their size. Use Fit after showing or resizing stock to frame the whole blank. These values
+are demonstration settings, not machine-stock recommendations.
 
 Direction mode colors the model and shows matching arrows and a clickable legend. Choosing a
 direction scopes face picks; All clears that scope. Wireframe shows CAD face boundaries with
@@ -21,11 +22,15 @@ the package's public API.
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm --filter @toolpath/example-react-viewer... build
 pnpm --filter @toolpath/example-react-viewer dev
 ```
 
-The example imports the viewer's built `dist`, so to see a change to `packages/viewer` while it runs,
-keep `pnpm --filter @toolpath/viewer build:watch` going beside it.
+Run these commands from the repository root with its pinned Node/pnpm toolchain.
+The build command includes the example's workspace dependencies; installation alone
+does not create their `dist` output.
+
+To see changes to `packages/viewer` while the example runs, keep `pnpm --filter @toolpath/viewer build:watch` going beside it.
 
 ## Sharp corners, on real parts
 
@@ -52,17 +57,17 @@ say. Nothing is uploaded or kept, and a reload forgets them.
 The query string picks the camera and the pivot marker, because the package's
 defaults and this example's are not the same:
 
-| URL                         | What it shows                                                       |
-| --------------------------- | ------------------------------------------------------------------- |
-| `/`                         | A perspective camera. Picking, the section tool, panning, the cube. |
-| `/?projection=orthographic` | The projection `@toolpath/viewer` itself defaults to.               |
-| `/?orbitTarget=on`          | `showOrbitTarget` — two circles at the point the view turns about.  |
-| `/?stock=on`                | Stock visible and framed on the opening view.                       |
+| URL                              | What it shows                                                       |
+| -------------------------------- | ------------------------------------------------------------------- |
+| `/`                              | A perspective camera. Picking, the section tool, panning, the cube. |
+| `/?projection=orthographic`      | The projection `@toolpath/viewer` itself defaults to.               |
+| `/?orbitTarget=on`               | `showOrbitTarget` — two circles at the point the view turns about.  |
+| `/?stock=on`                     | Stock visible and framed on the opening view.                       |
+| `/?stock=on&stockShape=cylinder` | Cylinder stock preview.                                             |
+| `/?stock=on&stockSource=glb`     | A bundled GLB stock fixture.                                        |
 
-The pin on the default page is deliberate: its click points were scanned by hand
-off the rendered canvas, and a camera change moves every one of them. Each page
-has its own scanned points and its own spec — `tests/viewer.spec.ts` and
-`tests/orthographic.spec.ts`.
+The example pins its perspective default independently of the package's orthographic
+default. Browser tests cover both projections and use a fixed viewport for canvas interactions.
 
 Run the browser acceptance tests with Chromium installed:
 

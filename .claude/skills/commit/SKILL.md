@@ -74,22 +74,19 @@ Body:
    `packages/*/dist/`, `test-results/`, `playwright-report/`, and
    `**/__pycache__/`. If one is present in the tree, say so — do not read its
    contents to decide.
-4. Per `AGENTS.md`, a consumer-visible change to a public package needs its
-   Changeset in the same commit. Add it before committing, not after. CI
-   enforces this: `.github/workflows/release-intent.yml` fails the pull request
-   when a release-sensitive path changed without one, and the
-   `no-release-needed` label is a maintainer's call with a written reason, not
-   a way to get a check green.
+4. Follow the adopting repo's release policy in `AGENTS.md`. If it uses
+   Changesets or another release note mechanism, include the required entry in
+   the same commit. Do not bypass a release check with labels or omissions.
 5. Write the message to a file and use `git commit -F <file>`, so wrapping and
    punctuation survive the shell.
-6. Let the pre-commit hook run. It is `lint-staged` running Prettier; never
-   bypass a failed hook with `--no-verify`. If it rewrote files, review the
-   result and amend rather than stacking a fixup.
+6. Let the repo's hooks run; never bypass a failed hook with `--no-verify`.
+   If a hook rewrites files, review and stage those changes before retrying.
+   Amend only a commit made for this task that has not been pushed.
 7. `git log -1 --stat` to confirm what landed.
 8. Do not push unless asked. On the default branch, branch first.
 
-Report the commit hash, the subject, and the number of files changed, and say
-that the commit is local and has not been pushed.
+Report the commit hash, the subject, and the number of files changed, and report
+whether it remains local or was pushed as part of an authorized PR workflow.
 
 ## Examples
 
