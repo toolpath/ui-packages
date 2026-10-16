@@ -1,9 +1,9 @@
 import {
   Box3,
   BoxGeometry,
-  type BufferGeometry,
+  BufferGeometry,
   CylinderGeometry,
-  EdgesGeometry,
+  Float32BufferAttribute,
   Group,
   LineBasicMaterial,
   LineSegments,
@@ -15,6 +15,12 @@ import {
 } from 'three'
 import type { Vec3 } from '../model/types.js'
 import { STOCK_OBJECT } from './camera.js'
+import {
+  SYNC_EDGE_TRIANGLES,
+  buildStockEdges,
+  stockEdgePositions,
+  triangleCount,
+} from './stock-edges.js'
 
 /**
  * Per-side stock left in millimetres, in the part's coordinates.
@@ -321,8 +327,17 @@ function partBounds(geometry: BufferGeometry): Box3 {
   return box
 }
 
-/** Owns the stock materials and outline, never the caller's geometry. */
-export function createStock(geometry: BufferGeometry, legacyWorkpiece = false) {
+/**
+ * Owns the stock materials and outline, never the caller's geometry.
+ *
+ * `onEdges` is called when an outline built in slices (`buildStockEdges`) has
+ * been added, so a demand-rendered canvas can draw it.
+ */
+export function createStock(
+  geometry: BufferGeometry,
+  legacyWorkpiece = false,
+  onEdges?: () => void,
+) {
   const material = new MeshLambertMaterial({ transparent: true, depthWrite: false })
   const edgeMaterial = new LineBasicMaterial({ transparent: true, depthWrite: false })
   const mesh = new Mesh(geometry, material)
@@ -339,7 +354,18 @@ export function createStock(geometry: BufferGeometry, legacyWorkpiece = false) {
     object.add(shadow)
     edgeMaterial.depthWrite = true
   }
-  let edges: LineSegments<EdgesGeometry, LineBasicMaterial> | null = null
+  let edges: LineSegments<BufferGeometry, LineBasicMaterial> | null = null
+  let building: (() => void) | null = null
+  let shown = false
+  const attach = (positions: Float32Array) => {
+    const outline = new BufferGeometry()
+    outline.setAttribute('position', new Float32BufferAttribute(positions, 3))
+    edges = new LineSegments(outline, edgeMaterial)
+    edges.renderOrder = legacyWorkpiece ? 1 : 6
+    edges.raycast = () => {}
+    edges.visible = shown
+    object.add(edges)
+  }
   return {
     object,
     material,
@@ -347,18 +373,28 @@ export function createStock(geometry: BufferGeometry, legacyWorkpiece = false) {
     /**
      * Shows or hides the outline, building it the first time it is shown: the
      * edge pass reads every triangle, and stock cut by a toolpath has a great
-     * many of them.
+     * many of them. A small mesh's outline is built at once; a large one's in
+     * slices between frames, so the stock shows first and its outline joins it
+     * a moment later, the same lines `EdgesGeometry` would have drawn.
      */
     showEdges(show: boolean) {
-      if (show && !edges) {
-        edges = new LineSegments(new EdgesGeometry(geometry, 15), edgeMaterial)
-        edges.renderOrder = legacyWorkpiece ? 1 : 6
-        edges.raycast = () => {}
-        object.add(edges)
+      shown = show
+      if (show && !edges && !building) {
+        if (triangleCount(geometry) <= SYNC_EDGE_TRIANGLES) {
+          attach(stockEdgePositions(geometry))
+        } else {
+          building = buildStockEdges(geometry, (positions) => {
+            building = null
+            attach(positions)
+            onEdges?.()
+          })
+        }
       }
       if (edges) edges.visible = show
     },
     dispose() {
+      building?.()
+      building = null
       material.dispose()
       edgeMaterial.dispose()
       edges?.geometry.dispose()
