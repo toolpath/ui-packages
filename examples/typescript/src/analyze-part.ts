@@ -2,16 +2,14 @@ import { readFile } from 'node:fs/promises'
 import { basename, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
-import { createParser } from 'eventsource-parser'
 import {
   UpdatePartFeatureDetailsEnum,
   createToolpathClient,
   type PartFeatureEntry,
   type JobDetail,
   type PartResponse,
-  JobDetailFromJSON,
-  instanceOfJobDetail,
   uploadToPresignedUrl,
+  waitForJob,
 } from '@toolpath/api'
 
 interface AnalyzePartOptions {
@@ -32,61 +30,8 @@ type ReportWithDatasheets = Omit<PartResponse, 'features'> & {
 const statusMessage = (job: JobDetail): string => {
   if (job.status === 'running') return 'Analyzing geometry…'
   if (job.status === 'succeeded') return 'Analysis complete.'
+  if (job.status === 'failed') return 'Analysis failed.'
   return 'Analysis is queued…'
-}
-
-/**
- * Wait for the terminal job event instead of polling jobs or the report endpoint.
- * The generated `streamJobEvents()` convenience method waits for the response body to finish, so
- * use its raw variant with `eventsource-parser` to consume the response incrementally.
- */
-const waitForJob = async (
-  api: ReturnType<typeof createToolpathClient>,
-  jobId: string,
-  onStatus: (message: string) => void,
-): Promise<JobDetail> => {
-  const response = await api.jobs.streamJobEventsRaw({ id: jobId })
-  if (!response.raw.body) throw new Error('The Toolpath Engine returned an empty event stream.')
-
-  let terminalJob: JobDetail | undefined
-
-  const parser = createParser({
-    onEvent: (event) => {
-      if (event.event !== 'job' || terminalJob) return
-
-      let payload: unknown
-      try {
-        payload = JSON.parse(event.data)
-      } catch (error) {
-        throw new Error('The Toolpath Engine returned invalid job event data.', { cause: error })
-      }
-      if (!payload || typeof payload !== 'object' || !instanceOfJobDetail(payload)) {
-        throw new Error('The Toolpath Engine returned an invalid job event.')
-      }
-      const job = JobDetailFromJSON(payload)
-      onStatus(statusMessage(job))
-      if (job.status === 'failed' || job.status === 'succeeded') terminalJob = job
-    },
-    onError: (error) => {
-      throw new Error(`The Toolpath Engine returned an invalid SSE event: ${error.message}`, {
-        cause: error,
-      })
-    },
-  })
-
-  const textStream = response.raw.body.pipeThrough(new TextDecoderStream())
-  try {
-    for await (const chunk of textStream) {
-      parser.feed(chunk)
-      if (terminalJob) break
-    }
-  } finally {
-    await textStream.cancel()
-  }
-
-  if (!terminalJob)
-    throw new Error('The Toolpath Engine closed the event stream before analysis completed.')
-  return terminalJob
 }
 
 const getWholePartReport = async (
@@ -137,10 +82,8 @@ export const analyzePart = async (
   })
   onStatus(`Analysis started as job ${analysis.jobId}`)
 
-  const job = await waitForJob(api, analysis.jobId, onStatus)
-  if (job.status === 'failed') {
-    throw new Error(job.error ?? 'The Toolpath Engine could not analyze this part.')
-  }
+  // Follows the job's event stream until the job is final; rejects with JobFailedError if it fails.
+  await waitForJob(api, analysis.jobId, { onUpdate: (job) => onStatus(statusMessage(job)) })
   const report = await api.parts.getPart({ id: created.partId, jobId: analysis.jobId })
   return getWholePartReport(api, report)
 }

@@ -28,7 +28,8 @@ are never published. They exist to exercise a package the way a consumer would.
 
 ## Project Map
 
-- `packages/*/src/` is the shipped source. `packages/*/tests/` is its Vitest coverage.
+- `packages/*/src/` is the shipped source. `packages/*/tests/` is its Vitest coverage, or, for
+  `packages/sdk-python`, its pytest coverage of the hand-written helpers beside `generated/`.
 - `packages/*/dist/` is build output. Never edit it, never commit a fix into it.
 - `packages/sdk-typescript/src/generated/` and `packages/sdk-python/toolpath/generated/` are
   **generated**. `openapi/openapi.json` plus `codegen/*.yaml` and `scripts/generate-sdks.mjs`
@@ -147,7 +148,10 @@ Two things about `pnpm test` are worth knowing before reading its output:
   `examples/react-viewer` builds and runs its browser suite there. CI installs Chromium before
   calling `pnpm check` for exactly this reason. A missing browser is a skipped check, not a
   passing one.
-- It then runs `scripts/test-ui-package.mjs`, which is not a unit test: it runs `npm pack` on
+- It then runs `test:python`: pytest over `packages/sdk-python/tests`, through `uvx` the way
+  `pnpm lint` runs Ruff, with the SDK installed editable. Turbo does not reach it, because the
+  Python SDK is not a pnpm workspace.
+- After that it runs `scripts/test-ui-package.mjs`, which is not a unit test: it runs `npm pack` on
   `packages/ui` and asserts the tarball's contents. A file that stops shipping fails here.
 - It finishes with `scripts/check-release-build-order.mjs`, which reads `release:npm` and the
   workspace graph and proves the first builds every published package, and builds each one before
