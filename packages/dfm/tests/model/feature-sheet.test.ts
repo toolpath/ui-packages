@@ -97,14 +97,22 @@ describe('featureSheet: the figures the rules read', () => {
     expect(sheet.pinchDiameter).toBeUndefined()
   })
 
-  it('says no tool fits when the band’s largest tool is nothing, and is then not sharp', () => {
+  it('says no tool fits when the band’s largest tool is nothing, and a corner of no radius is still sharp', () => {
     const cramped = pocket(
       {},
       { cd: { ignore: { min: 0, max: '-inf' }, deviate: { min: 0, max: '-inf' } } },
     )
     const sheet = featureSheet(cramped)
     expect(sheet.noToolFits).toBe(true)
-    expect(sheet.sharpCorners).toBeUndefined()
+    expect(sheet.cornerRadius).toBe(0)
+    expect(sheet.sharpCorners).toBeDefined()
+    // No tool fits, but its corner has a radius: not sharp.
+    const roomy = featureSheet(
+      pocket({}, { cd: { ignore: { min: 0.06, max: 0.08 }, deviate: { min: 0.06, max: 0.08 } } }),
+    )
+    expect(roomy.noToolFits).toBe(true)
+    expect(roomy.cornerRadius).toBeCloseTo(0.03)
+    expect(roomy.sharpCorners).toBeUndefined()
     expect(featureSheet(pocket({}, { cd: { ignore: { min: 0.05, max: 0.05 } } })).noToolFits).toBe(
       true,
     )

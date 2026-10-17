@@ -3,6 +3,7 @@ import {
   checkPart,
   featureComplexity,
   requiredTags,
+  sharpCornerFeatures,
   withSurroundedFaces,
   type DfmSources,
 } from '../../src/model/dfm-flags.js'
@@ -283,27 +284,52 @@ describe('which faces are painted', () => {
     expect(check.paintedFaces.get(0)).toEqual({ tag: 'bad', color: YELLOW })
   })
 
-  it('paints for the plainest reading, then the mildest colour, then the largest area', () => {
+  it('paints for the worst reading, then the plainest, then the largest area', () => {
     const features = [
       feature('fillet', { featureType: 'outer_fillet', regionIdxs: [0] }),
       feature('pocket', { featureType: 'pocket', regionIdxs: [0] }),
       feature('big', { featureType: 'open_pocket', regionIdxs: [0, 3] }),
     ]
-    const rules = [
+    const sources = sourcesOf({ fillet: {}, pocket: {}, big: {} }, areas)
+    // The fillet is the least plain reading, but the worst: whichever way the face is cut, red.
+    const worst = checkPart(features, sources, [
       rule({ subject: 'type:outer_fillet', color: RED, id: 'a' }),
       rule({ subject: 'type:pocket', color: ORANGE, id: 'b' }),
       rule({ subject: 'type:open_pocket', color: ORANGE, id: 'c' }),
-    ]
-    const check = checkPart(features, sourcesOf({ fillet: {}, pocket: {}, big: {} }, areas), rules)
-    // Both pockets are plainer than the fillet and share a colour; the larger one wins.
-    expect(check.paintedFaces.get(0)).toEqual({ tag: 'big', color: ORANGE })
-    // Purple sits after orange in the palette: the milder reading wins over the larger one.
-    const milder = checkPart(features, sourcesOf({ fillet: {}, pocket: {}, big: {} }, areas), [
-      rule({ subject: 'type:outer_fillet', color: RED, id: 'a' }),
-      rule({ subject: 'type:pocket', color: PURPLE, id: 'b' }),
+    ])
+    expect(worst.paintedFaces.get(0)).toEqual({ tag: 'fillet', color: RED })
+    // As bad as one another: both pockets are plainer than the fillet, and the larger one wins.
+    const asBad = checkPart(features, sources, [
+      rule({ subject: 'type:outer_fillet', color: ORANGE, id: 'a' }),
+      rule({ subject: 'type:pocket', color: ORANGE, id: 'b' }),
       rule({ subject: 'type:open_pocket', color: ORANGE, id: 'c' }),
     ])
-    expect(milder.paintedFaces.get(0)).toEqual({ tag: 'pocket', color: PURPLE })
+    expect(asBad.paintedFaces.get(0)).toEqual({ tag: 'big', color: ORANGE })
+    // Purple sits after orange in the palette: the worse reading wins over the larger one.
+    const worse = checkPart(features, sources, [
+      rule({ subject: 'type:outer_fillet', color: PURPLE, id: 'a' }),
+      rule({ subject: 'type:pocket', color: ORANGE, id: 'b' }),
+      rule({ subject: 'type:open_pocket', color: PURPLE, id: 'c' }),
+    ])
+    expect(worse.paintedFaces.get(0)).toEqual({ tag: 'pocket', color: ORANGE })
+  })
+
+  it('paints a face whose reading no tool fits has a corner of no radius', () => {
+    // Two readings of one face: a wall no tool fits, its corner square, and an open pocket.
+    const features = [
+      feature('wall', { featureType: 'wall', regionIdxs: [0] }),
+      feature('open', { featureType: 'open_pocket', regionIdxs: [0] }),
+    ]
+    const cramped = walled({
+      kind: 'Wall',
+      cd: { ignore: { min: 0, max: '-inf' }, deviate: { min: 0, max: '-inf' } },
+    })
+    const check = checkPart(features, sourcesOf({ wall: cramped, open: {} }, areas), [
+      rule({ subject: 'milled', metric: 'sharpCorner', color: RED, id: 'sharp' }),
+      rule({ subject: 'type:open_pocket', color: YELLOW, id: 'open' }),
+    ])
+    // The wall's corner is sharp, so no reading cuts the face clean, and it wears the worse rule.
+    expect(check.paintedFaces.get(0)).toEqual({ tag: 'wall', color: RED })
   })
 
   it('paints a feature in the earliest palette colour of the rules it breaks, whatever the list order', () => {
@@ -377,5 +403,44 @@ describe('which faces are painted', () => {
     ])
     const filled = withSurroundedFaces(check, features, new Map([[2, new Set([0, 1])]]))
     expect(filled.paintedFaces.has(2)).toBe(false)
+  })
+})
+
+describe('the features whose sharp corners are flagged', () => {
+  const sharpRule = rule({ subject: 'milled', metric: 'sharpCorner', color: RED, id: 'sharp' })
+  /** A pocket whose inside corners have no radius. */
+  const sharp = walled({
+    kind: 'Pocket',
+    cd: { ignore: { min: 0.1, max: 40 }, deviate: { min: 0.2, max: 40 } },
+  })
+  /** A pocket with 3 mm inside corners. */
+  const rounded = walled({ kind: 'Pocket' })
+
+  it('flags the features the rule catches, as the report spells them, and follows the rule', () => {
+    const features = [
+      feature('AB01', { regionIdxs: [0, 1] }),
+      feature('ab02', { regionIdxs: [2] }),
+      feature('ab03', { featureType: 'through_hole', regionIdxs: [3] }),
+    ]
+    const sources = sourcesOf({ AB01: sharp, ab02: rounded, ab03: hole() })
+    const flagged = (rules: DfmRule[]) =>
+      sharpCornerFeatures(checkPart(features, sources, rules), features)
+    expect(flagged([sharpRule])).toEqual(['AB01'])
+    expect(flagged([])).toEqual([])
+    // Set to holes, the rule catches no pocket, and no hole has a sharp corner.
+    expect(flagged([{ ...sharpRule, subject: 'hole' }])).toEqual([])
+  })
+
+  it('flags every reading of a face whose every reading is sharp, and none where one has a radius', () => {
+    // Two readings of the same faces, neither required: either may be how they are cut.
+    const features = [
+      feature('cd01', { regionIdxs: [0, 1] }),
+      feature('cd02', { featureType: 'filleted_pocket', regionIdxs: [0, 1] }),
+    ]
+    const both = checkPart(features, sourcesOf({ cd01: sharp, cd02: sharp }), [sharpRule])
+    expect(both.byRule[0]?.tags).toEqual([])
+    expect(sharpCornerFeatures(both, features)).toEqual(['cd01', 'cd02'])
+    const one = checkPart(features, sourcesOf({ cd01: sharp, cd02: rounded }), [sharpRule])
+    expect(sharpCornerFeatures(one, features)).toEqual([])
   })
 })

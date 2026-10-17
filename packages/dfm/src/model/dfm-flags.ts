@@ -336,12 +336,23 @@ const EDGE_TYPES = ['fillet', 'chamfer', 'sink'] as const
  * How far a reading is from a plain feature: one for an edge feature (a lone
  * fillet or chamfer), and one for each qualifier its type carries. `pocket` 0,
  * `outer_fillet` and `filleted_pocket` 1, `undercut_filleted_tslot` 3. Where
- * several readings could paint one face, the plainest is the one shown.
+ * readings as bad could paint one face, the plainest is the one shown.
  */
 export const featureComplexity = (featureType: string): number => {
   const words = featureType.toLowerCase().split('_')
   const edge = EDGE_TYPES.some((type) => words.includes(type)) ? 1 : 0
   return edge + QUALIFIERS.filter((word) => words.includes(word)).length
+}
+
+/** Each face's readings, by region index: every feature that could cut it. */
+const faceOwners = (features: readonly DfmFeature[]): Map<number, DfmFeature[]> => {
+  const owners = new Map<number, DfmFeature[]>()
+  for (const feature of features) {
+    for (const region of new Set(feature.regionIdxs)) {
+      owners.set(region, [...(owners.get(region) ?? []), feature])
+    }
+  }
+  return owners
 }
 
 /**
@@ -352,12 +363,12 @@ export const featureComplexity = (featureType: string): number => {
  * reaches clean. A face only one feature owns has only that reading, so it is
  * painted if that feature breaks a rule.
  *
- * Each face is painted for the plainest reading of it
- * ({@link featureComplexity}): a pocket before a lone fillet, and either
- * before an undercut filleted T-slot, a reading of last resort. Of readings
- * as plain, the best case, the one whose worst rule is the least, since a
- * plan would take that one; then the one with the most surface. It is said
- * to be painted for that reading.
+ * Each face is painted for its worst reading, the one whose worst rule is
+ * the worst: whichever way the face is cut, the shop should see what it may
+ * cost. Of readings as bad, the plainest ({@link featureComplexity}): a
+ * pocket before a lone fillet, and either before an undercut filleted
+ * T-slot, a reading of last resort; then the one with the most surface. It
+ * is said to be painted for that reading.
  *
  * A contour surface is no clean reading of a face that a milled feature also
  * reads: it is the face surfaced in 3D, which is no way round a rule the
@@ -384,12 +395,7 @@ const unavoidableFaces = (
       (sum, region) => sum + (regionAreas.get(region) ?? 0),
       0,
     )
-  const owners = new Map<number, DfmFeature[]>()
-  for (const feature of features) {
-    for (const region of new Set(feature.regionIdxs)) {
-      owners.set(region, [...(owners.get(region) ?? []), feature])
-    }
-  }
+  const owners = faceOwners(features)
   const faces = new Map<number, { tag: string; color: string }>()
   const whole = new Map<string, { tag: string; color: string }>()
   for (const [region, candidates] of owners) {
@@ -419,14 +425,15 @@ const unavoidableFaces = (
       })
       continue
     }
-    const best = pool.reduce((kept, each) => {
+    const worst = pool.reduce((kept, each) => {
+      const worse = compareColors(each.color ?? '', kept.color ?? '')
+      if (worse !== 0) return worse < 0 ? each : kept
       const plainer =
         featureComplexity(kept.feature.featureType) - featureComplexity(each.feature.featureType)
       if (plainer !== 0) return plainer > 0 ? each : kept
-      const milder = compareColors(each.color ?? '', kept.color ?? '')
-      return milder > 0 || (milder === 0 && each.area > kept.area) ? each : kept
+      return each.area > kept.area ? each : kept
     })
-    if (best.color) faces.set(region, { tag: best.feature.tag, color: best.color })
+    if (worst.color) faces.set(region, { tag: worst.feature.tag, color: worst.color })
   }
   return { paintedFaces: faces, paintedWhole: whole }
 }
@@ -479,6 +486,32 @@ export const withSurroundedFaces = (
   }
   if (surrounded.size === 0) return check
   return { ...check, paintedFaces: new Map([...check.paintedFaces, ...surrounded]) }
+}
+
+/**
+ * The features whose sharp corners a check flags, as the report spells their
+ * tags: what an app draws the corners of (`sharpCorners` on
+ * `@toolpath/viewer`'s part). The features a sharp-corner rule catches among
+ * those that will be cut (`tags`), and besides them every reading of a face
+ * whose every reading is caught: whichever way that face is cut, its corner
+ * has no radius, so it is flagged as the paint flags it ({@link unavoidableFaces}).
+ * A face some other reading cuts with a radius is left out, as the paint
+ * leaves it out. None with no sharp-corner rule, or one set to other features.
+ */
+export const sharpCornerFeatures = (check: DfmCheck, features: readonly DfmFeature[]): string[] => {
+  const caught = check.byRule.filter(({ rule }) => rule.metric === 'sharpCorner')
+  const flagged = new Set(caught.flatMap(({ tags }) => tags))
+  const sharp = new Set(caught.flatMap(({ tags, otherTags }) => [...tags, ...otherTags]))
+  if (sharp.size === 0) return []
+  for (const owners of faceOwners(features).values()) {
+    // A contour reading is no way out for a face a milled feature also reads, as in the paint.
+    const machined = owners.filter(({ featureType }) => featureType !== CONTOUR)
+    const readings = machined.length > 0 ? machined : owners
+    if (readings.every(({ tag }) => sharp.has(tag))) {
+      for (const { tag } of readings) flagged.add(tag)
+    }
+  }
+  return [...flagged]
 }
 
 /**
