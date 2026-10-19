@@ -14,6 +14,23 @@ const part = (id: string, query = '') => ({
 })
 
 describe('Engine geometry cache', () => {
+  it('keeps a download failure available when Suspense reads the resource again', async () => {
+    const failure = new Error('HTTP 403')
+    const loader = vi.fn(async () => {
+      throw failure
+    })
+    const cache = createEngineGeometryCache(loader)
+    const report = part('failed')
+    const pending = cache.get(report)
+    await pending.promise
+
+    const settled = cache.get(report)
+    expect(settled.status).toBe('rejected')
+    expect(settled.error).toBe(failure)
+    expect(settled).toBe(pending)
+    expect(loader).toHaveBeenCalledOnce()
+  })
+
   it('retains rendered geometry and disposes the least-recent released entry at capacity', async () => {
     const loader = vi.fn(async () => new THREE.BufferGeometry())
     const cache = createEngineGeometryCache(loader, 1)
@@ -46,16 +63,141 @@ describe('Engine geometry cache', () => {
     expect(loader).toHaveBeenCalledOnce()
   })
 
-  it('does not retain failed loads, so an error boundary retry can request the artifact again', async () => {
+  it('retries a failed artifact with fresh signed URLs', async () => {
     const loader = vi
       .fn<() => Promise<THREE.BufferGeometry>>()
       .mockRejectedValueOnce(new Error('expired URL'))
+      .mockResolvedValueOnce(new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader)
+    const failed = cache.get(part('retry', '?signature=expired'))
+    await failed.promise
+
+    const retried = cache.get(part('retry', '?signature=renewed'))
+    await retried.promise
+    expect(retried.status).toBe('fulfilled')
+    expect(loader).toHaveBeenCalledTimes(2)
+    expect(cache.get(part('retry', '?signature=expired'))).toBe(retried)
+  })
+
+  it('keeps separate failed signatures stable when two consumers read the same artifact', async () => {
+    const loader = vi.fn(async () => {
+      throw new Error('HTTP 403')
+    })
+    const cache = createEngineGeometryCache(loader)
+    const firstReport = part('shared', '?signature=first')
+    const secondReport = part('shared', '?signature=second')
+    const first = cache.get(firstReport)
+    await first.promise
+    const second = cache.get(secondReport)
+    await second.promise
+
+    for (let read = 0; read < 5; read++) {
+      expect(cache.get(firstReport)).toBe(first)
+      expect(cache.get(secondReport)).toBe(second)
+    }
+    expect(first.status).toBe('rejected')
+    expect(second.status).toBe('rejected')
+    expect(loader).toHaveBeenCalledTimes(2)
+  })
+
+  it('allows an explicit cache clear to retry the same URLs', async () => {
+    const loader = vi
+      .fn<() => Promise<THREE.BufferGeometry>>()
+      .mockRejectedValueOnce(new Error('HTTP 503'))
+      .mockResolvedValueOnce(new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader)
+    const report = part('retry')
+    const failed = cache.get(report)
+    await failed.promise
+
+    cache.clear()
+    const retried = cache.get(report)
+    await retried.promise
+    expect(retried.status).toBe('fulfilled')
+    expect(loader).toHaveBeenCalledTimes(2)
+  })
+
+  it('preserves a shared pending failure for every report that requested the same URLs', async () => {
+    const loader = vi.fn(async () => {
+      throw new Error('HTTP 403')
+    })
+    const cache = createEngineGeometryCache(loader)
+    const firstReport = part('shared')
+    const secondReport = part('shared')
+    const first = cache.get(firstReport)
+    expect(cache.get(secondReport)).toBe(first)
+    await first.promise
+
+    expect(cache.get(firstReport)).toBe(first)
+    expect(cache.get(secondReport)).toBe(first)
+    expect(first.status).toBe('rejected')
+    expect(loader).toHaveBeenCalledOnce()
+  })
+
+  it('does not latch an old signature failure onto a report waiting with fresh URLs', async () => {
+    const loader = vi
+      .fn<() => Promise<THREE.BufferGeometry>>()
+      .mockRejectedValueOnce(new Error('HTTP 403'))
+      .mockResolvedValueOnce(new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader)
+    const expired = part('shared', '?signature=expired')
+    const renewed = part('shared', '?signature=renewed')
+    const pending = cache.get(expired)
+    expect(cache.get(renewed)).toBe(pending)
+    await pending.promise
+
+    expect(cache.get(expired)).toBe(pending)
+    const retried = cache.get(renewed)
+    await retried.promise
+    expect(retried.status).toBe('fulfilled')
+    expect(loader).toHaveBeenCalledTimes(2)
+  })
+
+  it('allows a new report to retry the same URLs without retaining a global failure key', async () => {
+    const loader = vi
+      .fn<() => Promise<THREE.BufferGeometry>>()
+      .mockRejectedValueOnce(new Error('HTTP 503'))
       .mockResolvedValueOnce(new THREE.BufferGeometry())
     const cache = createEngineGeometryCache(loader)
     const failed = cache.get(part('retry'))
     await failed.promise
 
     const retried = cache.get(part('retry'))
+    await retried.promise
+    expect(retried.status).toBe('fulfilled')
+    expect(loader).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries when a report receives updated mesh URLs', async () => {
+    const loader = vi
+      .fn<() => Promise<THREE.BufferGeometry>>()
+      .mockRejectedValueOnce(new Error('HTTP 403'))
+      .mockResolvedValueOnce(new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader)
+    const report = part('retry', '?signature=expired')
+    await cache.get(report).promise
+
+    report.mesh.glbUrl = 'https://example.test/retry.glb?signature=renewed'
+    const retried = cache.get(report)
+    await retried.promise
+    expect(retried.status).toBe('fulfilled')
+    expect(loader).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not restore a pending failure after the cache has been cleared', async () => {
+    let reject: (error: Error) => void = () => {}
+    const loader = vi
+      .fn<() => Promise<THREE.BufferGeometry>>()
+      .mockImplementationOnce(() => new Promise((_resolve, fail) => (reject = fail)))
+      .mockResolvedValueOnce(new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader)
+    const report = part('retry')
+    const pending = cache.get(report)
+    cache.clear()
+    reject(new Error('HTTP 403'))
+    await pending.promise
+
+    const retried = cache.get(report)
     await retried.promise
     expect(retried.status).toBe('fulfilled')
     expect(loader).toHaveBeenCalledTimes(2)
