@@ -7,7 +7,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
-    from ..models.direction_z_bounds_direction import DirectionZBoundsDirection
+    from ..models.vec_3 import Vec3
 
 
 T = TypeVar("T", bound="DirectionZBounds")
@@ -17,12 +17,12 @@ T = TypeVar("T", bound="DirectionZBounds")
 class DirectionZBounds:
     """
     Attributes:
-        direction (DirectionZBoundsDirection): Candidate machining direction whose tool-axis frame defines these bounds.
+        direction (Vec3):
         z_min (float): Lowest part extent in this direction’s tool-axis frame, in mm.
         z_max (float): Highest part extent in this direction’s tool-axis frame, in mm.
     """
 
-    direction: DirectionZBoundsDirection
+    direction: Vec3
     z_min: float
     z_max: float
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -48,10 +48,10 @@ class DirectionZBounds:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.direction_z_bounds_direction import DirectionZBoundsDirection
+        from ..models.vec_3 import Vec3
 
         d = dict(src_dict)
-        direction = DirectionZBoundsDirection.from_dict(d.pop("direction"))
+        direction = Vec3.from_dict(d.pop("direction"))
 
         z_min = d.pop("zMin")
 

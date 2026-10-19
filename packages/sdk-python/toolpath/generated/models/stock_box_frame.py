@@ -7,9 +7,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
-    from ..models.stock_box_frame_axis import StockBoxFrameAxis
-    from ..models.stock_box_frame_location import StockBoxFrameLocation
-    from ..models.stock_box_frame_ref_direction import StockBoxFrameRefDirection
+    from ..models.vec_3 import Vec3
 
 
 T = TypeVar("T", bound="StockBoxFrame")
@@ -21,14 +19,14 @@ class StockBoxFrame:
     x·refDirection + y·(axis × refDirection) + z·axis` on the part.
 
         Attributes:
-            location (StockBoxFrameLocation): The frame’s origin, in part coordinates, mm.
-            axis (StockBoxFrameAxis): Its z axis, unit length.
-            ref_direction (StockBoxFrameRefDirection): Its x axis, unit length and square to `axis`.
+            location (Vec3):
+            axis (Vec3):
+            ref_direction (Vec3):
     """
 
-    location: StockBoxFrameLocation
-    axis: StockBoxFrameAxis
-    ref_direction: StockBoxFrameRefDirection
+    location: Vec3
+    axis: Vec3
+    ref_direction: Vec3
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -52,16 +50,14 @@ class StockBoxFrame:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.stock_box_frame_axis import StockBoxFrameAxis
-        from ..models.stock_box_frame_location import StockBoxFrameLocation
-        from ..models.stock_box_frame_ref_direction import StockBoxFrameRefDirection
+        from ..models.vec_3 import Vec3
 
         d = dict(src_dict)
-        location = StockBoxFrameLocation.from_dict(d.pop("location"))
+        location = Vec3.from_dict(d.pop("location"))
 
-        axis = StockBoxFrameAxis.from_dict(d.pop("axis"))
+        axis = Vec3.from_dict(d.pop("axis"))
 
-        ref_direction = StockBoxFrameRefDirection.from_dict(d.pop("refDirection"))
+        ref_direction = Vec3.from_dict(d.pop("refDirection"))
 
         stock_box_frame = cls(
             location=location,

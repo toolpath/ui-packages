@@ -4,11 +4,14 @@ from .automatic_flat_bar_stock import AutomaticFlatBarStock
 from .automatic_flat_bar_stock_mode import AutomaticFlatBarStockMode
 from .automatic_round_stock import AutomaticRoundStock
 from .automatic_round_stock_mode import AutomaticRoundStockMode
+from .axial_direction import AxialDirection
+from .axis_source import AxisSource
 from .bevel_facts import BevelFacts
 from .boss_facts import BossFacts
 from .bullnose_curve import BullnoseCurve
 from .cd_bounds import CdBounds
 from .cd_data import CdData
+from .chamfer_curve import ChamferCurve
 from .chamfer_facts import ChamferFacts
 from .cone import Cone
 from .create_holder_response import CreateHolderResponse
@@ -16,7 +19,6 @@ from .create_part_response import CreatePartResponse
 from .demo_session_request import DemoSessionRequest
 from .demo_session_response import DemoSessionResponse
 from .direction_z_bounds import DirectionZBounds
-from .direction_z_bounds_direction import DirectionZBoundsDirection
 from .dovetail_facts import DovetailFacts
 from .download_holder_fusion_format import DownloadHolderFusionFormat
 from .download_holder_fusion_trim import DownloadHolderFusionTrim
@@ -36,20 +38,19 @@ from .health_response import HealthResponse
 from .health_response_db import HealthResponseDb
 from .health_response_status import HealthResponseStatus
 from .holder_response import HolderResponse
-from .holder_response_axis_direction import HolderResponseAxisDirection
-from .holder_response_axis_location import HolderResponseAxisLocation
-from .holder_response_nose import HolderResponseNose
 from .holder_response_options import HolderResponseOptions
 from .holder_response_taper_family_type_1 import HolderResponseTaperFamilyType1
 from .holder_response_taper_family_type_2_type_1 import HolderResponseTaperFamilyType2Type1
 from .holder_response_taper_family_type_3_type_1 import HolderResponseTaperFamilyType3Type1
-from .holder_response_units import HolderResponseUnits
 from .holder_units import HolderUnits
 from .holder_units_angle import HolderUnitsAngle
 from .holder_units_length import HolderUnitsLength
 from .holder_vec_3 import HolderVec3
+from .hole_bottom import HoleBottom
 from .hole_facts import HoleFacts
 from .hole_process import HoleProcess
+from .hole_step import HoleStep
+from .hole_thread import HoleThread
 from .job_detail import JobDetail
 from .job_detail_status import JobDetailStatus
 from .job_summary import JobSummary
@@ -63,14 +64,14 @@ from .machining_time_action_intent import MachiningTimeActionIntent
 from .machining_time_response import MachiningTimeResponse
 from .machining_time_response_stock import MachiningTimeResponseStock
 from .machining_time_setup import MachiningTimeSetup
+from .mounting_axis import MountingAxis
 from .no_axis import NoAxis
 from .no_axis_kind import NoAxisKind
 from .offset_length import OffsetLength
 from .open_api_document import OpenApiDocument
+from .outline_point import OutlinePoint
 from .part_feature import PartFeature
-from .part_feature_axis import PartFeatureAxis
 from .part_feature_entry import PartFeatureEntry
-from .part_feature_machining_direction import PartFeatureMachiningDirection
 from .part_features_response import PartFeaturesResponse
 from .part_job_request import PartJobRequest
 from .part_job_request_done_regions_type_0 import PartJobRequestDoneRegionsType0
@@ -117,11 +118,11 @@ from .part_job_request_tool_crib_item_type_0_kind import PartJobRequestToolCribI
 from .part_job_request_tool_crib_item_type_0_tap import PartJobRequestToolCribItemType0Tap
 from .part_job_request_tool_crib_item_type_0_tap_inch import PartJobRequestToolCribItemType0TapInch
 from .part_job_request_tool_crib_item_type_0_tap_metric import PartJobRequestToolCribItemType0TapMetric
+from .part_job_request_workholding import PartJobRequestWorkholding
 from .part_mesh_job_response import PartMeshJobResponse
 from .part_mesh_job_response_status import PartMeshJobResponseStatus
 from .part_mesh_response import PartMeshResponse
 from .part_response import PartResponse
-from .part_response_units import PartResponseUnits
 from .pinch_point import PinchPoint
 from .pipeline_readiness_problem import PipelineReadinessProblem
 from .pipeline_readiness_problem_job_status_type_1 import PipelineReadinessProblemJobStatusType1
@@ -147,6 +148,7 @@ from .plan_response_setup_plan_type_0_setups_item_orientations_item_direction im
     PlanResponseSetupPlanType0SetupsItemOrientationsItemDirection,
 )
 from .plan_response_stock import PlanResponseStock
+from .plan_response_workholding import PlanResponseWorkholding
 from .plan_setup import PlanSetup
 from .plan_summary import PlanSummary
 from .plan_summary_level import PlanSummaryLevel
@@ -223,23 +225,18 @@ from .queue_part_job_response_tool_crib_item_type_0_kind import QueuePartJobResp
 from .queue_part_job_response_tool_crib_item_type_0_tap import QueuePartJobResponseToolCribItemType0Tap
 from .queue_part_job_response_tool_crib_item_type_0_tap_inch import QueuePartJobResponseToolCribItemType0TapInch
 from .queue_part_job_response_tool_crib_item_type_0_tap_metric import QueuePartJobResponseToolCribItemType0TapMetric
+from .queue_part_job_response_workholding import QueuePartJobResponseWorkholding
 from .reach_curve import ReachCurve
 from .region import Region
 from .report_units import ReportUnits
 from .report_units_angle import ReportUnitsAngle
 from .report_units_length import ReportUnitsLength
 from .sink_facts import SinkFacts
+from .slope_span import SlopeSpan
 from .stock_box import StockBox
 from .stock_box_frame import StockBoxFrame
-from .stock_box_frame_axis import StockBoxFrameAxis
-from .stock_box_frame_location import StockBoxFrameLocation
-from .stock_box_frame_ref_direction import StockBoxFrameRefDirection
-from .stock_box_lower import StockBoxLower
 from .stock_box_shape import StockBoxShape
-from .stock_box_upper import StockBoxUpper
 from .stock_cylinder import StockCylinder
-from .stock_cylinder_axis import StockCylinderAxis
-from .stock_cylinder_origin import StockCylinderOrigin
 from .stock_cylinder_shape import StockCylinderShape
 from .surface_areas import SurfaceAreas
 from .surface_facts import SurfaceFacts
@@ -254,10 +251,28 @@ from .toolpath_action_intent import ToolpathActionIntent
 from .toolpath_setup import ToolpathSetup
 from .toolpaths_response import ToolpathsResponse
 from .tslot_facts import TslotFacts
+from .turned_axial_hole_facts import TurnedAxialHoleFacts
+from .turned_face_facts import TurnedFaceFacts
+from .turned_face_groove_facts import TurnedFaceGrooveFacts
+from .turned_feature import TurnedFeature
+from .turned_feature_type import TurnedFeatureType
+from .turned_groove_facts import TurnedGrooveFacts
+from .turned_outline_facts import TurnedOutlineFacts
+from .turned_thread_facts import TurnedThreadFacts
 from .turning_axis import TurningAxis
-from .turning_axis_direction import TurningAxisDirection
 from .turning_axis_kind import TurningAxisKind
-from .turning_axis_location import TurningAxisLocation
+from .turning_below_threshold import TurningBelowThreshold
+from .turning_below_threshold_kind import TurningBelowThresholdKind
+from .turning_datasheet import TurningDatasheet
+from .turning_frame import TurningFrame
+from .turning_no_axis import TurningNoAxis
+from .turning_no_axis_kind import TurningNoAxisKind
+from .turning_not_requested import TurningNotRequested
+from .turning_not_requested_kind import TurningNotRequestedKind
+from .turning_spin_failed import TurningSpinFailed
+from .turning_spin_failed_kind import TurningSpinFailedKind
+from .turning_turned import TurningTurned
+from .turning_turned_kind import TurningTurnedKind
 from .update_holder_fill_bays import UpdateHolderFillBays
 from .update_holder_flipped import UpdateHolderFlipped
 from .update_holder_response import UpdateHolderResponse
@@ -266,6 +281,8 @@ from .update_part_feature_details import UpdatePartFeatureDetails
 from .update_part_features_request import UpdatePartFeaturesRequest
 from .update_part_features_response import UpdatePartFeaturesResponse
 from .update_part_features_response_status import UpdatePartFeaturesResponseStatus
+from .update_part_request import UpdatePartRequest
+from .update_part_request_directions_item import UpdatePartRequestDirectionsItem
 from .update_part_response import UpdatePartResponse
 from .update_part_response_status import UpdatePartResponseStatus
 from .vec_2 import Vec2
@@ -277,11 +294,14 @@ __all__ = (
     "AutomaticFlatBarStockMode",
     "AutomaticRoundStock",
     "AutomaticRoundStockMode",
+    "AxialDirection",
+    "AxisSource",
     "BevelFacts",
     "BossFacts",
     "BullnoseCurve",
     "CdBounds",
     "CdData",
+    "ChamferCurve",
     "ChamferFacts",
     "Cone",
     "CreateHolderResponse",
@@ -289,7 +309,6 @@ __all__ = (
     "DemoSessionRequest",
     "DemoSessionResponse",
     "DirectionZBounds",
-    "DirectionZBoundsDirection",
     "DovetailFacts",
     "DownloadHolderFusionFormat",
     "DownloadHolderFusionTrim",
@@ -309,20 +328,19 @@ __all__ = (
     "HealthResponseDb",
     "HealthResponseStatus",
     "HolderResponse",
-    "HolderResponseAxisDirection",
-    "HolderResponseAxisLocation",
-    "HolderResponseNose",
     "HolderResponseOptions",
     "HolderResponseTaperFamilyType1",
     "HolderResponseTaperFamilyType2Type1",
     "HolderResponseTaperFamilyType3Type1",
-    "HolderResponseUnits",
     "HolderUnits",
     "HolderUnitsAngle",
     "HolderUnitsLength",
     "HolderVec3",
+    "HoleBottom",
     "HoleFacts",
     "HoleProcess",
+    "HoleStep",
+    "HoleThread",
     "JobDetail",
     "JobDetailStatus",
     "JobSummary",
@@ -336,14 +354,14 @@ __all__ = (
     "MachiningTimeResponse",
     "MachiningTimeResponseStock",
     "MachiningTimeSetup",
+    "MountingAxis",
     "NoAxis",
     "NoAxisKind",
     "OffsetLength",
     "OpenApiDocument",
+    "OutlinePoint",
     "PartFeature",
-    "PartFeatureAxis",
     "PartFeatureEntry",
-    "PartFeatureMachiningDirection",
     "PartFeaturesResponse",
     "PartJobRequest",
     "PartJobRequestDoneRegionsType0",
@@ -382,11 +400,11 @@ __all__ = (
     "PartJobRequestToolCribItemType0Tap",
     "PartJobRequestToolCribItemType0TapInch",
     "PartJobRequestToolCribItemType0TapMetric",
+    "PartJobRequestWorkholding",
     "PartMeshJobResponse",
     "PartMeshJobResponseStatus",
     "PartMeshResponse",
     "PartResponse",
-    "PartResponseUnits",
     "PinchPoint",
     "PipelineReadinessProblem",
     "PipelineReadinessProblemJobStatusType1",
@@ -408,6 +426,7 @@ __all__ = (
     "PlanResponseSetupPlanType0SetupsItemOrientationsItem",
     "PlanResponseSetupPlanType0SetupsItemOrientationsItemDirection",
     "PlanResponseStock",
+    "PlanResponseWorkholding",
     "PlanSetup",
     "PlanSummary",
     "PlanSummaryLevel",
@@ -454,23 +473,18 @@ __all__ = (
     "QueuePartJobResponseToolCribItemType0Tap",
     "QueuePartJobResponseToolCribItemType0TapInch",
     "QueuePartJobResponseToolCribItemType0TapMetric",
+    "QueuePartJobResponseWorkholding",
     "ReachCurve",
     "Region",
     "ReportUnits",
     "ReportUnitsAngle",
     "ReportUnitsLength",
     "SinkFacts",
+    "SlopeSpan",
     "StockBox",
     "StockBoxFrame",
-    "StockBoxFrameAxis",
-    "StockBoxFrameLocation",
-    "StockBoxFrameRefDirection",
-    "StockBoxLower",
     "StockBoxShape",
-    "StockBoxUpper",
     "StockCylinder",
-    "StockCylinderAxis",
-    "StockCylinderOrigin",
     "StockCylinderShape",
     "SurfaceAreas",
     "SurfaceFacts",
@@ -485,10 +499,28 @@ __all__ = (
     "ToolpathSetup",
     "ToolpathsResponse",
     "TslotFacts",
+    "TurnedAxialHoleFacts",
+    "TurnedFaceFacts",
+    "TurnedFaceGrooveFacts",
+    "TurnedFeature",
+    "TurnedFeatureType",
+    "TurnedGrooveFacts",
+    "TurnedOutlineFacts",
+    "TurnedThreadFacts",
     "TurningAxis",
-    "TurningAxisDirection",
     "TurningAxisKind",
-    "TurningAxisLocation",
+    "TurningBelowThreshold",
+    "TurningBelowThresholdKind",
+    "TurningDatasheet",
+    "TurningFrame",
+    "TurningNoAxis",
+    "TurningNoAxisKind",
+    "TurningNotRequested",
+    "TurningNotRequestedKind",
+    "TurningSpinFailed",
+    "TurningSpinFailedKind",
+    "TurningTurned",
+    "TurningTurnedKind",
     "UpdateHolderFillBays",
     "UpdateHolderFlipped",
     "UpdateHolderResponse",
@@ -497,6 +529,8 @@ __all__ = (
     "UpdatePartFeaturesRequest",
     "UpdatePartFeaturesResponse",
     "UpdatePartFeaturesResponseStatus",
+    "UpdatePartRequest",
+    "UpdatePartRequestDirectionsItem",
     "UpdatePartResponse",
     "UpdatePartResponseStatus",
     "Vec2",

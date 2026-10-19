@@ -22,7 +22,7 @@ class HoleFacts:
 
     Attributes:
         kind (Literal['Hole']): Discriminator for this facts variant.
-        diameter (float): What the hole is actually drilled to — narrower than modelled for a threaded
+        diameter (float): What the hole is actually drilled to — narrower than modeled for a threaded
             hole.
         full_cone_deg (float): Full apex angle of the cone at the hole bottom, degrees; 180 for a flat bottom.
         is_counterbore (bool): Whether the hole includes a larger counterbore at its mouth.

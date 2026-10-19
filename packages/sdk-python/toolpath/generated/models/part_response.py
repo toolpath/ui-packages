@@ -11,9 +11,14 @@ if TYPE_CHECKING:
     from ..models.direction_z_bounds import DirectionZBounds
     from ..models.no_axis import NoAxis
     from ..models.part_feature import PartFeature
-    from ..models.part_response_units import PartResponseUnits
     from ..models.region import Region
+    from ..models.report_units import ReportUnits
     from ..models.turning_axis import TurningAxis
+    from ..models.turning_below_threshold import TurningBelowThreshold
+    from ..models.turning_no_axis import TurningNoAxis
+    from ..models.turning_not_requested import TurningNotRequested
+    from ..models.turning_spin_failed import TurningSpinFailed
+    from ..models.turning_turned import TurningTurned
     from ..models.vec_3 import Vec3
 
 
@@ -28,14 +33,28 @@ class PartResponse:
         report_id (UUID): Identifier of this immutable part result.
         job_id (UUID): Identifier of the processing job that produced this part result.
         kernel_version (str): Version of the Toolpath kernel that produced this part result.
-        units (PartResponseUnits): Units used by all dimensional values in this part response.
+        units (ReportUnits):
         regions (list[Region]): Recognized B-rep regions, ordered by region index.
         features (list[PartFeature]): Features recognized during this processing run.
-        candidate_directions (list[Vec3]): Directions from which the part can be machined.
+        candidate_directions (list[Vec3]): Directions the part was analyzed from, and so the ones its features and a
+            `setupPlan` can name: those the directions analysis chose, best first, then the added directions it could
+            analyze the part from, in the order added.
+        discovered_directions (list[Vec3] | None): Every direction detected on the part, best first — the axes of its
+            holes and curved walls, the normals of its planes and the axes of its prisms, each both ways round.
+            `candidateDirections` were chosen from these, and any other can be added to the part with **Analyze a part**:
+            pass it back exactly as served. Null on part results made before this was recorded.
+        added_directions (list[Vec3] | None): The directions this run was asked to analyze the part from beyond those
+            the directions analysis chose: the part’s added directions when it was queued. One missing from
+            `candidateDirections` added nothing. Null on part results made before this was recorded.
         direction_z_bounds (list[DirectionZBounds] | None): Part z extents for each candidate direction, or null when
             detail enrichment did not run.
         turnability (NoAxis | None | TurningAxis): How much of the part one turning setup could finish, or null when no
             reading was taken.
+        turning (None | TurningBelowThreshold | TurningNoAxis | TurningNotRequested | TurningSpinFailed |
+            TurningTurned): **Experimental.** Available now and still gaining functionality. It may change in breaking ways
+            in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+
+            What reading the part for turning came to, or null when no reading was taken. Narrow on `kind`.
         mesh_point_count (int): Number of points in the generated mesh.
         mesh_triangle_count (int): Number of triangles in the generated mesh.
         thumbnail_url (None | str): 15-minute URL for the rendered PNG thumbnail, or null when absent.
@@ -47,12 +66,15 @@ class PartResponse:
     report_id: UUID
     job_id: UUID
     kernel_version: str
-    units: PartResponseUnits
+    units: ReportUnits
     regions: list[Region]
     features: list[PartFeature]
     candidate_directions: list[Vec3]
+    discovered_directions: list[Vec3] | None
+    added_directions: list[Vec3] | None
     direction_z_bounds: list[DirectionZBounds] | None
     turnability: NoAxis | None | TurningAxis
+    turning: None | TurningBelowThreshold | TurningNoAxis | TurningNotRequested | TurningSpinFailed | TurningTurned
     mesh_point_count: int
     mesh_triangle_count: int
     thumbnail_url: None | str
@@ -63,6 +85,11 @@ class PartResponse:
     def to_dict(self) -> dict[str, Any]:
         from ..models.no_axis import NoAxis
         from ..models.turning_axis import TurningAxis
+        from ..models.turning_below_threshold import TurningBelowThreshold
+        from ..models.turning_no_axis import TurningNoAxis
+        from ..models.turning_not_requested import TurningNotRequested
+        from ..models.turning_spin_failed import TurningSpinFailed
+        from ..models.turning_turned import TurningTurned
 
         part_id = str(self.part_id)
 
@@ -89,6 +116,26 @@ class PartResponse:
             candidate_directions_item = candidate_directions_item_data.to_dict()
             candidate_directions.append(candidate_directions_item)
 
+        discovered_directions: list[dict[str, Any]] | None
+        if isinstance(self.discovered_directions, list):
+            discovered_directions = []
+            for discovered_directions_type_0_item_data in self.discovered_directions:
+                discovered_directions_type_0_item = discovered_directions_type_0_item_data.to_dict()
+                discovered_directions.append(discovered_directions_type_0_item)
+
+        else:
+            discovered_directions = self.discovered_directions
+
+        added_directions: list[dict[str, Any]] | None
+        if isinstance(self.added_directions, list):
+            added_directions = []
+            for added_directions_type_0_item_data in self.added_directions:
+                added_directions_type_0_item = added_directions_type_0_item_data.to_dict()
+                added_directions.append(added_directions_type_0_item)
+
+        else:
+            added_directions = self.added_directions
+
         direction_z_bounds: list[dict[str, Any]] | None
         if isinstance(self.direction_z_bounds, list):
             direction_z_bounds = []
@@ -106,6 +153,20 @@ class PartResponse:
             turnability = self.turnability.to_dict()
         else:
             turnability = self.turnability
+
+        turning: dict[str, Any] | None
+        if isinstance(self.turning, TurningTurned):
+            turning = self.turning.to_dict()
+        elif isinstance(self.turning, TurningNoAxis):
+            turning = self.turning.to_dict()
+        elif isinstance(self.turning, TurningBelowThreshold):
+            turning = self.turning.to_dict()
+        elif isinstance(self.turning, TurningSpinFailed):
+            turning = self.turning.to_dict()
+        elif isinstance(self.turning, TurningNotRequested):
+            turning = self.turning.to_dict()
+        else:
+            turning = self.turning
 
         mesh_point_count = self.mesh_point_count
 
@@ -132,8 +193,11 @@ class PartResponse:
                 "regions": regions,
                 "features": features,
                 "candidateDirections": candidate_directions,
+                "discoveredDirections": discovered_directions,
+                "addedDirections": added_directions,
                 "directionZBounds": direction_z_bounds,
                 "turnability": turnability,
+                "turning": turning,
                 "meshPointCount": mesh_point_count,
                 "meshTriangleCount": mesh_triangle_count,
                 "thumbnailUrl": thumbnail_url,
@@ -149,9 +213,14 @@ class PartResponse:
         from ..models.direction_z_bounds import DirectionZBounds
         from ..models.no_axis import NoAxis
         from ..models.part_feature import PartFeature
-        from ..models.part_response_units import PartResponseUnits
         from ..models.region import Region
+        from ..models.report_units import ReportUnits
         from ..models.turning_axis import TurningAxis
+        from ..models.turning_below_threshold import TurningBelowThreshold
+        from ..models.turning_no_axis import TurningNoAxis
+        from ..models.turning_not_requested import TurningNotRequested
+        from ..models.turning_spin_failed import TurningSpinFailed
+        from ..models.turning_turned import TurningTurned
         from ..models.vec_3 import Vec3
 
         d = dict(src_dict)
@@ -163,7 +232,7 @@ class PartResponse:
 
         kernel_version = d.pop("kernelVersion")
 
-        units = PartResponseUnits.from_dict(d.pop("units"))
+        units = ReportUnits.from_dict(d.pop("units"))
 
         regions = []
         _regions = d.pop("regions")
@@ -185,6 +254,46 @@ class PartResponse:
             candidate_directions_item = Vec3.from_dict(candidate_directions_item_data)
 
             candidate_directions.append(candidate_directions_item)
+
+        def _parse_discovered_directions(data: object) -> list[Vec3] | None:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                discovered_directions_type_0 = []
+                _discovered_directions_type_0 = data
+                for discovered_directions_type_0_item_data in _discovered_directions_type_0:
+                    discovered_directions_type_0_item = Vec3.from_dict(discovered_directions_type_0_item_data)
+
+                    discovered_directions_type_0.append(discovered_directions_type_0_item)
+
+                return discovered_directions_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[Vec3] | None, data)
+
+        discovered_directions = _parse_discovered_directions(d.pop("discoveredDirections"))
+
+        def _parse_added_directions(data: object) -> list[Vec3] | None:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                added_directions_type_0 = []
+                _added_directions_type_0 = data
+                for added_directions_type_0_item_data in _added_directions_type_0:
+                    added_directions_type_0_item = Vec3.from_dict(added_directions_type_0_item_data)
+
+                    added_directions_type_0.append(added_directions_type_0_item)
+
+                return added_directions_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[Vec3] | None, data)
+
+        added_directions = _parse_added_directions(d.pop("addedDirections"))
 
         def _parse_direction_z_bounds(data: object) -> list[DirectionZBounds] | None:
             if data is None:
@@ -229,6 +338,58 @@ class PartResponse:
 
         turnability = _parse_turnability(d.pop("turnability"))
 
+        def _parse_turning(
+            data: object,
+        ) -> None | TurningBelowThreshold | TurningNoAxis | TurningNotRequested | TurningSpinFailed | TurningTurned:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                componentsschemas_turning_type_0 = TurningTurned.from_dict(data)
+
+                return componentsschemas_turning_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                componentsschemas_turning_type_1 = TurningNoAxis.from_dict(data)
+
+                return componentsschemas_turning_type_1
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                componentsschemas_turning_type_2 = TurningBelowThreshold.from_dict(data)
+
+                return componentsschemas_turning_type_2
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                componentsschemas_turning_type_3 = TurningSpinFailed.from_dict(data)
+
+                return componentsschemas_turning_type_3
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                componentsschemas_turning_type_4 = TurningNotRequested.from_dict(data)
+
+                return componentsschemas_turning_type_4
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(
+                None | TurningBelowThreshold | TurningNoAxis | TurningNotRequested | TurningSpinFailed | TurningTurned,
+                data,
+            )
+
+        turning = _parse_turning(d.pop("turning"))
+
         mesh_point_count = d.pop("meshPointCount")
 
         mesh_triangle_count = d.pop("meshTriangleCount")
@@ -263,8 +424,11 @@ class PartResponse:
             regions=regions,
             features=features,
             candidate_directions=candidate_directions,
+            discovered_directions=discovered_directions,
+            added_directions=added_directions,
             direction_z_bounds=direction_z_bounds,
             turnability=turnability,
+            turning=turning,
             mesh_point_count=mesh_point_count,
             mesh_triangle_count=mesh_triangle_count,
             thumbnail_url=thumbnail_url,

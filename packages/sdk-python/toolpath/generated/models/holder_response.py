@@ -13,11 +13,9 @@ from ..models.holder_response_taper_family_type_3_type_1 import HolderResponseTa
 
 if TYPE_CHECKING:
     from ..models.cone import Cone
-    from ..models.holder_response_axis_direction import HolderResponseAxisDirection
-    from ..models.holder_response_axis_location import HolderResponseAxisLocation
-    from ..models.holder_response_nose import HolderResponseNose
     from ..models.holder_response_options import HolderResponseOptions
-    from ..models.holder_response_units import HolderResponseUnits
+    from ..models.holder_units import HolderUnits
+    from ..models.holder_vec_3 import HolderVec3
 
 
 T = TypeVar("T", bound="HolderResponse")
@@ -31,7 +29,7 @@ class HolderResponse:
         import_id (UUID): Identifier of this immutable holder result.
         job_id (UUID): Identifier of the import job that produced this holder result.
         kernel_version (str): Version of the Toolpath kernel that produced this holder result.
-        units (HolderResponseUnits): Units used by all dimensional values in this holder response.
+        units (HolderUnits):
         options (HolderResponseOptions): The import options this result was produced with.
         layers (list[Cone]): The collision envelope as a stack of cones, nose first — the solid the holder sweeps as the
             spindle turns it, not the modeled solid. Wrench flats, coolant bores and nut slots are inside it by
@@ -44,12 +42,9 @@ class HolderResponse:
         taper_family (HolderResponseTaperFamilyType1 | HolderResponseTaperFamilyType2Type1 |
             HolderResponseTaperFamilyType3Type1 | None): Which interface `sizeClass` belongs to, or null when no taper was
             found. Read the two together: an HSK40 and an ISO40 are both 40 and are otherwise nothing alike.
-        axis_direction (HolderResponseAxisDirection): The axis the holder turns about, as a unit vector in the file’s
-            coordinates. Its sign is arbitrary — it says nothing about which end goes in the spindle. The holder runs nose
-            to spindle along it unless `flipped`.
-        axis_location (HolderResponseAxisLocation): A point on that axis, purely radial. With `nose` it is what puts the
-            layer stack back on the geometry it was measured from.
-        nose (HolderResponseNose): Where the holder’s nose sits, in the file’s coordinates. The layer stack starts here.
+        axis_direction (HolderVec3):
+        axis_location (HolderVec3):
+        nose (HolderVec3):
         axis_area_fraction (float | None): Share of the file’s surface area carried by faces agreeing on the axis, or
             null when not measured. Low is a warning: a holder something is wrong with, not a holder measured badly.
         face_count (int): Faces across every body in the file — evidence the holder arrived intact rather than as the
@@ -75,7 +70,7 @@ class HolderResponse:
     import_id: UUID
     job_id: UUID
     kernel_version: str
-    units: HolderResponseUnits
+    units: HolderUnits
     options: HolderResponseOptions
     layers: list[Cone]
     gauge_length: float | None
@@ -86,9 +81,9 @@ class HolderResponse:
         | HolderResponseTaperFamilyType3Type1
         | None
     )
-    axis_direction: HolderResponseAxisDirection
-    axis_location: HolderResponseAxisLocation
-    nose: HolderResponseNose
+    axis_direction: HolderVec3
+    axis_location: HolderVec3
+    nose: HolderVec3
     axis_area_fraction: float | None
     face_count: int
     sample_count: int
@@ -208,11 +203,9 @@ class HolderResponse:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.cone import Cone
-        from ..models.holder_response_axis_direction import HolderResponseAxisDirection
-        from ..models.holder_response_axis_location import HolderResponseAxisLocation
-        from ..models.holder_response_nose import HolderResponseNose
         from ..models.holder_response_options import HolderResponseOptions
-        from ..models.holder_response_units import HolderResponseUnits
+        from ..models.holder_units import HolderUnits
+        from ..models.holder_vec_3 import HolderVec3
 
         d = dict(src_dict)
         holder_id = UUID(d.pop("holderId"))
@@ -223,7 +216,7 @@ class HolderResponse:
 
         kernel_version = d.pop("kernelVersion")
 
-        units = HolderResponseUnits.from_dict(d.pop("units"))
+        units = HolderUnits.from_dict(d.pop("units"))
 
         options = HolderResponseOptions.from_dict(d.pop("options"))
 
@@ -292,11 +285,11 @@ class HolderResponse:
 
         taper_family = _parse_taper_family(d.pop("taperFamily"))
 
-        axis_direction = HolderResponseAxisDirection.from_dict(d.pop("axisDirection"))
+        axis_direction = HolderVec3.from_dict(d.pop("axisDirection"))
 
-        axis_location = HolderResponseAxisLocation.from_dict(d.pop("axisLocation"))
+        axis_location = HolderVec3.from_dict(d.pop("axisLocation"))
 
-        nose = HolderResponseNose.from_dict(d.pop("nose"))
+        nose = HolderVec3.from_dict(d.pop("nose"))
 
         def _parse_axis_area_fraction(data: object) -> float | None:
             if data is None:

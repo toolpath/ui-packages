@@ -45,10 +45,10 @@ class ReachCurve:
     Here the cutter sits inside the pocket. Only the holder's overhang beyond the
     cutting edge, `R - r`, extends over the surrounding material.
 
-    Shaft checks (neck, shoulder and shank) retain the enclosed-cut rule. Tool checks
-    sweep tapered shaft and holder layers with their heights and clearances; the
-    cylindrical example above explains
-    the holder footprint. Callers can draw the curve or sweep an envelope of their own.
+    Shaft checks (neck, shoulder, and shank) read every feature as the closed pocket above, at
+    `R - r`. Tool checks sweep tapered shaft and holder layers with their heights and
+    clearances; the cylindrical example above explains the holder footprint. Callers can draw
+    the curve or sweep an envelope of their own.
 
         Attributes:
             horizontal_offset (list[float]): Horizontal distance outward from the feature, in mm, ascending.

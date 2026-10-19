@@ -56,6 +56,11 @@ def _parse_response(
 
         return response_401
 
+    if response.status_code == 402:
+        response_402 = ProblemDetails.from_dict(response.json())
+
+        return response_402
+
     if response.status_code == 403:
         response_403 = ProblemDetails.from_dict(response.json())
 
@@ -110,9 +115,8 @@ def sync_detailed(
      Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan
     with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
 
-    **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality. These experimental operations may change, including breaking request and response
-    changes, without an API major version bump while in beta. Check release notes before upgrading.
+    **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
+    minor API release; each such change is listed in the release notes, so check them before upgrading.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -152,9 +156,8 @@ def sync(
      Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan
     with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
 
-    **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality. These experimental operations may change, including breaking request and response
-    changes, without an API major version bump while in beta. Check release notes before upgrading.
+    **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
+    minor API release; each such change is listed in the release notes, so check them before upgrading.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -189,9 +192,8 @@ async def asyncio_detailed(
      Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan
     with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
 
-    **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality. These experimental operations may change, including breaking request and response
-    changes, without an API major version bump while in beta. Check release notes before upgrading.
+    **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
+    minor API release; each such change is listed in the release notes, so check them before upgrading.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -229,9 +231,8 @@ async def asyncio(
      Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan
     with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
 
-    **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality. These experimental operations may change, including breaking request and response
-    changes, without an API major version bump while in beta. Check release notes before upgrading.
+    **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
+    minor API release; each such change is listed in the release notes, so check them before upgrading.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

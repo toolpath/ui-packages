@@ -30,12 +30,14 @@ T = TypeVar("T", bound="FeatureDatasheet")
 
 @_attrs_define
 class FeatureDatasheet:
-    """One feature as machining sees it: static, self-contained, and enough to choose a
-    tool against without having the part in hand. All lengths mm and angles degrees;
-    z runs up the tool axis, so `zMin` is the bottom of the feature and `zMax` its top.
+    """One feature as machining sees it: static, self-contained, and enough to choose a tool against without having the
+    part in hand. All lengths mm and angles degrees, in the tool frame of the direction the feature is machined from,
+    whose origin is the part’s own: z runs up the tool axis, so `zMin` is the bottom of the feature and `zMax` its top.
+    A pinch point’s `point` is the exception, in part coordinates.
 
-    Every number in it is finite, so it survives a JSON round trip: a bound nothing sets
-    is absent rather than infinite.
+    Every number in it is finite, so it survives a JSON round trip. A limit nothing sets is `null`, so that every value
+    passes it, except where a field’s description says it is absent instead. Any other field that is omitted has no
+    value to read.
 
         Attributes:
             feature_type (FeatureType): What kind of thing a feature is, and so how it gets machined. The names are the
@@ -86,10 +88,10 @@ class FeatureDatasheet:
                 Here the cutter sits inside the pocket. Only the holder's overhang beyond the
                 cutting edge, `R - r`, extends over the surrounding material.
 
-                Shaft checks (neck, shoulder and shank) retain the enclosed-cut rule. Tool checks
-                sweep tapered shaft and holder layers with their heights and clearances; the
-                cylindrical example above explains
-                the holder footprint. Callers can draw the curve or sweep an envelope of their own.
+                Shaft checks (neck, shoulder, and shank) read every feature as the closed pocket above, at
+                `R - r`. Tool checks sweep tapered shaft and holder layers with their heights and
+                clearances; the cylindrical example above explains the holder footprint. Callers can draw
+                the curve or sweep an envelope of their own.
             axial_stock_to_leave (float): Material intentionally left along the tool axis for a later operation, in mm.
             radial_stock_to_leave (float): Material intentionally left radially for a later operation, in mm.
             tolerance_band (ToleranceBand): How far a machined surface may deviate from the model, in three escalating bands
@@ -112,17 +114,21 @@ class FeatureDatasheet:
                 surface reads a shade under its exact area.
             pinch_points (list[PinchPoint] | Unset): The places the feature is at its tightest: where the clearance reaches
                 the minimum
-                `cd` reports, one disc per stretch of the feature that reaches it, tightest first
-                and never more than ten.
+                `cd` reports, one point per place, in part coordinates, tightest first and never more
+                than ten.
 
                 The counterpart of a bound rather than another bound: what these answer is *where*
                 the clearance minimum was decided, which the number itself cannot. A drawing is the
                 audience, which is why the list is capped — a feature can tie in dozens of places,
-                and the eleventh disc tells a reader nothing the first ten did not.
+                and the eleventh point tells a reader nothing the first ten did not.
 
                 Empty for the kinds whose clearance is not measured off a single medial axis — a
-                hole, a facing pass, the undercut and layered kinds — so empty is "nowhere to point
-                at", never "nowhere is tight".
+                hole, a facing pass, a dovetail and the layered kinds — unless an inside corner with no
+                radius is what zeroed the minimum, which is pointed at whatever the kind, or a layered
+                kind's minimum is the widest ball reaching all of it, which is pointed at where that
+                ball is stopped, or a layered kind's minimum is read off one of its slices (a chamfer's),
+                which is pointed at on that slice. Empty is "nowhere to point at", never "nowhere is
+                tight".
     """
 
     feature_type: FeatureType

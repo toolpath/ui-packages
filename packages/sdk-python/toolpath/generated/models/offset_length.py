@@ -24,9 +24,10 @@ class OffsetLength:
 
         Attributes:
             length (float): The outline's own length, in mm — what a pass would travel with a tool of no width.
-            dl_dr (float): How the travelled length changes per mm of tool radius: the outline's total signed
-                turning, in radians and so dimensionless. Negative around an outline a tool runs
-                inside of, positive around one it runs outside of, and `±2π` where the outline closes.
+            dl_dr (float): How the traveled length changes with tool radius, mm of length per mm of radius and so
+                dimensionless: the outline's total signed turning. Negative around an outline a tool
+                runs inside of, positive around one it runs outside of, and `±2π` where the outline
+                closes.
     """
 
     length: float

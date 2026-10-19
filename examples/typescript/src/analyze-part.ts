@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { createParser } from 'eventsource-parser'
 import {
-  UpdatePartFeatureDetailsEnum,
+  UpdatePartOperationFeatureDetailsEnum,
   createToolpathClient,
   type PartFeatureEntry,
   type JobDetail,
@@ -132,7 +132,7 @@ export const analyzePart = async (
 
   const analysis = await api.parts.updatePart({
     id: created.partId,
-    featureDetails: UpdatePartFeatureDetailsEnum.True,
+    featureDetails: UpdatePartOperationFeatureDetailsEnum.True,
     idempotencyKey: randomUUID(),
   })
   onStatus(`Analysis started as job ${analysis.jobId}`)
