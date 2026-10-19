@@ -9,6 +9,7 @@ from attrs import field as _attrs_field
 
 from ..models.plan_response_level import PlanResponseLevel
 from ..models.plan_response_material import PlanResponseMaterial
+from ..models.plan_response_workholding import PlanResponseWorkholding
 
 if TYPE_CHECKING:
     from ..models.plan_issue import PlanIssue
@@ -27,13 +28,20 @@ class PlanResponse:
     Attributes:
         part_id (UUID): Identifier of this part.
         plan_id (UUID): Identifier of this plan.
-        job_id (UUID): Identifier of the job that produced this plan.
+        job_id (UUID): Identifier of the job that produced this plan. A toolpath calculation records itself here as soon
+            as it has planned the part, while it cuts; a `toolpathed` plan keeps the job of its last result until a
+            recalculation completes. Compare it with the job you queued.
         kernel_version (str): Version of the Toolpath kernel that produced this plan.
         material (PlanResponseMaterial): The material this plan was synthesized for. Its tools’ feeds and speeds — and
             so every machining time here — are the kernel’s for it. `Aluminum` on plans made before it was recorded.
         stock (PlanResponseStock): The saved stock input and the initial geometry the kernel resolved from it.
+        workholding (PlanResponseWorkholding): How the plan’s job held the part, which a recalculation that names none
+            holds it by. `thinAir` for plans made before Engine API 1.24.0.
         level (PlanResponseLevel): Fidelity of this plan: `planned` (setups and action-specs only) or `toolpathed`
-            (toolpaths also calculated — fetch them at /plans/{planId}/toolpaths).
+            (toolpaths also calculated — fetch them at /plans/{planId}/toolpaths). A plan is readable at `planned` as soon
+            as a calculation has planned the part, while `jobId` names the job cutting it. A `toolpathed` plan keeps its
+            last result while it is recalculated. After a failed calculation the plan stays as its last successful run left
+            it, or `planned` under the failed job.
         issues (list[PlanIssue]): The plan’s coverage shortfalls — what it leaves uncut, each with its area (mm²). Empty
             when the plan machines everything it owes; gate a quote on this rather than on cut coverage alone.
         setups (list[PlanSetup]): Setups, in machining order.
@@ -54,6 +62,7 @@ class PlanResponse:
     kernel_version: str
     material: PlanResponseMaterial
     stock: PlanResponseStock
+    workholding: PlanResponseWorkholding
     level: PlanResponseLevel
     issues: list[PlanIssue]
     setups: list[PlanSetup]
@@ -76,6 +85,8 @@ class PlanResponse:
         material = self.material.value
 
         stock = self.stock.to_dict()
+
+        workholding = self.workholding.value
 
         level = self.level.value
 
@@ -111,6 +122,7 @@ class PlanResponse:
                 "kernelVersion": kernel_version,
                 "material": material,
                 "stock": stock,
+                "workholding": workholding,
                 "level": level,
                 "issues": issues,
                 "setups": setups,
@@ -141,6 +153,8 @@ class PlanResponse:
         material = PlanResponseMaterial(d.pop("material"))
 
         stock = PlanResponseStock.from_dict(d.pop("stock"))
+
+        workholding = PlanResponseWorkholding(d.pop("workholding"))
 
         level = PlanResponseLevel(d.pop("level"))
 
@@ -195,6 +209,7 @@ class PlanResponse:
             kernel_version=kernel_version,
             material=material,
             stock=stock,
+            workholding=workholding,
             level=level,
             issues=issues,
             setups=setups,

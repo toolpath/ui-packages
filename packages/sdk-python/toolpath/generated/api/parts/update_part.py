@@ -8,6 +8,7 @@ from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.problem_details import ProblemDetails
 from ...models.update_part_feature_details import UpdatePartFeatureDetails
+from ...models.update_part_request import UpdatePartRequest
 from ...models.update_part_response import UpdatePartResponse
 from ...types import UNSET, Response, Unset
 
@@ -15,6 +16,7 @@ from ...types import UNSET, Response, Unset
 def _get_kwargs(
     id: str,
     *,
+    body: UpdatePartRequest | Unset = UNSET,
     feature_details: UpdatePartFeatureDetails | Unset = UpdatePartFeatureDetails.FALSE,
     idempotency_key: str | Unset = UNSET,
 ) -> dict[str, Any]:
@@ -40,6 +42,11 @@ def _get_kwargs(
         "params": params,
     }
 
+    if not isinstance(body, Unset):
+        _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
+
     _kwargs["headers"] = headers
     return _kwargs
 
@@ -61,6 +68,11 @@ def _parse_response(
         response_401 = ProblemDetails.from_dict(response.json())
 
         return response_401
+
+    if response.status_code == 402:
+        response_402 = ProblemDetails.from_dict(response.json())
+
+        return response_402
 
     if response.status_code == 403:
         response_403 = ProblemDetails.from_dict(response.json())
@@ -108,20 +120,23 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    body: UpdatePartRequest | Unset = UNSET,
     feature_details: UpdatePartFeatureDetails | Unset = UpdatePartFeatureDetails.FALSE,
     idempotency_key: str | Unset = UNSET,
 ) -> Response[ProblemDetails | UpdatePartResponse]:
     """Analyze a part
 
      Queues machining analysis for an uploaded part and returns a job. Track the job, then read the
-    result with **Get a part** (`GET /parts/{id}`).
+    result with **Get a part** (`GET /parts/{id}`). A body may add `directions` to analyze the part from
+    beyond those the directions analysis chose.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
         feature_details (UpdatePartFeatureDetails | Unset): When true, generate detailed machining
-            data for recognized features. Defaults to false. Default: UpdatePartFeatureDetails.FALSE.
-            Example: true.
+            data for recognized features, turned features included. Defaults to false. Default:
+            UpdatePartFeatureDetails.FALSE. Example: true.
         idempotency_key (str | Unset):  Example: analysis-request-123.
+        body (UpdatePartRequest | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -133,6 +148,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+        body=body,
         feature_details=feature_details,
         idempotency_key=idempotency_key,
     )
@@ -148,20 +164,23 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    body: UpdatePartRequest | Unset = UNSET,
     feature_details: UpdatePartFeatureDetails | Unset = UpdatePartFeatureDetails.FALSE,
     idempotency_key: str | Unset = UNSET,
 ) -> ProblemDetails | UpdatePartResponse | None:
     """Analyze a part
 
      Queues machining analysis for an uploaded part and returns a job. Track the job, then read the
-    result with **Get a part** (`GET /parts/{id}`).
+    result with **Get a part** (`GET /parts/{id}`). A body may add `directions` to analyze the part from
+    beyond those the directions analysis chose.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
         feature_details (UpdatePartFeatureDetails | Unset): When true, generate detailed machining
-            data for recognized features. Defaults to false. Default: UpdatePartFeatureDetails.FALSE.
-            Example: true.
+            data for recognized features, turned features included. Defaults to false. Default:
+            UpdatePartFeatureDetails.FALSE. Example: true.
         idempotency_key (str | Unset):  Example: analysis-request-123.
+        body (UpdatePartRequest | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -174,6 +193,7 @@ def sync(
     return sync_detailed(
         id=id,
         client=client,
+        body=body,
         feature_details=feature_details,
         idempotency_key=idempotency_key,
     ).parsed
@@ -183,20 +203,23 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    body: UpdatePartRequest | Unset = UNSET,
     feature_details: UpdatePartFeatureDetails | Unset = UpdatePartFeatureDetails.FALSE,
     idempotency_key: str | Unset = UNSET,
 ) -> Response[ProblemDetails | UpdatePartResponse]:
     """Analyze a part
 
      Queues machining analysis for an uploaded part and returns a job. Track the job, then read the
-    result with **Get a part** (`GET /parts/{id}`).
+    result with **Get a part** (`GET /parts/{id}`). A body may add `directions` to analyze the part from
+    beyond those the directions analysis chose.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
         feature_details (UpdatePartFeatureDetails | Unset): When true, generate detailed machining
-            data for recognized features. Defaults to false. Default: UpdatePartFeatureDetails.FALSE.
-            Example: true.
+            data for recognized features, turned features included. Defaults to false. Default:
+            UpdatePartFeatureDetails.FALSE. Example: true.
         idempotency_key (str | Unset):  Example: analysis-request-123.
+        body (UpdatePartRequest | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -208,6 +231,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+        body=body,
         feature_details=feature_details,
         idempotency_key=idempotency_key,
     )
@@ -221,20 +245,23 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    body: UpdatePartRequest | Unset = UNSET,
     feature_details: UpdatePartFeatureDetails | Unset = UpdatePartFeatureDetails.FALSE,
     idempotency_key: str | Unset = UNSET,
 ) -> ProblemDetails | UpdatePartResponse | None:
     """Analyze a part
 
      Queues machining analysis for an uploaded part and returns a job. Track the job, then read the
-    result with **Get a part** (`GET /parts/{id}`).
+    result with **Get a part** (`GET /parts/{id}`). A body may add `directions` to analyze the part from
+    beyond those the directions analysis chose.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
         feature_details (UpdatePartFeatureDetails | Unset): When true, generate detailed machining
-            data for recognized features. Defaults to false. Default: UpdatePartFeatureDetails.FALSE.
-            Example: true.
+            data for recognized features, turned features included. Defaults to false. Default:
+            UpdatePartFeatureDetails.FALSE. Example: true.
         idempotency_key (str | Unset):  Example: analysis-request-123.
+        body (UpdatePartRequest | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -248,6 +275,7 @@ async def asyncio(
         await asyncio_detailed(
             id=id,
             client=client,
+            body=body,
             feature_details=feature_details,
             idempotency_key=idempotency_key,
         )

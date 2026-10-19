@@ -9,8 +9,7 @@ from attrs import field as _attrs_field
 from ..models.turning_axis_kind import TurningAxisKind
 
 if TYPE_CHECKING:
-    from ..models.turning_axis_direction import TurningAxisDirection
-    from ..models.turning_axis_location import TurningAxisLocation
+    from ..models.vec_3 import Vec3
 
 
 T = TypeVar("T", bound="TurningAxis")
@@ -21,9 +20,8 @@ class TurningAxis:
     """
     Attributes:
         kind (TurningAxisKind): Discriminator identifying a part with a turning axis.
-        direction (TurningAxisDirection): Direction of the turning axis, as a unit vector.
-        location (TurningAxisLocation): Point on the turning axis, in mm. Purely radial: its projection onto the axis is
-            zero.
+        direction (Vec3):
+        location (Vec3):
         area_fraction (float): Fraction of the part’s surface area a turning setup about this axis could finish, from 0
             to 1 — the area lying on the part’s envelope of revolution within tolerance.
         volume_fraction (float): Fraction of the part’s envelope of revolution — what comes off the lathe — that the
@@ -32,8 +30,8 @@ class TurningAxis:
     """
 
     kind: TurningAxisKind
-    direction: TurningAxisDirection
-    location: TurningAxisLocation
+    direction: Vec3
+    location: Vec3
     area_fraction: float
     volume_fraction: float
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -65,15 +63,14 @@ class TurningAxis:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.turning_axis_direction import TurningAxisDirection
-        from ..models.turning_axis_location import TurningAxisLocation
+        from ..models.vec_3 import Vec3
 
         d = dict(src_dict)
         kind = TurningAxisKind(d.pop("kind"))
 
-        direction = TurningAxisDirection.from_dict(d.pop("direction"))
+        direction = Vec3.from_dict(d.pop("direction"))
 
-        location = TurningAxisLocation.from_dict(d.pop("location"))
+        location = Vec3.from_dict(d.pop("location"))
 
         area_fraction = d.pop("areaFraction")
 

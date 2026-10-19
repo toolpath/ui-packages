@@ -22,10 +22,10 @@ class ProfileFacts:
     Attributes:
         kind (Literal['Profile']): Discriminator for this facts variant.
         cd (CdData): Clearance-diameter bounds per tolerance regime, plus the flags derived with them.
-        length (float): How far the pass travels, mm — the outline's own length. The `radius = 0` term of
-            `wallLength`, kept because it is what this boundary has always published; prefer the
-            outline itself, which measures the path of the tool actually used.
-        is_modified (bool): Whether the outline is the part's silhouette or the bridged reading of it.
+        length (float): How far the pass travels, mm — the outline's own length, the `radius = 0` term of
+            `wallLength`. Prefer `wallLength`, which measures the path of the tool actually used.
+        is_modified (bool): True where the outline is the bridged reading of the part's silhouette, false where
+            it is the silhouette itself.
         wall_length (OffsetLength | Unset): An outline a pass follows, measured so that any tool's path length can be
             read off it.
 

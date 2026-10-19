@@ -7,8 +7,6 @@ from uuid import UUID
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..types import UNSET, Unset
-
 if TYPE_CHECKING:
     from ..models.feature_datasheet import FeatureDatasheet
 
@@ -24,14 +22,13 @@ class PartFeatureEntry:
         feature_tag (str): Kernel feature tag, encoded as a lowercase hexadecimal string. Stable across runs of one
             kernel version, not across versions.
         feature_type (str): Kernel-recognized feature type; the vocabulary is open-ended.
-        datasheet (FeatureDatasheet | None | Unset): Generated machining detail, or null when this feature has no detail
-            yet.
+        datasheet (FeatureDatasheet | None): Generated machining detail, or null when this feature has no detail yet.
     """
 
     feature_id: UUID
     feature_tag: str
     feature_type: str
-    datasheet: FeatureDatasheet | None | Unset = UNSET
+    datasheet: FeatureDatasheet | None
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -43,10 +40,8 @@ class PartFeatureEntry:
 
         feature_type = self.feature_type
 
-        datasheet: dict[str, Any] | None | Unset
-        if isinstance(self.datasheet, Unset):
-            datasheet = UNSET
-        elif isinstance(self.datasheet, FeatureDatasheet):
+        datasheet: dict[str, Any] | None
+        if isinstance(self.datasheet, FeatureDatasheet):
             datasheet = self.datasheet.to_dict()
         else:
             datasheet = self.datasheet
@@ -58,10 +53,9 @@ class PartFeatureEntry:
                 "featureId": feature_id,
                 "featureTag": feature_tag,
                 "featureType": feature_type,
+                "datasheet": datasheet,
             }
         )
-        if datasheet is not UNSET:
-            field_dict["datasheet"] = datasheet
 
         return field_dict
 
@@ -76,10 +70,8 @@ class PartFeatureEntry:
 
         feature_type = d.pop("featureType")
 
-        def _parse_datasheet(data: object) -> FeatureDatasheet | None | Unset:
+        def _parse_datasheet(data: object) -> FeatureDatasheet | None:
             if data is None:
-                return data
-            if isinstance(data, Unset):
                 return data
             try:
                 if not isinstance(data, dict):
@@ -89,9 +81,9 @@ class PartFeatureEntry:
                 return datasheet_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(FeatureDatasheet | None | Unset, data)
+            return cast(FeatureDatasheet | None, data)
 
-        datasheet = _parse_datasheet(d.pop("datasheet", UNSET))
+        datasheet = _parse_datasheet(d.pop("datasheet"))
 
         part_feature_entry = cls(
             feature_id=feature_id,

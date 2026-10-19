@@ -95,9 +95,14 @@ def sync_detailed(
      Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`)
     to have run and its job to have succeeded.
 
-    **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality. These experimental operations may change, including breaking request and response
-    changes, without an API major version bump while in beta. Check release notes before upgrading.
+    A toolpath calculation makes the plan readable at `planned` as soon as it has planned the part,
+    before it cuts: `jobId` names the job cutting it, so compare it with the job you queued. A plan
+    already `toolpathed` keeps its last result while it is recalculated, and its `jobId` moves when that
+    run completes. A failed calculation leaves the plan as its last successful run left it, or `planned`
+    under the failed job for a plan that had no toolpaths.
+
+    **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
+    minor API release; each such change is listed in the release notes, so check them before upgrading.
 
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -131,9 +136,14 @@ def sync(
      Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`)
     to have run and its job to have succeeded.
 
-    **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality. These experimental operations may change, including breaking request and response
-    changes, without an API major version bump while in beta. Check release notes before upgrading.
+    A toolpath calculation makes the plan readable at `planned` as soon as it has planned the part,
+    before it cuts: `jobId` names the job cutting it, so compare it with the job you queued. A plan
+    already `toolpathed` keeps its last result while it is recalculated, and its `jobId` moves when that
+    run completes. A failed calculation leaves the plan as its last successful run left it, or `planned`
+    under the failed job for a plan that had no toolpaths.
+
+    **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
+    minor API release; each such change is listed in the release notes, so check them before upgrading.
 
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -162,9 +172,14 @@ async def asyncio_detailed(
      Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`)
     to have run and its job to have succeeded.
 
-    **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality. These experimental operations may change, including breaking request and response
-    changes, without an API major version bump while in beta. Check release notes before upgrading.
+    A toolpath calculation makes the plan readable at `planned` as soon as it has planned the part,
+    before it cuts: `jobId` names the job cutting it, so compare it with the job you queued. A plan
+    already `toolpathed` keeps its last result while it is recalculated, and its `jobId` moves when that
+    run completes. A failed calculation leaves the plan as its last successful run left it, or `planned`
+    under the failed job for a plan that had no toolpaths.
+
+    **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
+    minor API release; each such change is listed in the release notes, so check them before upgrading.
 
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -196,9 +211,14 @@ async def asyncio(
      Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`)
     to have run and its job to have succeeded.
 
-    **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality. These experimental operations may change, including breaking request and response
-    changes, without an API major version bump while in beta. Check release notes before upgrading.
+    A toolpath calculation makes the plan readable at `planned` as soon as it has planned the part,
+    before it cuts: `jobId` names the job cutting it, so compare it with the job you queued. A plan
+    already `toolpathed` keeps its last result while it is recalculated, and its `jobId` moves when that
+    run completes. A failed calculation leaves the plan as its last successful run left it, or `planned`
+    under the failed job for a plan that had no toolpaths.
+
+    **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
+    minor API release; each such change is listed in the release notes, so check them before upgrading.
 
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

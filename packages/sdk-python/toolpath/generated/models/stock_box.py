@@ -10,8 +10,7 @@ from ..models.stock_box_shape import StockBoxShape
 
 if TYPE_CHECKING:
     from ..models.stock_box_frame import StockBoxFrame
-    from ..models.stock_box_lower import StockBoxLower
-    from ..models.stock_box_upper import StockBoxUpper
+    from ..models.vec_3 import Vec3
 
 
 T = TypeVar("T", bound="StockBox")
@@ -24,14 +23,14 @@ class StockBox:
         shape (StockBoxShape): A block: tells it from a `cylinder`.
         frame (StockBoxFrame): The setup frame the corners are measured in, in part coordinates. A point `(x, y, z)`
             sits at `location + x·refDirection + y·(axis × refDirection) + z·axis` on the part.
-        lower (StockBoxLower): The block’s lower corner, in `frame`, mm.
-        upper (StockBoxUpper): The block’s upper corner, in `frame`, mm.
+        lower (Vec3):
+        upper (Vec3):
     """
 
     shape: StockBoxShape
     frame: StockBoxFrame
-    lower: StockBoxLower
-    upper: StockBoxUpper
+    lower: Vec3
+    upper: Vec3
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -59,17 +58,16 @@ class StockBox:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.stock_box_frame import StockBoxFrame
-        from ..models.stock_box_lower import StockBoxLower
-        from ..models.stock_box_upper import StockBoxUpper
+        from ..models.vec_3 import Vec3
 
         d = dict(src_dict)
         shape = StockBoxShape(d.pop("shape"))
 
         frame = StockBoxFrame.from_dict(d.pop("frame"))
 
-        lower = StockBoxLower.from_dict(d.pop("lower"))
+        lower = Vec3.from_dict(d.pop("lower"))
 
-        upper = StockBoxUpper.from_dict(d.pop("upper"))
+        upper = Vec3.from_dict(d.pop("upper"))
 
         stock_box = cls(
             shape=shape,

@@ -21,8 +21,8 @@ class ChamferFacts:
 
         Attributes:
             kind (Literal['Chamfer']): Discriminator for this facts variant.
-            bevel (BevelFacts): The bevel itself: how it leans, how far it runs, and what its surroundings allow a
-                cone to overshoot.
+            bevel (BevelFacts): The bevel half of a chamfer: how it leans, how far it runs, and where its surroundings
+                let a cone ride it.
             three (SurfaceFacts): A three-dimensional surface a tool has to follow rather than sweep; also the surface
                 half of a chamfer.
     """

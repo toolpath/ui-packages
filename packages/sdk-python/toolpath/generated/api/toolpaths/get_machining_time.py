@@ -102,9 +102,8 @@ def sync_detailed(
     toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST
     /plans/{planId}/toolpaths`) to have run and its job to have succeeded.
 
-    **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality. These experimental operations may change, including breaking request and response
-    changes, without an API major version bump while in beta. Check release notes before upgrading.
+    **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
+    minor API release; each such change is listed in the release notes, so check them before upgrading.
 
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -139,9 +138,8 @@ def sync(
     toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST
     /plans/{planId}/toolpaths`) to have run and its job to have succeeded.
 
-    **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality. These experimental operations may change, including breaking request and response
-    changes, without an API major version bump while in beta. Check release notes before upgrading.
+    **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
+    minor API release; each such change is listed in the release notes, so check them before upgrading.
 
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -171,9 +169,8 @@ async def asyncio_detailed(
     toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST
     /plans/{planId}/toolpaths`) to have run and its job to have succeeded.
 
-    **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality. These experimental operations may change, including breaking request and response
-    changes, without an API major version bump while in beta. Check release notes before upgrading.
+    **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
+    minor API release; each such change is listed in the release notes, so check them before upgrading.
 
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -206,9 +203,8 @@ async def asyncio(
     toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST
     /plans/{planId}/toolpaths`) to have run and its job to have succeeded.
 
-    **Early access.** Machining plans and toolpath calculation are available now but still gaining
-    functionality. These experimental operations may change, including breaking request and response
-    changes, without an API major version bump while in beta. Check release notes before upgrading.
+    **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
+    minor API release; each such change is listed in the release notes, so check them before upgrading.
 
     Args:
         plan_id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

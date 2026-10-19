@@ -9,8 +9,7 @@ from attrs import field as _attrs_field
 from ..models.stock_cylinder_shape import StockCylinderShape
 
 if TYPE_CHECKING:
-    from ..models.stock_cylinder_axis import StockCylinderAxis
-    from ..models.stock_cylinder_origin import StockCylinderOrigin
+    from ..models.vec_3 import Vec3
 
 
 T = TypeVar("T", bound="StockCylinder")
@@ -21,16 +20,15 @@ class StockCylinder:
     """
     Attributes:
         shape (StockCylinderShape): A bar: tells it from a `box`.
-        origin (StockCylinderOrigin): The cylinder’s base center, in part coordinates, mm.
-        axis (StockCylinderAxis): Unit vector from the base along the bar, in part coordinates: the first setup’s
-            cutting direction for an upright bar, the part’s long side for one lying down.
+        origin (Vec3):
+        axis (Vec3):
         diameter (float): Cylinder diameter, mm.
         length (float): Cylinder length along its axis, mm.
     """
 
     shape: StockCylinderShape
-    origin: StockCylinderOrigin
-    axis: StockCylinderAxis
+    origin: Vec3
+    axis: Vec3
     diameter: float
     length: float
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -62,15 +60,14 @@ class StockCylinder:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.stock_cylinder_axis import StockCylinderAxis
-        from ..models.stock_cylinder_origin import StockCylinderOrigin
+        from ..models.vec_3 import Vec3
 
         d = dict(src_dict)
         shape = StockCylinderShape(d.pop("shape"))
 
-        origin = StockCylinderOrigin.from_dict(d.pop("origin"))
+        origin = Vec3.from_dict(d.pop("origin"))
 
-        axis = StockCylinderAxis.from_dict(d.pop("axis"))
+        axis = Vec3.from_dict(d.pop("axis"))
 
         diameter = d.pop("diameter")
 

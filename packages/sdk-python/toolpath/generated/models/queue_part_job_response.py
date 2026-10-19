@@ -9,6 +9,7 @@ from attrs import field as _attrs_field
 
 from ..models.queue_part_job_response_material import QueuePartJobResponseMaterial
 from ..models.queue_part_job_response_status import QueuePartJobResponseStatus
+from ..models.queue_part_job_response_workholding import QueuePartJobResponseWorkholding
 
 if TYPE_CHECKING:
     from ..models.queue_part_job_response_done_regions_type_0 import QueuePartJobResponseDoneRegionsType0
@@ -42,6 +43,8 @@ class QueuePartJobResponse:
             or null for none.
         stock (QueuePartJobResponseStock): The queued stock input and its not-yet-calculated geometry.
         fallback_tools (bool): Whether the job plans what the crib cannot with fallback tools.
+        workholding (QueuePartJobResponseWorkholding): How the job holds the part — the request’s, or `thinAir` when it
+            named none.
         status (QueuePartJobResponseStatus): Initial state of the accepted processing job.
     """
 
@@ -55,6 +58,7 @@ class QueuePartJobResponse:
     done_regions: None | QueuePartJobResponseDoneRegionsType0
     stock: QueuePartJobResponseStock
     fallback_tools: bool
+    workholding: QueuePartJobResponseWorkholding
     status: QueuePartJobResponseStatus
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -102,6 +106,8 @@ class QueuePartJobResponse:
 
         fallback_tools = self.fallback_tools
 
+        workholding = self.workholding.value
+
         status = self.status.value
 
         field_dict: dict[str, Any] = {}
@@ -118,6 +124,7 @@ class QueuePartJobResponse:
                 "doneRegions": done_regions,
                 "stock": stock,
                 "fallbackTools": fallback_tools,
+                "workholding": workholding,
                 "status": status,
             }
         )
@@ -205,6 +212,8 @@ class QueuePartJobResponse:
 
         fallback_tools = d.pop("fallbackTools")
 
+        workholding = QueuePartJobResponseWorkholding(d.pop("workholding"))
+
         status = QueuePartJobResponseStatus(d.pop("status"))
 
         queue_part_job_response = cls(
@@ -218,6 +227,7 @@ class QueuePartJobResponse:
             done_regions=done_regions,
             stock=stock,
             fallback_tools=fallback_tools,
+            workholding=workholding,
             status=status,
         )
 

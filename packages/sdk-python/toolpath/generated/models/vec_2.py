@@ -10,11 +10,12 @@ T = TypeVar("T", bound="Vec2")
 
 @_attrs_define
 class Vec2:
-    """A 2D vector (a plain `{ x, y }` object).
+    """A 2D vector (a plain `{ x, y }` object), in the plane its holder names: a tool frame's
+    `(x, y)` across the tool, or a turned part's `(z, r)` as `{ x: z, y: r }`.
 
-    Attributes:
-        x (float): Horizontal x coordinate in the current frame.
-        y (float): Horizontal y coordinate in the current frame.
+        Attributes:
+            x (float): The plane's first coordinate.
+            y (float): The plane's second coordinate.
     """
 
     x: float

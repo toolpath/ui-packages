@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Toolpath Engine API",
-    "version": "1.23.0",
-    "description": "Public REST API for Toolpath engine operations.\n\n**Early access.** Machining plans and toolpath calculation — creating, listing, and reading\nplans, calculating toolpaths, and reading toolpath results and machining time — are available\nnow but still gaining functionality; planned additions include plan constraints and specifying\nmaterial and stock, among others. Breaking changes still follow the API major version, so you\ncan build against them today. These operations are grouped under the `Plans` and `Toolpaths`\ntags and marked `x-toolpath-experimental`.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis,\nfeature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access\ncan be edited on an existing key in the portal. Every operation states its area in its\n`x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in\n`x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs\nDFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key\nwith no access to the operation’s area is refused with 403 `product_mismatch`; one with read\naccess used for a write is refused with 403 `read_only_key`."
+    "version": "1.29.1",
+    "description": "Public REST API for Toolpath engine operations.\n\n**Experimental.** Machining plans and toolpath calculation — creating, listing, and reading\nplans, calculating toolpaths, and reading toolpath results and machining time — and turning,\nthe `turning` reading of a part, are experimental: available now but still gaining\nfunctionality; planned additions include plan constraints and specifying material and stock,\namong others. You can build against them today, but they may change substantially in a\nminor release — reshaped, renamed, or removed — where the rest of the API keeps breaking\nchanges for a major version, apart from small ones with no material effect on clients. Every\nbreaking change is listed in the release notes, so check them before upgrading. Plan and\ntoolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental\noperation, field, and schema is marked `x-toolpath-experimental`.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis,\nfeature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access\ncan be edited on an existing key in the portal. Every operation states its area in its\n`x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in\n`x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs\nDFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key\nwith no access to the operation’s area is refused with 403 `product_mismatch`; one with read\naccess used for a write is refused with 403 `read_only_key`."
   },
   "tags": [
     {
@@ -24,11 +24,11 @@
     },
     {
       "name": "Plans",
-      "description": "Create machining plans for a part and read them. Early access — see the description above."
+      "description": "Create machining plans for a part and read them. Experimental — see the description above."
     },
     {
       "name": "Toolpaths",
-      "description": "Calculate a plan’s toolpaths and read the toolpaths and machining time. Early access — see the description above."
+      "description": "Calculate a plan’s toolpaths and read the toolpaths and machining time. Experimental — see the description above."
     },
     {
       "name": "Tool holders",
@@ -63,6 +63,473 @@
       }
     },
     "schemas": {
+      "Turning": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TurningTurned"
+          },
+          {
+            "$ref": "#/components/schemas/TurningNoAxis"
+          },
+          {
+            "$ref": "#/components/schemas/TurningBelowThreshold"
+          },
+          {
+            "$ref": "#/components/schemas/TurningSpinFailed"
+          },
+          {
+            "$ref": "#/components/schemas/TurningNotRequested"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "Turned": "#/components/schemas/TurningTurned",
+            "NoAxis": "#/components/schemas/TurningNoAxis",
+            "BelowThreshold": "#/components/schemas/TurningBelowThreshold",
+            "SpinFailed": "#/components/schemas/TurningSpinFailed",
+            "NotRequested": "#/components/schemas/TurningNotRequested"
+          }
+        },
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nWhat reading the part for turning came to; narrow on `kind`.",
+        "x-toolpath-experimental": true
+      },
+      "TurningTurned": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "Turned"
+            ],
+            "description": "Discriminator: the part was read."
+          },
+          "axisSource": {
+            "$ref": "#/components/schemas/AxisSource",
+            "description": "Where its axis came from."
+          },
+          "frame": {
+            "$ref": "#/components/schemas/TurningFrame",
+            "description": "The axis it was read about."
+          },
+          "areaFraction": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "The fraction of the part’s surface area lying on the outline within tolerance, from 0 to 1: what a lathe spinning the part here leaves finished."
+          },
+          "turnability": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "The fraction of the outline’s revolved volume the part keeps, from 0 to 1. The rest is what turning leaves to be cut away some other way."
+          },
+          "outline": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/OutlinePoint"
+              }
+            },
+            "description": "The outline’s loops, each outer one followed by the inner loops inside it."
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TurnedFeature"
+            },
+            "description": "The outline’s features, in its order. A stretch both ends reach is listed twice, once per `approach`."
+          },
+          "regionIdxsLeftForMilling": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Indexes of the regions not wholly on the outline, ascending: what turning leaves for milling. A modeled thread’s regions are not among them."
+          },
+          "featureTagsLeftForMilling": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The milled features turning leaves for milling: each one with a region among `regionIdxsLeftForMilling`, whole, so a feature partly on the outline is listed. Join each value to `features[].featureTag`; the order is not meaningful."
+          }
+        },
+        "required": [
+          "kind",
+          "axisSource",
+          "frame",
+          "areaFraction",
+          "turnability",
+          "outline",
+          "features",
+          "regionIdxsLeftForMilling",
+          "featureTagsLeftForMilling"
+        ],
+        "description": "The part read about its turning axis.",
+        "x-toolpath-experimental": true
+      },
+      "AxisSource": {
+        "type": "string",
+        "enum": [
+          "Detected",
+          "UserGiven"
+        ],
+        "description": "Where the axis came from: `Detected` is the axis the part’s revolved surfaces agree on.",
+        "x-toolpath-experimental": true
+      },
+      "TurningFrame": {
+        "type": "object",
+        "properties": {
+          "direction": {
+            "$ref": "#/components/schemas/Vec3",
+            "description": "The axis’s direction (unit length): the way z runs."
+          },
+          "location": {
+            "$ref": "#/components/schemas/Vec3",
+            "description": "The point on the axis where z is 0, in mm. Purely radial: its projection onto the axis is zero."
+          },
+          "radial": {
+            "$ref": "#/components/schemas/Vec3",
+            "description": "The way r runs, out from the axis (unit length)."
+          }
+        },
+        "required": [
+          "direction",
+          "location",
+          "radial"
+        ],
+        "description": "The half-plane a part is turned in: the axis, and how `(z, r)` lies in part coordinates — the point `location + z·direction + r·radial`.",
+        "x-toolpath-experimental": true
+      },
+      "Vec3": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "number",
+            "description": "X coordinate or direction component."
+          },
+          "y": {
+            "type": "number",
+            "description": "Y coordinate or direction component."
+          },
+          "z": {
+            "type": "number",
+            "description": "Z coordinate or direction component."
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "z"
+        ]
+      },
+      "OutlinePoint": {
+        "type": "object",
+        "properties": {
+          "z": {
+            "type": "number",
+            "description": "Along the axis, in mm."
+          },
+          "r": {
+            "type": "number",
+            "description": "Out from the axis, in mm."
+          }
+        },
+        "required": [
+          "z",
+          "r"
+        ],
+        "description": "A point of a turned part’s outline.",
+        "x-toolpath-experimental": true
+      },
+      "TurnedFeature": {
+        "type": "object",
+        "properties": {
+          "featureTag": {
+            "type": "string",
+            "description": "Kernel turned-feature tag, encoded as a lowercase hexadecimal string. Stable across runs of one kernel version, not across versions. Hashed apart from a milled feature’s `featureTag`."
+          },
+          "featureType": {
+            "type": "string",
+            "description": "What it is, in snake_case (`od_groove`): its datasheet’s `featureType`, cased as a milled feature’s is. This vocabulary is open-ended."
+          },
+          "approach": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AxialDirection"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The end of the part it is cut from, whole: `PlusZ`, the end `frame.direction` points toward, or `MinusZ`, the other. A stretch both ends reach is two features, one per end, with the same `featureType` and `regionIdxs`. Null only on reports made before Engine API 1.29.0, for an `unknown` feature, which no cut reaches; absent on reports made before 1.26.0."
+          },
+          "regionIdxs": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Indexes of the regions it was spun from, ascending; join each value to `regions[].idx`."
+          },
+          "datasheet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TurningDatasheet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its turning datasheet, or null when the analysis ran without feature details or where it could not be measured — and, on reports made before Engine API 1.29.0, for an `unknown` feature."
+          }
+        },
+        "required": [
+          "featureTag",
+          "featureType",
+          "regionIdxs",
+          "datasheet"
+        ],
+        "description": "A stretch of a turned part’s outline, as cut from one end, and what it is.",
+        "x-toolpath-experimental": true
+      },
+      "AxialDirection": {
+        "type": "string",
+        "enum": [
+          "PlusZ",
+          "MinusZ"
+        ],
+        "description": "Which way along the axis something looks or comes from.",
+        "x-toolpath-experimental": true
+      },
+      "TurningDatasheet": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "featureType": {
+            "$ref": "#/components/schemas/TurnedFeatureType",
+            "description": "What the feature is."
+          },
+          "facts": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TurnedOutlineFacts"
+              },
+              {
+                "$ref": "#/components/schemas/TurnedFaceFacts"
+              },
+              {
+                "$ref": "#/components/schemas/TurnedGrooveFacts"
+              },
+              {
+                "$ref": "#/components/schemas/TurnedFaceGrooveFacts"
+              },
+              {
+                "$ref": "#/components/schemas/TurnedThreadFacts"
+              },
+              {
+                "$ref": "#/components/schemas/TurnedAxialHoleFacts"
+              }
+            ],
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "OdProfile": "#/components/schemas/TurnedOutlineFacts",
+                "FaceProfile": "#/components/schemas/TurnedOutlineFacts",
+                "IdProfile": "#/components/schemas/TurnedOutlineFacts",
+                "Face": "#/components/schemas/TurnedFaceFacts",
+                "OdGroove": "#/components/schemas/TurnedGrooveFacts",
+                "IdGroove": "#/components/schemas/TurnedGrooveFacts",
+                "FaceGroove": "#/components/schemas/TurnedFaceGrooveFacts",
+                "OdThread": "#/components/schemas/TurnedThreadFacts",
+                "IdThread": "#/components/schemas/TurnedThreadFacts",
+                "AxialHole": "#/components/schemas/TurnedAxialHoleFacts"
+              }
+            },
+            "description": "What it measures, by kind; narrow on `facts.kind`."
+          },
+          "zMin": {
+            "type": "number",
+            "description": "Its start along the axis, in mm."
+          },
+          "zMax": {
+            "type": "number",
+            "description": "Its end along the axis, in mm."
+          },
+          "rMin": {
+            "type": "number",
+            "description": "Its nearest to the axis, in mm."
+          },
+          "rMax": {
+            "type": "number",
+            "description": "Its farthest from the axis, in mm."
+          },
+          "mounting": {
+            "$ref": "#/components/schemas/MountingAxis",
+            "description": "How a tool must be mounted to reach it."
+          },
+          "slopeSpans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SlopeSpan"
+            },
+            "description": "How steeply each of its curves rises and falls along a feed, in the order they run."
+          },
+          "radialReachMinusZ": {
+            "$ref": "#/components/schemas/ReachCurve",
+            "description": "How deep a radial tool must reach, by how far toward −z from the feature the\nmaterial stands. Read off the finished part. A radial tool's holder trails its tip\nto one side, so each side is read apart."
+          },
+          "radialReachPlusZ": {
+            "$ref": "#/components/schemas/ReachCurve",
+            "description": "The same toward +z."
+          },
+          "axialReach": {
+            "$ref": "#/components/schemas/ReachCurve",
+            "description": "The same for an axial tool coming from the end its feature is cut from, the\nfeature's `approach`, by how far across the axis from the feature the material\nstands."
+          },
+          "entryDiameter": {
+            "type": "number",
+            "description": "For a feature in a hole, the narrowest diameter between it and the end it is cut\nfrom, in mm: what a bar entering from that end passes on its way in. Absent for any\nother feature, or where nothing stands between."
+          },
+          "minConcaveRadius": {
+            "type": "number",
+            "description": "The smallest radius of a concave corner between or on its curves, in mm, 0 for a\nsharp one; absent where it has none."
+          },
+          "axialStockToLeave": {
+            "type": "number",
+            "description": "Material left along the spindle, in mm."
+          },
+          "radialStockToLeave": {
+            "type": "number",
+            "description": "Material left across the spindle, in mm."
+          },
+          "toleranceBand": {
+            "$ref": "#/components/schemas/ToleranceBand",
+            "description": "Permitted deviation bands for the turned feature."
+          }
+        },
+        "required": [
+          "featureType",
+          "facts",
+          "zMin",
+          "zMax",
+          "rMin",
+          "rMax",
+          "mounting",
+          "slopeSpans",
+          "radialReachMinusZ",
+          "radialReachPlusZ",
+          "axialReach",
+          "axialStockToLeave",
+          "radialStockToLeave",
+          "toleranceBand"
+        ],
+        "description": "One turned feature as a tool check sees it: the turning counterpart of a\n`FeatureDatasheet`. In `(z, r)`, mm and degrees.",
+        "x-toolpath-experimental": true
+      },
+      "TurningNoAxis": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "NoAxis"
+            ],
+            "description": "Discriminator: no axis was found."
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "description": "The part’s revolved surfaces agree on no line, so it was not read.",
+        "x-toolpath-experimental": true
+      },
+      "TurningBelowThreshold": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "BelowThreshold"
+            ],
+            "description": "Discriminator: the axis was found but scored too low."
+          },
+          "axis": {
+            "$ref": "#/components/schemas/TurningFrame",
+            "description": "The axis found."
+          },
+          "turnability": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "The part’s turnability about the axis found, from 0 to 1. Measured where the part was spun; where an estimate already fell well short of the threshold, that estimate, which reads low by at most a few hundredths."
+          }
+        },
+        "required": [
+          "kind",
+          "axis",
+          "turnability"
+        ],
+        "description": "An axis was found, but the part’s turnability is under the default threshold.",
+        "x-toolpath-experimental": true
+      },
+      "TurningSpinFailed": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "SpinFailed"
+            ],
+            "description": "Discriminator: the part could not be read about its axis."
+          },
+          "axis": {
+            "$ref": "#/components/schemas/TurningFrame",
+            "description": "The axis it was spun about."
+          },
+          "axisSource": {
+            "$ref": "#/components/schemas/AxisSource",
+            "description": "Where that axis came from."
+          },
+          "error": {
+            "type": "string",
+            "description": "What went wrong, for people to read. Its wording may change: branch on `code`."
+          },
+          "code": {
+            "type": "string",
+            "description": "The failure’s category, a stable code to branch on."
+          }
+        },
+        "required": [
+          "kind",
+          "axis",
+          "axisSource",
+          "error",
+          "code"
+        ],
+        "description": "The part could not be spun about its axis, or its outline could not be read.",
+        "x-toolpath-experimental": true
+      },
+      "TurningNotRequested": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "NotRequested"
+            ],
+            "description": "Discriminator: no turning reading was asked for."
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "description": "No turning reading was asked for.",
+        "x-toolpath-experimental": true
+      },
       "Turnability": {
         "oneOf": [
           {
@@ -107,27 +574,11 @@
             "description": "Discriminator identifying a part with a turning axis."
           },
           "direction": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Vec3"
-              },
-              {
-                "type": "object",
-                "properties": {}
-              }
-            ],
+            "$ref": "#/components/schemas/Vec3",
             "description": "Direction of the turning axis, as a unit vector."
           },
           "location": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Vec3"
-              },
-              {
-                "type": "object",
-                "properties": {}
-              }
-            ],
+            "$ref": "#/components/schemas/Vec3",
             "description": "Point on the turning axis, in mm. Purely radial: its projection onto the axis is zero."
           },
           "areaFraction": {
@@ -149,28 +600,6 @@
           "location",
           "areaFraction",
           "volumeFraction"
-        ]
-      },
-      "Vec3": {
-        "type": "object",
-        "properties": {
-          "x": {
-            "type": "number",
-            "description": "X coordinate or direction component."
-          },
-          "y": {
-            "type": "number",
-            "description": "Y coordinate or direction component."
-          },
-          "z": {
-            "type": "number",
-            "description": "Z coordinate or direction component."
-          }
-        },
-        "required": [
-          "x",
-          "y",
-          "z"
         ]
       },
       "HealthResponse": {
@@ -365,6 +794,44 @@
           "status"
         ]
       },
+      "UpdatePartRequest": {
+        "type": "object",
+        "properties": {
+          "directions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                },
+                "z": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "z"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 12,
+            "description": "Directions to analyze the part from beyond those the directions analysis chose — usually ones from the part’s `discoveredDirections`, passed back exactly as served, though any vector within 0.0001 of unit length is taken and normalized. They are added to the part for good: this analysis and every later one, and every plan and toolpath calculation, analyze the part from them too, so a `setupPlan` can state a setup in one and name its features. Each follows the part’s `candidateDirections` in the order added, and every feature the part had keeps its `featureTag`. A direction within 0.1° of one the part has adds nothing, and nor does one whose analysis fails; either is missing from the result’s `candidateDirections`. A part takes at most 12 added directions in all, and there is no removing one. Omit to analyze the part from the directions it has.",
+            "example": [
+              {
+                "x": 1,
+                "y": 0,
+                "z": 0
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "PartMeshJobResponse": {
         "type": "object",
         "properties": {
@@ -415,15 +882,7 @@
             "description": "Version of the Toolpath kernel that produced this part result."
           },
           "units": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ReportUnits"
-              },
-              {
-                "type": "object",
-                "properties": {}
-              }
-            ],
+            "$ref": "#/components/schemas/ReportUnits",
             "description": "Units used by all dimensional values in this part response."
           },
           "regions": {
@@ -445,7 +904,27 @@
             "items": {
               "$ref": "#/components/schemas/Vec3"
             },
-            "description": "Directions from which the part can be machined."
+            "description": "Directions the part was analyzed from, and so the ones its features and a `setupPlan` can name: those the directions analysis chose, best first, then the added directions it could analyze the part from, in the order added."
+          },
+          "discoveredDirections": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Vec3"
+            },
+            "description": "Every direction detected on the part, best first — the axes of its holes and curved walls, the normals of its planes and the axes of its prisms, each both ways round. `candidateDirections` were chosen from these, and any other can be added to the part with **Analyze a part**: pass it back exactly as served. Null on part results made before this was recorded."
+          },
+          "addedDirections": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Vec3"
+            },
+            "description": "The directions this run was asked to analyze the part from beyond those the directions analysis chose: the part’s added directions when it was queued. One missing from `candidateDirections` added nothing. Null on part results made before this was recorded."
           },
           "directionZBounds": {
             "type": [
@@ -467,6 +946,18 @@
               }
             ],
             "description": "How much of the part one turning setup could finish, or null when no reading was taken."
+          },
+          "turning": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Turning"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nWhat reading the part for turning came to, or null when no reading was taken. Narrow on `kind`.",
+            "x-toolpath-experimental": true
           },
           "meshPointCount": {
             "type": "integer",
@@ -512,8 +1003,11 @@
           "regions",
           "features",
           "candidateDirections",
+          "discoveredDirections",
+          "addedDirections",
           "directionZBounds",
           "turnability",
+          "turning",
           "meshPointCount",
           "meshTriangleCount",
           "thumbnailUrl",
@@ -610,28 +1104,16 @@
             "description": "Kernel-recognized feature type. This vocabulary is open-ended as the kernel evolves."
           },
           "machiningDirection": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Vec3"
-              },
-              {
-                "type": "object",
-                "properties": {}
-              }
-            ],
+            "$ref": "#/components/schemas/Vec3",
             "description": "Access direction from which the kernel extracted this feature."
           },
           "axis": {
-            "allOf": [
+            "anyOf": [
               {
                 "$ref": "#/components/schemas/Vec3"
               },
               {
-                "type": [
-                  "object",
-                  "null"
-                ],
-                "properties": {}
+                "type": "null"
               }
             ],
             "description": "Feature-local machining axis, such as a face normal; null for older part results."
@@ -650,15 +1132,7 @@
         "type": "object",
         "properties": {
           "direction": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Vec3"
-              },
-              {
-                "type": "object",
-                "properties": {}
-              }
-            ],
+            "$ref": "#/components/schemas/Vec3",
             "description": "Candidate machining direction whose tool-axis frame defines these bounds."
           },
           "zMin": {
@@ -823,7 +1297,8 @@
         "required": [
           "featureId",
           "featureTag",
-          "featureType"
+          "featureType",
+          "datasheet"
         ]
       },
       "FeatureDatasheet": {
@@ -901,7 +1376,7 @@
             "items": {
               "$ref": "#/components/schemas/PinchPoint"
             },
-            "description": "The places the feature is at its tightest: where the clearance reaches the minimum\n`cd` reports, one disc per stretch of the feature that reaches it, tightest first\nand never more than ten.\n\nThe counterpart of a bound rather than another bound: what these answer is *where*\nthe clearance minimum was decided, which the number itself cannot. A drawing is the\naudience, which is why the list is capped — a feature can tie in dozens of places,\nand the eleventh disc tells a reader nothing the first ten did not.\n\nEmpty for the kinds whose clearance is not measured off a single medial axis — a\nhole, a facing pass, the undercut and layered kinds — so empty is \"nowhere to point\nat\", never \"nowhere is tight\"."
+            "description": "The places the feature is at its tightest: where the clearance reaches the minimum\n`cd` reports, one point per place, in part coordinates, tightest first and never more\nthan ten.\n\nThe counterpart of a bound rather than another bound: what these answer is *where*\nthe clearance minimum was decided, which the number itself cannot. A drawing is the\naudience, which is why the list is capped — a feature can tie in dozens of places,\nand the eleventh point tells a reader nothing the first ten did not.\n\nEmpty for the kinds whose clearance is not measured off a single medial axis — a\nhole, a facing pass, a dovetail and the layered kinds — unless an inside corner with no\nradius is what zeroed the minimum, which is pointed at whatever the kind, or a layered\nkind's minimum is the widest ball reaching all of it, which is pointed at where that\nball is stopped, or a layered kind's minimum is read off one of its slices (a chamfer's),\nwhich is pointed at on that slice. Empty is \"nowhere to point at\", never \"nowhere is\ntight\"."
           },
           "facts": {
             "oneOf": [
@@ -970,7 +1445,7 @@
           "projectedWallArea",
           "facts"
         ],
-        "description": "One feature as machining sees it: static, self-contained, and enough to choose a\ntool against without having the part in hand. All lengths mm and angles degrees;\nz runs up the tool axis, so `zMin` is the bottom of the feature and `zMax` its top.\n\nEvery number in it is finite, so it survives a JSON round trip: a bound nothing sets\nis absent rather than infinite."
+        "description": "One feature as machining sees it: static, self-contained, and enough to choose a tool against without having the part in hand. All lengths mm and angles degrees, in the tool frame of the direction the feature is machined from, whose origin is the part’s own: z runs up the tool axis, so `zMin` is the bottom of the feature and `zMax` its top. A pinch point’s `point` is the exception, in part coordinates.\n\nEvery number in it is finite, so it survives a JSON round trip. A limit nothing sets is `null`, so that every value passes it, except where a field’s description says it is absent instead. Any other field that is omitted has no value to read."
       },
       "QueuePartJobResponse": {
         "type": "object",
@@ -1710,6 +2185,14 @@
             "type": "boolean",
             "description": "Whether the job plans what the crib cannot with fallback tools."
           },
+          "workholding": {
+            "type": "string",
+            "enum": [
+              "thinAir",
+              "syntheticVise"
+            ],
+            "description": "How the job holds the part — the request’s, or `thinAir` when it named none."
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -1729,6 +2212,7 @@
           "doneRegions",
           "stock",
           "fallbackTools",
+          "workholding",
           "status"
         ]
       },
@@ -1964,39 +2448,15 @@
             "type": "object",
             "properties": {
               "location": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/Vec3"
-                  },
-                  {
-                    "type": "object",
-                    "properties": {}
-                  }
-                ],
+                "$ref": "#/components/schemas/Vec3",
                 "description": "The frame’s origin, in part coordinates, mm."
               },
               "axis": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/Vec3"
-                  },
-                  {
-                    "type": "object",
-                    "properties": {}
-                  }
-                ],
+                "$ref": "#/components/schemas/Vec3",
                 "description": "Its z axis, unit length."
               },
               "refDirection": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/Vec3"
-                  },
-                  {
-                    "type": "object",
-                    "properties": {}
-                  }
-                ],
+                "$ref": "#/components/schemas/Vec3",
                 "description": "Its x axis, unit length and square to `axis`."
               }
             },
@@ -2008,27 +2468,11 @@
             "description": "The setup frame the corners are measured in, in part coordinates. A point `(x, y, z)` sits at `location + x·refDirection + y·(axis × refDirection) + z·axis` on the part."
           },
           "lower": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Vec3"
-              },
-              {
-                "type": "object",
-                "properties": {}
-              }
-            ],
+            "$ref": "#/components/schemas/Vec3",
             "description": "The block’s lower corner, in `frame`, mm."
           },
           "upper": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Vec3"
-              },
-              {
-                "type": "object",
-                "properties": {}
-              }
-            ],
+            "$ref": "#/components/schemas/Vec3",
             "description": "The block’s upper corner, in `frame`, mm."
           }
         },
@@ -2050,27 +2494,11 @@
             "description": "A bar: tells it from a `box`."
           },
           "origin": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Vec3"
-              },
-              {
-                "type": "object",
-                "properties": {}
-              }
-            ],
+            "$ref": "#/components/schemas/Vec3",
             "description": "The cylinder’s base center, in part coordinates, mm."
           },
           "axis": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Vec3"
-              },
-              {
-                "type": "object",
-                "properties": {}
-              }
-            ],
+            "$ref": "#/components/schemas/Vec3",
             "description": "Unit vector from the base along the bar, in part coordinates: the first setup’s cutting direction for an upright bar, the part’s long side for one lying down."
           },
           "diameter": {
@@ -2759,7 +3187,7 @@
               "setups"
             ],
             "additionalProperties": false,
-            "description": "The setup plan to extend: setups in machining order, each with one `orientations` entry — a 3-axis setup; features are measured in thin air, which holds one direction per setup, so a 3+2 setup is not stated yet — naming the features (`featureTag`, hex) to machine from its `direction`. A direction must be one a feature of the part was extracted from, passed back exactly as served (a unit vector), and a feature is named under its own direction. The plan made keeps these setups first, in this order, each holding at least the features named (and every other offered feature of its direction), and appends setups where the part needs more. A plan read serves its own `setupPlan`, which can be edited and sent back. Tags are stable only within one `kernelVersion`, and a feature named has to be offered: one no tool in the crib cuts is not. A statement the kernel cannot honor fails the job, whose `error` begins `refused_user_plan:` and gives one clause per refused statement. Omit or null for the kernel’s own plan; on **Calculate a plan’s toolpaths**, omit to keep the plan’s statement and null to clear it.",
+            "description": "The setup plan to extend: setups in machining order, each stated as one `orientations` entry — a setup machines from one direction — naming the features (`featureTag`, hex) to machine from its `direction`. A direction must be one of the part’s `candidateDirections` — the kernel’s choice, or one added with **Analyze a part** — passed back exactly as served (a unit vector), and a feature is named under its own direction. The plan made keeps these setups first, in this order, each holding at least the features named (and every other offered feature of its direction), and appends setups where the part needs more. A plan read serves its own `setupPlan`, which can be edited and sent back. Tags are stable only within one `kernelVersion`, and a feature named has to be offered: one no tool in the crib cuts is not. A statement the kernel cannot honor fails the job, whose `error` begins `refused_user_plan:` and gives one clause per refused statement. Omit or null for the kernel’s own plan; on **Calculate a plan’s toolpaths**, omit to keep the plan’s statement and null to clear it.",
             "example": {
               "setups": [
                 {
@@ -2859,6 +3287,15 @@
             "type": "boolean",
             "description": "Plan what the tool crib cannot. A pass no tool of the crib can play — a hole deeper than its drills reach, a pocket past its endmills’ `maxLengthOverDiameter`, a head no library lists — is given a tool from a last, fallback tier with the reach limits lifted, so the part has a time for it. The crib comes first: a pass any crib tool can play keeps that tool. Each fallback tool is marked `outsideCrib` on the plan’s actions, with why the crib had none. Omit or false for today’s plans, which leave such passes `unmachined`. Not carried by a recalculation: state it on each request that wants it.",
             "example": true
+          },
+          "workholding": {
+            "type": "string",
+            "enum": [
+              "thinAir",
+              "syntheticVise"
+            ],
+            "description": "How the part is held. `thinAir`, the default, holds it by nothing: the optimistic answer, since a fixture only ever takes reach away. `syntheticVise` holds it in a vise sized to whatever it closes on, its jaws along each setup’s y, so a jaw blocks the reach it would. The first setup grips the initial stock, every later setup the part as cut; the jaws reach 5.35 mm up whatever they close on, at most half its height. The planner chooses the first setup among the directions the stock can be gripped in. A job no first setup can start fails, its `error` beginning `invalid_argument: setup planning: no fixture on the initial stock holds a first setup`; a `setupPlan` whose first setup cannot start fails as `refused_user_plan:`. Faces a jaw leaves out of reach are reported as the plan’s `issues`. Omit on **Calculate a plan’s toolpaths** to keep the plan’s.",
+            "example": "syntheticVise"
           }
         },
         "additionalProperties": false
@@ -2935,7 +3372,7 @@
               "planned",
               "toolpathed"
             ],
-            "description": "Fidelity of this plan: `planned` (setups and action-specs only) or `toolpathed` (toolpaths also calculated)."
+            "description": "Fidelity of this plan: `planned` (setups and action-specs only) or `toolpathed` (toolpaths also calculated). See PlanResponse.level for when a plan is readable at `planned`."
           },
           "issues": {
             "type": "array",
@@ -3004,7 +3441,7 @@
           "jobId": {
             "type": "string",
             "format": "uuid",
-            "description": "Identifier of the job that produced this plan."
+            "description": "Identifier of the job that produced this plan. A toolpath calculation records itself here as soon as it has planned the part, while it cuts; a `toolpathed` plan keeps the job of its last result until a recalculation completes. Compare it with the job you queued."
           },
           "kernelVersion": {
             "type": "string",
@@ -3069,13 +3506,21 @@
             ],
             "description": "The saved stock input and the initial geometry the kernel resolved from it."
           },
+          "workholding": {
+            "type": "string",
+            "enum": [
+              "thinAir",
+              "syntheticVise"
+            ],
+            "description": "How the plan’s job held the part, which a recalculation that names none holds it by. `thinAir` for plans made before Engine API 1.24.0."
+          },
           "level": {
             "type": "string",
             "enum": [
               "planned",
               "toolpathed"
             ],
-            "description": "Fidelity of this plan: `planned` (setups and action-specs only) or `toolpathed` (toolpaths also calculated — fetch them at /plans/{planId}/toolpaths)."
+            "description": "Fidelity of this plan: `planned` (setups and action-specs only) or `toolpathed` (toolpaths also calculated — fetch them at /plans/{planId}/toolpaths). A plan is readable at `planned` as soon as a calculation has planned the part, while `jobId` names the job cutting it. A `toolpathed` plan keeps its last result while it is recalculated. After a failed calculation the plan stays as its last successful run left it, or `planned` under the failed job."
           },
           "issues": {
             "type": "array",
@@ -3196,6 +3641,7 @@
           "kernelVersion",
           "material",
           "stock",
+          "workholding",
           "level",
           "issues",
           "setups",
@@ -3876,15 +4322,7 @@
             "description": "Version of the Toolpath kernel that produced this holder result."
           },
           "units": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/HolderUnits"
-              },
-              {
-                "type": "object",
-                "properties": {}
-              }
-            ],
+            "$ref": "#/components/schemas/HolderUnits",
             "description": "Units used by all dimensional values in this holder response."
           },
           "options": {
@@ -3941,39 +4379,15 @@
             "description": "Which interface `sizeClass` belongs to, or null when no taper was found. Read the two together: an HSK40 and an ISO40 are both 40 and are otherwise nothing alike."
           },
           "axisDirection": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/HolderVec3"
-              },
-              {
-                "type": "object",
-                "properties": {}
-              }
-            ],
+            "$ref": "#/components/schemas/HolderVec3",
             "description": "The axis the holder turns about, as a unit vector in the file’s coordinates. Its sign is arbitrary — it says nothing about which end goes in the spindle. The holder runs nose to spindle along it unless `flipped`."
           },
           "axisLocation": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/HolderVec3"
-              },
-              {
-                "type": "object",
-                "properties": {}
-              }
-            ],
+            "$ref": "#/components/schemas/HolderVec3",
             "description": "A point on that axis, purely radial. With `nose` it is what puts the layer stack back on the geometry it was measured from."
           },
           "nose": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/HolderVec3"
-              },
-              {
-                "type": "object",
-                "properties": {}
-              }
-            ],
+            "$ref": "#/components/schemas/HolderVec3",
             "description": "Where the holder’s nose sits, in the file’s coordinates. The layer stack starts here."
           },
           "axisAreaFraction": {
@@ -4349,9 +4763,9 @@
             "type": "number",
             "description": "How far the bevel runs along its own slope — the length of cutting edge a tool\nneeds to span it in one pass."
           },
-          "lowerAdjacentZMin": {
-            "type": "number",
-            "description": "The highest bottom among the features the bevel stands on — how far down there\nis room under it before a tool would meet something. z grows up the tool axis,\nso this is *below* the bevel's own `zMin` by the room there is."
+          "curve": {
+            "$ref": "#/components/schemas/ChamferCurve",
+            "description": "The bevel's `ChamferCurve`. Omitted where the measurement made none — the bevel is not\none a cone rides along, in this direction — and such a bevel refuses every cone."
           },
           "countersink": {
             "$ref": "#/components/schemas/SinkFacts",
@@ -4361,15 +4775,23 @@
             "type": "boolean",
             "deprecated": true,
             "description": "Deprecated: whether the bevel breaks the edge along the floor of an open pocket. tp-kernel 0.15.0 no longer computes it, so a feature enriched since reads `false`; tool matching reads `three.isEdgeBreak` in its place. Removed in the next API major."
+          },
+          "lowerAdjacentZMin": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "deprecated": true,
+            "description": "Deprecated: the highest bottom among the features the bevel stands on — how far down there is room under it before a tool would meet something. tp-kernel 0.24.0 replaced it with `curve`, which bounds a cone by everything around the bevel, so a feature enriched since Engine API 1.29.0 reads `null`; one enriched earlier keeps its number. Removed in the next API major."
           }
         },
         "required": [
           "angleDeg",
           "slant",
-          "lowerAdjacentZMin",
-          "isOpenPocketBottom"
+          "isOpenPocketBottom",
+          "lowerAdjacentZMin"
         ],
-        "description": "The bevel itself: how it leans, how far it runs, and what its surroundings allow a\ncone to overshoot."
+        "description": "The bevel half of a chamfer: how it leans, how far it runs, and where its surroundings\nlet a cone ride it."
       },
       "BossFacts": {
         "type": "object",
@@ -4426,7 +4848,7 @@
                 "null"
               ]
             },
-            "description": "Ascending from zero, the flat, in mm; the last is the largest corner a tool reaching all\nof the surface may have. Absent where the shape limits no corner, and then the curve is\nunbounded throughout."
+            "description": "Ascending from zero, the flat, in mm; the last is the largest corner a tool reaching all\nof the surface may have. `null` where the shape limits no corner, and then the curve is\nunbounded throughout."
           },
           "bottomDiameter": {
             "type": "array",
@@ -4436,14 +4858,14 @@
                 "null"
               ]
             },
-            "description": "Widest bottom at each corner, beside it, in mm; absent where the shape limits none."
+            "description": "Widest bottom at each corner, beside it, in mm; `null` where the shape limits none."
           }
         },
         "required": [
           "cornerRadius",
           "bottomDiameter"
         ],
-        "description": "The tool geometry a surface's own shape admits, before the layers are consulted: at each\ncorner radius, the widest flat bottom `D − 2r` a bullnose carrying it may have and still\nreach all of the surface. A tool with corner `r` reaches all of it when its diameter is at\nmost `2·rᵢ + bᵢ` at a stored corner `rᵢ`; `2·r + min(bᵢ, bᵢ₊₁)` between two, `rᵢ < r < rᵢ₊₁`,\nsince the bottom never widens as the corner grows; and `2·r_last + b_last` past the last.\nAn absent bottom limits nothing at its point."
+        "description": "The tool geometry a surface's own shape admits, before the layers are consulted: at each\ncorner radius, the widest flat bottom `D − 2r` a bullnose carrying it may have and still\nreach all of the surface. A tool with corner `r` reaches all of it when its diameter is at\nmost `2·rᵢ + bᵢ` at a stored corner `rᵢ`; `2·r + min(bᵢ, bᵢ₊₁)` between two, `rᵢ < r < rᵢ₊₁`,\nsince the bottom never widens as the corner grows; and `2·r_last + b_last` past the last.\nA `null` bottom limits nothing at its point."
       },
       "CdBounds": {
         "type": "object",
@@ -4482,7 +4904,7 @@
           },
           "measurementFailed": {
             "type": "boolean",
-            "description": "The clearance measurement was owed and failed, so every regime reads zero and no tool\nis offered on its strength. Never set on a hole, whose clearance is written down rather\nthan measured, or on a facing pass, which owes none. A surface measured in layers sets\nit when every layer that crossed the surface failed. On a chamfer it is the surface\nhalf's: the tools that follow the bevel are refused, and the cone, which the bevel\nbounds, is still offered and planned."
+            "description": "The clearance measurement was owed and failed, so every regime reads zero and no tool\nis offered on its strength. Never set on a hole, whose clearance is written down rather\nthan measured, or on a facing pass, which owes none. A surface measured in layers sets\nit when every layer that crossed the surface failed. On a chamfer it is the surface\nhalf's: the tools that follow the bevel as a surface are refused, and a cone riding the\nbevel, which the bevel bounds, is still offered and planned."
           }
         },
         "required": [
@@ -4491,6 +4913,60 @@
           "effectiveAdaptive"
         ],
         "description": "Clearance-diameter bounds per tolerance regime, plus the flags derived with them."
+      },
+      "ChamferCurve": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "slope": {
+            "type": "number",
+            "description": "The bevel's rise over run, a ratio: 1 for a 45° chamfer."
+          },
+          "height": {
+            "type": "number",
+            "description": "The bevel's rise, in mm, from its lower edge to its upper edge. A tool's rim sits at or\nabove it."
+          },
+          "minU": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "The furthest left a rim's near corner may stand, in mm, negative: where the near side\nstops it. `null` where the near side is open, so that no rim stands too far left. Read\nit as `-Infinity`, not `?? Infinity`: it is the datasheet's one lower bound."
+          },
+          "maxU": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "The furthest right a rim's far corner may stand, in mm, positive: where the far side\nstops it. `null` where the far side is open above the upper edge, so that no rim\nstands too far right."
+          },
+          "z": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "Tip heights, in mm, ascending, each at or below the lower edge and so zero or negative;\nthe first is the deepest tip the curve places."
+          },
+          "flat": {
+            "type": "array",
+            "items": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "description": "The widest flat at each tip height, in mm, beside it; `null` where the far side is open\nbelow the upper edge, so that no flat is too wide there."
+          }
+        },
+        "required": [
+          "slope",
+          "height",
+          "minU",
+          "maxU",
+          "z",
+          "flat"
+        ],
+        "description": "What a bevel's surroundings allow a chamfer tool riding it: how deep its tip may sit below\nthe bevel's lower edge, how wide its flat bottom may be at that depth, and how far its rim\nmay reach to either side. Every cone a tool matcher accepts for the bevel is read off this.\n\nThe picture is the bevel cut straight across, square to its edge: `u` runs across the cut\nand `z` up the tool axis, both in mm, with the bevel's lower edge at `u = 0, z = 0`. The\nbevel rises to the left, to its upper edge at `z = height`. The face above the upper edge\nis the *near side*, on the left; whatever lies past the lower edge is the *far side*, on\nthe right. Each figure is the nearest obstacle anywhere along the bevel's edge, so this one\ncut stands for the whole bevel. `slope` is the bevel's rise over run, a ratio: 1 for a 45°\nchamfer.\n\nA chamfer tool is a cone ground to the bevel's angle, described by three numbers: its tip\noffset `t`, how far its tip sits below the lower edge; its flat `b`, the diameter of the\nflat bottom at its tip, zero for a pointed tool; and its cone height `H`, from the tip up\nto the rim, where the cone is widest. Riding the bevel, the cone's near flank lies along\nthe bevel's own line, so its rim sits at height `H − t`, with its near corner at\n`u = −(H − t) / slope` and its far corner at `u = (t + H) / slope + b`. Above the rim the\nshank is no wider than the rim.\n\nThe curve admits a tool when three things hold:\n\n- It spans the bevel: its rim sits at or above the upper edge, `H − t >= height`.\n- Its flat fits: `b` is at most the widest flat at its tip height `z = −t`. `z` and `flat`\n  are parallel, `z` ascending from the deepest tip the curve places to at or below the\n  lower edge. For the last `z[i]` at or below the tip height, the widest flat is\n  `flat[i] + 2 (z − z[i]) / slope`, widening as the tip rises; no tip sits below `z[0]`.\n- Its rim fits: both rim corners lie between `minU` and `maxU`, the near corner at or\n  right of `minU` and the far corner at or left of `maxU`.\n\nEvery key is always present; a bound nothing sets is `null`."
       },
       "ChamferFacts": {
         "type": "object",
@@ -4655,6 +5131,26 @@
         ],
         "description": "What kind of thing a feature is, and so how it gets machined. The names are the\ncontract at this boundary (the shared numeric wire format stays inside the binary\nAPI)."
       },
+      "HoleBottom": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "z": {
+            "type": "number",
+            "description": "Where the bottom reaches the axis, in mm."
+          },
+          "coneDeg": {
+            "type": "number",
+            "description": "The full apex angle of its cone, in degrees: 180 for a flat bottom."
+          }
+        },
+        "required": [
+          "z",
+          "coneDeg"
+        ],
+        "description": "Where a blind hole ends.",
+        "x-toolpath-experimental": true
+      },
       "HoleFacts": {
         "type": "object",
         "additionalProperties": false,
@@ -4666,7 +5162,7 @@
           },
           "diameter": {
             "type": "number",
-            "description": "What the hole is actually drilled to — narrower than modelled for a threaded\nhole."
+            "description": "What the hole is actually drilled to — narrower than modeled for a threaded\nhole."
           },
           "fullConeDeg": {
             "type": "number",
@@ -4741,6 +5237,65 @@
         ],
         "description": "How the user wants a hole machined."
       },
+      "HoleStep": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "diameter": {
+            "type": "number",
+            "description": "In mm."
+          },
+          "zMin": {
+            "type": "number",
+            "description": "Where it starts along the axis, in mm."
+          },
+          "zMax": {
+            "type": "number",
+            "description": "Where it ends along the axis, in mm."
+          }
+        },
+        "required": [
+          "diameter",
+          "zMin",
+          "zMax"
+        ],
+        "description": "One cylinder of an axial hole.",
+        "x-toolpath-experimental": true
+      },
+      "HoleThread": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "threadSpec": {
+            "$ref": "#/components/schemas/ThreadSpec",
+            "description": "The catalog thread."
+          },
+          "zMin": {
+            "type": "number",
+            "description": "Where it starts along the axis, in mm."
+          },
+          "zMax": {
+            "type": "number",
+            "description": "Where it ends along the axis, in mm."
+          }
+        },
+        "required": [
+          "threadSpec",
+          "zMin",
+          "zMax"
+        ],
+        "description": "A thread cut in an axial hole.",
+        "x-toolpath-experimental": true
+      },
+      "MountingAxis": {
+        "type": "string",
+        "enum": [
+          "Radial",
+          "Axial"
+        ],
+        "description": "How a tool must be mounted to reach a feature.",
+        "x-toolpath-experimental": true
+      },
       "OffsetLength": {
         "type": "object",
         "additionalProperties": false,
@@ -4751,7 +5306,7 @@
           },
           "dlDr": {
             "type": "number",
-            "description": "How the travelled length changes per mm of tool radius: the outline's total signed\nturning, in radians and so dimensionless. Negative around an outline a tool runs\ninside of, positive around one it runs outside of, and `±2π` where the outline closes."
+            "description": "How the traveled length changes with tool radius, mm of length per mm of radius and so\ndimensionless: the outline's total signed turning. Negative around an outline a tool\nruns inside of, positive around one it runs outside of, and `±2π` where the outline\ncloses."
           }
         },
         "required": [
@@ -4764,20 +5319,25 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "center": {
-            "$ref": "#/components/schemas/Vec2",
-            "description": "The disc's center, across the part rather than along the tool."
+          "point": {
+            "$ref": "#/components/schemas/Vec3",
+            "description": "Where, in part coordinates: at the feature's bottom where a width or a corner the\nclearance measured is tight (a t-slot's and a layered kind's at the height it was\nmeasured at), at the middle of the corner's edge where an inside corner with no radius\nis, and at the center of the ball that stands there where a surface's minimum is the\nwidest ball reaching all of it — so not necessarily at the bottom."
           },
           "diameter": {
             "type": "number",
-            "description": "The disc's diameter, which is the clearance there — the datasheet's minimum\nclearance diameter, up to the tolerance it was measured at."
+            "description": "The clearance there — the datasheet's minimum clearance diameter for the tightest, up\nto the tolerance it was measured at."
+          },
+          "center": {
+            "$ref": "#/components/schemas/Vec2",
+            "deprecated": true,
+            "description": "Deprecated: `point`, across the tool: its x and y in the frame the rest of the datasheet is in, the tool frame of the direction the feature is machined from. A feature enriched since Engine API 1.28.0 reads it off `point`, and one enriched earlier keeps the `center` it stored, with no `point`. Removed in the next API major."
           }
         },
         "required": [
-          "center",
-          "diameter"
+          "diameter",
+          "center"
         ],
-        "description": "Where a feature is at its tightest: one place its clearance reaches the minimum, as the\ndisc that measures it.\n\nThe disc fits in the space the clearance was measured in and touches the feature\nboundary, so a cylinder of `diameter` standing at `center` and spanning the datasheet's\n`zMin`..`zMax` is exactly the widest tool that reaches the boundary there — which is what\nmakes these drawable. Same tool frame as the rest of the datasheet; mm."
+        "description": "Where a feature is at its tightest: one place that sets its clearance minimum, as a point.\n\nIn part coordinates, mm, unlike the rest of the datasheet, so it draws over the part’s own mesh as it stands. Its height along the tool, the z the rest of the datasheet is read in, is its dot product with the feature’s `machiningDirection`, since the tool frame’s origin is the part’s own. One point per place, whatever shape the place has."
       },
       "PocketFacts": {
         "type": "object",
@@ -4837,7 +5397,7 @@
           },
           "length": {
             "type": "number",
-            "description": "How far the pass travels, mm — the outline's own length. The `radius = 0` term of\n`wallLength`, kept because it is what this boundary has always published; prefer the\noutline itself, which measures the path of the tool actually used."
+            "description": "How far the pass travels, mm — the outline's own length, the `radius = 0` term of\n`wallLength`. Prefer `wallLength`, which measures the path of the tool actually used."
           },
           "wallLength": {
             "$ref": "#/components/schemas/OffsetLength",
@@ -4845,7 +5405,7 @@
           },
           "isModified": {
             "type": "boolean",
-            "description": "Whether the outline is the part's silhouette or the bridged reading of it."
+            "description": "True where the outline is the bridged reading of the part's silhouette, false where\nit is the silhouette itself."
           }
         },
         "required": [
@@ -4879,7 +5439,7 @@
           "horizontalOffset",
           "verticalOffset"
         ],
-        "description": "Surrounding material height as a function of distance from the feature. Material\nwithin `horizontalOffset[i]` rises to `verticalOffset[i]` above the feature. Each\nreading is the worst case over the feature's whole surface, measured above each\nsampled point.\nBoth arrays are the same length, ascending, non-negative, in mm. Evaluate the step\nfunction at the first knot whose horizontal offset is at least the query distance;\nqueries beyond the last knot clamp to it.\n\nThe last knot can stand well beyond the others, at the plan-view diagonal of the part and\nits fixtures: where material anywhere in the setup stands taller than the nearer offsets\nread, that knot carries it, since the spindle face atop a finite holder has to clear it\nhowever far off it stands.\n\nOffsets start at the feature, not the tool axis, and retain no obstacle direction.\nFor an open feature, the cutter can sit between its contact point and an obstacle.\nA cylindrical holder of radius `R` at least as large as the cutting radius `r` reads\nthe curve at `R + r`: that height is the required stickout before clearances. For example, a\nØ10 cutter with a Ø24 holder reads at 17 mm from the feature, not 7 mm.\n\n![A cutter beside an external wall, with an obstacle beyond the cutter: the holder\nfootprint extends R + r from the contact point](./media/reach-curve.svg)\n\nClosed features allow an optimization: enclosing material lies beyond the cutting\nedge away from the axis, so a holder wider than the cutter reads at `R - r` instead;\na holder narrower than the cutter adds no reach constraint. Tool checks\nuse this for holes, sinks, non-open pockets, U-slots and threads; potentially open\nfeature kinds use the conservative `R + r` footprint. The curve can overestimate\nholder reach because it has lost obstacle direction; it is not a collision proof.\n\n![A cutter inside a closed pocket, with horizontal offsets measured outward from\nits floor and vertical offsets measured upward](./media/reach-curve-closed.svg)\n\nHere the cutter sits inside the pocket. Only the holder's overhang beyond the\ncutting edge, `R - r`, extends over the surrounding material.\n\nShaft checks (neck, shoulder and shank) retain the enclosed-cut rule. Tool checks\nsweep tapered shaft and holder layers with their heights and clearances; the\ncylindrical example above explains\nthe holder footprint. Callers can draw the curve or sweep an envelope of their own."
+        "description": "Surrounding material height as a function of distance from the feature. Material\nwithin `horizontalOffset[i]` rises to `verticalOffset[i]` above the feature. Each\nreading is the worst case over the feature's whole surface, measured above each\nsampled point.\nBoth arrays are the same length, ascending, non-negative, in mm. Evaluate the step\nfunction at the first knot whose horizontal offset is at least the query distance;\nqueries beyond the last knot clamp to it.\n\nThe last knot can stand well beyond the others, at the plan-view diagonal of the part and\nits fixtures: where material anywhere in the setup stands taller than the nearer offsets\nread, that knot carries it, since the spindle face atop a finite holder has to clear it\nhowever far off it stands.\n\nOffsets start at the feature, not the tool axis, and retain no obstacle direction.\nFor an open feature, the cutter can sit between its contact point and an obstacle.\nA cylindrical holder of radius `R` at least as large as the cutting radius `r` reads\nthe curve at `R + r`: that height is the required stickout before clearances. For example, a\nØ10 cutter with a Ø24 holder reads at 17 mm from the feature, not 7 mm.\n\n![A cutter beside an external wall, with an obstacle beyond the cutter: the holder\nfootprint extends R + r from the contact point](./media/reach-curve.svg)\n\nClosed features allow an optimization: enclosing material lies beyond the cutting\nedge away from the axis, so a holder wider than the cutter reads at `R - r` instead;\na holder narrower than the cutter adds no reach constraint. Tool checks\nuse this for holes, sinks, non-open pockets, U-slots and threads; potentially open\nfeature kinds use the conservative `R + r` footprint. The curve can overestimate\nholder reach because it has lost obstacle direction; it is not a collision proof.\n\n![A cutter inside a closed pocket, with horizontal offsets measured outward from\nits floor and vertical offsets measured upward](./media/reach-curve-closed.svg)\n\nHere the cutter sits inside the pocket. Only the holder's overhang beyond the\ncutting edge, `R - r`, extends over the surrounding material.\n\nShaft checks (neck, shoulder, and shank) read every feature as the closed pocket above, at\n`R - r`. Tool checks sweep tapered shaft and holder layers with their heights and\nclearances; the cylindrical example above explains the holder footprint. Callers can draw\nthe curve or sweep an envelope of their own."
       },
       "SinkFacts": {
         "type": "object",
@@ -4887,7 +5447,7 @@
         "properties": {
           "center": {
             "$ref": "#/components/schemas/Vec2",
-            "description": "Where the cone's axis crosses the plane the contours are read in (the tool\nframe's) — the sink's position across the part, not along the tool."
+            "description": "Where the cone’s axis crosses the plane the contours are read in, as x and y in the datasheet’s frame — the sink’s position across the part, not along the tool."
           },
           "innerRadius": {
             "type": "number",
@@ -4904,6 +5464,40 @@
           "outerRadius"
         ],
         "description": "A countersink read as a cone of revolution: the circle its bevel starts from and the\none it opens to."
+      },
+      "SlopeSpan": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "zMin": {
+            "type": "number",
+            "description": "Where it starts along the axis, in mm."
+          },
+          "zMax": {
+            "type": "number",
+            "description": "Where it ends along the axis, in mm."
+          },
+          "facing": {
+            "$ref": "#/components/schemas/AxialDirection",
+            "description": "For a wall square to the axis, the way it faces: away from the material behind it."
+          },
+          "steepestRiseMinusZDeg": {
+            "type": "number",
+            "description": "The steepest the curve climbs away from the axis, fed toward −z, in degrees."
+          },
+          "steepestFallMinusZDeg": {
+            "type": "number",
+            "description": "The steepest the curve drops toward the axis, fed toward −z, in degrees. Fed\ntoward +z, rise and fall trade places."
+          }
+        },
+        "required": [
+          "zMin",
+          "zMax",
+          "steepestRiseMinusZDeg",
+          "steepestFallMinusZDeg"
+        ],
+        "description": "One of a feature's curves, and how steeply it rises and falls along a feed.",
+        "x-toolpath-experimental": true
       },
       "SurfaceAreas": {
         "type": "object",
@@ -5186,24 +5780,230 @@
         ],
         "description": "A t-slot: a groove cut sideways into a wall or around a post, under a ceiling the\nmachining direction cannot see past."
       },
+      "TurnedAxialHoleFacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "AxialHole",
+            "description": "Discriminant of the facts union; always `'AxialHole'` here."
+          },
+          "through": {
+            "type": "boolean",
+            "description": "Whether it runs through the part."
+          },
+          "depth": {
+            "type": "number",
+            "description": "Its extent along the axis, in mm."
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HoleStep"
+            },
+            "description": "Its cylinders, from the mouth inward."
+          },
+          "bottom": {
+            "$ref": "#/components/schemas/HoleBottom",
+            "description": "Where a blind hole ends; absent for a through hole."
+          },
+          "thread": {
+            "$ref": "#/components/schemas/HoleThread",
+            "description": "The thread cut in it, along the thread modeled in its narrowest step, the one it is drilled at: the catalog thread the modeled one was taken for. Absent for a plain hole, and where the catalog lists no thread for the modeled one."
+          }
+        },
+        "required": [
+          "kind",
+          "through",
+          "depth",
+          "steps"
+        ],
+        "description": "A hole on the axis.",
+        "x-toolpath-experimental": true
+      },
+      "TurnedFaceFacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "Face",
+            "description": "Discriminant of the facts union; always `'Face'` here."
+          },
+          "z": {
+            "type": "number",
+            "description": "Where it stands along the axis, in mm. It looks toward the end it is cut from, its\nfeature's `approach`."
+          }
+        },
+        "required": [
+          "kind",
+          "z"
+        ],
+        "description": "A face square to the axis.",
+        "x-toolpath-experimental": true
+      },
+      "TurnedFaceGrooveFacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "FaceGroove",
+            "description": "Discriminant of the facts union; always `'FaceGroove'` here."
+          },
+          "width": {
+            "type": "number",
+            "description": "Its extent across the axis, in mm."
+          },
+          "depth": {
+            "type": "number",
+            "description": "How far it goes in along the axis, in mm, from a face that looks toward the end it\nis cut from, its feature's `approach`."
+          }
+        },
+        "required": [
+          "kind",
+          "width",
+          "depth"
+        ],
+        "description": "A groove cut axially into a face.",
+        "x-toolpath-experimental": true
+      },
+      "TurnedFeatureType": {
+        "type": "string",
+        "enum": [
+          "OdProfile",
+          "Face",
+          "OdGroove",
+          "FaceGroove",
+          "FaceProfile",
+          "OdThread",
+          "AxialHole",
+          "IdProfile",
+          "IdGroove",
+          "IdThread"
+        ],
+        "description": "What a turned feature is.",
+        "x-toolpath-experimental": true
+      },
+      "TurnedGrooveFacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "OdGroove"
+              },
+              {
+                "type": "string",
+                "const": "IdGroove"
+              }
+            ],
+            "description": "Discriminant of the facts union: the feature's type."
+          },
+          "width": {
+            "type": "number",
+            "description": "Its extent along the axis, in mm."
+          },
+          "depth": {
+            "type": "number",
+            "description": "How far it goes in radially, in mm."
+          }
+        },
+        "required": [
+          "kind",
+          "width",
+          "depth"
+        ],
+        "description": "A groove cut radially, into the outside or into a hole's wall.",
+        "x-toolpath-experimental": true
+      },
+      "TurnedOutlineFacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "OdProfile"
+              },
+              {
+                "type": "string",
+                "const": "FaceProfile"
+              },
+              {
+                "type": "string",
+                "const": "IdProfile"
+              }
+            ],
+            "description": "Discriminant of the facts union: the feature's type."
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "description": "A feature with no measurements of its own: `OdProfile`, `FaceProfile` or\n`IdProfile`. Its datasheet's bounds and slopes say what it asks of\na tool.",
+        "x-toolpath-experimental": true
+      },
+      "TurnedThreadFacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "OdThread"
+              },
+              {
+                "type": "string",
+                "const": "IdThread"
+              }
+            ],
+            "description": "Discriminant of the facts union: the feature's type."
+          },
+          "pitch": {
+            "type": "number",
+            "description": "In mm."
+          },
+          "depth": {
+            "type": "number",
+            "description": "Thread depth, in mm."
+          },
+          "threadSpec": {
+            "$ref": "#/components/schemas/ThreadSpec",
+            "description": "The catalog thread its modeled thread was taken for. Absent where the catalog lists none."
+          }
+        },
+        "required": [
+          "kind",
+          "pitch",
+          "depth"
+        ],
+        "description": "A thread.",
+        "x-toolpath-experimental": true
+      },
       "Vec2": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "x": {
             "type": "number",
-            "description": "Horizontal x coordinate in the current frame."
+            "description": "The plane's first coordinate."
           },
           "y": {
             "type": "number",
-            "description": "Horizontal y coordinate in the current frame."
+            "description": "The plane's second coordinate."
           }
         },
         "required": [
           "x",
           "y"
         ],
-        "description": "A 2D vector (a plain `{ x, y }` object)."
+        "description": "A 2D vector (a plain `{ x, y }` object), in the plane its holder names: a tool frame's\n`(x, y)` across the tool, or a turned part's `(z, r)` as `{ x: z, y: r }`."
       },
       "WallFacts": {
         "type": "object",
@@ -5227,7 +6027,7 @@
           "kind",
           "cd"
         ],
-        "description": "A wall: a run of surface square to the tool axis, with no floor of its own."
+        "description": "A wall: a run of surface parallel to the tool axis, with no floor of its own."
       }
     },
     "parameters": {}
@@ -5504,7 +6304,7 @@
         "x-toolpath-product": "dfm",
         "x-toolpath-metered": true,
         "summary": "Analyze a part",
-        "description": "Queues machining analysis for an uploaded part and returns a job. Track the job, then read the result with **Get a part** (`GET /parts/{id}`).",
+        "description": "Queues machining analysis for an uploaded part and returns a job. Track the job, then read the result with **Get a part** (`GET /parts/{id}`). A body may add `directions` to analyze the part from beyond those the directions analysis chose.",
         "parameters": [
           {
             "schema": {
@@ -5525,10 +6325,10 @@
               ],
               "default": "false",
               "example": "true",
-              "description": "When true, generate detailed machining data for recognized features. Defaults to false."
+              "description": "When true, generate detailed machining data for recognized features, turned features included. Defaults to false."
             },
             "required": false,
-            "description": "When true, generate detailed machining data for recognized features. Defaults to false.",
+            "description": "When true, generate detailed machining data for recognized features, turned features included. Defaults to false.",
             "name": "featureDetails",
             "in": "query"
           },
@@ -5544,6 +6344,16 @@
             "in": "header"
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePartRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "description": "The processing job was accepted.",
@@ -5556,7 +6366,7 @@
             }
           },
           "400": {
-            "description": "The request is invalid.",
+            "description": "The request is invalid, or would give the part more added directions than it may have.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5567,6 +6377,16 @@
           },
           "401": {
             "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization has used its included quota for this operation and is out of usage credits or over its monthly spend limit.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6159,6 +6979,16 @@
               }
             }
           },
+          "402": {
+            "description": "The organization has used its included quota for this operation and is out of usage credits or over its monthly spend limit.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "403": {
             "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
             "content": {
@@ -6337,7 +7167,7 @@
         "x-toolpath-metered": true,
         "x-toolpath-experimental": true,
         "summary": "Create a plan",
-        "description": "Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality. These experimental operations may change, including breaking request and response changes, without an API major version bump while in beta. Check release notes before upgrading.",
+        "description": "Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {
@@ -6394,6 +7224,16 @@
           },
           "401": {
             "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization has used its included quota for this operation and is out of usage credits or over its monthly spend limit.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6463,7 +7303,7 @@
         "x-toolpath-metered": false,
         "x-toolpath-experimental": true,
         "summary": "List plans",
-        "description": "Lists the plans created for a part, newest first. Create them first with **Create a plan** (`POST /parts/{id}/plans`); a part with no plans returns an empty page.\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality. These experimental operations may change, including breaking request and response changes, without an API major version bump while in beta. Check release notes before upgrading.",
+        "description": "Lists the plans created for a part, newest first. Create them first with **Create a plan** (`POST /parts/{id}/plans`); a part with no plans returns an empty page.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {
@@ -6594,7 +7434,7 @@
         "x-toolpath-metered": true,
         "x-toolpath-experimental": true,
         "summary": "Calculate toolpaths",
-        "description": "Creates a plan and calculates its toolpaths in one step, returning a job. Track the job, then read the result with **Get toolpaths** (`GET /plans/{planId}/toolpaths`) and **Get machining time** (`GET /plans/{planId}/machining-time`).\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality. These experimental operations may change, including breaking request and response changes, without an API major version bump while in beta. Check release notes before upgrading.",
+        "description": "Creates a plan and calculates its toolpaths in one step, returning a job. Track the job, then read the result with **Get toolpaths** (`GET /plans/{planId}/toolpaths`) and **Get machining time** (`GET /plans/{planId}/machining-time`).\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {
@@ -6630,7 +7470,7 @@
         },
         "responses": {
           "202": {
-            "description": "The toolpath job was accepted; poll /plans/{planId}/toolpaths for the calculated result.",
+            "description": "The toolpath job was accepted; poll /plans/{planId}/toolpaths for the calculated result. The plan is readable at `planned` (GET /plans/{planId}) as soon as the job has planned the part, with `jobId` naming this job; it becomes `toolpathed` when the cuts are done. A failed job leaves it `planned` under the failed job.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6651,6 +7491,16 @@
           },
           "401": {
             "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization has used its included quota for this operation and is out of usage credits or over its monthly spend limit.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6722,7 +7572,7 @@
         "x-toolpath-metered": true,
         "x-toolpath-experimental": true,
         "summary": "Calculate a plan’s toolpaths",
-        "description": "Calculates toolpaths for an existing plan and returns a job — for a workflow that creates a plan first with **Create a plan** (`POST /parts/{id}/plans`) and calculates its toolpaths afterward, and for recomputing a plan’s toolpaths. Track the job, then read the result with **Get toolpaths** (`GET /plans/{planId}/toolpaths`) and **Get machining time** (`GET /plans/{planId}/machining-time`).\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality. These experimental operations may change, including breaking request and response changes, without an API major version bump while in beta. Check release notes before upgrading.",
+        "description": "Calculates toolpaths for an existing plan and returns a job — for a workflow that creates a plan first with **Create a plan** (`POST /parts/{id}/plans`) and calculates its toolpaths afterward, and for recomputing a plan’s toolpaths. Track the job, then read the result with **Get toolpaths** (`GET /plans/{planId}/toolpaths`) and **Get machining time** (`GET /plans/{planId}/machining-time`).\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {
@@ -6758,7 +7608,7 @@
         },
         "responses": {
           "202": {
-            "description": "The toolpath job was accepted; it recomputes onto this plan. Poll /plans/{planId}/toolpaths.",
+            "description": "The toolpath job was accepted; it recomputes onto this plan. Poll /plans/{planId}/toolpaths. A `toolpathed` plan keeps its last result while the job runs, and its `jobId` moves to this job when it completes; a plan that was `planned` is rewritten under this job as soon as it has been re-planned. A failed job leaves a `toolpathed` plan as it was. Compare `jobId` with the job you queued.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6779,6 +7629,16 @@
           },
           "401": {
             "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The organization has used its included quota for this operation and is out of usage credits or over its monthly spend limit.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6848,7 +7708,7 @@
         "x-toolpath-metered": false,
         "x-toolpath-experimental": true,
         "summary": "Get toolpaths",
-        "description": "Returns the calculated toolpaths for a plan, with geometry download URLs. Requires **Calculate toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST /plans/{planId}/toolpaths`) to have run and its job to have succeeded.\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality. These experimental operations may change, including breaking request and response changes, without an API major version bump while in beta. Check release notes before upgrading.",
+        "description": "Returns the calculated toolpaths for a plan, with geometry download URLs. Requires **Calculate toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST /plans/{planId}/toolpaths`) to have run and its job to have succeeded.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {
@@ -6965,7 +7825,7 @@
         "x-toolpath-metered": false,
         "x-toolpath-experimental": true,
         "summary": "Get a plan",
-        "description": "Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`) to have run and its job to have succeeded.\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality. These experimental operations may change, including breaking request and response changes, without an API major version bump while in beta. Check release notes before upgrading.",
+        "description": "Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`) to have run and its job to have succeeded.\n\nA toolpath calculation makes the plan readable at `planned` as soon as it has planned the part, before it cuts: `jobId` names the job cutting it, so compare it with the job you queued. A plan already `toolpathed` keeps its last result while it is recalculated, and its `jobId` moves when that run completes. A failed calculation leaves the plan as its last successful run left it, or `planned` under the failed job for a plan that had no toolpaths.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {
@@ -7072,7 +7932,7 @@
         "x-toolpath-metered": false,
         "x-toolpath-experimental": true,
         "summary": "Get machining time",
-        "description": "Returns the machining time for a plan’s toolpaths, per action and totalled. Requires **Calculate toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST /plans/{planId}/toolpaths`) to have run and its job to have succeeded.\n\n**Early access.** Machining plans and toolpath calculation are available now but still gaining functionality. These experimental operations may change, including breaking request and response changes, without an API major version bump while in beta. Check release notes before upgrading.",
+        "description": "Returns the machining time for a plan’s toolpaths, per action and totalled. Requires **Calculate toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST /plans/{planId}/toolpaths`) to have run and its job to have succeeded.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {

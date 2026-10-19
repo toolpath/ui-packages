@@ -28,7 +28,7 @@ class PlanSummary:
         material (PlanSummaryMaterial): The material this plan was synthesized for. Its tools’ feeds and speeds — and so
             every machining time here — are the kernel’s for it. `Aluminum` on plans made before it was recorded.
         level (PlanSummaryLevel): Fidelity of this plan: `planned` (setups and action-specs only) or `toolpathed`
-            (toolpaths also calculated).
+            (toolpaths also calculated). See PlanResponse.level for when a plan is readable at `planned`.
         issues (list[PlanIssue]): The plan’s coverage shortfalls (see PlanResponse.issues). Empty when it covers all.
         created_at (datetime.datetime): When this plan was created (ISO 8601).
     """

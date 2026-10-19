@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from attrs import define as _attrs_define
 
 from ..models.part_job_request_material import PartJobRequestMaterial
+from ..models.part_job_request_workholding import PartJobRequestWorkholding
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -57,18 +58,18 @@ class PartJobRequest:
             in machining times; `toolChangeSeconds` is for the caller to price them. Omit for none. Example: {'name': 'Haas
             VF-2', 'maxRpm': 8100, 'toolChangeSeconds': 4.2}.
         setup_plan (None | PartJobRequestSetupPlanType0 | Unset): The setup plan to extend: setups in machining order,
-            each with one `orientations` entry — a 3-axis setup; features are measured in thin air, which holds one
-            direction per setup, so a 3+2 setup is not stated yet — naming the features (`featureTag`, hex) to machine from
-            its `direction`. A direction must be one a feature of the part was extracted from, passed back exactly as served
-            (a unit vector), and a feature is named under its own direction. The plan made keeps these setups first, in this
-            order, each holding at least the features named (and every other offered feature of its direction), and appends
-            setups where the part needs more. A plan read serves its own `setupPlan`, which can be edited and sent back.
-            Tags are stable only within one `kernelVersion`, and a feature named has to be offered: one no tool in the crib
-            cuts is not. A statement the kernel cannot honor fails the job, whose `error` begins `refused_user_plan:` and
-            gives one clause per refused statement. Omit or null for the kernel’s own plan; on **Calculate a plan’s
-            toolpaths**, omit to keep the plan’s statement and null to clear it. Example: {'setups': [{'orientations':
-            [{'direction': {'x': 0, 'y': 0, 'z': 1}, 'features': ['1f3a09c2']}]}, {'orientations': [{'direction': {'x': 0,
-            'y': 0, 'z': -1}, 'features': []}]}]}.
+            each stated as one `orientations` entry — a setup machines from one direction — naming the features
+            (`featureTag`, hex) to machine from its `direction`. A direction must be one of the part’s `candidateDirections`
+            — the kernel’s choice, or one added with **Analyze a part** — passed back exactly as served (a unit vector), and
+            a feature is named under its own direction. The plan made keeps these setups first, in this order, each holding
+            at least the features named (and every other offered feature of its direction), and appends setups where the
+            part needs more. A plan read serves its own `setupPlan`, which can be edited and sent back. Tags are stable only
+            within one `kernelVersion`, and a feature named has to be offered: one no tool in the crib cuts is not. A
+            statement the kernel cannot honor fails the job, whose `error` begins `refused_user_plan:` and gives one clause
+            per refused statement. Omit or null for the kernel’s own plan; on **Calculate a plan’s toolpaths**, omit to keep
+            the plan’s statement and null to clear it. Example: {'setups': [{'orientations': [{'direction': {'x': 0, 'y': 0,
+            'z': 1}, 'features': ['1f3a09c2']}]}, {'orientations': [{'direction': {'x': 0, 'y': 0, 'z': -1}, 'features':
+            []}]}]}.
         done_regions (None | PartJobRequestDoneRegionsType0 | Unset): Regions already at their final surface — near-net
             stock, a face finished before the part arrives: `regions`, indices into the part report’s `regions`, and the
             `kernelVersion` of the report they were read from. Region indices are stable only within one kernel release, so
@@ -92,6 +93,15 @@ class PartJobRequest:
             comes first: a pass any crib tool can play keeps that tool. Each fallback tool is marked `outsideCrib` on the
             plan’s actions, with why the crib had none. Omit or false for today’s plans, which leave such passes
             `unmachined`. Not carried by a recalculation: state it on each request that wants it. Example: True.
+        workholding (PartJobRequestWorkholding | Unset): How the part is held. `thinAir`, the default, holds it by
+            nothing: the optimistic answer, since a fixture only ever takes reach away. `syntheticVise` holds it in a vise
+            sized to whatever it closes on, its jaws along each setup’s y, so a jaw blocks the reach it would. The first
+            setup grips the initial stock, every later setup the part as cut; the jaws reach 5.35 mm up whatever they close
+            on, at most half its height. The planner chooses the first setup among the directions the stock can be gripped
+            in. A job no first setup can start fails, its `error` beginning `invalid_argument: setup planning: no fixture on
+            the initial stock holds a first setup`; a `setupPlan` whose first setup cannot start fails as
+            `refused_user_plan:`. Faces a jaw leaves out of reach are reported as the plan’s `issues`. Omit on **Calculate a
+            plan’s toolpaths** to keep the plan’s. Example: syntheticVise.
     """
 
     material: PartJobRequestMaterial | Unset = UNSET
@@ -101,6 +111,7 @@ class PartJobRequest:
     done_regions: None | PartJobRequestDoneRegionsType0 | Unset = UNSET
     stock: AutomaticFlatBarStock | AutomaticRoundStock | FixedBoxStock | FixedCylinderStock | Unset = UNSET
     fallback_tools: bool | Unset = UNSET
+    workholding: PartJobRequestWorkholding | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.automatic_flat_bar_stock import AutomaticFlatBarStock
@@ -158,6 +169,10 @@ class PartJobRequest:
 
         fallback_tools = self.fallback_tools
 
+        workholding: str | Unset = UNSET
+        if not isinstance(self.workholding, Unset):
+            workholding = self.workholding.value
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update({})
@@ -175,6 +190,8 @@ class PartJobRequest:
             field_dict["stock"] = stock
         if fallback_tools is not UNSET:
             field_dict["fallbackTools"] = fallback_tools
+        if workholding is not UNSET:
+            field_dict["workholding"] = workholding
 
         return field_dict
 
@@ -294,6 +311,13 @@ class PartJobRequest:
 
         fallback_tools = d.pop("fallbackTools", UNSET)
 
+        _workholding = d.pop("workholding", UNSET)
+        workholding: PartJobRequestWorkholding | Unset
+        if isinstance(_workholding, Unset):
+            workholding = UNSET
+        else:
+            workholding = PartJobRequestWorkholding(_workholding)
+
         part_job_request = cls(
             material=material,
             tool_crib=tool_crib,
@@ -302,6 +326,7 @@ class PartJobRequest:
             done_regions=done_regions,
             stock=stock,
             fallback_tools=fallback_tools,
+            workholding=workholding,
         )
 
         return part_job_request

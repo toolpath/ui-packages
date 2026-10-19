@@ -17,7 +17,7 @@ T = TypeVar("T", bound="WallFacts")
 
 @_attrs_define
 class WallFacts:
-    """A wall: a run of surface square to the tool axis, with no floor of its own.
+    """A wall: a run of surface parallel to the tool axis, with no floor of its own.
 
     Attributes:
         kind (Literal['Wall']): Discriminator for this facts variant.

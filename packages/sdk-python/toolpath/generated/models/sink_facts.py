@@ -18,7 +18,8 @@ class SinkFacts:
     one it opens to.
 
         Attributes:
-            center (Vec2): A 2D vector (a plain `{ x, y }` object).
+            center (Vec2): A 2D vector (a plain `{ x, y }` object), in the plane its holder names: a tool frame's
+                `(x, y)` across the tool, or a turned part's `(z, r)` as `{ x: z, y: r }`.
             inner_radius (float): Radius of the circle the bevel starts from, at its lower edge — the pilot hole.
             outer_radius (float): Radius it has opened to at the upper edge.
     """

@@ -15,14 +15,14 @@ class BullnoseCurve:
     reach all of the surface. A tool with corner `r` reaches all of it when its diameter is at
     most `2·rᵢ + bᵢ` at a stored corner `rᵢ`; `2·r + min(bᵢ, bᵢ₊₁)` between two, `rᵢ < r < rᵢ₊₁`,
     since the bottom never widens as the corner grows; and `2·r_last + b_last` past the last.
-    An absent bottom limits nothing at its point.
+    A `null` bottom limits nothing at its point.
 
         Attributes:
             corner_radius (list[float | None]): Ascending from zero, the flat, in mm; the last is the largest corner a tool
                 reaching all
-                of the surface may have. Absent where the shape limits no corner, and then the curve is
+                of the surface may have. `null` where the shape limits no corner, and then the curve is
                 unbounded throughout.
-            bottom_diameter (list[float | None]): Widest bottom at each corner, beside it, in mm; absent where the shape
+            bottom_diameter (list[float | None]): Widest bottom at each corner, beside it, in mm; `null` where the shape
                 limits none.
     """
 
