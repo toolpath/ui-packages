@@ -1,5 +1,13 @@
 # @toolpath/viewer
 
+## 2.3.3
+
+### Patch Changes
+
+- 2cd3d9f: Stop failed mesh downloads from repeatedly restarting under Suspense. Preserve
+  the failure for the error boundary, allow refreshed signed URLs to retry, and
+  continue sharing successfully loaded geometry by artifact path.
+
 ## 2.3.2
 
 ### Patch Changes
