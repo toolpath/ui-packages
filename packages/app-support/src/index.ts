@@ -1,10 +1,8 @@
 /**
  * The logic a Toolpath application reuses, and nothing that renders.
  *
- * `@toolpath/ui` is the component kit: styling and display, the surface
- * documented in Storybook. This package is the other half — the preferences,
- * contexts and route helpers every Toolpath application was otherwise going to
- * write for itself, and did. Neither depends on the other.
+ * `@toolpath/ui` supplies visual components; this package supplies shared
+ * application logic. Neither depends on the other.
  *
  * ## This entry imports no React
  *

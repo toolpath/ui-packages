@@ -1,4 +1,4 @@
-import type { Frame, Padding } from '../model/frame.js'
+import type { Extent, Frame, Padding } from '../model/frame.js'
 import { radiusAt, type Outline } from '../model/outline.js'
 import { AWAY_FROM_TIP, TOWARD_MINUS, TOWARD_PLUS, TOWARD_TIP, arrowhead } from './arrows.js'
 import {
@@ -50,6 +50,16 @@ export interface DimensionLinesProps {
    * solid it measures, and only the segments say where that is at a height.
    */
   readonly outline: Outline
+  /**
+   * How much of the stack the sheet covers — the outline's own extent, or the
+   * shorter one a zoom framed.
+   *
+   * **The ladder runs outside the sheet's content, not outside the stack.**
+   * Framed on a zoom the two differ by the flange: lanes measured out from a
+   * ⌀46 flange that is above the cut would every one of them be drawn off the
+   * edge of a sheet 14 mm wide.
+   */
+  readonly extent: Extent
   readonly room: LaneRoom
   /**
    * The chrome that was asked for, in pixels.
@@ -83,6 +93,7 @@ export const DimensionLines = ({
   layout,
   frame,
   outline,
+  extent,
   room,
   requested,
   ink,
@@ -117,7 +128,7 @@ export const DimensionLines = ({
   const edgeAt = (side: Side, z: number) => sign(side) * (radiusAt(outline, z) + clearance)
   /** Where a lane's line runs, as a signed radius. */
   const laneAt = (lane: DimensionLane) =>
-    sign(lane.side) * (outline.radius + mm(laneOffset(lane.lane, room) * granted(lane.side)))
+    sign(lane.side) * (extent.radius + mm(laneOffset(lane.lane, room) * granted(lane.side)))
 
   /**
    * How far a width's arrows stand off the faces they measure.
@@ -130,7 +141,7 @@ export const DimensionLines = ({
    * what keeps them short of the innermost line in the case between.
    */
   const standFor = (radius: number) =>
-    Math.max(head * 0.9, Math.min(head * 2.4, outline.radius - radius + mm(laneOffset(0, room))))
+    Math.max(head * 0.9, Math.min(head * 2.4, extent.radius - radius + mm(laneOffset(0, room))))
 
   const laneOf = new Map(layout.lanes.map((each) => [each.code, each]))
 

@@ -20,7 +20,9 @@ bootstrap publish. This is the only manual publish; do not add an npm token to t
    ```
 
    The command builds and publishes the version in that release PR, then configures npm trusted
-   publishing for `toolpath/ui-packages` and `.github/workflows/release.yml`.
+   publishing for `toolpath/ui-packages` and `.github/workflows/release.yml`. That trust is bound
+   to the workflow file name, so any job that publishes — the staging prerelease included — stays in
+   `release.yml`.
 
 4. Merge the release-metadata PR. CI recognizes that version as already published. Every later
    release uses trusted publishing automatically.

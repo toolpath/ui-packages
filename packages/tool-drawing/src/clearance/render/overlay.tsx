@@ -81,7 +81,9 @@ export const ClearanceOverlay = ({
   const hatchId = `hatch-${useId().replace(/:/g, '')}`
   const drawing = useDrawingContext()
   const frame = framed ?? drawing?.frame
-  const outline = extent ?? drawing?.outline
+  // The sheet's extent, not the stack's: the wall is drawn to the edge of the
+  // sheet and clipped back to a break, and under a zoom those part company.
+  const outline = extent ?? drawing?.extent
   const sheet = ink ?? drawing?.sheet
   if (frame === undefined || outline === undefined || sheet === undefined) {
     throw new Error(
@@ -104,10 +106,13 @@ export const ClearanceOverlay = ({
    *
    * Out to the last rise — past it the staircase is a flat block that says
    * nothing new — and far enough to show the face a dimension measures to.
-   * What it actually gets is the room the frame reserved on this flank, which
-   * is the caller's to ask for.
+   * What it actually gets is the room the frame reserved on this flank: the
+   * caller asks for it, and the frame grants as much of the request as the
+   * drawing itself had no use for. A wide sheet grants the lot; a panel the
+   * assembly already fills grants nothing, and the wall is clipped back to the
+   * cut — the part is secondary to the assembly, and gives way first.
    */
-  const sheetEdge = outline.radius + frame.padding.plus / scale
+  const sheetEdge = outline.radius + (frame.padding.plus + (frame.reserve?.plus ?? 0)) / scale
   const wanted =
     corners.length === 0
       ? 0

@@ -15,6 +15,8 @@ export type {
 export { isHolderProfile } from './model/types.js'
 export type { Box, Extent, Frame, FrameOptions, Orientation, Padding } from './model/frame.js'
 export { frameFor, orientationFor, typeSizeFor } from './model/frame.js'
+export type { Zoom } from './model/zoom.js'
+export { HOLDER_HEADROOM, extentFor } from './model/zoom.js'
 export type {
   AngleDimension,
   DimensionLane,
@@ -25,7 +27,13 @@ export type {
   ToolDimensions,
   WidthDimension,
 } from './model/dimensions.js'
-export { dimensionsFor, laneLayout, laneOffset, laneRoom } from './model/dimensions.js'
+export {
+  dimensionsFor,
+  dimensionsWithin,
+  laneLayout,
+  laneOffset,
+  laneRoom,
+} from './model/dimensions.js'
 export type { DrawingContext } from './render/drawing-context.js'
 export { useDrawingContext } from './render/drawing-context.js'
 export type { Sheet, Theme } from './render/sheet.js'

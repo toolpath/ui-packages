@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { at, on, openViewer } from './canvas.js'
+import { at, on, openViewer, readCamera } from './canvas.js'
 
 /**
  * The example viewer, driven the way somebody would drive it.
@@ -36,7 +36,7 @@ const OTHER = { x: 0.5, y: 0.62 }
  * part is behind it, so a click that misses the arrow lands on a face — which
  * is what makes "the selection did not change" a real assertion about it.
  */
-const ARROW = { x: 0.33, y: 0.27 }
+const ARROW = { x: 0.353, y: 0.259 }
 
 /**
  * What each point hits, named.
@@ -68,38 +68,126 @@ test('the click points hit the faces the rest of this file is written about', as
   // The arrow is on top of the part, so it has to take the click itself. If it
   // has moved off the arrow the selection changes and the direction does not,
   // which is exactly the pair of symptoms Phase 6 produced.
+  const beforeDirections = await canvas.screenshot()
+  await page.getByRole('button', { name: 'Highlight faces by direction' }).click()
+  await expect
+    .poll(async () => Buffer.compare(beforeDirections, await canvas.screenshot()))
+    .not.toBe(0)
   const before = await selected.textContent()
   await page.mouse.click(at(box, ARROW).x, at(box, ARROW).y)
   await expect(direction).toContainText('0')
   await expect(selected).toHaveText(before ?? '')
 })
 
-test('selects a feature and responds to CAD camera navigation', async ({ page }) => {
+test('hovering a face exposes an application-owned card at the pointer', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
 
-  // The section. Driven through its slider rather than by dragging the handle
-  // in the viewport: the handle is a dozen pixels across, its position depends
-  // on the canvas size, and a drag over software WebGL on CI is slow enough to
-  // outlast the timeout. The drag's own maths are unit tested; what this covers
-  // is that a cut happens and reports itself.
-  const cut = page.locator('p', { hasText: 'Cut:' })
-  await page.getByRole('button', { name: 'Section' }).click()
-  await expect(cut).toContainText('45%')
-  await page.getByRole('slider').fill('0.8')
-  await expect(cut).toContainText('80%')
-  await page.getByRole('button', { name: 'Section' }).click()
-  await expect(cut).toContainText('off')
-
+  await page.getByRole('button', { name: 'Enable feature hover' }).click()
   await canvas.hover({ position: on(box, CENTRE) })
-  await expect(page.getByText('Hovered:', { exact: false })).not.toContainText('none')
+  await expect(page.getByRole('tooltip')).toContainText('Feature')
+  await expect(page.getByRole('tooltip')).toContainText('Surface area')
+  await page.mouse.move(box.x + 5, box.y + 5)
+  await expect(page.getByRole('tooltip')).toHaveCount(0)
+})
+
+test('feature hover can be toggled without disabling face picks', async ({ page }) => {
+  const { canvas, box } = await openViewer(page)
+  const toggle = page.getByRole('button', { name: 'Enable feature hover' })
+  const selected = page.locator('p', { hasText: 'Selected:' })
+
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  await canvas.hover({ position: on(box, CENTRE) })
+  await expect(page.getByRole('tooltip')).toHaveCount(0)
 
   await canvas.click({ position: on(box, CENTRE) })
-  await expect(page.getByText('Selected:', { exact: false })).not.toContainText('none')
+  await expect(selected).toContainText('back-face')
+
+  await toggle.click()
+  await canvas.hover({ position: on(box, CENTRE) })
+  await expect(page.getByRole('tooltip')).toContainText('Feature')
+})
+
+test('loads a banana for scale only when its toolbar button is enabled', async ({ page }) => {
+  await openViewer(page)
+  const before = await readCamera(page)
+  const model = page.waitForResponse((response) => response.url().endsWith('.glb') && response.ok())
+
+  await page.getByRole('button', { name: 'Banana for scale' }).click()
+  await model
+  await expect(page.getByRole('button', { name: 'Banana for scale (on)' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  const after = await readCamera(page)
+  expect(after.distance).toBeCloseTo(before.distance, 3)
+  expect(after.zoom).toBeCloseTo(before.zoom, 3)
+})
+
+test('selects a feature and responds to CAD camera navigation', async ({ page }) => {
+  const { canvas, box } = await openViewer(page)
+  await page.getByRole('button', { name: 'Enable feature hover' }).click()
+
+  // The section. A click on a face while the tool is up places a cut there,
+  // which is the tool's whole reason to exist. Moved through the slider rather
+  // than by dragging the handle in the viewport: the handle is a dozen pixels
+  // across, its position depends on the canvas size, and a drag over software
+  // WebGL on CI is slow enough to outlast the timeout. The drag's own maths are
+  // unit tested; what this covers is that the cut moves and reports itself.
+  const cut = page.locator('p', { hasText: 'Cut:' })
+  const hovered = page.locator('p', { hasText: 'Hovered:' })
+  const selected = page.locator('p', { hasText: 'Selected:' })
+  // A selection made before section mode is put down on the way in: nothing
+  // could change it while the tool is up.
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(selected).toContainText('back-face')
+  await page.getByRole('button', { name: 'Section' }).click()
+  await expect(cut).toContainText('none')
+  await expect(selected).toContainText('none')
+  // Nothing to move yet, so nothing to move it with.
+  await expect(page.getByRole('slider')).toHaveCount(0)
+  // The pointer is the tool's for as long as it is up: a face under it is not
+  // hovered, the click that cuts through it does not also select it, and the
+  // cut part is not picked at either.
+  await canvas.hover({ position: on(box, CENTRE) })
+  await expect(hovered).toContainText('none')
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(cut).toContainText('Part surface')
+  await expect(page.getByText('Cut depth', { exact: true })).toHaveCount(0)
+  await expect(selected).toContainText('none')
+  await canvas.click({ position: on(box, ONE) })
+  await expect(selected).toContainText('none')
+  await expect(hovered).toContainText('none')
+  // The slider moves the cut that is there — deeper past the picked face —
+  // rather than starting a Z sweep of its own over it.
+  await page.getByRole('slider').fill('0.5')
+  await expect(cut).toContainText('Part surface')
+  await expect(cut).not.toContainText('0.22 mm')
+  await page.keyboard.press('Escape')
+  await expect(cut).toContainText('none')
+  await canvas.click({ position: on(box, CENTRE) })
+  await page.getByRole('button', { name: 'Clear cut' }).click()
+  await expect(cut).toContainText('none')
+  await page.getByRole('button', { name: 'Exit section' }).click()
+  await expect(cut).toContainText('off')
+  // ...and the selection put down on the way in is picked back up.
+  await expect(selected).toContainText('back-face')
+
+  // Leaving section mode gives the pointer back.
+  await canvas.hover({ position: on(box, CENTRE) })
+  await expect(hovered).not.toContainText('none')
+
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(selected).not.toContainText('none')
 
   // An arrow says "show me only this way up", and pressing it again lets that
   // go. The arrows sit outside the part, so this reaches past its corner.
   const direction = page.locator('p', { hasText: 'Direction:' })
   await expect(direction).toContainText('all')
+  const beforeDirections = await canvas.screenshot()
+  await page.getByRole('button', { name: 'Highlight faces by direction' }).click()
+  await expect
+    .poll(async () => Buffer.compare(beforeDirections, await canvas.screenshot()))
+    .not.toBe(0)
   const arrow = at(box, ARROW)
   await page.mouse.click(arrow.x, arrow.y)
   await expect(direction).not.toContainText('all')
@@ -123,15 +211,206 @@ test('selects a feature and responds to CAD camera navigation', async ({ page })
   // edge view and must move the camera.
   const cube = { x: box.width - 80, y: 80 }
   const beforeCube = await canvas.screenshot()
-  const selected = await page.getByText('Selected:', { exact: false }).textContent()
+  const selectedText = await selected.textContent()
   await canvas.click({ position: { x: cube.x, y: cube.y + 34 } })
   await expect.poll(async () => Buffer.compare(beforeCube, await canvas.screenshot())).not.toBe(0)
   // Moving the camera is not picking a feature: if this click had fallen
   // through to the part, the selection would have changed with it.
-  await expect(page.getByText('Selected:', { exact: false })).toHaveText(selected ?? '')
+  await expect(selected).toHaveText(selectedText ?? '')
 })
 
-test('pans with either pan button, from wherever the drag starts', async ({ page }) => {
+/**
+ * The measure tool, driven the way somebody would drive it: two clicks on the
+ * part make a distance, and the label it puts on the page is text a person
+ * could read. The snap arithmetic is unit tested; what this covers is that a
+ * click places a point rather than selecting a face, that the measurement is
+ * reported and drawn, and that leaving the tool hands the pointer back.
+ */
+test('measures a distance between two clicks, without selecting either face', async ({ page }) => {
+  const { canvas, box } = await openViewer(page)
+  await page.getByRole('button', { name: 'Enable feature hover' }).click()
+
+  const measured = page.locator('p', { hasText: 'Measured:' })
+  const hovered = page.locator('p', { hasText: 'Hovered:' })
+  const selected = page.locator('p', { hasText: 'Selected:' })
+  // Visible ones: the live readout that follows the pointer is a label too,
+  // hidden between measurements rather than removed.
+  const labels = page.locator('.toolpath-measure-label').filter({ visible: true })
+
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(selected).toContainText('back-face')
+  await page.getByRole('button', { name: 'Measure', exact: true }).click()
+  await expect(measured).toContainText('none')
+  await expect(selected).toContainText('none')
+
+  // The pointer is the tool's: the face under it is not hovered, and the two
+  // clicks that measure do not select what they land on.
+  await canvas.hover({ position: on(box, CENTRE) })
+  await expect(hovered).toContainText('none')
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(measured).toContainText('none')
+  await canvas.click({ position: on(box, ONE) })
+  await expect(measured).toContainText('1 measurement, last')
+  await expect(measured).toContainText('mm')
+  await expect(selected).toContainText('none')
+
+  // The label is on the page, and says what the readout says.
+  const readout = (await measured.textContent()) ?? ''
+  const value = /last (\d+\.\d+ mm)/.exec(readout)?.[1]
+  expect(value, readout).toBeDefined()
+  await expect(labels.filter({ hasText: value! })).toHaveCount(1)
+  // Two points on two faces of a cube are not on one axis, so the distance is
+  // broken into its parts, each with a label of its own.
+  expect(await labels.count()).toBeGreaterThan(1)
+
+  // Delete takes the last measurement, and its labels, away.
+  await page.keyboard.press('Delete')
+  await expect(measured).toContainText('none')
+  await expect(labels).toHaveCount(0)
+
+  // The same two clicks with Shift held on the second: the point is held to
+  // one axis through the first, so the distance runs square and has no parts
+  // to break into — one label, not three.
+  await canvas.click({ position: on(box, CENTRE) })
+  await canvas.click({ position: on(box, ONE), modifiers: ['Shift'] })
+  await expect(measured).toContainText('1 measurement, last')
+  await expect(labels).toHaveCount(1)
+  await page.keyboard.press('Delete')
+  await expect(labels).toHaveCount(0)
+
+  // An angle is three clicks, and a mode change does not need a re-mount.
+  await page.getByRole('button', { name: 'Angle' }).click()
+  await canvas.click({ position: on(box, ONE) })
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(measured).toContainText('none')
+  await canvas.click({ position: on(box, OTHER) })
+  await expect(measured).toContainText('°')
+
+  await page.getByRole('button', { name: 'Clear measurements' }).click()
+  await expect(measured).toContainText('none')
+  await expect(labels).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Exit measure' }).click()
+  await expect(measured).toContainText('off')
+  await expect(labels).toHaveCount(0)
+  await expect(selected).toContainText('back-face')
+
+  // Leaving gives the pointer back.
+  await canvas.hover({ position: on(box, CENTRE) })
+  await expect(hovered).not.toContainText('none')
+  await canvas.click({ position: on(box, ONE) })
+  await expect(selected).toContainText('right-face')
+})
+
+/**
+ * A cut part is measured as it is seen. The first click lands on the capped
+ * face — there is no geometry there, only a stencil, and the face behind it
+ * has been clipped away — so without re-sampling the click places nothing and
+ * the measurement never completes.
+ */
+test('measures on the capped face of a cut part', async ({ page }) => {
+  const { canvas, box } = await openViewer(page)
+
+  const cut = page.locator('p', { hasText: 'Cut:' })
+  const measured = page.locator('p', { hasText: 'Measured:' })
+
+  await page.getByRole('button', { name: 'Section' }).click()
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(cut).toContainText('Part surface')
+
+  await page.getByRole('button', { name: 'Measure', exact: true }).click()
+  await canvas.click({ position: on(box, CENTRE) })
+  await canvas.click({ position: on(box, ONE) })
+  await expect(measured).toContainText('1 measurement, last')
+
+  // Deeper, and the cap is still where the pointer lands.
+  await page.getByRole('slider').fill('0.5')
+  await canvas.click({ position: on(box, CENTRE) })
+  await canvas.click({ position: on(box, ONE) })
+  await expect(measured).toContainText('2 measurements, last')
+
+  await page.getByRole('button', { name: 'Exit measure' }).click()
+  await page.getByRole('button', { name: 'Exit section' }).click()
+  await expect(cut).toContainText('off')
+})
+
+/**
+ * A section tool with no cut yet owns the next click on the part. The measure
+ * tool mounted beside it places nothing until the cut is chosen, and again
+ * places nothing once Escape has cleared it, so the click that picks a cut is
+ * never also the first point of a measurement. Leaving section mode hands the
+ * click back to the measure tool.
+ *
+ * A stray first point would not show in the count on its own — a draft is not
+ * a measurement — so each cut is followed by one click and a check that the
+ * count has not moved, before the click that would finish a measurement.
+ */
+test('waits for a cut to be chosen before measuring beside the section tool', async ({ page }) => {
+  const { canvas, box } = await openViewer(page)
+
+  const cut = page.locator('p', { hasText: 'Cut:' })
+  const measured = page.locator('p', { hasText: 'Measured:' })
+
+  await page.getByRole('button', { name: 'Section' }).click()
+  await page.getByRole('button', { name: 'Measure', exact: true }).click()
+  await expect(
+    page.getByRole('group', { name: 'Section and measure options', exact: true }),
+  ).toHaveCount(1)
+  await expect(cut).toContainText('none')
+  await expect(measured).toContainText('none')
+
+  // The first click chooses the cut and is not a measurement point: the next
+  // is a first point, and only the one after that finishes a measurement.
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(cut).toContainText('Part surface')
+  await canvas.click({ position: on(box, ONE) })
+  await expect(measured).toContainText('none')
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(measured).toContainText('1 measurement, last')
+
+  // Clearing the cut puts the section tool back to offering one, and the
+  // measure tool back to waiting: this click cuts, and does not measure.
+  await page.keyboard.press('Escape')
+  await expect(cut).toContainText('none')
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(cut).toContainText('Part surface')
+  await canvas.click({ position: on(box, ONE) })
+  await expect(measured).toContainText('1 measurement, last')
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(measured).toContainText('2 measurements, last')
+
+  // With the section tool gone the measure tool has every click.
+  await page.getByRole('button', { name: 'Exit section' }).click()
+  await expect(cut).toContainText('off')
+  await canvas.click({ position: on(box, CENTRE) })
+  await canvas.click({ position: on(box, ONE) })
+  await expect(measured).toContainText('3 measurements, last')
+
+  await page.getByRole('button', { name: 'Exit measure' }).click()
+  await expect(measured).toContainText('off')
+})
+
+test('merges the analysis panel regardless of which tool is entered first', async ({ page }) => {
+  await openViewer(page)
+
+  await page.getByRole('button', { name: 'Measure', exact: true }).click()
+  await page.getByRole('button', { name: 'Section', exact: true }).click()
+
+  await expect(
+    page.getByRole('group', { name: 'Section and measure options', exact: true }),
+  ).toHaveCount(1)
+  await expect(page.getByRole('group', { name: 'Measurement type', exact: true })).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Exit measure', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await expect(page.getByRole('button', { name: 'Exit section', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+})
+
+test('Toolpath pans with the right button, from wherever the drag starts', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
 
   // The <p>, not the <strong> inside it: `getByText('Selected:')` matches the
@@ -144,36 +423,33 @@ test('pans with either pan button, from wherever the drag starts', async ({ page
   // as the viewport gets, and clear of the toolbar in the top-left. A pan that
   // needs the pointer over the part is a pan that stops working on exactly the
   // view somebody was trying to fix.
-  const panFromCorner = async (button: 'right' | 'middle') => {
+  const panFromCorner = async () => {
     const from = { x: box.x + 40, y: box.y + box.height - 40 }
     await page.mouse.move(from.x, from.y)
-    await page.mouse.down({ button })
+    await page.mouse.down({ button: 'right' })
     for (let step = 1; step <= 10; step += 1) {
       await page.mouse.move(from.x + step * (box.width * 0.15), from.y)
     }
-    await page.mouse.up({ button })
+    await page.mouse.up({ button: 'right' })
     await page.waitForTimeout(300)
   }
 
-  for (const button of ['right', 'middle'] as const) {
-    await page.getByRole('button', { name: 'Fit' }).click()
-    await page.waitForTimeout(300)
-    await canvas.click({ position: centre })
-    await expect(selected).not.toContainText('none')
+  await canvas.click({ position: centre })
+  await expect(selected).not.toContainText('none')
 
-    await panFromCorner(button)
+  await panFromCorner()
 
-    // The part has left the middle of the view, which a pan does and an orbit
-    // does not: an orbit turns the part about that point and leaves it there.
-    // Clicking where it was now hits nothing, which is what puts the selection
-    // down.
-    await canvas.click({ position: centre })
-    await expect(selected).toContainText('none')
-  }
+  // The part has left the middle of the view, which a pan does and an orbit
+  // does not: an orbit turns the part about that point and leaves it there.
+  // Clicking where it was now hits nothing, which is what puts the selection
+  // down.
+  await canvas.click({ position: centre })
+  await expect(selected).toContainText('none')
 })
 
 test('finishing a drag over a face is not a request to select it', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
+  await page.getByRole('button', { name: 'Enable feature hover' }).click()
 
   const selected = page.locator('p', { hasText: 'Selected:' })
   const hovered = page.locator('p', { hasText: 'Hovered:' })
@@ -253,8 +529,10 @@ test('panning over empty space keeps the selection', async ({ page }) => {
  * The left button has had this guard on the mesh all along; this is the middle
  * one getting it too.
  */
-test('two middle-button pans released in the same place do not re-frame', async ({ page }) => {
-  const { canvas, box } = await openViewer(page)
+test('two Onshape middle-button pans released in the same place do not re-frame', async ({
+  page,
+}) => {
+  const { canvas, box } = await openViewer(page, 'controls=onshape')
 
   const selected = page.locator('p', { hasText: 'Selected:' })
   const centre = on(box, CENTRE)

@@ -1,0 +1,4209 @@
+{
+  "seed": {
+    "TlManufacturer": [
+      {
+        "Description": "Mastercam Imported Data",
+        "ID": "096cfa82-ac35-4c73-939b-851df5fb539f",
+        "Name": "Mastercam"
+      }
+    ],
+    "TlMaterial": [
+      {
+        "Description": "Carbide",
+        "ID": "7513e1e0-2e0c-407b-ad00-7e51ea9a429a",
+        "Name": "Carbide"
+      },
+      {
+        "Description": "HSS",
+        "ID": "a2c64f46-6840-4969-8aee-da364cfe220c",
+        "Name": "HSS"
+      }
+    ],
+    "TlOpGroup": [
+      {
+        "Description": "Milling Operation Group",
+        "ID": "497180c2-a6e4-11de-b80b-ffc956d89593",
+        "Image": null,
+        "ImagePath": null,
+        "Name": "Milling"
+      },
+      {
+        "Description": "Drilling Operation Group",
+        "ID": "5f97ab74-ba04-49ce-943c-47dc7ed9713a",
+        "Image": null,
+        "ImagePath": null,
+        "Name": "Drilling"
+      }
+    ],
+    "TlOpType": [
+      {
+        "Description": "Surface",
+        "ID": "373cd3e8-766f-4e72-a306-e67e109ba201",
+        "Name": "Surface",
+        "TlOpGroupID": "497180c2-a6e4-11de-b80b-ffc956d89593"
+      },
+      {
+        "Description": "Facing",
+        "ID": "508c3916-a6e3-11de-bebd-bdc256d89593",
+        "Name": "Facing",
+        "TlOpGroupID": "497180c2-a6e4-11de-b80b-ffc956d89593"
+      },
+      {
+        "Description": "Drilling",
+        "ID": "61cabbc3-6787-4882-9e3c-fd326d1d85ac",
+        "Name": "Drilling",
+        "TlOpGroupID": "5f97ab74-ba04-49ce-943c-47dc7ed9713a"
+      },
+      {
+        "Description": "Shouldering",
+        "ID": "842a4e88-a6e4-11de-89ca-90cb56d89593",
+        "Name": "Shouldering",
+        "TlOpGroupID": "497180c2-a6e4-11de-b80b-ffc956d89593"
+      },
+      {
+        "Description": "Chamfering",
+        "ID": "9b310f54-a6e4-11de-9e9d-54cd56d89593",
+        "Name": "Chamfering",
+        "TlOpGroupID": "497180c2-a6e4-11de-b80b-ffc956d89593"
+      },
+      {
+        "Description": "Plunging",
+        "ID": "a92f88e2-a6e4-11de-bee6-9bcd56d89593",
+        "Name": "Plunging",
+        "TlOpGroupID": "497180c2-a6e4-11de-b80b-ffc956d89593"
+      },
+      {
+        "Description": "Slotting",
+        "ID": "b4ed2c34-a6e4-11de-a868-eacd56d89593",
+        "Name": "Slotting",
+        "TlOpGroupID": "497180c2-a6e4-11de-b80b-ffc956d89593"
+      },
+      {
+        "Description": "Profiling",
+        "ID": "bec896bc-a6e4-11de-894f-25ce56d89593",
+        "Name": "Profiling",
+        "TlOpGroupID": "497180c2-a6e4-11de-b80b-ffc956d89593"
+      },
+      {
+        "Description": "Pocketing",
+        "ID": "c2697dfa-ec58-408e-a708-8753601c17c6",
+        "Name": "Pocketing",
+        "TlOpGroupID": "497180c2-a6e4-11de-b80b-ffc956d89593"
+      },
+      {
+        "Description": "Contouring",
+        "ID": "e0d8a947-0905-43e9-8e01-80334ffb6a29",
+        "Name": "Contouring",
+        "TlOpGroupID": "497180c2-a6e4-11de-b80b-ffc956d89593"
+      }
+    ],
+    "TlToolGrade": [
+      {
+        "Description": "Mastercam Imported Data",
+        "ID": "f9c5c3cc-570b-410d-a827-8dab6bbf50e1",
+        "ManufacturerID": "096cfa82-ac35-4c73-939b-851df5fb539f",
+        "Name": "Mastercam Default Grade"
+      }
+    ],
+    "TlToolGroup": [
+      {
+        "Description": "Legacy Mastercam Tool Types",
+        "ID": "04ccb858-e154-432d-ab5a-3f2967709509",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Mastercam Tool Types"
+      }
+    ],
+    "TlToolMaterial": [
+      {
+        "ID": "7513e1e0-2e0c-407b-ad00-7e51ea9a429a"
+      },
+      {
+        "ID": "a2c64f46-6840-4969-8aee-da364cfe220c"
+      }
+    ],
+    "TlToolType": [
+      {
+        "Description": "Legacy Block Drill tool type",
+        "ID": "14677698-7230-4efd-9cd9-e22908e604a8",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Block Drill",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Cbore tool type",
+        "ID": "234e3daf-2c37-4156-895d-cfd36b2ccbd8",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "CBore",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Endmill3 Bull tool type",
+        "ID": "2ffbf697-4e0c-4d38-a0f3-15f70ec87d7f",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Endmill3 Bull",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Engrave tool type",
+        "ID": "31a0e201-5681-4c1d-b968-e8c72c3ff9c8",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Engrave Tool",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Reamer tool type",
+        "ID": "3bdfee85-a9f2-46d3-9cde-fd05afa07f39",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Reamer",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Chamfer Mill tool type",
+        "ID": "47cf2b08-e825-4d65-9d5a-d06621a2b905",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Chamfer Mill",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Bore tool type",
+        "ID": "5085dc58-3d09-4aa0-a829-ad0fb8f59a66",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Bore",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Spot Drill tool type",
+        "ID": "510b5c09-dc27-43ff-bd3f-4d63a4c65c0a",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Spot Drill",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Undefined tool type",
+        "ID": "57ec84cd-b5aa-4f74-b1a2-6c479e5662fc",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Undefined",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Lollipop Mill tool type",
+        "ID": "77636c16-1b47-4327-999a-d6ba2aaf5784",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Lollipop Mill",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Dove Mill tool type",
+        "ID": "776bc9ab-4812-4fe1-97f8-d6ff9bf69741",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Dove Mill",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Center Drill tool type",
+        "ID": "781adb72-a2ee-4bd7-99d6-978fae9801f9",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Center Drill",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Endmill2 Sphere tool type",
+        "ID": "8d4e7905-bf6c-438e-8cb9-d7fb40c97497",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Endmill2 Sphere",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Drill tool type",
+        "ID": "98c2be7e-c806-4b6e-acaa-067e97d29086",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Drill",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy radius Mill tool type",
+        "ID": "a29381b2-91e5-4d15-ba71-f80e17d5c4e5",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Radius Mill",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Bradpt Drill tool type",
+        "ID": "be99d343-550a-444f-b84e-774c629634e0",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Bradpt Drill",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Slot Mill tool type",
+        "ID": "c3c71c0c-3545-4a72-af76-d7272a5a7e17",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Slot Mill",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Endmill1 Flat tool type",
+        "ID": "caf7acba-4bc0-4841-a2d8-17a9529ce42f",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Endmill1 Flat",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Csink tool type",
+        "ID": "e8c3a113-2748-43a8-9950-d90b8e864363",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Csink",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      },
+      {
+        "Description": "Legacy Taper Mill tool type",
+        "ID": "e9d80248-76df-4ca9-b154-83f4eef1b1e7",
+        "Image": null,
+        "ImagePath": "",
+        "Name": "Taper Mill",
+        "TlToolGroupID": "04ccb858-e154-432d-ab5a-3f2967709509"
+      }
+    ]
+  },
+  "source": {
+    "dataVersion": 0,
+    "digestVersion": 1,
+    "mastercam": "28.230",
+    "retrievedAt": "2026-09-12",
+    "schemaVersion": 32,
+    "sha256": "b279781abfece8c90d148d21767fa7a6cf1aef51e0e6622d37a09858334dba73"
+  },
+  "tables": {
+    "TlAccessory": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlAccessory_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlAccessory](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlAccessory_1] PRIMARY KEY NOT NULL REFERENCES TlAssemblyItem([ID]) DEFERRABLE INITIALLY DEFERRED)"
+    },
+    "TlAccessoryCollection": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "TlAccessoryID",
+          "pk": 2,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID",
+            "TlAccessoryID"
+          ],
+          "name": "sqlite_autoindex_TlAccessoryCollection_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlAccessoryCollection](\r\n    [ID] GUID NOT NULL, \r\n    [TlAccessoryID] GUID NOT NULL REFERENCES TlAccessory([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    CONSTRAINT [sqlite_autoindex_TlAccessoryCollection_1] PRIMARY KEY([ID], [TlAccessoryID]))"
+    },
+    "TlAdaptiveItem": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "IsExtension",
+          "pk": 0,
+          "type": "BOOL"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlAdaptiveItem_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlAdaptiveItem](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlAdaptiveItem_1] PRIMARY KEY NOT NULL REFERENCES TlAdaptiveItem([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [IsExtension] BOOL)"
+    },
+    "TlAssembly": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Name",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Description",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "MainHolder",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "MainTool",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "ToolNumber",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "MachineGroup",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "RelationshipHierarchyXML",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "DiameterOffsetNum",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "LengthOffsetNum",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "MaxRamp",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "IsMetric",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "TlGraphicsFileCollectionID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "TlAccessoryCollectionID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "ExternalId",
+          "pk": 0,
+          "type": "VARCHAR"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlAssembly_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlAssembly](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlAssembly_1] PRIMARY KEY, \r\n    [Name] VARCHAR, \r\n    [Description] VARCHAR, \r\n    [MainHolder] GUID REFERENCES TlHolder([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [MainTool] GUID REFERENCES TlTool([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [ToolNumber] INT, \r\n    [MachineGroup] INT, \r\n    [RelationshipHierarchyXML] VARCHAR, \r\n    [DiameterOffsetNum] INT, \r\n    [LengthOffsetNum] INT, \r\n    [MaxRamp] DOUBLE, \r\n    [IsMetric] BOOL, \r\n    [TlGraphicsFileCollectionID] GUID REFERENCES TlGraphicsFileCollection([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TlAccessoryCollectionID] GUID REFERENCES TlAccessoryCollection([ID]) DEFERRABLE INITIALLY DEFERRED,\r\n    [ExternalId] VARCHAR)"
+    },
+    "TlAssemblyAdaptiveItem": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlAssemblyAdaptiveItem_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlAssemblyAdaptiveItem](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlAssemblyAdaptiveItem_1] PRIMARY KEY NOT NULL REFERENCES TlAssemblyComponentNew([ID]) DEFERRABLE INITIALLY DEFERRED)"
+    },
+    "TlAssemblyComponent": {
+      "columns": [
+        {
+          "name": "TlAssemblyID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "TlAssemblyItemID",
+          "pk": 2,
+          "type": "GUID"
+        },
+        {
+          "name": "ParentID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "MTransformID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "UTransformID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "CTransformID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "CScalar",
+          "pk": 0,
+          "type": "FLOAT"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "TlAssemblyID",
+            "TlAssemblyItemID"
+          ],
+          "name": "sqlite_autoindex_TlAssemblyComponent_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlAssemblyComponent](\r\n    [TlAssemblyID] GUID REFERENCES TlAssembly([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TlAssemblyItemID] GUID REFERENCES TlAssemblyItem([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [ParentID] GUID REFERENCES TlAssemblyItem([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [MTransformID] GUID REFERENCES TlMatrix4x4([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [UTransformID] GUID REFERENCES TlMatrix4x4([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [CTransformID] GUID REFERENCES TlMatrix4x4([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [CScalar] FLOAT, \r\n    CONSTRAINT [sqlite_autoindex_TlAssemblyComponent_1] PRIMARY KEY([TlAssemblyID], [TlAssemblyItemID]))"
+    },
+    "TlAssemblyComponentNew": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "ItemID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "ParentID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "ParentConnectionID",
+          "pk": 0,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlAssemblyComponentNew_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlAssemblyComponentNew](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlAssemblyComponentNew_1] PRIMARY KEY, \r\n    [ItemID] GUID REFERENCES TlAssemblyItem([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [ParentID] GUID REFERENCES TlAssemblyComponentNew([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [ParentConnectionID] GUID REFERENCES TlConnection([ID]) DEFERRABLE INITIALLY DEFERRED)"
+    },
+    "TlAssemblyComponentTree": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "RootID",
+          "pk": 0,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlAssemblyComponentTree_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlAssemblyComponentTree](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlAssemblyComponentTree_1] PRIMARY KEY, \r\n    [RootID] GUID REFERENCES TlAssemblyComponentNew([TlAssemblyID]) DEFERRABLE INITIALLY DEFERRED)"
+    },
+    "TlAssemblyConfiguration": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "ToolAssemblyID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "Name",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Description",
+          "pk": 0,
+          "type": "VARCHAR"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlAssemblyConfiguration_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlAssemblyConfiguration](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlAssemblyConfiguration_1] PRIMARY KEY, \r\n    [ToolAssemblyID] GUID, \r\n    [Name] VARCHAR, \r\n    [Description] VARCHAR)"
+    },
+    "TlAssemblyInsert": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "CutPlaneLocatorID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "BoundaryGenParamsID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "CutProfileID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "NonCutProfileID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "CuttingSide",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "ActiveSpindle",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "IsInsertUp",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "IsInverted",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "IsInsertFront",
+          "pk": 0,
+          "type": "BOOL"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlAssemblyInsert_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlAssemblyInsert](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlAssemblyInsert_1] PRIMARY KEY NOT NULL REFERENCES TlAssemblyComponentNew([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [CutPlaneLocatorID] GUID REFERENCES TlLocator([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [BoundaryGenParamsID] GUID REFERENCES TlBoundaryGenerationParams([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [CutProfileID] GUID REFERENCES TlProfile([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [NonCutProfileID] GUID REFERENCES TlProfile([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [CuttingSide] INT, \r\n    [ActiveSpindle] INT, \r\n    [IsInsertUp] BOOL, \r\n    [IsInverted] BOOL,\r\n    [IsInsertFront] BOOL)"
+    },
+    "TlAssemblyItem": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "CatalogID",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "GeometryFile",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "IsMetric",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "Location",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "TlToolMaterialID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "TlToolTypeID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "TlManufacturerID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "Name",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Description",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Quantity",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "ThruCoolant",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "IsCatalogItem",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "GaugeLength",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "GaugeDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "TlGraphicsFileCollectionID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "ModelFileID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "MachineSideConnectionID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "WorkpieceSideConnectionMapID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "MachineSideProjectionAdjustment",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "IsProjectionAdjustmentEditable",
+          "pk": 0,
+          "type": "BOOL"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlAssemblyItem_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlAssemblyItem](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlAssemblyItem_1] PRIMARY KEY, \r\n    [CatalogID] VARCHAR, \r\n    [GeometryFile] VARCHAR, \r\n    [IsMetric] BOOL, \r\n    [Location] VARCHAR, \r\n    [TlToolMaterialID] GUID REFERENCES TlToolMaterial([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TlToolTypeID] GUID REFERENCES TlToolType([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TlManufacturerID] GUID REFERENCES TlManufacturer([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [Name] VARCHAR, \r\n    [Description] VARCHAR, \r\n    [Quantity] INT, \r\n    [ThruCoolant] BOOL, \r\n    [IsCatalogItem] BOOL, \r\n    [GaugeLength] DOUBLE, \r\n    [GaugeDiameter] DOUBLE, \r\n    [TlGraphicsFileCollectionID] GUID REFERENCES TlGraphicsFileCollection([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [ModelFileID] GUID REFERENCES TlGraphicsFile([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [MachineSideConnectionID] GUID REFERENCES TlConnection([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [WorkpieceSideConnectionMapID] GUID REFERENCES TlConnectionMap([ID]) DEFERRABLE INITIALLY DEFERRED,\r\n    [MachineSideProjectionAdjustment] DOUBLE,\r\n    [IsProjectionAdjustmentEditable] BOOL)"
+    },
+    "TlAssemblyTurnHolder": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlAssemblyTurnHolder_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlAssemblyTurnHolder](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlAssemblyTurnHolder_1] PRIMARY KEY NOT NULL REFERENCES TlAssemblyComponentNew([ID]) DEFERRABLE INITIALLY DEFERRED)"
+    },
+    "TlAuxData": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Class",
+          "pk": 2,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Version",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Tag",
+          "pk": 3,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Data",
+          "pk": 0,
+          "type": "BLOB"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID",
+            "Class",
+            "Tag"
+          ],
+          "name": "sqlite_autoindex_TlAuxData_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlAuxData](\r\n    [ID] GUID NOT NULL, \r\n    [Class] VARCHAR, \r\n    [Version] INT, \r\n    [Tag] VARCHAR, \r\n    [Data] BLOB, \r\n    CONSTRAINT [sqlite_autoindex_TlAuxData_1] PRIMARY KEY([ID], [Class], [Tag]))"
+    },
+    "TlBoundaryGenerationParams": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Method",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "PlaneOffset1",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "PlaneOffset2",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "PlaneSense1",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "CalcTol",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "CalcHolderTol",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlBoundaryGenerationParams_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlBoundaryGenerationParams](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlBoundaryGenerationParams_1] PRIMARY KEY, \r\n    [Method] INT, \r\n    [PlaneOffset1] DOUBLE, \r\n    [PlaneOffset2] DOUBLE, \r\n    [PlaneSense1] BOOL, \r\n    [CalcTol] DOUBLE, \r\n    [CalcHolderTol] DOUBLE)"
+    },
+    "TlConnection": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Type",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Size",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "LocatorID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "IsRound",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "Thickness",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "Width",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "Name",
+          "pk": 0,
+          "type": "VARCHAR"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlConnection_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlConnection](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlConnection_1] PRIMARY KEY, \r\n    [Type] VARCHAR, \r\n    [Size] VARCHAR, \r\n    [LocatorID] GUID NOT NULL REFERENCES TlLocator([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [IsRound] BOOL, \r\n    [Thickness] DOUBLE, \r\n    [Width] DOUBLE, \r\n    [Name] VARCHAR)"
+    },
+    "TlConnectionMap": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "TlConnectionID",
+          "pk": 2,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID",
+            "TlConnectionID"
+          ],
+          "name": "sqlite_autoindex_TlConnectionMap_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlConnectionMap](\r\n    [ID] GUID NOT NULL, \r\n    [TlConnectionID] GUID NOT NULL REFERENCES TlConnection([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    CONSTRAINT [sqlite_autoindex_TlConnectionMap_1] PRIMARY KEY([ID], [TlConnectionID]))"
+    },
+    "TlCoolant": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "OldStyle",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Flood",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "FloodPos",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Mist",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "MistPos",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Tool",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "ToolPos",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Custom1",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Custom1Pos",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Custom2",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Custom2Pos",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Custom3",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Custom3Pos",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Custom4",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Custom4Pos",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Custom5",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Custom5Pos",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Custom6",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Custom6Pos",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Custom7",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Custom7Pos",
+          "pk": 0,
+          "type": "INT"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlCoolant_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlCoolant](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlCoolant_1] PRIMARY KEY, \r\n    [OldStyle] INT, \r\n    [Flood] INT, \r\n    [FloodPos] INT, \r\n    [Mist] INT, \r\n    [MistPos] INT, \r\n    [Tool] INT, \r\n    [ToolPos] INT, \r\n    [Custom1] INT, \r\n    [Custom1Pos] INT, \r\n    [Custom2] INT, \r\n    [Custom2Pos] INT, \r\n    [Custom3] INT, \r\n    [Custom3Pos] INT, \r\n    [Custom4] INT, \r\n    [Custom4Pos] INT, \r\n    [Custom5] INT, \r\n    [Custom5Pos] INT, \r\n    [Custom6] INT, \r\n    [Custom6Pos] INT, \r\n    [Custom7] INT, \r\n    [Custom7Pos] INT)"
+    },
+    "TlCutParam": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "TlToolGradeID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "TlToolTypeID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "TlOpTypeID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "TlManufacturerID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "Name",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Description",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "MinDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "MaxDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "CutSpeed",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "FPT",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "SurfaceFinish",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "RoughRadialDoC",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "RoughAxialDoC",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "FinishRadialDoC",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "FinishAxialDoC",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ToolLifeLinear",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ToolLifeMinutes",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "IsMetric",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "TlCutQuality",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "TlWorkMaterialID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "TlCutSource",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "IsProven",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "TlFeedFactor",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "MinFPT",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "MaxFPT",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "MinCutSpeed",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "MaxCutSpeed",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "MachineName",
+          "pk": 0,
+          "type": "VARCHAR"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlCutParam_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlCutParam](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlCutParam_1] PRIMARY KEY, \r\n    [TlToolGradeID] GUID REFERENCES TlToolGrade([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TlToolTypeID] GUID REFERENCES TlToolType([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TlOpTypeID] GUID REFERENCES TlOpType([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TlManufacturerID] GUID REFERENCES TlManufacturer([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [Name] VARCHAR, \r\n    [Description] VARCHAR, \r\n    [MinDiameter] DOUBLE, \r\n    [MaxDiameter] DOUBLE, \r\n    [CutSpeed] DOUBLE, \r\n    [FPT] DOUBLE, \r\n    [SurfaceFinish] DOUBLE, \r\n    [RoughRadialDoC] DOUBLE, \r\n    [RoughAxialDoC] DOUBLE, \r\n    [FinishRadialDoC] DOUBLE, \r\n    [FinishAxialDoC] DOUBLE, \r\n    [ToolLifeLinear] DOUBLE, \r\n    [ToolLifeMinutes] DOUBLE, \r\n    [IsMetric] BOOL, \r\n    [TlCutQuality] INT, \r\n    [TlWorkMaterialID] GUID REFERENCES TlWorkMaterial([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TlCutSource] INT, \r\n    [IsProven] BOOL, \r\n    [TlFeedFactor] INT, \r\n    [MinFPT] DOUBLE, \r\n    [MaxFPT] DOUBLE, \r\n    [MinCutSpeed] DOUBLE, \r\n    [MaxCutSpeed] DOUBLE, \r\n    [MachineName] VARCHAR)"
+    },
+    "TlCuttingConfiguration": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "CoolantID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "IndexMaterial",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "FeedRate",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "FeedRateUnits",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "PlungeRate",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "PlungeRateUnits",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "SpindleSpeed",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "SpindleSpeedUnits",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "MaterialSFMAdjust",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "MaterialFPTAdjust",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlCuttingConfiguration_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlCuttingConfiguration](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlCuttingConfiguration_1] PRIMARY KEY NOT NULL REFERENCES TlAssemblyConfiguration([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [CoolantID] GUID NOT NULL REFERENCES TlCoolant([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [IndexMaterial] INT, \r\n    [FeedRate] DOUBLE, \r\n    [FeedRateUnits] INT, \r\n    [PlungeRate] DOUBLE, \r\n    [PlungeRateUnits] INT, \r\n    [SpindleSpeed] INT, \r\n    [SpindleSpeedUnits] INT, \r\n    [MaterialSFMAdjust] DOUBLE, \r\n    [MaterialFPTAdjust] DOUBLE)"
+    },
+    "TlCuttingConfigurationGrooving": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "StockClearance",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "BackoffPercent",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "RoughDepthOfCut",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "FinishDepthOfCut",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlCuttingConfigurationGrooving_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlCuttingConfigurationGrooving](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlCuttingConfigurationGrooving_1] PRIMARY KEY NOT NULL REFERENCES TlCuttingConfiguration([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [StockClearance] DOUBLE, \r\n    [BackoffPercent] DOUBLE, \r\n    [RoughDepthOfCut] DOUBLE, \r\n    [FinishDepthOfCut] DOUBLE)"
+    },
+    "TlCuttingConfigurationThreading": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "FirstDepthOfCut",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "LastDepthOfCut",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "FinishPassAllowance",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "PullOff",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "NumSpringCuts",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "MinThreadPitch",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "MaxThreadPitch",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlCuttingConfigurationThreading_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlCuttingConfigurationThreading](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlCuttingConfigurationThreading_1] PRIMARY KEY NOT NULL REFERENCES TlCuttingConfiguration([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [FirstDepthOfCut] DOUBLE, \r\n    [LastDepthOfCut] DOUBLE, \r\n    [FinishPassAllowance] DOUBLE, \r\n    [PullOff] DOUBLE, \r\n    [NumSpringCuts] INT, \r\n    [MinThreadPitch] DOUBLE, \r\n    [MaxThreadPitch] DOUBLE)"
+    },
+    "TlCuttingConfigurationTurningBoring": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "RoughDepthOfCut",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "FinishDepthOfCut",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "RoughOverlapAmount",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "FacingRetractionAmount",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "FacingXOvercutAmount",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlCuttingConfigurationTurningBoring_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlCuttingConfigurationTurningBoring](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlCuttingConfigurationTurningBoring_1] PRIMARY KEY NOT NULL REFERENCES TlCuttingConfiguration([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [RoughDepthOfCut] DOUBLE, \r\n    [FinishDepthOfCut] DOUBLE, \r\n    [RoughOverlapAmount] DOUBLE, \r\n    [FacingRetractionAmount] DOUBLE, \r\n    [FacingXOvercutAmount] DOUBLE)"
+    },
+    "TlGraphicsFile": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "FileDataSize",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "FileData",
+          "pk": 0,
+          "type": "BLOB"
+        },
+        {
+          "name": "FileFormat",
+          "pk": 0,
+          "type": "INT"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlGraphicsFile_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlGraphicsFile](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlGraphicsFile_1] PRIMARY KEY NOT NULL, \r\n    [FileDataSize] INT, \r\n    [FileData] BLOB, \r\n    [FileFormat] INT)"
+    },
+    "TlGraphicsFileCollection": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "TlGraphicsFileID",
+          "pk": 2,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID",
+            "TlGraphicsFileID"
+          ],
+          "name": "sqlite_autoindex_TlGraphicsFileCollection_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlGraphicsFileCollection](\r\n    [ID] GUID NOT NULL, \r\n    [TlGraphicsFileID] GUID NOT NULL REFERENCES TlGraphicsFile([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    CONSTRAINT [sqlite_autoindex_TlGraphicsFileCollection_1] PRIMARY KEY([ID], [TlGraphicsFileID]))"
+    },
+    "TlHolder": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "LibraryName",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "HolderType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "UpperConnectionType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "UpperConnectionSize",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "LowerConnectionType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "LowerConnectionSize",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "CustomDisplayType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "TlAccessoryCollectionID",
+          "pk": 0,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlHolder_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlHolder](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlHolder_1] PRIMARY KEY REFERENCES TlAssemblyItem([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [LibraryName] VARCHAR, \r\n    [HolderType] INT, \r\n    [UpperConnectionType] INT, \r\n    [UpperConnectionSize] VARCHAR, \r\n    [LowerConnectionType] INT, \r\n    [LowerConnectionSize] VARCHAR, \r\n    [CustomDisplayType] INT, \r\n    [TlAccessoryCollectionID] GUID REFERENCES TlAccessoryCollection([ID]) DEFERRABLE INITIALLY DEFERRED)"
+    },
+    "TlHolderAssembly": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Name",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Description",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "TlAssemblyComponentTreeID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "ImageID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "IsMetric",
+          "pk": 0,
+          "type": "BOOL"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlHolderAssembly_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlHolderAssembly](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlHolderAssembly_1] PRIMARY KEY, \r\n    [Name] VARCHAR, \r\n    [Description] VARCHAR,\r\n    [TlAssemblyComponentTreeID] GUID REFERENCES TlAssemblyComponentTree([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [ImageID] GUID REFERENCES TlGraphicsFile([ID]) DEFERRABLE INITIALLY DEFERRED,\r\n    [IsMetric] BOOL)"
+    },
+    "TlHolderLathe": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Class",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Version",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Tag",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "AnsiShapeCode",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Type",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "InsertShapes",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Length",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "Width",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "ShankWidth",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "ShankHeight",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "HeadLength",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "HeadWidth",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "ChamferWidth",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "ChamferHeight",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "EndCuttingEdgeAngle",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "SideCuttingEdgeAngle",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "RoundShank",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "LeftHandTool",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "IsCustom",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "VerticallyMountedTool",
+          "pk": 0,
+          "type": "BOOL"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlHolderLathe_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlHolderLathe](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlHolderLathe_1] PRIMARY KEY NOT NULL REFERENCES TlAssemblyItem([ID]), \r\n    [Class] VARCHAR, \r\n    [Version] INT, \r\n    [Tag] VARCHAR, \r\n    [AnsiShapeCode] VARCHAR, \r\n    [Type] INT, \r\n    [InsertShapes] VARCHAR, \r\n    [Length] FLOAT, \r\n    [Width] FLOAT, \r\n    [ShankWidth] FLOAT, \r\n    [ShankHeight] FLOAT, \r\n    [HeadLength] FLOAT, \r\n    [HeadWidth] FLOAT, \r\n    [ChamferWidth] FLOAT, \r\n    [ChamferHeight] FLOAT, \r\n    [EndCuttingEdgeAngle] FLOAT, \r\n    [SideCuttingEdgeAngle] FLOAT, \r\n    [RoundShank] BOOL, \r\n    [LeftHandTool] BOOL, \r\n    [IsCustom] BOOL,\r\n    [VerticallyMountedTool] BOOL)"
+    },
+    "TlHolderLatheBoring": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlHolderLatheBoring_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlHolderLatheBoring](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlHolderLatheBoring_1] PRIMARY KEY NOT NULL REFERENCES TlHolderLathe([ID]))"
+    },
+    "TlHolderLatheDrill": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlHolderLatheDrill_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlHolderLatheDrill](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlHolderLatheDrill_1] PRIMARY KEY NOT NULL REFERENCES TlHolderLathe([ID]))"
+    },
+    "TlHolderLatheGrooving": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlHolderLatheGrooving_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlHolderLatheGrooving](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlHolderLatheGrooving_1] PRIMARY KEY NOT NULL REFERENCES TlHolderLathe([ID]))"
+    },
+    "TlHolderLatheLiveCenter": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "PointStyle",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "CompressionLength",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "MaxWorkpieceWeight",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "MaxRPM",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "TaperStyle",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "TaperSize",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlHolderLatheLiveCenter_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlHolderLatheLiveCenter](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlHolderLatheLiveCenter_1] PRIMARY KEY NOT NULL REFERENCES TlHolderLathe([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [PointStyle] INT, \r\n    [CompressionLength] DOUBLE, \r\n    [MaxWorkpieceWeight] DOUBLE, \r\n    [MaxRPM] INT, \r\n    [TaperStyle] INT, \r\n    [TaperSize] DOUBLE)"
+    },
+    "TlHolderLatheThreading": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlHolderLatheThreading_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlHolderLatheThreading](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlHolderLatheThreading_1] PRIMARY KEY NOT NULL REFERENCES TlHolderLathe([ID]))"
+    },
+    "TlHolderLatheTurning": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlHolderLatheTurning_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlHolderLatheTurning](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlHolderLatheTurning_1] PRIMARY KEY NOT NULL REFERENCES TlHolderLathe([ID]))"
+    },
+    "TlHolemakingOpParams": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "CannedCycleType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Peck1",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "Peck2",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "PeckClear",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ChipBreak",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "Dwell",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlHolemakingOpParams_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlHolemakingOpParams](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlHolemakingOpParams_1] PRIMARY KEY NOT NULL REFERENCES TlOpParams([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [CannedCycleType] INT, \r\n    [Peck1] DOUBLE, \r\n    [Peck2] DOUBLE, \r\n    [PeckClear] DOUBLE, \r\n    [ChipBreak] DOUBLE, \r\n    [Dwell] DOUBLE)"
+    },
+    "TlInsert": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "AnsiShapeCode",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "ICDiameter",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "Length",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "Width",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "CornerRadius",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "Thickness",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "TlGradeID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "IsCustom",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "Is3d",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "CuttingSide",
+          "pk": 0,
+          "type": "INT"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlInsert_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlInsert](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlInsert_1] PRIMARY KEY NOT NULL REFERENCES TlAssemblyItem([ID]), \r\n    [AnsiShapeCode] VARCHAR, \r\n    [ICDiameter] FLOAT, \r\n    [Length] FLOAT, \r\n    [Width] FLOAT, \r\n    [CornerRadius] FLOAT, \r\n    [Thickness] FLOAT, \r\n    [TlGradeID] GUID REFERENCES TlToolGrade([ID]), \r\n    [IsCustom] BOOL, \r\n    [Is3d] BOOL, \r\n    [CuttingSide] INT)"
+    },
+    "TlInsertGrooving": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "CutLength",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "ShankWidth",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "EndLength",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "NotchPointLocation",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "EndAngle",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "RoughDepthOfCut",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "FinishDepthOfCut",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "StockClearance",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "BackoffPercent",
+          "pk": 0,
+          "type": "FLOAT"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlInsertGrooving_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlInsertGrooving](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlInsertGrooving_1] PRIMARY KEY NOT NULL REFERENCES TlInsert([ID]), \r\n    [CutLength] FLOAT, \r\n    [ShankWidth] FLOAT, \r\n    [EndLength] FLOAT, \r\n    [NotchPointLocation] FLOAT, \r\n    [EndAngle] FLOAT, \r\n    [RoughDepthOfCut] FLOAT, \r\n    [FinishDepthOfCut] FLOAT, \r\n    [StockClearance] FLOAT, \r\n    [BackoffPercent] FLOAT)"
+    },
+    "TlInsertLatheDrill": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "DrillType",
+          "pk": 0,
+          "type": "SMALLINT"
+        },
+        {
+          "name": "Diameter",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "ShankDiameter",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "TipAngle",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "FluteLength",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "CutLength",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "FluteAngle",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "FluteCount",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "ChamferHeight",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "TipDiameter",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "TipLength",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "ShoulderLength",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "Pitch",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "TapType",
+          "pk": 0,
+          "type": "SMALLINT"
+        },
+        {
+          "name": "Peck1",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "Peck2",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "PeckClr",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "Retract",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "DwellTime",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "Cycle",
+          "pk": 0,
+          "type": "INT"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlInsertLatheDrill_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlInsertLatheDrill](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlInsertLatheDrill_1] PRIMARY KEY NOT NULL REFERENCES TlInsert([ID]), \r\n    [DrillType] SMALLINT, \r\n    [Diameter] FLOAT, \r\n    [ShankDiameter] FLOAT, \r\n    [TipAngle] FLOAT, \r\n    [FluteLength] FLOAT, \r\n    [CutLength] FLOAT, \r\n    [FluteAngle] FLOAT, \r\n    [FluteCount] INT, \r\n    [ChamferHeight] FLOAT, \r\n    [TipDiameter] FLOAT, \r\n    [TipLength] FLOAT, \r\n    [ShoulderLength] FLOAT, \r\n    [Pitch] FLOAT, \r\n    [TapType] SMALLINT, \r\n    [Peck1] FLOAT, \r\n    [Peck2] FLOAT, \r\n    [PeckClr] FLOAT, \r\n    [Retract] FLOAT, \r\n    [DwellTime] FLOAT, \r\n    [Cycle] INT)"
+    },
+    "TlInsertThreading": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "InsertStyle",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "ThreadType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "IsExternalThread",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "MinThreadPitch",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "MaxThreadPitch",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "NotchPointLocation",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "LaydownHeight",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "FlatWidth",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "FirstDepthOfCut",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "LastDepthOfCut",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "FinishAllowance",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "Pulloff",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "SpringCuts",
+          "pk": 0,
+          "type": "INT"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlInsertThreading_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlInsertThreading](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlInsertThreading_1] PRIMARY KEY NOT NULL REFERENCES TlInsert([ID]), \r\n    [InsertStyle] INT, \r\n    [ThreadType] INT, \r\n    [IsExternalThread] BOOL, \r\n    [MinThreadPitch] DOUBLE, \r\n    [MaxThreadPitch] DOUBLE, \r\n    [NotchPointLocation] DOUBLE, \r\n    [LaydownHeight] DOUBLE, \r\n    [FlatWidth] DOUBLE, \r\n    [FirstDepthOfCut] DOUBLE, \r\n    [LastDepthOfCut] DOUBLE, \r\n    [FinishAllowance] DOUBLE, \r\n    [Pulloff] DOUBLE, \r\n    [SpringCuts] INT)"
+    },
+    "TlInsertTurningBoring": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "AnsiCrossSectionCode",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "ReliefAngle",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "RoughDepthOfCut",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "FinishDepthOfCut",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "RoughOverlap",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "FacingRetract",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "FacingXOvercut",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "Definition",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "IsMultiDirectional",
+          "pk": 0,
+          "type": "BOOL"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlInsertTurningBoring_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlInsertTurningBoring](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlInsertTurningBoring_1] PRIMARY KEY NOT NULL REFERENCES TlInsert([ID]), \r\n    [AnsiCrossSectionCode] VARCHAR, \r\n    [ReliefAngle] FLOAT, \r\n    [RoughDepthOfCut] FLOAT, \r\n    [FinishDepthOfCut] FLOAT, \r\n    [RoughOverlap] FLOAT, \r\n    [FacingRetract] FLOAT, \r\n    [FacingXOvercut] FLOAT, \r\n    [Definition] INT, \r\n    [IsMultiDirectional] BOOL)"
+    },
+    "TlLatheDefinition": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "DefinitionIndex",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "ToolOffset",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "ToolBackOffset",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "HomePositionX",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "HomePositionZ",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "IsFeedDirReversed",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "CompPointXlateX",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "CompPointXlateY",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "CompMethod",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "CompQuadrant",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "CompRadius",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ClearanceSideAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ClearanceEndAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ClearanceWidth",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ClearanceHeight",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "AssemblyInsertID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "CuttingConfigurationID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "ToolImageID",
+          "pk": 0,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlLatheDefinition_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlLatheDefinition](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlLatheDefinition_1] PRIMARY KEY NOT NULL REFERENCES TlAssemblyConfiguration([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [DefinitionIndex] INT, \r\n    [ToolOffset] INT, \r\n    [ToolBackOffset] INT, \r\n    [HomePositionX] DOUBLE, \r\n    [HomePositionZ] DOUBLE, \r\n    [IsFeedDirReversed] BOOL, \r\n    [CompPointXlateX] DOUBLE, \r\n    [CompPointXlateY] DOUBLE, \r\n    [CompMethod] INT, \r\n    [CompQuadrant] INT, \r\n    [CompRadius] DOUBLE, \r\n    [ClearanceSideAngle] DOUBLE, \r\n    [ClearanceEndAngle] DOUBLE, \r\n    [ClearanceWidth] DOUBLE, \r\n    [ClearanceHeight] DOUBLE, \r\n    [AssemblyInsertID] GUID REFERENCES TlAssemblyInsert([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [CuttingConfigurationID] GUID REFERENCES TlCuttingConfiguration([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [ToolImageID] GUID REFERENCES TlGraphicsFile([ID]) DEFERRABLE INITIALLY DEFERRED)"
+    },
+    "TlLocator": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "IsMetric",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "r00",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "r01",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "r02",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "r10",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "r11",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "r12",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "r20",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "r21",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "r22",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "t0",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "t1",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "t2",
+          "pk": 0,
+          "type": "FLOAT"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlLocator_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlLocator](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlLocator_1] PRIMARY KEY NOT NULL, \r\n    [IsMetric] BOOL, \r\n    [r00] FLOAT, \r\n    [r01] FLOAT, \r\n    [r02] FLOAT, \r\n    [r10] FLOAT, \r\n    [r11] FLOAT, \r\n    [r12] FLOAT, \r\n    [r20] FLOAT, \r\n    [r21] FLOAT, \r\n    [r22] FLOAT, \r\n    [t0] FLOAT, \r\n    [t1] FLOAT, \r\n    [t2] FLOAT)"
+    },
+    "TlManufacturer": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Name",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Description",
+          "pk": 0,
+          "type": "VARCHAR"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlManufacturer_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlManufacturer](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlManufacturer_1] PRIMARY KEY, \r\n    [Name] VARCHAR, \r\n    [Description] VARCHAR)"
+    },
+    "TlMaterial": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Name",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Description",
+          "pk": 0,
+          "type": "VARCHAR"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlMaterial_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlMaterial](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlMaterial_1] PRIMARY KEY, \r\n    [Name] VARCHAR, \r\n    [Description] VARCHAR)"
+    },
+    "TlMatrix4x4": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "m00",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m01",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m02",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m03",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m10",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m11",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m12",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m13",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m20",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m21",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m22",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m23",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m30",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m31",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m32",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "m33",
+          "pk": 0,
+          "type": "FLOAT"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlMatrix4x4_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlMatrix4x4](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlMatrix4x4_1] PRIMARY KEY, \r\n    [m00] FLOAT, \r\n    [m01] FLOAT, \r\n    [m02] FLOAT, \r\n    [m03] FLOAT, \r\n    [m10] FLOAT, \r\n    [m11] FLOAT, \r\n    [m12] FLOAT, \r\n    [m13] FLOAT, \r\n    [m20] FLOAT, \r\n    [m21] FLOAT, \r\n    [m22] FLOAT, \r\n    [m23] FLOAT, \r\n    [m30] FLOAT, \r\n    [m31] FLOAT, \r\n    [m32] FLOAT, \r\n    [m33] FLOAT)"
+    },
+    "TlMillingOpParams": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "IsRough",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "IsFinish",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "StepoverRoughXY",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "StepoverRoughZ",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "StepoverFinishXY",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "StepoverFinishZ",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlMillingOpParams_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlMillingOpParams](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlMillingOpParams_1] PRIMARY KEY NOT NULL REFERENCES TlOpParams([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [IsRough] BOOL, \r\n    [IsFinish] BOOL, \r\n    [StepoverRoughXY] DOUBLE, \r\n    [StepoverRoughZ] DOUBLE, \r\n    [StepoverFinishXY] DOUBLE, \r\n    [StepoverFinishZ] DOUBLE)"
+    },
+    "TlOpGroup": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Name",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Description",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "ImagePath",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Image",
+          "pk": 0,
+          "type": "BLOB"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlOpGroup_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlOpGroup](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlOpGroup_1] PRIMARY KEY, \r\n    [Name] VARCHAR, \r\n    [Description] VARCHAR, \r\n    [ImagePath] VARCHAR, \r\n    [Image] BLOB)"
+    },
+    "TlOpParams": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "MaterialSFMAdjust",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "MaterialFPTAdjust",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "FeedRate",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "RetractRate",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "SpindleSpeed",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "PlungeRate",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "TlCoolantID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "IsMetric",
+          "pk": 0,
+          "type": "BOOL"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlOpParams_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlOpParams](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlOpParams_1] PRIMARY KEY NOT NULL, \r\n    [MaterialSFMAdjust] DOUBLE, \r\n    [MaterialFPTAdjust] DOUBLE, \r\n    [FeedRate] DOUBLE, \r\n    [RetractRate] DOUBLE, \r\n    [SpindleSpeed] INT, \r\n    [PlungeRate] DOUBLE, \r\n    [TlCoolantID] GUID REFERENCES TlCoolant([ID]), \r\n    [IsMetric] BOOL)"
+    },
+    "TlOpType": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "TlOpGroupID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "Name",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Description",
+          "pk": 0,
+          "type": "VARCHAR"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlOpType_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlOpType](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlOpType_1] PRIMARY KEY, \r\n    [TlOpGroupID] GUID REFERENCES TlOpGroup([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [Name] VARCHAR, \r\n    [Description] VARCHAR)"
+    },
+    "TlProfile": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "TlProfileSegmentID",
+          "pk": 2,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID",
+            "TlProfileSegmentID"
+          ],
+          "name": "sqlite_autoindex_TlProfile_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlProfile](\r\n    [ID] GUID NOT NULL, \r\n    [TlProfileSegmentID] GUID NOT NULL REFERENCES TlProfileSegment([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    CONSTRAINT [sqlite_autoindex_TlProfile_1] PRIMARY KEY([ID], [TlProfileSegmentID]))"
+    },
+    "TlProfileArcSegment": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "CenterX",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "CenterY",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "Radius",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "StartAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "SweepAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlProfileArcSegment_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlProfileArcSegment](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlProfileArcSegment_1] PRIMARY KEY NOT NULL REFERENCES TlProfileSegment([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [CenterX] DOUBLE, \r\n    [CenterY] DOUBLE, \r\n    [Radius] DOUBLE, \r\n    [StartAngle] DOUBLE, \r\n    [SweepAngle] DOUBLE)"
+    },
+    "TlProfileData": {
+      "columns": [
+        {
+          "name": "ItemID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Segment",
+          "pk": 2,
+          "type": "INT"
+        },
+        {
+          "name": "Type",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Color",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "x0",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "y0",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "x1",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "y1",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "radius",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "StartAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "SweepAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ItemID",
+            "Segment"
+          ],
+          "name": "sqlite_autoindex_TlProfileData_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlProfileData](\r\n    [ItemID] GUID REFERENCES TlAssemblyItem([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [Segment] INT, \r\n    [Type] INT, \r\n    [Color] INT, \r\n    [x0] DOUBLE, \r\n    [y0] DOUBLE, \r\n    [x1] DOUBLE, \r\n    [y1] DOUBLE, \r\n    [radius] DOUBLE, \r\n    [StartAngle] DOUBLE, \r\n    [SweepAngle] DOUBLE, \r\n    CONSTRAINT [sqlite_autoindex_TlProfileData_1] PRIMARY KEY([ItemID], [Segment]))"
+    },
+    "TlProfileLineSegment": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "x0",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "y0",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "x1",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "y1",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlProfileLineSegment_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlProfileLineSegment](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlProfileLineSegment_1] PRIMARY KEY NOT NULL REFERENCES TlProfileSegment([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [x0] DOUBLE, \r\n    [y0] DOUBLE, \r\n    [x1] DOUBLE, \r\n    [y1] DOUBLE)"
+    },
+    "TlProfileSegment": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Color",
+          "pk": 0,
+          "type": "INT"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlProfileSegment_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlProfileSegment](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlProfileSegment_1] PRIMARY KEY NOT NULL, \r\n    [Color] INT)"
+    },
+    "TlRelations": {
+      "columns": [
+        {
+          "name": "ParentID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "ChildID",
+          "pk": 2,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ParentID",
+            "ChildID"
+          ],
+          "name": "sqlite_autoindex_TlRelations_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlRelations](\r\n    [ParentID] GUID REFERENCES TlAssemblyItem([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [ChildID] GUID, \r\n    CONSTRAINT [sqlite_autoindex_TlRelations_1] PRIMARY KEY([ParentID], [ChildID]))"
+    },
+    "TlTool": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "OpToolInfo",
+          "pk": 0,
+          "type": "BLOB"
+        },
+        {
+          "name": "ToolNumber",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "ToolStation",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "IsCustom",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "CustomDisplayType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "TlAccessoryCollectionID",
+          "pk": 0,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlTool_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlTool](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlTool_1] PRIMARY KEY NOT NULL REFERENCES TlAssemblyItem([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [OpToolInfo] BLOB, \r\n    [ToolNumber] INT, \r\n    [ToolStation] INT, \r\n    [IsCustom] BOOL, \r\n    [CustomDisplayType] INT, \r\n    [TlAccessoryCollectionID] GUID REFERENCES TlAccessoryCollection([ID]) DEFERRABLE INITIALLY DEFERRED)"
+    },
+    "TlToolAssembly": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Name",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Description",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "IsMetric",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "Type",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "ToolNumber",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "ToolStation",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "IsVertical",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "IsInverted",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "ToolAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ActiveTurret",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "RequiresToolLocator",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "TlAssemblyComponentTreeID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "TlAccessoryCollectionID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "TlGraphicsFileCollectionID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "ExternalId",
+          "pk": 0,
+          "type": "VARCHAR"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolAssembly_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolAssembly](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolAssembly_1] PRIMARY KEY, \r\n    [Name] VARCHAR, \r\n    [Description] VARCHAR, \r\n    [IsMetric] BOOL, \r\n    [Type] INT, \r\n    [ToolNumber] INT, \r\n    [ToolStation] INT, \r\n    [IsVertical] BOOL, \r\n    [IsInverted] BOOL, \r\n    [ToolAngle] DOUBLE, \r\n    [ActiveTurret] INT, \r\n    [RequiresToolLocator] BOOL, \r\n    [TlAssemblyComponentTreeID] GUID REFERENCES TlAssemblyComponentTree([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TlAccessoryCollectionID] GUID REFERENCES TlAccessoryCollection([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TlGraphicsFileCollectionID] GUID REFERENCES TlGraphicsFileCollection([ID]) DEFERRABLE INITIALLY DEFERRED, ExternalId VARCHAR)"
+    },
+    "TlToolBarrelMill": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "BarrelLength",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ProfileRadius",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "PrimaryCornerRadius",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "UpperRadius",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "TaperAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "TipDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolBarrelMill_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolBarrelMill](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolBarrelMill_1] PRIMARY KEY REFERENCES TlToolMill([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [BarrelLength] DOUBLE, \r\n    [ProfileRadius] DOUBLE, \r\n    [PrimaryCornerRadius] DOUBLE, \r\n    [UpperRadius] DOUBLE, \r\n    [TaperAngle] DOUBLE, \r\n    [TipDiameter] DOUBLE)"
+    },
+    "TlToolBoring": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "TlRadiusType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "TaperAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "Shift",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolBoring_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolBoring](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolBoring_1] PRIMARY KEY REFERENCES TlToolDrill([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TlRadiusType] INT, \r\n    [TaperAngle] DOUBLE, \r\n    [Shift] DOUBLE)"
+    },
+    "TlToolCenterDrill": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "DrillLength",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "DrillDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolCenterDrill_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolCenterDrill](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolCenterDrill_1] PRIMARY KEY REFERENCES TlToolDrill([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [DrillLength] DOUBLE, \r\n    [DrillDiameter] DOUBLE)"
+    },
+    "TlToolCounterBore": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "PilotLength",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "PilotDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolCounterBore_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolCounterBore](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolCounterBore_1] PRIMARY KEY REFERENCES TlToolDrill([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [PilotLength] DOUBLE, \r\n    [PilotDiameter] DOUBLE)"
+    },
+    "TlToolDrill": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "TipAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ShoulderAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "CornerRadius",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolDrill_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolDrill](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolDrill_1] PRIMARY KEY NOT NULL REFERENCES TlToolMill([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TipAngle] DOUBLE, \r\n    [ShoulderAngle] DOUBLE, \r\n    [CornerRadius] DOUBLE)"
+    },
+    "TlToolEndmill": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "TipDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "TaperAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "TlRadiusType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "CornerRadius",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ChamferLength",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolEndmill_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolEndmill](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolEndmill_1] PRIMARY KEY NOT NULL REFERENCES TlToolMill([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TipDiameter] DOUBLE, \r\n    [TaperAngle] DOUBLE, \r\n    [TlRadiusType] INT, \r\n    [CornerRadius] DOUBLE, \r\n    [ChamferLength] DOUBLE)"
+    },
+    "TlToolFeedMill": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "TipDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "LowerRadius",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "UpperRadius",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "LowerTaperAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "UpperTaperAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ReliefTaperAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolFeedMill_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolFeedMill](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolFeedMill_1] PRIMARY KEY REFERENCES TlToolMill([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TipDiameter] DOUBLE, \r\n    [LowerRadius] DOUBLE, \r\n    [UpperRadius] DOUBLE, \r\n    [LowerTaperAngle] DOUBLE, \r\n    [UpperTaperAngle] DOUBLE, \r\n    [ReliefTaperAngle] DOUBLE)"
+    },
+    "TlToolGrade": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "ManufacturerID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "Name",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Description",
+          "pk": 0,
+          "type": "VARCHAR"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolGrade_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolGrade](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolGrade_1] PRIMARY KEY, \r\n    [ManufacturerID] GUID REFERENCES TlManufacturer([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [Name] VARCHAR, \r\n    [Description] VARCHAR)"
+    },
+    "TlToolGroup": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Name",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Description",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "ImagePath",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Image",
+          "pk": 0,
+          "type": "BLOB"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolGroup_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolGroup](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolGroup_1] PRIMARY KEY, \r\n    [Name] VARCHAR, \r\n    [Description] VARCHAR, \r\n    [ImagePath] VARCHAR, \r\n    [Image] BLOB)"
+    },
+    "TlToolLathe": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "ToolClearanceAngle",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "ToolRakeAngle",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "ToolWidth",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "ToolHeight",
+          "pk": 0,
+          "type": "FLOAT"
+        },
+        {
+          "name": "HolderID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "InsertID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "MachineSideConnectionType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "RequiresToolLocator",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "ExternalId",
+          "pk": 0,
+          "type": "VARCHAR"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolLathe_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolLathe](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolLathe_1] PRIMARY KEY NOT NULL REFERENCES TlTool([ID]), \r\n    [ToolClearanceAngle] FLOAT, \r\n    [ToolRakeAngle] FLOAT, \r\n    [ToolWidth] FLOAT, \r\n    [ToolHeight] FLOAT, \r\n    [HolderID] GUID REFERENCES TlHolderLathe([ID]), \r\n    [InsertID] GUID REFERENCES TlInsert([ID]), \r\n    [MachineSideConnectionType] INT, \r\n    [RequiresToolLocator] BOOL, ExternalId VARCHAR)"
+    },
+    "TlToolLatheCustom": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolLatheCustom_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolLatheCustom](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolLatheCustom_1] PRIMARY KEY NOT NULL REFERENCES TlToolLathe([ID]))"
+    },
+    "TlToolLatheISO": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolLatheISO_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolLatheISO](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolLatheISO_1] PRIMARY KEY NOT NULL REFERENCES TlToolLathe([ID]))"
+    },
+    "TlToolMaterial": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolMaterial_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolMaterial](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolMaterial_1] PRIMARY KEY REFERENCES TlMaterial([ID]))"
+    },
+    "TlToolMill": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "MCToolType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "DiameterOffsetNum",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "LengthOffsetNum",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "OverallLength",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ShoulderLength",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "CuttingDepth",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "OverallDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ArborDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ShoulderDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "TlShankType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "TaperLength",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "NeckDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "FluteCount",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "TlSpindleDir",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "TlHelixType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "HelixAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "RequiredPilotDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "IsVariablePitch",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "IsScalable",
+          "pk": 0,
+          "type": "BOOL"
+        },
+        {
+          "name": "MfgToolCode",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Chuck",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "ToolFileName",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "TlGradeID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "TlOpParamsID",
+          "pk": 0,
+          "type": "GUID"
+        },
+        {
+          "name": "IsAcceleratedFinishing",
+          "pk": 0,
+          "type": "BOOL"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolMill_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolMill](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolMill_1] PRIMARY KEY NOT NULL REFERENCES TlTool([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [MCToolType] INT, \r\n    [DiameterOffsetNum] INT, \r\n    [LengthOffsetNum] INT, \r\n    [OverallLength] DOUBLE, \r\n    [ShoulderLength] DOUBLE, \r\n    [CuttingDepth] DOUBLE, \r\n    [OverallDiameter] DOUBLE, \r\n    [ArborDiameter] DOUBLE, \r\n    [ShoulderDiameter] DOUBLE, \r\n    [TlShankType] INT, \r\n    [TaperLength] DOUBLE, \r\n    [NeckDiameter] DOUBLE, \r\n    [FluteCount] INT, \r\n    [TlSpindleDir] INT, \r\n    [TlHelixType] INT, \r\n    [HelixAngle] DOUBLE, \r\n    [RequiredPilotDiameter] DOUBLE, \r\n    [IsVariablePitch] BOOL, \r\n    [IsScalable] BOOL, \r\n    [MfgToolCode] VARCHAR, \r\n    [Chuck] VARCHAR, \r\n    [ToolFileName] VARCHAR, \r\n    [TlGradeID] GUID REFERENCES TlToolGrade([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TlOpParamsID] GUID REFERENCES TlOpParams([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [IsAcceleratedFinishing] BOOL)"
+    },
+    "TlToolReamer": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "TipAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ChamferLength",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolReamer_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolReamer](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolReamer_1] PRIMARY KEY REFERENCES TlToolMill([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TipAngle] DOUBLE, \r\n    [ChamferLength] DOUBLE)"
+    },
+    "TlToolSlotMill": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "SecondaryRadiusType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "SecondaryCornerRadius",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "SecondaryChamferDistance",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "SecondaryChamferAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolSlotMill_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolSlotMill](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolSlotMill_1] PRIMARY KEY REFERENCES TlToolEndmill([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [SecondaryRadiusType] INT, \r\n    [SecondaryCornerRadius] DOUBLE, \r\n    [SecondaryChamferDistance] DOUBLE, \r\n    [SecondaryChamferAngle] DOUBLE)"
+    },
+    "TlToolThreading": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "TipDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "TipAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "TlRadiusType",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "CornerRadius",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ThreadPitch",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "TlThreadShape",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "RootDiameter",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "ThreadAngle",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "NStarts",
+          "pk": 0,
+          "type": "INT"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolThreading_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolThreading](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolThreading_1] PRIMARY KEY REFERENCES TlToolMill([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [TipDiameter] DOUBLE, \r\n    [TipAngle] DOUBLE, \r\n    [TlRadiusType] INT, \r\n    [CornerRadius] DOUBLE, \r\n    [ThreadPitch] DOUBLE, \r\n    [TlThreadShape] INT, \r\n    [RootDiameter] DOUBLE, \r\n    [ThreadAngle] DOUBLE, \r\n    [NStarts] INT)"
+    },
+    "TlToolToTlOpType": {
+      "columns": [
+        {
+          "name": "TlToolID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "TlOpTypeID",
+          "pk": 2,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "TlToolID",
+            "TlOpTypeID"
+          ],
+          "name": "sqlite_autoindex_TlToolToTlOpType_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolToTlOpType](\r\n    [TlToolID] GUID REFERENCES TlTool([ID]) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, \r\n    [TlOpTypeID] GUID REFERENCES TlOpType([ID]) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, \r\n    CONSTRAINT [sqlite_autoindex_TlToolToTlOpType_1] PRIMARY KEY([TlToolID], [TlOpTypeID]))"
+    },
+    "TlToolType": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Name",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Description",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "ImagePath",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Image",
+          "pk": 0,
+          "type": "BLOB"
+        },
+        {
+          "name": "TlToolGroupID",
+          "pk": 0,
+          "type": "GUID"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlToolType_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlToolType](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlToolType_1] PRIMARY KEY, \r\n    [Name] VARCHAR, \r\n    [Description] VARCHAR, \r\n    [ImagePath] VARCHAR, \r\n    [Image] BLOB, \r\n    [TlToolGroupID] GUID CONSTRAINT [sqlite_autoindex_TlToolType_1] REFERENCES TlToolGroup([ID]) DEFERRABLE INITIALLY DEFERRED)"
+    },
+    "TlTurnHolder": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "Type",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "IsForYAxisCutting",
+          "pk": 0,
+          "type": "BOOL"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlTurnHolder_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlTurnHolder](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlTurnHolder_1] PRIMARY KEY NOT NULL REFERENCES TlAssemblyItem([ID]) DEFERRABLE INITIALLY DEFERRED, \r\n    [Type] INT,\r\n    [IsForYAxisCutting] BOOL)"
+    },
+    "TlWorkMaterial": {
+      "columns": [
+        {
+          "name": "ID",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "ISOGroup",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "Density",
+          "pk": 0,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "HardnessUnit",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "HardnessValue",
+          "pk": 0,
+          "type": "DOUBLE"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "ID"
+          ],
+          "name": "sqlite_autoindex_TlWorkMaterial_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [TlWorkMaterial](\r\n    [ID] GUID CONSTRAINT [sqlite_autoindex_TlWorkMaterial_1] PRIMARY KEY REFERENCES TlMaterial([ID]), \r\n    [ISOGroup] INT, \r\n    [Density] DOUBLE, \r\n    [HardnessUnit] INT, \r\n    [HardnessValue] DOUBLE)"
+    },
+    "_Header": {
+      "columns": [
+        {
+          "name": "id",
+          "pk": 1,
+          "type": "GUID"
+        },
+        {
+          "name": "version",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "DataVersion",
+          "pk": 0,
+          "type": "INT"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "id"
+          ],
+          "name": "sqlite_autoindex__Header_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [_Header](\r\n    [id] GUID CONSTRAINT [sqlite_autoindex__Header_1] PRIMARY KEY, \r\n    [version] INT, \r\n    [DataVersion] INT)"
+    },
+    "_UpdateLog": {
+      "columns": [
+        {
+          "name": "Update",
+          "pk": 1,
+          "type": "INT"
+        },
+        {
+          "name": "Date",
+          "pk": 0,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "PreviousSchemaVersion",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "PreviousDataVersion",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "NewSchemaVersion",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "NewDataVersion",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "MCMajorVersion",
+          "pk": 0,
+          "type": "INT"
+        },
+        {
+          "name": "MCMinorVersion",
+          "pk": 0,
+          "type": "INT"
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "Update"
+          ],
+          "name": "sqlite_autoindex__UpdateLog_1",
+          "unique": true
+        }
+      ],
+      "sql": "CREATE TABLE [_UpdateLog] (\r\n\t[Update] INT CONSTRAINT [sqlite_autoindex__UpdateLog_1] PRIMARY KEY,\r\n\t[Date] VARCHAR,\r\n\t[PreviousSchemaVersion] INT,\r\n\t[PreviousDataVersion] INT,\r\n\t[NewSchemaVersion] INT,\r\n\t[NewDataVersion] INT,\r\n\t[MCMajorVersion] INT,\r\n\t[MCMinorVersion] INT)"
+    }
+  }
+}

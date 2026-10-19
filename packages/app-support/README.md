@@ -4,12 +4,9 @@
 preferences, contexts and route helpers every application was otherwise going
 to write for itself, and did.
 
-**It renders nothing.** `@toolpath/ui` is the component kit — styling and
-display, the surface documented in
-[Storybook](https://storybook.staging.toolpath.com). This package is the other
-half. Neither depends on the other, and that is the point: a preference read by
-a loader on a server has no business pulling in a Tailwind component kit, and a
-button has no business knowing where a preference is stored.
+**It renders no UI.** `@toolpath/ui` supplies visual components; this package
+supplies shared application logic. Neither depends on the other, so server code
+can read a stored preference without importing the component kit.
 
 ```
     @toolpath/tool-support          depends on nothing

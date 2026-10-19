@@ -1,20 +1,48 @@
-import { StrictMode, useCallback, useMemo, useRef, useState } from 'react'
+import { StrictMode, Suspense, useCallback, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import {
   Axes,
+  Banana,
+  Stock,
+  fixedBoxStockBounds,
+  directionHighlights,
+  directionLabel,
+  directionColor,
   Grid,
+  HoverCard,
   DirectionArrows,
   ViewCube,
+  ViewerToolbar,
+  ViewerToolbarProvider,
+  MeasureTool,
   PartMesh,
+  SectionTool,
   Viewer,
-  buildRegionIndex,
+  CONTROL_SCHEME_OPTIONS,
+  measurementLabel,
+  sharpCornerPositions,
+  surfaceCreases,
+  type MeasureMode,
+  type Measurement,
   type PartModel,
   type PartPick,
   type Projection,
+  type ControlScheme,
+  type SectionOptions,
+  type SectionState,
+  type SharpCorner,
+  type SharpCornerOptions,
+  type StockPosition,
   type ViewerHandle,
+  type ViewerToolbarControls,
 } from '@toolpath/viewer'
+import { AnalysisOptions } from './analysis-options'
+import type { FeatureSheet } from '@toolpath/dfm/model'
+import { partFromFiles } from './local-part'
+import { type ExampleModel, MODELS, modelFromQuery } from './models'
+import stockMeshFixture from '../../../packages/viewer/fixtures/mesh/stock-box.json'
 import './style.css'
 
 /**
@@ -34,52 +62,29 @@ const params = new URLSearchParams(window.location.search)
 const projection: Projection =
   params.get('projection') === 'orthographic' ? 'orthographic' : 'perspective'
 const showOrbitTarget = params.get('orbitTarget') === 'on'
-
+const STOCK_GLB_BYTES = Uint8Array.from(atob(stockMeshFixture.base64), (char) =>
+  char.charCodeAt(0),
+).buffer
+const LARGE_STOCK_GLB_BYTES = Uint8Array.from(atob(stockMeshFixture.largeBase64), (char) =>
+  char.charCodeAt(0),
+).buffer
+type StockShape = 'box' | 'cylinder'
+type StockSource = 'geometry' | 'glb'
+const requestedControls = params.get('controls')
+const initialControls: ControlScheme = CONTROL_SCHEME_OPTIONS.some(
+  (option) => option.value === requestedControls,
+)
+  ? (requestedControls as ControlScheme)
+  : 'toolpath'
 /**
- * A part the viewer can render, built by hand rather than fetched.
- *
- * A real one comes from `normalizePartReport(report)`. This is the same shape:
- * regions are half-open triangle ranges that tile the mesh completely,
- * `splitOrigin` groups regions derived from one original face, and features
- * name the regions they own. `buildRegionIndex` inverts that mapping and
- * rejects a table with a gap or an overlap.
+ * `?model=<id>` opens one of the parts in `./models.ts` — a plate with holes,
+ * a chamfered block, a pocket, a stepped boss — for the measure tool to work
+ * on. The cube is the default, and the one the browser suite is written about.
  */
-const cubeFaces = [
-  { tag: 'right-face', direction: { x: 1, y: 0, z: 0 } },
-  { tag: 'left-face', direction: { x: -1, y: 0, z: 0 } },
-  { tag: 'top-face', direction: { x: 0, y: 1, z: 0 } },
-  { tag: 'bottom-face', direction: { x: 0, y: -1, z: 0 } },
-  { tag: 'front-face', direction: { x: 0, y: 0, z: 1 } },
-  { tag: 'back-face', direction: { x: 0, y: 0, z: -1 } },
-]
-
-const regions = cubeFaces.map((_face, idx) => ({
-  idx,
-  // This example has no analysis splits, so every region is its own origin.
-  splitOrigin: idx,
-  shapeKind: 'Plane',
-  area: 25.4 * 25.4,
-  triangles: { start: idx * 2, end: idx * 2 + 2 },
-}))
-
-const features = cubeFaces.map((face, idx) => ({
-  tag: face.tag,
-  featureType: 'face',
-  machiningDirection: face.direction,
-  axis: face.direction,
-  regionIdxs: [idx],
-}))
-
-const cube: PartModel = {
-  partId: 'one-inch-cube',
-  kernelVersion: '0.3.0',
-  features,
-  regions,
-  candidateDirections: cubeFaces.map((face) => face.direction),
-  mesh: { pointCount: 36, triangleCount: 12, glbUrl: null, stlUrl: null, thumbnailUrl: null },
-  regionIndex: buildRegionIndex({ regions, features, triangleCount: 12 }),
-  warnings: [],
-}
+const startingModel = modelFromQuery(params)
+/** `?sharp=on` opens with the Sharp corners button pressed. */
+const initialSharp = params.get('sharp') === 'on'
+const NO_FEATURES: readonly string[] = []
 
 /** Where the camera is, as numbers rather than as pixels. */
 interface CameraState {
@@ -89,16 +94,21 @@ interface CameraState {
   distance: number
   /** The orbit target — the point the view turns and zooms about. */
   target: readonly [number, number, number]
+  /** Camera position, used only by the example's navigation smoke tests. */
+  position: readonly [number, number, number]
 }
 
-const AT_START: CameraState = { zoom: 1, distance: 0, target: [0, 0, 0] }
+const AT_START: CameraState = { zoom: 1, distance: 0, target: [0, 0, 0], position: [0, 0, 0] }
 
 const sameCamera = (a: CameraState, b: CameraState) =>
   a.zoom === b.zoom &&
   a.distance === b.distance &&
   a.target[0] === b.target[0] &&
   a.target[1] === b.target[1] &&
-  a.target[2] === b.target[2]
+  a.target[2] === b.target[2] &&
+  a.position[0] === b.position[0] &&
+  a.position[1] === b.position[1] &&
+  a.position[2] === b.position[2]
 
 /**
  * The camera's own numbers, put on the page.
@@ -128,6 +138,7 @@ const CameraReadout = ({ onChange }: { onChange: (state: CameraState) => void })
       zoom: camera.zoom,
       distance: camera.position.distanceTo(target),
       target: [target.x, target.y, target.z],
+      position: [camera.position.x, camera.position.y, camera.position.z],
     })
   })
 
@@ -145,17 +156,198 @@ const CameraReadout = ({ onChange }: { onChange: (state: CameraState) => void })
  */
 const DETAIL = new THREE.Box3(new THREE.Vector3(-1, -1, 11.7), new THREE.Vector3(1, 1, 13.7))
 
+const featureLabel = (featureType: string) =>
+  featureType
+    .split('_')
+    .map((word) => word[0]?.toUpperCase() + word.slice(1))
+    .join(' ')
+
+interface HoverDetailsProps {
+  pick: PartPick
+  model: PartModel
+  /** The DFM rules' reading of each feature's datasheet, by lower-cased tag, where the part has them. */
+  sheets: ExampleModel['sheets']
+}
+
+/** What every normalized part report can say without a DFM datasheet — or, on a sharp corner, about it. */
+const HoverDetails = ({ pick, model, sheets }: HoverDetailsProps) => {
+  if (pick.sharpCorner) {
+    return (
+      <SharpCornerDetails
+        corner={pick.sharpCorner}
+        model={model}
+        sheet={sheets?.[pick.sharpCorner.feature.toLowerCase()]}
+      />
+    )
+  }
+  const feature = pick.best ? model.features.find(({ tag }) => tag === pick.best) : undefined
+  const region = model.regions.find(({ idx }) => idx === pick.region)
+  const direction = feature
+    ? model.candidateDirections.findIndex(
+        (candidate) =>
+          candidate.x === feature.machiningDirection.x &&
+          candidate.y === feature.machiningDirection.y &&
+          candidate.z === feature.machiningDirection.z,
+      )
+    : -1
+
+  return (
+    <>
+      <p className="viewer-hover-eyebrow">Feature</p>
+      <strong>{feature ? featureLabel(feature.featureType) : 'Shared surface'}</strong>
+      <dl>
+        <div>
+          <dt>Surface area</dt>
+          <dd>{region ? `${region.area.toFixed(1)} mm²` : 'Unknown'}</dd>
+        </div>
+        <div>
+          <dt>Machining direction</dt>
+          <dd>
+            {direction >= 0 ? directionLabel(model.candidateDirections[direction]) : 'Unknown'}
+          </dd>
+        </div>
+      </dl>
+    </>
+  )
+}
+
+/**
+ * A sharp corner under the pointer, laid out as a feature is: that it is a
+ * sharp corner, the feature it is in, and its figures — the angle between its
+ * walls, how deep it runs, which way it is cut, and, where the part has its
+ * datasheets, the widest tool that fits the feature. Facts only: whoever reads
+ * it knows what a sharp corner means.
+ */
+const SharpCornerDetails = ({
+  corner,
+  model,
+  sheet,
+}: {
+  corner: SharpCorner
+  model: PartModel
+  sheet: FeatureSheet | undefined
+}) => {
+  const feature = model.features.find(({ tag }) => tag === corner.feature)
+  const tool = sheet?.pinchDiameter
+  return (
+    <>
+      <p className="viewer-hover-eyebrow viewer-hover-eyebrow-sharp">Sharp corner</p>
+      <strong>{feature ? featureLabel(feature.featureType) : 'Flagged feature'}</strong>
+      <dl>
+        <div>
+          <dt>Angle</dt>
+          <dd>{corner.angle.toFixed(0)}°</dd>
+        </div>
+        <div>
+          <dt>Depth</dt>
+          <dd>{corner.length.toFixed(2)} mm</dd>
+        </div>
+        {feature ? (
+          <div>
+            <dt>Cut from</dt>
+            <dd>{directionLabel(feature.machiningDirection)}</dd>
+          </div>
+        ) : null}
+        {tool !== undefined ? (
+          <div>
+            <dt>Widest tool</dt>
+            <dd>Ø{tool.toFixed(2)} mm</dd>
+          </div>
+        ) : null}
+      </dl>
+    </>
+  )
+}
+
 const App = () => {
-  // Non-indexed on purpose. Highlighting is a per-vertex region attribute, and
-  // a vertex shared between two regions has no single value to carry — which is
-  // why the Engine mesh loader de-indexes too.
-  const geometry = useMemo(() => new THREE.BoxGeometry(25.4, 25.4, 25.4).toNonIndexed(), [])
+  const [part, setPart] = useState(startingModel)
+  // The built-in parts, and any real part opened from disk this session.
+  const [parts, setParts] = useState<readonly ExampleModel[]>(MODELS)
+  const [openError, setOpenError] = useState<string | null>(null)
+  // Query params select the opening preset for browser coverage; the picker
+  // below changes the live controls without remounting the viewer.
+  const [controls, setControls] = useState<ControlScheme>(initialControls)
   const viewerRef = useRef<ViewerHandle>(null)
   const [hovered, setHovered] = useState<string[]>([])
+  const [hoverPick, setHoverPick] = useState<PartPick | null>(null)
+  const [featureHover, setFeatureHover] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
-  const [cut, setCut] = useState(0.45)
+  // The selection put down on entering section mode, to pick up again on the
+  // way out. A ref rather than state: nothing renders from it.
+  const heldSelection = useRef<string[]>([])
+  /**
+   * The cut is the viewer's own: `<PartMesh>` below is given no `section`, so
+   * it follows whatever `<SectionTool>` places, the slider sets through
+   * `setSection`, and the handle drags. `cut` is only what it reports back.
+   */
+  const [cut, setCut] = useState<SectionState | null>(null)
+  const [offset, setOffset] = useState(0.45)
   const [sectioning, setSectioning] = useState(false)
+  /**
+   * Measuring is the same shape as sectioning: a mode the toolbar enters, with
+   * the selection put down on the way in. The list is controlled here so the
+   * panel can clear it with its trash button.
+   */
+  const [measuring, setMeasuring] = useState(false)
+  const [measureMode, setMeasureMode] = useState<MeasureMode>('distance')
+  const [measured, setMeasured] = useState<readonly Measurement[]>([])
+  const [measureInstance, setMeasureInstance] = useState(0)
   const [direction, setDirection] = useState<number | null>(null)
+  const [showStock, setShowStock] = useState(params.get('stock') === 'on')
+  const [showAxes, setShowAxes] = useState(true)
+  const [showGrid, setShowGrid] = useState(true)
+  const [banana, setBanana] = useState(false)
+  const [showDirections, setShowDirections] = useState(false)
+  const [focus, setFocus] = useState(false)
+  const [wireframe, setWireframe] = useState(false)
+  const [stockShape, setStockShape] = useState<StockShape>(
+    params.get('stockShape') === 'cylinder' ? 'cylinder' : 'box',
+  )
+  const [stockSource, setStockSource] = useState<StockSource>(
+    params.get('stockSource') === 'glb' ? 'glb' : 'geometry',
+  )
+  const [stockDimensions, setStockDimensions] = useState({ x: 25.908, y: 25.908, z: 25.908 })
+  const [stockCylinder, setStockCylinder] = useState({ diameter: 38.1, length: 25.908 })
+  const [stockMeshSize, setStockMeshSize] = useState('40')
+  const [stockPosition, setStockPosition] = useState<StockPosition>('model_centered')
+  const [stockPositionOffset, setStockPositionOffset] = useState(0)
+  /**
+   * Sharp corners, wired the way an application wires them: one toolbar
+   * button, and the features the DFM rules flag handed to the part. Which
+   * corners count is the rules' call; nothing about it is offered to users.
+   */
+  const [sharpOn, setSharpOn] = useState(initialSharp)
+  const flagged = part.sharpCorners ?? NO_FEATURES
+  const sharpCorners = useMemo(
+    (): SharpCornerOptions | null => (sharpOn ? { features: flagged } : null),
+    [flagged, sharpOn],
+  )
+  // The same walk the part makes, repeated here only to say what was drawn.
+  const creases = useMemo(
+    () => (sharpOn ? surfaceCreases(part.geometry, part.model) : null),
+    [part.geometry, part.model, sharpOn],
+  )
+  const sharpDrawn = useMemo(
+    () =>
+      creases && sharpCorners
+        ? measureSegments(sharpCornerPositions(creases, part.model, sharpCorners))
+        : null,
+    [creases, part.model, sharpCorners],
+  )
+  const stockSize = useMemo(
+    () =>
+      fixedBoxStockBounds(
+        part.geometry,
+        stockDimensions,
+        stockPosition,
+        stockPositionOffset,
+      ).getSize(new THREE.Vector3()),
+    [part.geometry, stockDimensions, stockPosition, stockPositionOffset],
+  )
+  const highlights = useMemo(
+    () => (showDirections ? directionHighlights(part.model, direction) : []),
+    [direction, part.model, showDirections],
+  )
   const [pose, setPose] = useState<CameraState>(AT_START)
 
   // Called from a frame, so it runs whether or not anything changed. Holding
@@ -165,15 +357,314 @@ const App = () => {
     (next: CameraState) => setPose((held) => (sameCamera(held, next) ? held : next)),
     [],
   )
-
+  // A new part is a new scene: the viewer is keyed on it, so it remounts,
+  // frames the new part, and drops the cut and the measurements with the
+  // tools that made them.
+  const choosePart = (next: ExampleModel) => {
+    setPart(next)
+    setCut(null)
+    setMeasured([])
+    setSelected([])
+    setHovered([])
+    setHoverPick(null)
+    heldSelection.current = []
+    setDirection(null)
+  }
+  const toolbarControls: ViewerToolbarControls = {
+    fit: { onClick: () => viewerRef.current?.fit() },
+    reset: { onClick: () => viewerRef.current?.reset() },
+    top: { onClick: () => viewerRef.current?.setView('top') },
+    stock: { pressed: showStock, onClick: () => setShowStock((on) => !on) },
+    axes: { pressed: showAxes, onClick: () => setShowAxes((on) => !on) },
+    grid: { pressed: showGrid, onClick: () => setShowGrid((on) => !on) },
+    banana: { pressed: banana, onClick: () => setBanana((shown) => !shown) },
+    directions: {
+      pressed: showDirections,
+      onClick: () => {
+        setShowDirections((on) => !on)
+        setDirection(null)
+        setSelected([])
+        heldSelection.current = []
+        setWireframe(false)
+      },
+    },
+    sharpCorners: { pressed: sharpOn, onClick: () => setSharpOn((on) => !on) },
+    hover: { pressed: featureHover, onClick: () => setFeatureHover((enabled) => !enabled) },
+    focus: { pressed: focus, onClick: () => setFocus((enabled) => !enabled) },
+    wireframe: {
+      pressed: wireframe,
+      onClick: () => {
+        setWireframe((on) => !on)
+        setShowDirections(false)
+        setDirection(null)
+      },
+    },
+    section: {
+      pressed: sectioning,
+      onClick: () => {
+        if (sectioning) {
+          viewerRef.current?.setSection(null)
+          setSelected(heldSelection.current)
+        } else {
+          if (!measuring) heldSelection.current = selected
+          setSelected([])
+          if (!measuring) setMeasured([])
+        }
+        setSectioning((on) => !on)
+      },
+    },
+    measure: {
+      pressed: measuring,
+      onClick: () => {
+        if (measuring) {
+          setMeasured([])
+          setSelected(heldSelection.current)
+        } else if (!sectioning) {
+          heldSelection.current = selected
+          setSelected([])
+          viewerRef.current?.setSection(null)
+        }
+        setMeasuring((on) => !on)
+      },
+    },
+  }
   return (
     <main>
       <section>
         <p className="eyebrow">@toolpath/viewer</p>
-        <h1>One-inch cube</h1>
+        <h1>{part.name}</h1>
+        <label className="model-picker">
+          Model
+          <select
+            value={part.id}
+            onChange={(event) => {
+              const next = parts.find((entry) => entry.id === event.target.value)
+              if (next) choosePart(next)
+            }}
+          >
+            {parts.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="model-picker">
+          3D controls
+          <select
+            value={controls}
+            onChange={(event) => setControls(event.target.value as ControlScheme)}
+          >
+            {CONTROL_SCHEME_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="model-picker">
+          Open an Engine part (report .json with its .glb or .stl)
+          <input
+            type="file"
+            multiple
+            accept=".json,.glb,.stl"
+            onChange={(event) => {
+              const input = event.currentTarget
+              const files = Array.from(input.files ?? [])
+              input.value = ''
+              if (files.length === 0) return
+              partFromFiles(files).then(
+                (next) => {
+                  setOpenError(null)
+                  setParts((held) => [...held, next])
+                  choosePart(next)
+                },
+                (error: unknown) =>
+                  setOpenError(error instanceof Error ? error.message : String(error)),
+              )
+            }}
+          />
+        </label>
+        {openError ? <p className="small-note open-error">{openError}</p> : null}
+        <p>{part.hint}</p>
         <p>
-          Left-drag to orbit, middle/right-drag to pan, scroll to zoom, and click a face to select
-          it.
+          <strong>Stock:</strong>{' '}
+          {stockSource === 'glb'
+            ? `${stockMeshSize}.00 × ${stockMeshSize}.00 × ${stockMeshSize}.00 mm (services-encoded GLB blank)`
+            : stockShape === 'cylinder'
+              ? `⌀${stockCylinder.diameter.toFixed(2)} × ${stockCylinder.length.toFixed(2)} mm (diameter × length)`
+              : `${stockSize
+                  .toArray()
+                  .map((value) => value.toFixed(2))
+                  .join(' × ')} mm (X × Y × Z)`}
+        </p>
+        <label className="stock-allowance">
+          Stock source
+          <select
+            value={stockSource}
+            onChange={(event) => setStockSource(event.target.value as StockSource)}
+          >
+            <option value="geometry">Shape preview</option>
+            <option value="glb">GLB fixture</option>
+          </select>
+        </label>
+        {stockSource === 'geometry' ? (
+          <label className="stock-allowance">
+            Stock shape
+            <select
+              value={stockShape}
+              onChange={(event) => setStockShape(event.target.value as StockShape)}
+            >
+              <option value="box">Box</option>
+              <option value="cylinder">Cylinder</option>
+            </select>
+          </label>
+        ) : null}
+        {stockSource === 'glb' ? (
+          <label className="stock-allowance">
+            GLB blank
+            <select
+              value={stockMeshSize}
+              onChange={(event) => setStockMeshSize(event.target.value)}
+            >
+              <option value="40">40 mm box</option>
+              <option value="60">60 mm box</option>
+            </select>
+          </label>
+        ) : null}
+        {stockSource === 'geometry' && stockShape === 'cylinder' ? (
+          <>
+            <label className="stock-allowance">
+              Stock diameter (mm)
+              <input
+                type="number"
+                min="0.01"
+                max="1000"
+                step="0.01"
+                value={stockCylinder.diameter}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockCylinder((current) => ({ ...current, diameter: value }))
+                }}
+              />
+            </label>
+            <label className="stock-allowance">
+              Stock length (mm)
+              <input
+                type="number"
+                min="0.01"
+                max="1000"
+                step="0.01"
+                value={stockCylinder.length}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockCylinder((current) => ({ ...current, length: value }))
+                }}
+              />
+            </label>
+          </>
+        ) : null}
+        {stockSource === 'geometry' && stockShape === 'box' ? (
+          <>
+            <label className="stock-allowance">
+              Stock X dimension (mm)
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={stockDimensions.x}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockDimensions((current) => ({ ...current, x: value }))
+                }}
+              />
+            </label>
+            <label className="stock-allowance">
+              Stock Y dimension (mm)
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={stockDimensions.y}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockDimensions((current) => ({ ...current, y: value }))
+                }}
+              />
+            </label>
+            <label className="stock-allowance">
+              Stock Z dimension (mm)
+              <input
+                type="number"
+                min="0.01"
+                max="1000"
+                step="0.01"
+                value={stockDimensions.z}
+                onChange={(event) => {
+                  const value = event.target.valueAsNumber
+                  if (Number.isFinite(value) && value > 0 && value <= 1000)
+                    setStockDimensions((current) => ({ ...current, z: value }))
+                }}
+              />
+            </label>
+          </>
+        ) : null}
+        {stockSource === 'geometry' ? (
+          <label className="stock-allowance">
+            Stock position
+            <select
+              value={stockPosition}
+              onChange={(event) => setStockPosition(event.target.value as StockPosition)}
+            >
+              <option value="model_centered">Model centered</option>
+              <option value="offset_from_top">Offset from top</option>
+              <option value="offset_from_bottom">Offset from bottom</option>
+            </select>
+          </label>
+        ) : null}
+        {stockSource === 'geometry' && stockPosition !== 'model_centered' ? (
+          <label className="stock-allowance">
+            Position offset (mm)
+            <input
+              type="number"
+              min="0"
+              max="1000"
+              step="0.01"
+              value={stockPositionOffset}
+              onChange={(event) => {
+                const value = event.target.valueAsNumber
+                if (Number.isFinite(value) && value >= 0 && value <= 1000)
+                  setStockPositionOffset(value)
+              }}
+            />
+          </label>
+        ) : null}
+        <p className="small-note">
+          {stockSource === 'glb'
+            ? 'Synthetic initial stock encoded by the services GLB writer, in part coordinates.'
+            : 'Fixed stock shape, dimensions and position. Values are millimetres.'}
+        </p>
+        <button
+          className="detail-button"
+          type="button"
+          onClick={() => viewerRef.current?.frameBox(DETAIL)}
+        >
+          Frame detail
+        </button>
+        <p>
+          Left-drag to orbit, right-drag to pan, scroll to zoom, and click a face to select it.
+          Press <strong>Section</strong>, then click a face to cut through it or one of the three
+          planes behind the part to cut along an axis; drag the arrow to move the cut, and press
+          Escape to clear it. Press <strong>Measure</strong>, then click two points for a distance
+          or three for an angle — the pointer snaps to corners, edges and their midpoints, and Shift
+          holds the next point to an axis. Delete removes the last measurement and Escape drops one
+          in progress.
         </p>
         <p>
           <strong>Hovered:</strong> {hovered.join(', ') || 'none'}
@@ -182,13 +673,25 @@ const App = () => {
           <strong>Selected:</strong> {selected.join(', ') || 'none'}
         </p>
         <p>
-          <strong>Cut:</strong> {sectioning ? `${Math.round(cut * 100)}%` : 'off'}
+          <strong>Cut:</strong> {describeCut(sectioning, cut)}
+        </p>
+        <p>
+          <strong>Measured:</strong> {describeMeasurements(measuring, measured)}
         </p>
         <p>
           <strong>Direction:</strong> {direction === null ? 'all' : String(direction)}
         </p>
+        <p data-testid="sharp-corners" data-segments={sharpDrawn?.segments ?? 0}>
+          <strong>Sharp corners:</strong>{' '}
+          {sharpDrawn
+            ? `${sharpDrawn.segments} segments, ${sharpDrawn.length.toFixed(1)} mm, on ${flagged.length} ${flagged.length === 1 ? 'feature' : 'features'} the DFM rules flag`
+            : 'off'}
+        </p>
         <p>
           <strong>Projection:</strong> {projection}
+        </p>
+        <p>
+          <strong>Controls:</strong> {controls}
         </p>
         {/*
           The attributes are what the browser suite reads; the sentence is what
@@ -201,43 +704,86 @@ const App = () => {
           data-zoom={pose.zoom}
           data-distance={pose.distance}
           data-target={pose.target.join(' ')}
+          data-position={pose.position.join(' ')}
         >
           <strong>Camera:</strong> zoom {pose.zoom.toFixed(2)}, distance {pose.distance.toFixed(1)}{' '}
           mm, target {pose.target.map((axis) => axis.toFixed(1)).join(', ')}
         </p>
       </section>
       <div className="viewer">
-        <div className="viewer-toolbar" aria-label="Viewer controls">
-          <button type="button" onClick={() => viewerRef.current?.fit()}>
-            Fit
-          </button>
-          <button type="button" onClick={() => viewerRef.current?.reset()}>
-            Reset
-          </button>
-          <button type="button" onClick={() => viewerRef.current?.setView('top')}>
-            Top view
-          </button>
-          <button type="button" onClick={() => viewerRef.current?.frameBox(DETAIL)}>
-            Frame detail
-          </button>
-          <button type="button" onClick={() => setSectioning((on) => !on)}>
-            Section
-          </button>
-          {sectioning ? (
-            <label>
-              <span className="sr-only">Cut depth</span>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
-                value={cut}
-                onChange={(event) => setCut(Number(event.target.value))}
-              />
-            </label>
-          ) : null}
-        </div>
-        {/*
+        <ViewerToolbarProvider controls={toolbarControls}>
+          <HoverCard pick={hoverPick} className="viewer-hover-card">
+            {(pick) => <HoverDetails pick={pick} model={part.model} sheets={part.sheets} />}
+          </HoverCard>
+          <ViewerToolbar>
+            <AnalysisOptions
+              sectioning={sectioning}
+              measuring={measuring}
+              cut={cut}
+              offset={offset}
+              measureMode={measureMode}
+              onOffsetChange={(next) => {
+                setOffset(next)
+                if (cut) viewerRef.current?.setSection(sweepTo(cut, next))
+              }}
+              onClearCut={() => viewerRef.current?.setSection(null)}
+              onMeasureModeChange={setMeasureMode}
+              onClearMeasurements={() => {
+                setMeasured([])
+                setMeasureInstance((instance) => instance + 1)
+              }}
+            />
+            {showDirections && !sectioning && !measuring ? (
+              <div
+                className="viewer-tool-options direction-legend"
+                role="group"
+                aria-label="Machining directions"
+              >
+                <button
+                  type="button"
+                  aria-pressed={direction === null}
+                  onClick={() => setDirection(null)}
+                >
+                  All
+                </button>
+                {part.model.candidateDirections.map((axis, index) => (
+                  <button
+                    type="button"
+                    key={index}
+                    aria-pressed={direction === index}
+                    onClick={() => setDirection((held) => (held === index ? null : index))}
+                  >
+                    <span
+                      className="direction-dot"
+                      style={{
+                        background: '#' + directionColor(index).toString(16).padStart(6, '0'),
+                      }}
+                    />
+                    {directionLabel(axis)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <ViewerToolbar.Controls>
+              <ViewerToolbar.StockButton />
+              <ViewerToolbar.AxesButton />
+              <ViewerToolbar.GridButton />
+              <ViewerToolbar.BananaButton />
+              <ViewerToolbar.Divider />
+              <ViewerToolbar.DirectionsButton />
+              <ViewerToolbar.SharpCornersButton />
+              <ViewerToolbar.HoverButton />
+              <ViewerToolbar.FocusButton />
+              <ViewerToolbar.WireframeButton />
+              <ViewerToolbar.SectionButton />
+              <ViewerToolbar.MeasureButton />
+              <ViewerToolbar.Divider />
+              <ViewerToolbar.FitButton />
+              <ViewerToolbar.ResetButton />
+              <ViewerToolbar.TopButton />
+            </ViewerToolbar.Controls>
+          </ViewerToolbar>
+          {/*
           Perspective by default here, and the pin is the point rather than the
           value.
 
@@ -260,34 +806,139 @@ const App = () => {
           that are on with it: the double-click re-target, and the pivot marker
           under `?orbitTarget=on`.
         */}
-        <Viewer
-          ref={viewerRef}
-          projection={projection}
-          showOrbitTarget={showOrbitTarget}
-          onPointerMissed={() => setSelected([])}
-        >
-          <CameraReadout onChange={onCamera} />
-          <PartMesh
-            model={cube}
-            geometry={geometry}
-            selection={selected}
-            section={{ enabled: sectioning, normal: { x: 0, y: 0, z: -1 }, offset: cut }}
-            onSectionChange={(state) => setCut(state.offset)}
-            onHover={(pick: PartPick | null) => setHovered(pick ? [...pick.owners] : [])}
-            onPick={(pick: PartPick) => setSelected([...pick.ranked])}
-          />
-          <DirectionArrows
-            directions={cube.candidateDirections}
-            shownDirection={direction}
-            onPickDirection={(index) => setDirection((held) => (held === index ? null : index))}
-          />
-          <Grid />
-          <Axes size={35} />
-          <ViewCube />
-        </Viewer>
+          <Viewer
+            key={part.id}
+            ref={viewerRef}
+            projection={projection}
+            controls={controls}
+            showOrbitTarget={showOrbitTarget}
+            onPointerMissed={() => setSelected([])}
+          >
+            <CameraReadout onChange={onCamera} />
+            <PartMesh
+              model={part.model}
+              geometry={part.geometry}
+              selection={selected}
+              focus={focus ? {} : undefined}
+              display={wireframe ? 'wireframe' : 'solid'}
+              sharpCorners={sharpCorners}
+              regionHighlights={highlights}
+              hover={featureHover}
+              activeDirection={showDirections ? direction : null}
+              onSectionChange={(state) => {
+                setCut(state.enabled ? state : null)
+                if (state.enabled) setOffset(state.offset)
+              }}
+              onHover={(pick: PartPick | null) => {
+                setHovered(pick ? [...pick.owners] : [])
+                setHoverPick(pick)
+              }}
+              onPick={(pick: PartPick) => setSelected([...pick.ranked])}
+            />
+            {showStock && stockSource === 'geometry' && stockShape === 'cylinder' ? (
+              <Stock
+                cylinder={{
+                  partGeometry: part.geometry,
+                  ...stockCylinder,
+                  position: stockPosition,
+                  positionOffset: stockPositionOffset,
+                }}
+              />
+            ) : null}
+            {showStock && stockSource === 'glb' ? (
+              <Stock glb={stockMeshSize === '40' ? STOCK_GLB_BYTES : LARGE_STOCK_GLB_BYTES} />
+            ) : null}
+            {showStock && stockSource === 'geometry' && stockShape === 'box' ? (
+              <Stock
+                box={{
+                  partGeometry: part.geometry,
+                  dimensions: stockDimensions,
+                  position: stockPosition,
+                  positionOffset: stockPositionOffset,
+                }}
+              />
+            ) : null}
+            <DirectionArrows
+              visible={showDirections && !sectioning && !measuring}
+              directions={part.model.candidateDirections}
+              shownDirection={direction}
+              onPickDirection={(index) => setDirection((held) => (held === index ? null : index))}
+            />
+            {sectioning ? <SectionTool /> : null}
+            {measuring ? (
+              <MeasureTool
+                key={measureInstance}
+                mode={measureMode}
+                measurements={measured}
+                onChange={setMeasured}
+              />
+            ) : null}
+            {showGrid ? <Grid /> : null}
+            {banana ? (
+              <Suspense fallback={null}>
+                <Banana />
+              </Suspense>
+            ) : null}
+            {showAxes ? <Axes size={35} /> : null}
+            <ViewCube />
+          </Viewer>
+        </ViewerToolbarProvider>
       </div>
     </main>
   )
+}
+
+/**
+ * The cut the slider asks for at `t`, 0 (whole part) to 1 (gone), moved along
+ * the cut that is already there rather than along an axis of the slider's own.
+ *
+ * A sweep keeps its normal, so a cut started from the X plane stays an X cut.
+ * A cut placed on a face keeps its anchor and is moved by depth instead — the
+ * state reports `depthRange` for exactly this, and its `min` is the depth at
+ * which nothing is cut, so `t` maps straight onto it.
+ */
+function sweepTo(cut: SectionState, t: number): SectionOptions {
+  if (cut.plane && cut.depthRange) {
+    const { min, max } = cut.depthRange
+    return { enabled: true, plane: cut.plane, depth: min + t * (max - min) }
+  }
+  return { enabled: true, normal: cut.normal, offset: t }
+}
+
+/**
+ * The cut, in a sentence. A sweep is a fraction of the part; a cut placed on
+ * a face is a depth past that face, and says which face.
+ */
+function describeCut(sectioning: boolean, cut: SectionState | null): string {
+  if (!sectioning) return 'off'
+  if (!cut) return 'none — click a face, or a plane behind the part'
+  if (cut.plane) return `${cut.plane.label ?? 'Part surface'}, ${(cut.depth ?? 0).toFixed(2)} mm in`
+  return `${Math.round(cut.offset * 100)}%`
+}
+
+/** How many segments an `x y z x y z` list holds, and how long they are end to end. */
+function measureSegments(positions: Float32Array): { segments: number; length: number } {
+  let length = 0
+  for (let at = 0; at + 5 < positions.length; at += 6) {
+    length += Math.hypot(
+      positions[at + 3]! - positions[at]!,
+      positions[at + 4]! - positions[at + 1]!,
+      positions[at + 5]! - positions[at + 2]!,
+    )
+  }
+  return { segments: positions.length / 6, length }
+}
+
+/**
+ * The measurements, in a sentence: how many there are and what the last one
+ * reads, which is the one just made.
+ */
+function describeMeasurements(measuring: boolean, measured: readonly Measurement[]): string {
+  if (!measuring) return 'off'
+  const last = measured[measured.length - 1]
+  if (!last) return 'none — click two points for a distance, three for an angle'
+  const count = measured.length === 1 ? '1 measurement' : `${measured.length} measurements`
+  return `${count}, last ${measurementLabel(last)}`
 }
 
 createRoot(document.getElementById('root')!).render(

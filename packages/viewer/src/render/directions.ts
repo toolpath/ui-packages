@@ -1,15 +1,8 @@
 import { type Box3, Vector3 } from 'three'
 import type { Vec3 } from '../model/types.js'
 
-/** The cone's own axis, before it is aimed. */
-export const CONE_AXIS = new Vector3(0, 1, 0)
-
 /** Arrow length, as a fraction of the part's bounding radius. */
-export const LENGTH = 0.45
-/** Head length and both radii, as fractions of the arrow's own length. */
-export const HEAD = 0.45
-export const HEAD_RADIUS = 0.3
-export const SHAFT_RADIUS = 0.09
+export const LENGTH = 0.33
 /** Clearance between the surface the arrow points at and its tip. */
 export const GAP = 0.2
 

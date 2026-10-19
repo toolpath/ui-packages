@@ -1,5 +1,190 @@
 # @toolpath/viewer
 
+## 2.3.2
+
+### Patch Changes
+
+- 66217e4: Document viewer setup, complete integration examples, selection identity, geometry
+  ownership, toolbar and tool controls, stock sources, and Engine loading/recovery.
+
+## 2.3.1
+
+### Patch Changes
+
+- 6c7d5b6: Build a large stock mesh's outline in slices between frames, so showing in-process stock no longer freezes the page. `<Stock>` used to build its 15° outline with one `EdgesGeometry` call the first time a mesh was shown; stock cut by a fine tool holds hundreds of thousands of triangles, and that call blocked the main thread for 450–600 ms each time a new action's stock appeared. Meshes over 20,000 triangles now build the same lines — `EdgesGeometry`'s own walk, keys and output order — in 4 ms slices, and the outline joins the stock once built; smaller meshes build at once as before. A disposed stock stops its build. `createStock` takes an optional `onEdges` callback, called when a sliced outline is added, which `<Stock>` uses to redraw.
+
+## 2.3.0
+
+### Minor Changes
+
+- 5ecda52: Add sharp corners: `sharpCorners` on `<PartMesh>` and `<EnginePart>` draws the sharp corners of the features the DFM rules flag (`featureSheet(datasheet).sharpCorners` from `@toolpath/dfm/model`) as red bands painted on the faces either side, strong in view and faint through the part. The rules decide which corners; the mesh only locates each flagged feature's inside corners along its machining direction. `ViewerToolbar.SharpCornersButton` turns them on and off from a new `sharpCorners` toolbar control. With hover on, the corner under the pointer takes the hover colour and is reported on the pick as `pick.sharpCorner` — its feature, ends, length and the angle between its faces — for a hover card to describe. Adds the `sharpCorner` theme colour, and exports `surfaceCreases`, `findSharpCorners` and `sharpCornerPositions`.
+
+## 2.2.1
+
+### Patch Changes
+
+- e3366b3: Draw direction arrows and the section handle as single, softly shaded meshes — a straight cone head, slim shaft and rounded tail — instead of flat-coloured cones on cylinders.
+
+## 2.2.0
+
+### Minor Changes
+
+- cb8c5f2: `ViewerToolbar.DfmButton` shows or hides an application's DFM flags on the part, from a `dfm`
+  toolbar control: "Show DFM flags" / "Hide DFM flags", with a warning-octagon icon. The standard
+  toolbar places it after the direction highlight button when a `dfm` control is given.
+
+## 2.1.0
+
+### Minor Changes
+
+- ce6b5a3: `<PartMesh>` and `<EnginePart>` take `children`, drawn on the part, which read its model and mesh with
+  `usePartContext()`.
+
+  `featureTriangles(model, geometry, tag)` reads a feature's triangles and outward normals out of the mesh as
+  plain arrays.
+
+  `<ToolMarks>` draws cutting tools on the part to scale — an end mill, flat, bull nose or ball, or any tool by
+  its `profile` — with a dimension and a label each, in the measure tool's style. `ViewerToolbar.ToolsButton`, on a `tools` control,
+  shows and hides them.
+
+  `@toolpath/dfm/model` adds `brokenRules` and the neutral `BrokenRule` row a feature's details list, `featureColor`
+  for the colour a feature is painted, and the `FeatureRecord` type for a feature's raw report entry and datasheet.
+
+  `pinchMark` and `pinchLabel` read the pinch discs a feature's widest tool stands in, and `placePinchTool` finds
+  the datasheet's tool frame against the feature's faces and places that tool on the part, as plain vectors for
+  `<ToolMarks>`.
+
+  `FoldStore` and `storageFolds(storage, prefix)` keep which of the feature panel's sections are open, in a storage
+  and under a key prefix the app chooses.
+
+  `<FeatureDetails>` shows one feature as the Engine read it: its name and machining direction, the rules it breaks,
+  its measurements and milling considerations with how each was measured, and its reach. It takes loading and
+  failed reads with a Retry, slots for the app's own buttons and status, an optional REQUIRED pill and "Show this
+  feature", and a `look`. `featureMeasurements` takes `inchMark`
+  to write inches as `0.46"`.
+
+  It also lists every field of the feature's datasheet and shows its raw API record, with a copy button.
+
+  With `PopOut`, the app's own window component, the reach, the datasheet fields and the raw record pop out, larger,
+  into it.
+
+  `<CandidateList>` lists the features a clicked face could mean, with each one's colour, rule count, REQUIRED pill
+  and the app's detail, note and action, chosen by click or by `candidateListKeys`.
+
+  `<ComparisonTable>` sets the features several faces were read as side by side, marking the rows where they differ.
+
+  `<FeaturePanel>` is the whole card: a clicked face's candidates, several faces compared under letters, and the
+  read feature's details, with Escape and the arrow keys. The app places it.
+
+## 2.0.0
+
+### Major Changes
+
+- 6d4a91f: Consolidate stock rendering into `Stock`, accepting exactly one of `geometry`, `glb`, `box`, or `cylinder`. Box and cylinder inputs accept either resolved placement or part-relative preview options, with placement calculated internally. Resolved box figures support optional setup frames; resolved cylinder figures support arbitrary axes. Fetching, caching and artifact storage remain caller-owned. Stock outlines are built only when shown.
+
+  Remove `BoxStock` and `BoxStockProps`. Replace `<BoxStock partGeometry={geometry} allowance={allowance} />` with `<Stock box={{ partGeometry: geometry, allowance }} />`; for explicit dimensions use `<Stock box={{ partGeometry: geometry, dimensions, position, positionOffset, offset }} />`. Preview builders are internal, and inline options do not cause repeated part scans on ordinary renders. Existing `<Stock geometry={geometry} />` usage is unchanged.
+
+  `StockProps` is now a union type alias rather than an interface, so `interface X extends StockProps` no longer compiles; write `type X = StockProps & { … }` instead. Use `StockAppearanceProps` for the shared appearance props alone.
+
+### Minor Changes
+
+- a2fc359: Add optional `Stock` `retainPrevious` behavior to keep the current GLB visible until its replacement finishes decoding. Dispose replaced geometry after the swap, and discard cancelled decode results.
+- a2fc359: Add a `legacy-workpiece` render style to `Stock`, reproducing legacy white/emissive shading, 20% opacity, two surface passes and edges drawn before surfaces. Add optional `emissive` and `flatShading` appearance props. Existing overlay defaults and source geometry remain unchanged.
+
+## 1.5.0
+
+### Minor Changes
+
+- 321a9e1: Add a bundled banana-for-scale model while preserving feature hover by default.
+- aec1aaa: Support explicit fixed-box dimensions and top/bottom positioning for box stock.
+- 233a800: Add translucent stock meshes and allowance-based box stock, a semantic-edge wireframe display, and deterministic machining-direction face highlights. Fit includes stock while part-relative tools and overlays remain sized to the finished part.
+- aec1aaa: Support separate wall and floor stock-to-leave values for box stock.
+- e3082e3: Add CAD navigation presets for Alias, Fusion, Inventor, Onshape, PowerMill, SolidWorks, and Tinkercad.
+- 649db22: Add a cursor-following hover-card primitive, browser pointer coordinates on part picks, and a
+  hover toggle that preserves face picking.
+- ce60e14: Add a visible section-plane gizmo with direction-coloured handles, a two-way drag handle, and
+  physical cut measurement. A custom `sectionHandle` theme colour still overrides the direction
+  colour.
+- ba19c5e: Add a viewer-scoped, composable toolbar with camera, display, analysis, and banana-for-scale controls.
+- ec853b8: Add opt-in selection-driven X-ray focus rendering for part meshes.
+
+### Patch Changes
+
+- d72ab8b: Keep focused feature regions opaque in X-ray rendering and copy the bundled banana asset in watch builds.
+- 781178c: Keep far-side focused geometry visible through the faded part.
+
+## 1.4.0
+
+### Minor Changes
+
+- 3766a17: `<MeasureTool>` mounted beside a `<SectionTool>` that has no cut yet offers no snap and places no
+  point until a cut is chosen or the section tool is unmounted, so the click that picks a cut is not
+  also the first point of a measurement. `SectionStore` gains `isPicking` and `setPicking`, which the
+  section tool raises while it offers a cut.
+
+## 1.3.0
+
+### Minor Changes
+
+- 0da7780: `<MeasureTool>` measures a cut part as it is seen. While it is mounted it re-samples the part
+  whenever a clipping plane moves: the half a cut has removed is not offered for snapping, the part's
+  edges stop at the plane, the outline where the plane passes through solid material is an edge with
+  corners of its own, and the capped face is a surface a point can land on. The plane is read off the
+  part material's clipping planes, so the viewer's own cut and a controlled `section` prop work the
+  same way, and the sample is keyed on the plane so a dragged handle or a set depth is re-sampled on
+  the next pointer move.
+
+  `sectionContour`, `clipSegments`, `pointInContour`, `capHit` and `sampleSection` are the pure
+  functions behind it, exported from the root with the `SectionSample` type.
+
+## 1.2.0
+
+### Minor Changes
+
+- ae738a5: Add `<MeasureTool>`, an opt-in way to measure a part from inside the viewport. Mounted beside
+  `<PartMesh>` with nothing wired, it snaps the pointer to the corner, edge midpoint, edge or face
+  under it and shows where a click will land; two clicks measure a distance, shown with its X, Y and Z
+  parts as dashed legs, and three measure an angle. Finished measurements stay drawn over the part
+  with a DOM label each until Delete removes the last one or the tool is unmounted; Escape drops the
+  points of one in progress, and Shift holds the next point to the X, Y or Z line through the last.
+  `measurements` and `onChange` make the list the consumer's, and `format` writes lengths in something
+  other than millimetres. The labels are DOM elements and ship unstyled: each carries
+  `MEASURE_LABEL_CLASS`, a `data-measure-label` kind, `data-axis` on a delta leg and
+  `data-measurement-id` on a finished measurement, and `labelClassName` adds a class of the consumer's.
+
+  While the tool is mounted, `<PartMesh>` reports no hovers or picks, as it does for `<SectionTool>`.
+  The engaged flag both tools set on the section store is now counted, so the two can be mounted
+  together and the part waits for the last to leave.
+
+  `ViewerTheme` gains `measure` for a measurement's lines, markers and label border, and
+  `measureSnap` for the snap indicator. `AXIS_COLORS`, the three axis hues the section tool's global
+  planes already wore, is exported and shared with a distance's delta legs.
+
+  `surfaceUnderRay`, and so the section tool's preview, now skips a surface a section cut has clipped
+  away rather than landing on a face nobody can see. `hitUnderRay` is the walk it shares with the
+  measure tool, and is exported.
+
+- fe65fc1: Add `<SectionTool>`, an opt-in way to cut a part open from inside the viewport. Mounted beside
+  `<PartMesh>` with nothing wired, it previews a cut on the face under the pointer and places one on
+  a click, offers three global planes behind the part to sweep along an axis, draws the cutting plane
+  as an outlined sheet once there is a cut, and clears it on Escape.
+
+  While the tool is mounted, `<PartMesh>` reports no hovers or picks and paints no hover;
+  unmounting it hands the pointer back.
+
+  The cut it places is held by `<Viewer>` itself. `<PartMesh>` follows that cut, and shows the drag
+  handle for it, whenever it is given no `section` prop of its own; a `section` prop is unchanged and
+  still takes precedence. `ViewerHandle.setSection(options | null)` sets or clears it from outside
+  the canvas, and `useSectionStore()` reads it from inside.
+
+  The section cap is now hatched and outlined rather than a flat fill, in screen space so it reads
+  the same at any zoom. `ViewerTheme` gains `sectionHatch` for the hatch lines; `sectionOutline`,
+  previously declared but unused, now colours the tool's sheet and preview.
+
+  `onSectionChange` now also reports a cut going away, once, as a state with `enabled: false`.
+  `DISABLED_SECTION` is that state. `SectionOptions` and `SectionState` are unchanged and still
+  exported from the root.
+
 ## 1.1.1
 
 ### Patch Changes

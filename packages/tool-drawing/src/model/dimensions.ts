@@ -253,6 +253,33 @@ export const dimensionsFor = (assembly: ViewerAssembly): ToolDimensions => {
   }
 }
 
+/**
+ * The dimensions that fit inside a shorter sheet, re-laned to close the gap.
+ *
+ * **For a drawing framed to less than the whole stack.** A zoom to the working
+ * end cuts the sheet off a little above the holder nose, and a line measuring
+ * to a face above that cut runs off the edge and points at nothing — the same
+ * mistake the overall length is dropped for when a holder buries the end of
+ * the shank. Dropped rather than broken: a broken dimension line carries its
+ * true number, and this drawing letters no numbers at all.
+ *
+ * The lanes are renumbered because a lane is a place, not a name: leaving the
+ * gap where a dropped line ran would draw the ladder starting one rung out.
+ */
+export const dimensionsWithin = (model: ToolDimensions, height: number): ToolDimensions => {
+  const within = (z: number) => z <= height + SAME
+  return {
+    ...model,
+    // Shortest first is the order `dimensionsFor` settled, and dropping some
+    // of them does not disturb it, so the lane is the place in what is left.
+    lengths: model.lengths
+      .filter((each) => within(each.to))
+      .map((each, lane) => ({ ...each, lane })),
+    widths: model.widths.filter((each) => within(each.at)),
+    angles: model.angles.filter((each) => within(each.at.z)),
+  }
+}
+
 /** Which flank of the tool a lane runs on. */
 export type Side = 'minus' | 'plus'
 

@@ -2,6 +2,7 @@ packages:
   - examples/typescript
   - examples/react-viewer
   - packages/app-support
+  - packages/dfm
   - packages/sdk-typescript
   - packages/tool-drawing
   - packages/tool-scraper

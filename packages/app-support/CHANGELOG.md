@@ -1,5 +1,35 @@
 # @toolpath/app-support
 
+## 0.1.7
+
+### Patch Changes
+
+- 5345397: Document installation requirements, Tailwind v4 theming, public components, and
+  composition examples for forms, menus, dialogs, feedback, tables, and panels.
+
+  Remove obsolete documentation references from the UI and app-support packages.
+
+## 0.1.6
+
+### Patch Changes
+
+- Updated dependencies [744fb08]
+  - @toolpath/tool-support@0.6.0
+
+## 0.1.5
+
+### Patch Changes
+
+- Updated dependencies [9297409]
+  - @toolpath/tool-support@0.5.0
+
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [2d2ac37]
+  - @toolpath/tool-support@0.4.0
+
 ## 0.1.3
 
 ### Patch Changes
@@ -38,7 +68,7 @@
 - 8e66848: New package: the logic a Toolpath application reuses, split from the component
   kit that renders it.
 
-  `@toolpath/ui` is styling and display — the surface Storybook documents. Storage
+  `@toolpath/ui` supplies styling and display. Storage
   policy is neither, and `loadUnit`, `saveUnit` and `useUnit` shipped there in
   0.2.0 and 0.3.0 anyway. They live here now, unchanged in behavior, and leave
   `@toolpath/ui` in its next major.

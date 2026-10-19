@@ -1,0 +1,90 @@
+# @toolpath/dfm
+
+## 0.5.0
+
+### Minor Changes
+
+- 91d86f4: Add turning rules: `TURNING_RULES` gives `RuleList`, the rule helpers and the rule-set file a turned part's subjects and measures, and `turnedStretches` and `checkTurnedPart` check a part's turned features against them. Milling stays the default everywhere. An exported rule set now records which process it is for, so its JSON (and the LLM prompt's example) gains a `"process"` field, and `DfmMetric.kinds` and `DfmSubject.kinds` now admit turned kinds too. `FeaturePanel`, `CandidateList` and `FeatureDetails` take the same `vocabulary`, to name a turned feature by the ends it is cut from and head its considerations "Turning considerations"; `RuleVocabulary` gains `considerationsTitle`, and its `featureLabel` takes just a feature's type and direction.
+
+## 0.4.0
+
+### Minor Changes
+
+- 44a031d: `featureMeasurements` gives T-slots and dovetails their own rows: undercut width (a T-slot's groove
+  height), floor and opening widths, undercut depth and dovetail angle, and under milling the max
+  cutting diameter (with a dovetail's angle and the corner radius), the max
+  shaft diameter and the L/D to the top of the part over the cutting diameter. A closed T-slot's head
+  is no wider than the opening it comes down through, and the shaft leaves the head reaching the
+  back of the groove. They no longer read their cutter band as walls, so they have no minimum radius,
+  max tool diameter or feature L/D rows. `featureSheet` carries the figures as `undercut`
+  (`FeatureUndercut`), and marks one the Engine could not measure.
+
+## 0.3.1
+
+### Patch Changes
+
+- f2d2f76: `FeaturePanel` is titled "Feature details" for one feature, whether a face was clicked or it was
+  chosen from a list, in place of "Features on this face" and "Feature".
+
+## 0.3.0
+
+### Minor Changes
+
+- d45900f: `RuleList` takes `actions`: the app's own buttons, at the end of the footer's row after Import…,
+  Export and Copy LLM prompt.
+
+## 0.2.1
+
+### Patch Changes
+
+- ed88855: Draw the rule list's pickers — a rule's features, measure and comparisons, and "+ New Rule" — as `@toolpath/ui` menus in place of native `<select>`s, so their open lists take the kit's popover, items and dark theme rather than the operating system's. Each word is a button named for its field and value, "Measure: any size"; its menu opens on the value it holds, and "More…" lists the rest in the open menu.
+
+## 0.2.0
+
+### Minor Changes
+
+- ce6b5a3: `<PartMesh>` and `<EnginePart>` take `children`, drawn on the part, which read its model and mesh with
+  `usePartContext()`.
+
+  `featureTriangles(model, geometry, tag)` reads a feature's triangles and outward normals out of the mesh as
+  plain arrays.
+
+  `<ToolMarks>` draws cutting tools on the part to scale — an end mill, flat, bull nose or ball, or any tool by
+  its `profile` — with a dimension and a label each, in the measure tool's style. `ViewerToolbar.ToolsButton`, on a `tools` control,
+  shows and hides them.
+
+  `@toolpath/dfm/model` adds `brokenRules` and the neutral `BrokenRule` row a feature's details list, `featureColor`
+  for the colour a feature is painted, and the `FeatureRecord` type for a feature's raw report entry and datasheet.
+
+  `pinchMark` and `pinchLabel` read the pinch discs a feature's widest tool stands in, and `placePinchTool` finds
+  the datasheet's tool frame against the feature's faces and places that tool on the part, as plain vectors for
+  `<ToolMarks>`.
+
+  `FoldStore` and `storageFolds(storage, prefix)` keep which of the feature panel's sections are open, in a storage
+  and under a key prefix the app chooses.
+
+  `<FeatureDetails>` shows one feature as the Engine read it: its name and machining direction, the rules it breaks,
+  its measurements and milling considerations with how each was measured, and its reach. It takes loading and
+  failed reads with a Retry, slots for the app's own buttons and status, an optional REQUIRED pill and "Show this
+  feature", and a `look`. `featureMeasurements` takes `inchMark`
+  to write inches as `0.46"`.
+
+  It also lists every field of the feature's datasheet and shows its raw API record, with a copy button.
+
+  With `PopOut`, the app's own window component, the reach, the datasheet fields and the raw record pop out, larger,
+  into it.
+
+  `<CandidateList>` lists the features a clicked face could mean, with each one's colour, rule count, REQUIRED pill
+  and the app's detail, note and action, chosen by click or by `candidateListKeys`.
+
+  `<ComparisonTable>` sets the features several faces were read as side by side, marking the rows where they differ.
+
+  `<FeaturePanel>` is the whole card: a clicked face's candidates, several faces compared under letters, and the
+  read feature's details, with Escape and the arrow keys. The app places it.
+
+## 0.1.0
+
+### Minor Changes
+
+- c69a1e3: Add the reach chart (`ReachChart`, and `ReachDrawing` for a larger window): the walls beside a feature, to scale, with their heights and distances, read off under the pointer.
+- 87e45e2: New package: the DFM rule list (`RuleList`), with Import, Export and Copy LLM prompt as buttons, and the DFM rules and part checker under `@toolpath/dfm/model`. The rules are an input; the package ships no default rules.

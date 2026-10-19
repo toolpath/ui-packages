@@ -16,6 +16,7 @@ machined, and what it may cost.
 | Build Toolpath-styled UI      | `@toolpath/ui`                  | [UI kit](packages/ui)                                              |
 | Collect vendor tool data      | `@toolpath/tool-scraper`        | [Tool scraper](packages/tool-scraper)                              |
 | Draw a tool and its holder    | `@toolpath/tool-drawing`        | [Tool drawing](packages/tool-drawing)                              |
+| Show and edit DFM rules       | `@toolpath/dfm`                 | [DFM](packages/dfm)                                                |
 | Share the cutting-tool domain | `@toolpath/tool-support`        | [Tool support](packages/tool-support)                              |
 | Share application logic       | `@toolpath/app-support`         | [App support](packages/app-support)                                |
 | See usage examples            | TypeScript, Python, or React    | [Examples](#examples)                                              |
@@ -146,6 +147,19 @@ enforces this and will fail the pull request without one. Add it with `pnpm chan
 every package the change affects, and see AGENTS.md for which paths belong to which package and
 which bump to use. Never edit a package version or changelog by hand: the release workflow
 generates both.
+
+**The Python SDK follows `@toolpath/api`.** It shares that package's version, so a change to
+`packages/sdk-python` takes an `@toolpath/api` Changeset. It is not on PyPI: each version ships as a
+wheel on the GitHub release `python-sdk-v<version>`, which the release workflow creates. See
+[Python SDK releases](docs/PYTHON-SDK-RELEASES.md).
+
+**Staging prereleases.** `@toolpath/api` is also published under the `staging` dist-tag, as
+`<next stable>-staging.<datetime>.g<services sha7>`, from the contract Engine staging serves — by
+services' staging workflow after acceptance, or by running `release.yml` with a `services_sha`
+input (`dry_run` defaults to on). It commits nothing and never moves `latest`; the job lives in
+`release.yml` because npm's trusted publisher is bound to that file name. Inspect with
+`npm view @toolpath/api dist-tags` and `npm view @toolpath/api@staging toolpath`; should
+`latest` ever move, `npm dist-tag add @toolpath/api@<stable> latest` restores it.
 
 ## Publishing a new npm package
 

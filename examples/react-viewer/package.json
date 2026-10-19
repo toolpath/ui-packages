@@ -10,8 +10,10 @@
     "test": "pnpm build && playwright test"
   },
   "dependencies": {
+    "@phosphor-icons/react": "2.1.10",
     "@react-three/drei": "10.7.8",
     "@react-three/fiber": "9.7.0",
+    "@toolpath/dfm": "workspace:*",
     "@toolpath/viewer": "workspace:*",
     "react": "19.2.0",
     "react-dom": "19.2.0",

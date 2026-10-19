@@ -20,6 +20,10 @@ const releaseSensitivePaths = [
     paths: ['packages/app-support/src/'],
   },
   {
+    packageName: '@toolpath/dfm',
+    paths: ['packages/dfm/src/', 'packages/dfm/dfm.css'],
+  },
+  {
     packageName: '@toolpath/ui',
     paths: ['packages/ui/src/', 'packages/ui/tailwind-preset.cjs'],
   },
@@ -34,6 +38,11 @@ const releaseSensitivePaths = [
       'openapi/',
       'codegen/typescript-fetch.yaml',
       'scripts/generate-sdks.mjs',
+      // The Python SDK ships under @toolpath/api's version, so it needs that package's Changeset.
+      // Its pyproject.toml is not watched: the release-metadata PR bumps its version there.
+      'packages/sdk-python/toolpath/',
+      'codegen/python.yaml',
+      'codegen/python-pyproject.toml',
     ],
   },
   {

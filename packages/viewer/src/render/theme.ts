@@ -29,15 +29,30 @@ export interface ViewerTheme {
   /** `EdgesGeometry` line color and opacity. */
   readonly edge: number
   readonly edgeOpacity: number
-  /** The capped face of a section cut, and the cutting plane's outline. */
+  /** The sharp corners `<PartMesh sharpCorners>` draws. */
+  readonly sharpCorner: number
+  /**
+   * The capped face of a section cut: its fill, and the hatch lines drawn over
+   * it. The cap's edge takes {@link ViewerTheme.sectionHandleOutline}.
+   */
   readonly sectionCap: number
+  readonly sectionHatch: number
+  /** The cutting plane itself — the translucent sheet `<SectionTool>` draws, its outline, and the surface preview. */
   readonly sectionOutline: number
   /**
-   * The arrow that drags the cut, and the shell that outlines it. Hovered it
+   * The arrow that drags the cut when overridden. When omitted from a theme
+   * override, the handle uses the cutting plane's direction colour. Hovered it
    * takes {@link ViewerTheme.hover}, like every other control here.
    */
   readonly sectionHandle: number
   readonly sectionHandleOutline: number
+  /**
+   * A measurement: its lines, end markers, arc and label border, as
+   * `<MeasureTool>` draws them. The indicator that shows where the pointer
+   * will snap takes {@link ViewerTheme.measureSnap}.
+   */
+  readonly measure: number
+  readonly measureSnap: number
   /**
    * The view cube's panels, the lines between them, and its face names. A
    * hovered panel takes {@link ViewerTheme.hover}, the same color the part uses
@@ -130,10 +145,21 @@ export const DEFAULT_THEME: ViewerTheme = {
   picked: 0xf97316,
   edge: 0x000000,
   edgeOpacity: 0.5,
-  sectionCap: 0xc7cbd8,
+  // Red, which the direction palette's note keeps free for sharp corners.
+  sharpCorner: 0xdc2626,
+  sectionCap: 0xdfe2ea,
+  sectionHatch: 0x8a90a6,
   sectionOutline: 0x6bb0b3,
   sectionHandle: 0xf2f3f7,
   sectionHandleOutline: 0x3c4051,
+  /*
+   * A cool blue, and the snap a lighter one. Warm is spoken for — hover,
+   * picked and the selection are all on that side of the wheel — and the
+   * section tool's teal is the nearest neighbour, which a measurement line
+   * crossing a cutting plane has to stay legible against.
+   */
+  measure: 0x4f8ef7,
+  measureSnap: 0xbfd7ff,
   cube: 0xd6d9e2,
   cubeEdge: 0x71768d,
   cubeLabel: 0x3c4051,
@@ -165,10 +191,14 @@ export function themesEqual(a: ViewerTheme, b: ViewerTheme): boolean {
     a.picked === b.picked &&
     a.edge === b.edge &&
     a.edgeOpacity === b.edgeOpacity &&
+    a.sharpCorner === b.sharpCorner &&
     a.sectionCap === b.sectionCap &&
+    a.sectionHatch === b.sectionHatch &&
     a.sectionOutline === b.sectionOutline &&
     a.sectionHandle === b.sectionHandle &&
     a.sectionHandleOutline === b.sectionHandleOutline &&
+    a.measure === b.measure &&
+    a.measureSnap === b.measureSnap &&
     a.cube === b.cube &&
     a.cubeEdge === b.cubeEdge &&
     a.cubeLabel === b.cubeLabel

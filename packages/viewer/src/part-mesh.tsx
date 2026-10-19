@@ -1,25 +1,41 @@
 import type { ThreeEvent } from '@react-three/fiber'
 import { useThree } from '@react-three/fiber'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from 'react'
 import { type BufferGeometry, Vector3 } from 'three'
 import type { FeatureTag, PartModel } from './model/types.js'
+import { PartContext } from './part-context.js'
 import type { FeatureHighlight, RegionHighlight } from './render/paint.js'
 import { applyHighlightLayers } from './render/paint.js'
-import { sectionBounds, sectionDepth, sectionOffset } from './render/section.js'
+import { focusStateKey, type FocusOptions } from './render/focus.js'
+import {
+  DISABLED_SECTION,
+  type SectionOptions,
+  type SectionState,
+  sectionBounds,
+  sectionCutDistance,
+  sectionDepth,
+  sectionOffset,
+  sectionOptionsFromState,
+} from './render/section.js'
 import { useTapGuard } from './tap.js'
-import { createPart } from './render/part.js'
+import { createPart, type PartDisplay } from './render/part.js'
+import { type SharpCornerOptions, sharpCornerKey } from './render/sharp-corners.js'
 import { regionAdjacency } from './render/adjacency.js'
 import { type PartPick, buildPick, viewDirection } from './render/picking.js'
 import { trackDoubleTaps } from './render/tap.js'
-import { useRetarget, useViewerControls } from './viewer.js'
-import {
-  type SectionOptions,
-  type SectionState,
-  SectionView,
-  resolveSectionPlane,
-} from './section-view.js'
+import { useRetarget, useSectionStore, useViewerControls } from './viewer.js'
+import { SectionView, resolveSectionPlane } from './section-view.js'
 import { useContentBox } from './content-box.js'
 import { type ViewerTheme, resolveTheme, themesEqual } from './render/theme.js'
+import type { ViewerCamera } from './render/camera.js'
 
 export interface PartMeshProps {
   /** The normalized report. `engine/normalize.ts` produces it. */
@@ -36,6 +52,11 @@ export interface PartMeshProps {
    * one-to-many and no scoping rule fixes that.
    */
   selection?: readonly FeatureTag[]
+  /**
+   * Makes selected feature regions solid and the rest of the part translucent.
+   * Omit it for the normal solid view. The application still owns selection.
+   */
+  focus?: FocusOptions
   /**
    * Every feature a click could have meant, painted faintly in each one's own
    * direction colour, under the selection.
@@ -58,23 +79,34 @@ export interface PartMeshProps {
    */
   hoveredFeatureIds?: readonly FeatureTag[]
   /**
+   * Whether moving across the part paints and reports a hovered face. Turn it
+   * off for an application-level "feature hover" control; picks still work.
+   */
+  hover?: boolean
+  /**
    * Scopes a pick to one machining direction, as an index into the model's
    * `candidateDirections`. A face that direction cannot reach then picks to
    * nothing, which is a real answer rather than a missed click.
    */
   activeDirection?: number | null
   /**
-   * The section cut. Omit, or pass `enabled: false`, for none.
+   * The section cut. Pass `enabled: false` for none.
    *
    * Either sweep an axis — `normal` points into the half that stays and
    * `offset` runs 0 (whole) to 1 (gone) — or key the cut off one surface with
    * `plane`, which `depth` then moves in model units. `sectionFromPick` turns a
    * pick into that placement with the normal the right way round.
+   *
+   * **Omit it** and the part follows the cut the viewer holds for itself — the
+   * one `<SectionTool>` places and `ViewerHandle.setSection` sets — and shows
+   * the handle whenever there is one. Passing it takes that over: the cut is
+   * then the consumer's, and the viewer's own is ignored.
    */
   section?: SectionOptions
   /**
    * The cut changed, including when the handle was dragged. Emitted only on a
-   * real change, so echoing it into state is safe.
+   * real change, so echoing it into state is safe. A cut going away is
+   * reported as `enabled: false`, once.
    */
   onSectionChange?: (state: SectionState) => void
   /**
@@ -104,6 +136,21 @@ export interface PartMeshProps {
   onPick?: (pick: PartPick) => void
   theme?: Partial<ViewerTheme>
   showEdges?: boolean
+  /**
+   * Draws the sharp corners of the features the DFM rules flag — `features`,
+   * those whose `featureSheet(datasheet).sharpCorners` is set — bold, and
+   * faintly through the part where it hides them. The rules decide which
+   * corners; the mesh only says where they are. Off when omitted or `null`.
+   * Coloured by the theme's `sharpCorner`.
+   */
+  sharpCorners?: SharpCornerOptions | null
+  /** Wireframe shows region boundaries and any hovered/painted faces, with no triangle diagonals. */
+  display?: PartDisplay
+  /**
+   * Objects drawn on the part, such as `<ToolMarks>`. They can read its model
+   * and mesh with `usePartContext`.
+   */
+  children?: ReactNode
 }
 
 /**
@@ -120,11 +167,13 @@ export const PartMesh = ({
   model,
   geometry,
   selection = [],
+  focus,
   candidates = [],
   highlights = [],
   regionHighlights = [],
   pickedRegions = [],
   hoveredFeatureIds = [],
+  hover = true,
   activeDirection = null,
   section,
   onSectionChange,
@@ -134,8 +183,12 @@ export const PartMesh = ({
   onPick,
   theme,
   showEdges = true,
+  sharpCorners = null,
+  display = 'solid',
+  children,
 }: PartMeshProps) => {
-  const { camera, controls, invalidate } = useThree()
+  const { camera, controls, invalidate, size } = useThree()
+  const context = useMemo(() => ({ model, geometry }), [model, geometry])
   const viewerControls = useViewerControls()
   const resolved = useStableTheme(theme)
   // The part is built once per mesh and re-themed in place: a colour change is
@@ -144,8 +197,30 @@ export const PartMesh = ({
   currentTheme.current = resolved
   const part = useMemo(() => createPart(model, geometry, currentTheme.current), [geometry, model])
   const hoverRegion = useRef<number | null>(null)
+  // The sharp corner under the pointer, which takes the hover from its face.
+  const hoverCorner = useRef<number | null>(null)
+  // Read from effects that must clear a card after its callback changes, while
+  // keeping the pointer handlers stable enough to avoid a React round-trip.
+  const onHoverRef = useRef(onHover)
+  onHoverRef.current = onHover
   const box = useContentBox()
-  const cut = useMemo(() => resolveSectionPlane(section, box), [box, section])
+  // Controlled when `section` is given, whatever its value; the viewer's own
+  // cut is only consulted when the consumer has said nothing.
+  const store = useSectionStore()
+  const shared = useSyncExternalStore(store.subscribe, store.get, store.get)
+  const controlled = section !== undefined
+  const options = controlled ? section : (shared ?? undefined)
+  const cut = useMemo(() => resolveSectionPlane(options, box), [box, options])
+  // While a `<SectionTool>` is mounted the pointer is its, not the part's: no
+  // hover, no pick. See `render/section-store.ts`.
+  const engaged = useSyncExternalStore(store.subscribe, store.isEngaged, store.isEngaged)
+  /*
+   * A click is judged by what was true when the press began, not when the
+   * click arrives. A tool that lets go on `pointerup` has already let go by
+   * the time the browser's `click` comes — so the press that ended it reached
+   * `onClick` with nothing engaged and selected the face under it.
+   */
+  const pressedWhileEngaged = useRef(false)
 
   // Every layer the paint reads, held so a pointer move can repaint without a
   // render. Refreshed here because a render is exactly when the props are new.
@@ -170,11 +245,26 @@ export const PartMesh = ({
     const { hoveredFeatureIds: hoveredFeatures, ...rest } = layers.current
     applyHighlightLayers(
       part,
-      { ...rest, hoveredFeatures, hoverRegion: hoverRegion.current },
+      {
+        ...rest,
+        hoveredFeatures,
+        // On a corner the corner is what is hovered, in the hover colour; the
+        // face it lies on is not painted as if the pointer meant it.
+        hoverRegion: hoverCorner.current === null ? hoverRegion.current : null,
+      },
       currentTheme.current,
     )
     invalidate()
   }, [invalidate, part])
+
+  /** Puts the hover down, wherever it was, and says so. */
+  const dropHover = useCallback(() => {
+    hoverRegion.current = null
+    hoverCorner.current = null
+    part.setHoveredSharpCorner(null)
+    repaint()
+    onHoverRef.current?.(null)
+  }, [part, repaint])
 
   useEffect(() => () => part.dispose(), [part])
 
@@ -198,15 +288,36 @@ export const PartMesh = ({
     repaint()
   }, [part, repaint, resolved])
 
+  const focusRef = useRef(focus)
+  focusRef.current = focus
+  const selectionRef = useRef(selection)
+  selectionRef.current = selection
+  const focusKey = focusStateKey(focus, selection)
   useLayoutEffect(() => {
-    part.edges.visible = showEdges
+    part.setFocus(selectionRef.current, focusRef.current)
     invalidate()
-  }, [invalidate, part, showEdges])
+  }, [focusKey, invalidate, part])
+
+  useLayoutEffect(() => {
+    part.setDisplay(display, showEdges)
+    invalidate()
+  }, [display, invalidate, part, showEdges])
 
   useLayoutEffect(() => {
     part.setClippingPlanes(cut ? [cut.plane] : null)
     invalidate()
   }, [cut, invalidate, part])
+
+  // Keyed by content, like the focus above: callers pass object literals.
+  const sharpCornersRef = useRef(sharpCorners)
+  sharpCornersRef.current = sharpCorners
+  const sharpKey = sharpCorners ? sharpCornerKey(sharpCorners) : ''
+  useLayoutEffect(() => {
+    part.setSharpCorners(sharpCornersRef.current)
+    // The corners just changed under a hover that named one of them.
+    if (hoverCorner.current !== null) dropHover()
+    invalidate()
+  }, [dropHover, invalidate, part, sharpKey])
 
   const reportedSection = useRef<string>('')
   useLayoutEffect(() => {
@@ -215,8 +326,12 @@ export const PartMesh = ({
       ? `${state.constant}|${state.normal.x},${state.normal.y},${state.normal.z}`
       : ''
     if (key === reportedSection.current) return
+    // Going away is reported only if there was something to go away from, so
+    // a part mounted without a cut says nothing rather than "still none".
+    const was = reportedSection.current
     reportedSection.current = key
     if (state) onSectionChange?.(state)
+    else if (was !== '') onSectionChange?.(DISABLED_SECTION)
   }, [cut, onSectionChange])
 
   // Keyed by content: callers pass inline arrays and object literals, so
@@ -257,12 +372,13 @@ export const PartMesh = ({
     const normal = event.face?.normal ?? UP
     const source = event.nativeEvent
 
-    return buildPick({
+    const pick = buildPick({
       model,
       region,
       triangleIndex,
       point: [event.point.x, event.point.y, event.point.z],
       normal: [normal.x, normal.y, normal.z],
+      pointer: { clientX: source.clientX, clientY: source.clientY },
       activeDirection,
       doubled,
       viewDirection: viewDirection(camera, target),
@@ -274,6 +390,8 @@ export const PartMesh = ({
         secondary: 'button' in source && source.button === 2,
       },
     })
+    const corner = part.sharpCornerAt({ point: event.point, region }, camera as ViewerCamera, size)
+    return corner ? { ...pick, sharpCorner: corner } : pick
   }
 
   // Hover is region-level, so moving between triangles of one face is not a new
@@ -281,31 +399,60 @@ export const PartMesh = ({
   // through a state update the consumer would have to round-trip.
   const emitHover = (next: PartPick | null) => {
     const region = next?.region ?? null
-    if (hoverRegion.current === region) return
+    const corner = next?.sharpCorner?.index ?? null
+    if (hoverRegion.current === region && hoverCorner.current === corner) return
     hoverRegion.current = region
+    hoverCorner.current = corner
+    part.setHoveredSharpCorner(corner)
     repaint()
     onHover?.(next)
   }
 
+  // A hover toggle must make the current feedback go away immediately — not
+  // leave a painted face and an application card around until the pointer next
+  // crosses a region boundary.
+  useLayoutEffect(() => {
+    if (hover || hoverRegion.current === null) return
+    dropHover()
+  }, [dropHover, hover])
+
+  // A tool taking the pointer takes the hover with it, or the face under the
+  // pointer at that moment would stay painted until the pointer left the part.
+  useLayoutEffect(() => {
+    if (!engaged || hoverRegion.current === null) return
+    dropHover()
+  }, [dropHover, engaged])
+
   const dragSection = useCallback(
     (constant: number) => {
       if (!cut) return
-      const anchor = section?.plane?.point
-      onSectionChange?.({
+      const anchor = options?.plane?.point
+      const bounds = sectionBounds(box, cut.state.normal)
+      const offset = sectionOffset(bounds, constant)
+      const state: SectionState = {
         ...cut.state,
         constant,
-        offset: sectionOffset(sectionBounds(box, cut.state.normal), constant),
+        offset,
         depth: anchor ? sectionDepth(cut.state.normal, anchor, constant) : null,
-      })
+        cutDistance: sectionCutDistance(box, cut.state.normal, constant),
+      }
+      // The viewer's own cut moves itself; a consumer's is theirs to move.
+      if (!controlled) store.set(sectionOptionsFromState(state))
+      onSectionChange?.(state)
     },
-    [box, cut, onSectionChange, section],
+    [box, controlled, cut, onSectionChange, options, store],
   )
 
   return (
     <>
       <primitive
         object={part.object}
-        onPointerMove={(event: ThreeEvent<PointerEvent>) => emitHover(pickFor(event))}
+        onPointerDown={() => {
+          pressedWhileEngaged.current = engaged
+        }}
+        onPointerMove={(event: ThreeEvent<PointerEvent>) => {
+          if (!engaged && hover) emitHover(pickFor(event))
+        }}
         onPointerOut={() => {
           emitHover(null)
           /*
@@ -321,6 +468,7 @@ export const PartMesh = ({
           doubles.reset()
         }}
         onClick={(event: ThreeEvent<MouseEvent>) => {
+          if (engaged || pressedWhileEngaged.current) return
           /*
            * The end of an orbit is not a request to select whatever it ended
            * over — and it usually ends over the part, since that is what was
@@ -390,6 +538,7 @@ export const PartMesh = ({
          * needed for: suppressing the browser's own menu over geometry.
          */
         onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+          if (engaged || pressedWhileEngaged.current) return
           if (event.nativeEvent.button !== 2) return
           if (!isTap(event.nativeEvent)) return
 
@@ -408,10 +557,12 @@ export const PartMesh = ({
           box={box}
           plane={cut.plane}
           theme={resolved}
-          showHandle={onSectionChange !== undefined}
-          onDrag={onSectionChange ? dragSection : undefined}
+          handleColor={theme?.sectionHandle}
+          showHandle={!controlled || onSectionChange !== undefined}
+          onDrag={!controlled || onSectionChange ? dragSection : undefined}
         />
       ) : null}
+      {children ? <PartContext.Provider value={context}>{children}</PartContext.Provider> : null}
     </>
   )
 }

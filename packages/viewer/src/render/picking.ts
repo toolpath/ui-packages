@@ -1,6 +1,7 @@
 import type { Camera, Vector3 } from 'three'
 import type { FeatureTag, PartModel, Vec3 } from '../model/types.js'
 import { bestOwner, rankOwners } from './selection.js'
+import type { SharpCorner } from './sharp-corners.js'
 
 /**
  * Which modifier keys were down when the pick happened.
@@ -26,6 +27,12 @@ export const NO_MODIFIERS: PickModifiers = {
   secondary: false,
 }
 
+/** A browser-viewport point, for placing an application-owned hover card. */
+export interface PointerLocation {
+  readonly clientX: number
+  readonly clientY: number
+}
+
 /**
  * A pointer event on the part, resolved to the face it landed on and the
  * features that own it.
@@ -47,6 +54,8 @@ export interface PartPick {
   readonly point: readonly [number, number, number]
   /** The surface's outward normal in world space — the plane under the cursor. */
   readonly normal: readonly [number, number, number]
+  /** Browser coordinates when the pick came from `<PartMesh>`. */
+  readonly pointer?: PointerLocation
   readonly modifiers: PickModifiers
   /**
    * Whether this click completed a double click on the part.
@@ -63,6 +72,13 @@ export interface PartPick {
    * part, and is nobody else's to answer.
    */
   readonly doubled: boolean
+  /**
+   * The sharp corner under the pointer, when `<PartMesh sharpCorners>` is
+   * drawing them and the pointer is on one: within a few pixels of it, on one
+   * of the two faces that meet there. The face is still `region`; this says the
+   * pointer is on the corner drawn over it.
+   */
+  readonly sharpCorner?: SharpCorner
 }
 
 /** A unit vector from the part toward the camera, for the owner ranking. */
@@ -83,6 +99,7 @@ export interface BuildPickInput {
   readonly triangleIndex: number
   readonly point: readonly [number, number, number]
   readonly normal: readonly [number, number, number]
+  readonly pointer?: PointerLocation
   readonly modifiers?: PickModifiers
   /**
    * The machining direction the pick is scoped to, as an index into
@@ -115,6 +132,7 @@ export function buildPick(input: BuildPickInput): PartPick {
     triangleIndex: input.triangleIndex,
     point: input.point,
     normal: input.normal,
+    ...(input.pointer === undefined ? {} : { pointer: input.pointer }),
     modifiers: input.modifiers ?? NO_MODIFIERS,
     doubled: input.doubled ?? false,
   }

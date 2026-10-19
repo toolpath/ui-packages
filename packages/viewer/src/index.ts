@@ -4,16 +4,84 @@
 // report.
 export { EnginePart, normalizePartReport, smoothRegionNormals } from './engine/index.js'
 export { regionAdjacency } from './render/adjacency.js'
+export { featureTriangles } from './render/feature-triangles.js'
 export { PartMesh } from './part-mesh.js'
+export { usePartContext } from './part-context.js'
+export { HoverCard } from './hover-card.js'
+export { ViewerToolbar, ViewerToolbarProvider, useViewerToolbar } from './viewer-toolbar.js'
+export type {
+  ViewerToolbarControl,
+  ViewerToolbarControls,
+  ViewerToolbarControlsProps,
+  ViewerToolbarProps,
+} from './viewer-toolbar.js'
+export { Stock } from './stock.js'
+export type { StockProps, StockSource, StockAppearanceProps } from './stock.js'
+export { Banana, BANANA_MODEL_URL } from './banana.js'
+export { boxStockBounds, fixedBoxStockBounds } from './render/stock.js'
+export type {
+  CylinderStockFigure,
+  BoxStockFigure,
+  BoxStockInput,
+  BoxStockPreview,
+  CylinderStockInput,
+  CylinderStockPreview,
+  StockAllowance,
+  StockPosition,
+} from './render/stock.js'
+export { directionHighlights } from './render/direction-highlights.js'
+export type { PartDisplay } from './render/part.js'
 export { Axes, Grid, ViewCube } from './primitives.js'
 export { DirectionArrows } from './direction-arrows.js'
 export { SectionView, resolveSectionPlane } from './section-view.js'
+export { SectionTool } from './section-tool.js'
+export { MEASURE_LABEL_CLASS, MeasureTool } from './measure-tool.js'
+export { ToolMarks } from './tool-marks.js'
 export {
+  ANGLE_ARC_FRACTION,
+  AXIS_COLORS,
+  ANGLE_ARC_SEGMENTS,
+  DELTA_DASH_PIXELS,
+  MEASURE_LINE_PIXELS,
+  MEASURE_MARKER_PIXELS,
+  MEASURE_RENDER_ORDER,
+  POINTS_PER_MEASUREMENT,
+  SNAP_MARKER_PIXELS,
+  SNAP_PIXELS,
+  angleArc,
+  angleArcRadius,
+  angleAt,
+  deltaBetween,
+  deltaLegs,
+  distanceBetween,
+  formatDegrees,
+  formatMillimetres,
+  lockToAxis,
+  measurementFromPoints,
+  measurementLabel,
+  measurementLabelAnchor,
+  midpoint,
+  nextMeasurementId,
+  screenPoint,
+  snapAt,
+} from './render/measure.js'
+export {
+  AXES_PLANE_OFFSET,
+  AXES_PLANE_SCALE,
+  CAP_HATCH,
+  DEFAULT_SECTION_NORMAL,
+  DISABLED_SECTION,
   HANDLE_PIXELS,
+  OUTLINE_SCALE,
   PICKED_SURFACE_LABEL,
+  PREVIEW_SCALE,
   SECTION_RENDER_ORDER,
+  SECTION_GIZMO_FRAME_SCALE,
+  axesPlanes,
   dragPlane,
+  hitUnderRay,
   pickedStartDepth,
+  sectionAnchor,
   sectionBounds,
   sectionConstant,
   sectionDepth,
@@ -21,8 +89,27 @@ export {
   sectionDepthRange,
   sectionFromPick,
   sectionOffset,
+  sectionMeasurement,
+  sectionOptionsFromState,
   sectionPlane,
+  surfaceUnderRay,
 } from './render/section.js'
+export { createSectionStore } from './render/section-store.js'
+export {
+  capHit,
+  clipSegments,
+  pointInContour,
+  sampleSection,
+  sectionContour,
+} from './render/resample.js'
+export type { SectionSample } from './render/resample.js'
+export {
+  applyCapTheme,
+  createCapMaterial,
+  createMaskMaterial,
+  createMaskTarget,
+  createStencilMaterials,
+} from './render/section-cap.js'
 export { arrowPlacement } from './render/directions.js'
 export { useContentBox } from './content-box.js'
 export { useTapGuard } from './tap.js'
@@ -42,7 +129,10 @@ export {
   viewVector,
 } from './render/view-cube.js'
 export { gridGeometry, gridSpec } from './render/grid.js'
+export { BANANA_GAP, bananaFrameBounds, bananaPosition } from './render/banana.js'
 export { regionEdgesGeometry } from './render/edges.js'
+export { findSharpCorners, sharpCornerPositions, surfaceCreases } from './render/sharp-corners.js'
+export type { SharpCorner, SharpCornerOptions, SurfaceCreases } from './render/sharp-corners.js'
 export { visualSurfaces } from './model/surfaces.js'
 export { CadCameraControls } from './camera.js'
 export {
@@ -60,6 +150,7 @@ export {
   cameraLimits,
   contentBounds,
   currentViewDirection,
+  excludedFromFrame,
   defaultBounds,
   fitDistance,
   orthographicHalfHeight,
@@ -69,7 +160,8 @@ export {
   targetBoundary,
 } from './render/camera.js'
 export { ExtendedCameraControls } from './render/controls.js'
-export { useRetarget, useViewerControls, Viewer } from './viewer.js'
+export { CONTROL_SCHEME_OPTIONS } from './render/control-schemes.js'
+export { useRetarget, useSectionStore, useViewerControls, Viewer } from './viewer.js'
 export { PartReportFormatError, UnsupportedKernelVersionError } from './model/errors.js'
 export { buildRegionIndex } from './model/region-index.js'
 export {
@@ -120,7 +212,7 @@ export {
   ORBIT_TARGET_RING_WIDTH,
   orbitTargetOpacity,
 } from './render/target.js'
-export type { BuildPickInput, PartPick, PickModifiers } from './render/picking.js'
+export type { BuildPickInput, PartPick, PickModifiers, PointerLocation } from './render/picking.js'
 export type { ViewerControls, ViewerHandle, ViewerView } from './types.js'
 export type {
   FeatureTag,
@@ -141,14 +233,45 @@ export type { SurfaceOf } from './model/surfaces.js'
 export type { RankingContext } from './render/selection.js'
 export type { PartObject, RegionPaint } from './render/part.js'
 export type { FeatureHighlight, HighlightLayers, RegionHighlight } from './render/paint.js'
+export type { FocusOptions } from './render/focus.js'
 export type { ViewerTheme } from './render/theme.js'
 export type { PartMeshProps } from './part-mesh.js'
+export type { PartContextValue } from './part-context.js'
+export type { FeatureTriangles } from './render/feature-triangles.js'
+export type { BananaProps } from './banana.js'
+export type { HoverCardProps } from './hover-card.js'
 export type { AxesProps, GridProps, ViewCubeProps } from './primitives.js'
 export type { CubeZone, ViewKind, ViewName } from './render/view-cube.js'
 export type { DirectionArrowsProps, NamedDirection } from './direction-arrows.js'
 export type { ArrowPlacement } from './render/directions.js'
-export type { SectionOptions, SectionState } from './section-view.js'
-export type { SectionAnchor, SectionBounds, SectionPlacement } from './render/section.js'
+export type {
+  AxesPlane,
+  SectionAnchor,
+  SectionBounds,
+  SectionOptions,
+  SectionPlacement,
+  SectionState,
+  SurfaceHit,
+} from './render/section.js'
+export type { SectionStore } from './render/section-store.js'
+export type { CapMaterial, CapUniforms } from './render/section-cap.js'
+export type { SectionToolProps } from './section-tool.js'
+export type { MeasureLabelKind, MeasureToolProps } from './measure-tool.js'
+export type { ToolMarksProps } from './tool-marks.js'
+export type { ToolMark, ToolProfilePoint } from './render/tool-marks.js'
+export type {
+  AngleMeasurement,
+  Axis,
+  AxisLock,
+  DeltaLeg,
+  DistanceMeasurement,
+  MeasureMode,
+  Measurement,
+  Snap,
+  SnapEdges,
+  SnapHit,
+  SnapKind,
+} from './render/measure.js'
 export type { GridSpec } from './render/grid.js'
 export type { DoubleTapPoint, DoubleTapTracker, TapPoint, TapTracker } from './render/tap.js'
 export type { CadCameraControlsProps } from './camera.js'
@@ -159,5 +282,6 @@ export type {
   ViewerCamera,
   ViewportSize,
 } from './render/camera.js'
-export type { ControlScheme, ExtendedCameraControlsOptions } from './render/controls.js'
+export type { ExtendedCameraControlsOptions } from './render/controls.js'
+export type { ControlScheme, ControlSchemeOption } from './render/control-schemes.js'
 export type { Retarget, ViewerProps } from './viewer.js'

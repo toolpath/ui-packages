@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { Frame } from '../model/frame.js'
+import type { Extent, Frame } from '../model/frame.js'
 import type { Outline } from '../model/outline.js'
 import type { Sheet } from './sheet.js'
 
@@ -16,12 +16,23 @@ import type { Sheet } from './sheet.js'
  *
  * So the frame is published to the subtree instead. `frame` carries the scale,
  * the viewBox and the two mapping functions; `outline` is what was drawn, for a
- * child that needs the extent; `sheet` is the ink, so an overlay draws in the
- * same palette without being told the theme twice.
+ * child that needs the segments; `extent` is what the sheet was framed to;
+ * `sheet` is the ink, so an overlay draws in the same palette without being
+ * told the theme twice.
  */
 export interface DrawingContext {
   readonly frame: Frame
   readonly outline: Outline
+  /**
+   * How much of the stack the sheet actually covers — the outline's own extent,
+   * or the shorter one a zoom framed.
+   *
+   * **Published beside the outline rather than replacing it**, because the two
+   * answer different questions and a zoom is where they stop agreeing. Anything
+   * placing itself against the edge of the sheet wants this; anything asking
+   * what the drawing is *of* wants the outline and its segments.
+   */
+  readonly extent: Extent
   readonly sheet: Sheet
 }
 
