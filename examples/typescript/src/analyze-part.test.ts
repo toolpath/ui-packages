@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => {
 })
 
 vi.mock('@toolpath/api', () => ({
-  UpdatePartFeatureDetailsEnum: { True: 'true' },
+  UpdatePartOperationFeatureDetailsEnum: { True: 'true' },
   createToolpathClient: vi.fn(() => mocks.api),
   JobDetailFromJSON: (value: Record<string, unknown>) => ({
     ...value,
