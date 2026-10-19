@@ -1,5 +1,12 @@
 # @toolpath/viewer
 
+## 2.3.2
+
+### Patch Changes
+
+- 66217e4: Document viewer setup, complete integration examples, selection identity, geometry
+  ownership, toolbar and tool controls, stock sources, and Engine loading/recovery.
+
 ## 2.3.1
 
 ### Patch Changes

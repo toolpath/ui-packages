@@ -1,5 +1,14 @@
 # @toolpath/app-support
 
+## 0.1.7
+
+### Patch Changes
+
+- 5345397: Document installation requirements, Tailwind v4 theming, public components, and
+  composition examples for forms, menus, dialogs, feedback, tables, and panels.
+
+  Remove obsolete documentation references from the UI and app-support packages.
+
 ## 0.1.6
 
 ### Patch Changes
