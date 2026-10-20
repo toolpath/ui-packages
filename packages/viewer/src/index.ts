@@ -37,6 +37,7 @@ export { SectionView, resolveSectionPlane } from './section-view.js'
 export { SectionTool } from './section-tool.js'
 export { MEASURE_LABEL_CLASS, MeasureTool } from './measure-tool.js'
 export { ToolMarks } from './tool-marks.js'
+export { SceneLabel } from './scene-label.js'
 export {
   ANGLE_ARC_FRACTION,
   AXIS_COLORS,
@@ -259,6 +260,7 @@ export type { CapMaterial, CapUniforms } from './render/section-cap.js'
 export type { SectionToolProps } from './section-tool.js'
 export type { MeasureLabelKind, MeasureToolProps } from './measure-tool.js'
 export type { ToolMarksProps } from './tool-marks.js'
+export type { SceneLabelProps } from './scene-label.js'
 export type { ToolMark, ToolProfilePoint } from './render/tool-marks.js'
 export type {
   AngleMeasurement,
