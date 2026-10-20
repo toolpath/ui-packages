@@ -142,13 +142,13 @@ export {
   cubeOutlineGeometry,
   cubeZones,
   labelGeometry,
-  labelTexture,
   panelGeometry,
   squaredUp,
   viewKind,
   viewUp,
   viewVector,
 } from './render/view-cube.js'
+export { labelTexture } from './render/label-texture.js'
 export { gridGeometry, gridSpec } from './render/grid.js'
 export { BANANA_GAP, bananaFrameBounds, bananaPosition } from './render/banana.js'
 export { regionEdgesGeometry } from './render/edges.js'
