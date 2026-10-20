@@ -331,6 +331,7 @@ the part opaque. For multiselection, update your own tag array and avoid duplica
 | `showOrbitTarget`       | `false`           | Show the pivot marker.                                                                |
 | `theme`                 | Default lighting  | Override lighting; part/cube/tool colors have their own theme props.                  |
 | `onPointerMissed`       | —                 | Empty-space primary click, with drag guarding; use it to clear selection.             |
+| `webglUnavailable`      | Default message   | Content of the alert shown instead of the canvas when WebGL is unavailable.           |
 | `style`, `className`    | Full-size wrapper | Set dimensions and background on the wrapper or parent.                               |
 | `ref`                   | —                 | `ViewerHandle` for controls outside the canvas.                                       |
 
@@ -339,6 +340,13 @@ the part opaque. For multiselection, update your own tag array and avoid duplica
 `fit` and `frameBox` preserve view direction; `reset` returns to the opening view.
 Named views are `top`, `bottom`, `front`, `back`, `left`, `right`, and `isometric`.
 Direction vectors point from the part toward the camera.
+
+`Viewer` checks for WebGL2 once per page, on the client. If the browser will not create a context
+(hardware acceleration off or the GPU blocklisted), it renders a `role="alert"`
+element (`viewer-webgl-unavailable`, `data-viewer-webgl-unavailable="true"`) in
+place of the canvas, asking the user to turn on graphics acceleration; children are
+not rendered. Pass `webglUnavailable` to replace that message. Server rendering assumes
+WebGL is available; the check runs on the client after hydration.
 
 #### CAD controls
 
@@ -719,9 +727,9 @@ Part keys include `part`, `partEmissive`, `hover`, `highlight`, `picked`, `edge`
 use `measure`/`measureSnap`; cube keys are `cube`, `cubeEdge`, and `cubeLabel`.
 The canvas background comes from the wrapper/parent, independently of those colors.
 
-Stable DOM classes include `viewer-root`, `viewer-canvas-container`,
-`viewer-canvas-frame`, `viewer-canvas`, `viewer-hover-card`, `viewer-toolbar-stack`,
-`viewer-toolbar`, `viewer-toolbar-button`, `viewer-toolbar-icon`,
+Stable DOM classes include `viewer-root`, `viewer-webgl-unavailable`,
+`viewer-canvas-container`, `viewer-canvas-frame`, `viewer-canvas`, `viewer-hover-card`,
+`viewer-toolbar-stack`, `viewer-toolbar`, `viewer-toolbar-button`, `viewer-toolbar-icon`,
 `viewer-toolbar-tooltip`, and `viewer-toolbar-divider`. Caller `className` values
 append to the component's hook. Corresponding `data-viewer-*` attributes identify
 the DOM boundaries; `data-viewer-toolbar-action` contains the control's action name.
