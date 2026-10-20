@@ -10,7 +10,6 @@ on:
       - packages/app-support/src/**
       - packages/app-support/package.json
       - packages/dfm/src/**
-      - packages/dfm/dfm.css
       - packages/dfm/package.json
       - packages/quoting/src/**
       - packages/quoting/package.json

@@ -18,16 +18,25 @@ Toolpath analyzes CAD geometry to help a shop decide whether and how to machine 
 
 Engine dimensions and normalized tool geometry use millimetres; surface areas use square millimetres and angles use degrees. Viewer geometry uses a Z-up frame. Read each field's units, especially feeds/speeds. A catalog's `UnitSystem` describes its source, not the units of stored geometry. Convert at explicit boundaries using `@toolpath/tool-support`'s `MM_PER_INCH`; Fusion presets must already use the export's unit system.
 
+## Where code goes
+
+`@toolpath/ui` is the only home for styling: stylesheets, Tailwind classes, theme tokens, icons, and the React views of ordinary page UI, the DFM views included. Every other package ships logic, data types, and functions: no CSS, no `.tsx` under `src/`, no `className` or `style`, and no dependency on `@toolpath/ui`, Phosphor, Base UI, or Tailwind. When a view needs logic, the logic goes in the logic package and the view imports it, never the reverse.
+
+- Two packages are exceptions, each for a reason the kit cannot serve: `@toolpath/viewer` (three.js rendering, with its own pure `render/theme`) and `@toolpath/tool-drawing` (an SVG drawing of a tool and its holder).
+- A new exception needs a line here and in `STYLED_PACKAGES` in `scripts/styling-home.mjs`, in the same PR, with its reason.
+- `pnpm lint` flags styling imports and JSX `className`/`style` in other packages' source; class strings in plain `.ts` are left to review. `pnpm test` (`styling-home`) flags their stylesheets, `.tsx` files, and styling dependencies.
+- Reviews flag styling or view code outside `@toolpath/ui` and the two exceptions.
+
 ## Package boundaries
 
 Read the affected package's README, manifest, and public entry points before editing. There are nine npm packages and a Python SDK; examples are not published packages.
 
 | Directory / package                                                             | Responsibility and boundary                                                                                                                                                                                                                           |
 | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/ui` / `@toolpath/ui`                                                  | React controls and theme. Keep application persistence, routing, and API calls out; component-specific hooks/helpers stay with their component. Imports no Toolpath sibling.                                                                          |
+| `packages/ui` / `@toolpath/ui`                                                  | React controls, theme, and the DFM views. Keep application persistence, routing, and API calls out; component-specific hooks/helpers stay with their component. Of its siblings, imports only `@toolpath/dfm` and `@toolpath/tool-support`.           |
 | `packages/app-support` / `@toolpath/app-support`                                | Shared application logic. Root imports no React; hooks/contexts use `/react`. Never imports UI.                                                                                                                                                       |
 | `packages/viewer` / `@toolpath/viewer`                                          | 3D visualization; `/engine` adapts Engine reports. Keep geometry, camera, picking, and selection logic in `model/` and `render/` where possible. Applications own selection state.                                                                    |
-| `packages/dfm` / `@toolpath/dfm`                                                | DFM rules/checker at React/DOM-free `/model`; React presentation at root. Ships no default rules or persistence.                                                                                                                                      |
+| `packages/dfm` / `@toolpath/dfm`                                                | DFM rules and checker only; the root and `/model` are the same entry. No React, DOM or CSS; the views are in UI. Ships no default rules or persistence.                                                                                               |
 | `packages/quoting` / `@toolpath/quoting`                                        | The quote lifecycle from the quoting app: part state, stages and moves, quote, revision and payment-page status, expiry. Plain data in, answer out; the root and `/model` are the same entry. No React, DOM, CSS or dependencies; views belong in UI. |
 | `packages/tool-support` / `@toolpath/tool-support`                              | Tool/holder domain, units, and CAM exporters. No runtime/peer dependencies or external imports, including React, DOM, Node builtins, and SDK types.                                                                                                   |
 | `packages/tool-drawing` / `@toolpath/tool-drawing`                              | Tool/holder drawings; React/DOM-free `/geometry`, optional `/clearance` overlay. Keep calculation/layout separate from React.                                                                                                                         |

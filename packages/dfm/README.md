@@ -1,113 +1,57 @@
 # Toolpath DFM
 
-`@toolpath/dfm` is the DFM (design for manufacturing) rule list: each rule
-written as the sentence it is — "Holes with L/D to top of part ≥ 8" — whose
-words are its fields, beside its colour and how many of a part's features
-break it. Under the list, Import, Export and Copy LLM prompt share a rule set
-as one JSON file.
+`@toolpath/dfm` is the DFM (design for manufacturing) rules and the part
+checker: what a rule is, how a part's features break it, and the rule-set file
+a set is shared in. **It is logic, data types and functions only** — no React,
+no DOM, no CSS — so a server route can import it as readily as a browser.
 
-It also draws a feature's reach chart: the walls beside the feature, how high
-they stand and how far out.
-
-And it shows a feature as the Engine read it — the feature panel: the features
-a clicked face could mean, the rules the chosen one breaks, what was measured
-of it, its reach, and its datasheet as sent. Its pinch points, the widest tool
-standing where the feature is tightest, are placed here and drawn by
-`@toolpath/viewer`.
-
-The rules and the checker that counts them ship too, with no React, under
-`@toolpath/dfm/model`.
+The views that show and edit the rules — `RuleList`, `ReachChart`,
+`FeaturePanel` — are in [`@toolpath/ui`](https://www.npmjs.com/package/@toolpath/ui).
 
 ## Install
 
 ```sh
-npm install @toolpath/dfm @toolpath/ui react react-dom
-```
-
-Add the styles after Tailwind and the `@toolpath/ui` theme:
-
-```css
-@import 'tailwindcss';
-@import '@toolpath/ui/theme.css';
-@import '@toolpath/dfm/dfm.css';
+npm install @toolpath/dfm
 ```
 
 ## Exports
 
-| Entry point             | What it is                                                                                                                                                                                                                                                               |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `@toolpath/dfm`         | `RuleList`, `Swatch`, the list's keyboard helpers, `ReachChart`, `ReachDrawing`, the feature panel (`FeaturePanel`, `FeatureDetails`, `CandidateList`, `ComparisonTable`, `storageFolds`), their types, and the two rule vocabularies (`MILLING_RULES`, `TURNING_RULES`) |
-| `@toolpath/dfm/model`   | The rules, `checkPart` and `checkTurnedPart`, the rule-set file, the feature panel's rows, pinch points — no React, no DOM                                                                                                                                               |
-| `@toolpath/dfm/dfm.css` | Lets the app's Tailwind see the list's and chart's classes                                                                                                                                                                                                               |
+| Entry point           | What it is                                                                                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@toolpath/dfm`       | The rules and both vocabularies (`MILLING_RULES`, `TURNING_RULES`), `checkPart` and `checkTurnedPart`, the rule-set file and `llmRulePrompt`, the feature panel's rows, pinch points |
+| `@toolpath/dfm/model` | The same entry, under its name from before the views moved                                                                                                                           |
 
 ## The rules are an input
 
-The package ships no default rules and stores nothing — not the rules, nor
-which of the feature panel's sections are open. The app keeps the rules
-— in memory, `localStorage`, a server — and passes them in with the functions
-that change them:
+The package ships no default rules and stores nothing. The app keeps the rules
+— in memory, `localStorage`, a server — and checks a part against them:
 
-```tsx
-import { RuleList, type DfmRules } from '@toolpath/dfm'
-import { checkPart, dfmFeatures } from '@toolpath/dfm/model'
-
-const rules: DfmRules = { rules, add, update, remove, replace }
+```ts
+import { checkPart, dfmFeatures } from '@toolpath/dfm'
 
 // From a part analysis: the Engine's report, and each feature's datasheet.
 const features = dfmFeatures(report.features)
-const check = checkPart(features, { sheets, datasheets, regionAreas }, rules.rules)
-
-<RuleList
-  rules={rules}
-  check={check} // null while the part is still being analysed
-  features={features}
-  sheets={sheets}
-  units="mm"
-  selected={selectedTag}
-  selectedGroup={selectedGroup}
-  onInspect={(tag, group) => inspect(tag, group)}
-  onHover={(hovered) => highlight(hovered)}
-/>
+const check = checkPart(features, { sheets, datasheets, regionAreas }, rules)
 ```
 
 `sheets` is each feature's measurements, built with `featureSheet` from its
 datasheet; `datasheets` is the datasheets as the API sent them, both by
 lower-cased feature tag; `regionAreas` is each face's area by region index.
 
-Put `ruleListKeys` on the panel that holds the list, so the arrow keys walk the
-rules from anywhere in it.
-
-`actions` puts the app's own buttons at the end of the footer's row, after
-Import…, Export and Copy LLM prompt — a way back to the app's default rules,
-say, since the package has none of its own.
-
 ## Turning rules
 
-The same list edits turning rules: pass `vocabulary={TURNING_RULES}`, and it
-offers turned subjects (grooves, threads, axial holes, OD and ID features) and
-their measures, saves its set as `dfm-turning-rules.json`, and writes its LLM
-prompt for a lathe. Each vocabulary keeps its own rules: an import refuses the
-other process's file, and `parseRules(raw, TURNING_RULES)` drops milling ones.
-Every helper that reads a rule takes the vocabulary last, and reads milling
-where it is left out.
+`TURNING_RULES` is the turning vocabulary: turned subjects (grooves, threads,
+axial holes, OD and ID features) and their measures. Each vocabulary keeps its
+own rules: a rule-set file of the other process is refused, and
+`parseRules(raw, TURNING_RULES)` drops milling ones. Every helper that reads a
+rule takes the vocabulary last, and reads milling where it is left out.
 
-```tsx
-import { RuleList, TURNING_RULES } from '@toolpath/dfm'
-import { checkTurnedPart, turnedStretches } from '@toolpath/dfm/model'
+```ts
+import { checkTurnedPart, turnedStretches } from '@toolpath/dfm'
 
 // From a part analysis's `turning.features`.
 const stretches = turnedStretches(report.turning.features)
-const check = checkTurnedPart(stretches, rules.rules)
-
-<RuleList
-  rules={rules}
-  vocabulary={TURNING_RULES}
-  check={check}
-  features={stretches}
-  sheets={{}}
-  units="mm"
-  {...rest}
-/>
+const check = checkTurnedPart(stretches, rules)
 ```
 
 The Engine reports a stretch both ends of the part reach as two features, one
@@ -117,120 +61,23 @@ every stretch counts — a turned face has one reading — so nothing is left in
 `otherTags`. Turning is experimental in the API, so a datasheet field that is
 missing or malformed is no figure, never an error.
 
-## Reach chart
+## Rule-set files and the LLM prompt
 
-`ReachChart` draws a feature's reach curve: the section through the part at the
-feature's wall, to scale. The feature is on the left, in blue; the walls step up
-on the right, with their heights and their distances from the feature written
-on. Pointing at the walls reads the curve at that distance.
-
-```tsx
-import { ReachChart, ReachDrawing } from '@toolpath/dfm'
-import { featureProfile, readReachCurve } from '@toolpath/dfm/model'
-
-const curve = readReachCurve(datasheet) // null where the feature has none
-const feature = featureProfile(sheets[tag], featureType)
-
-export const Reach = () =>
-  curve ? <ReachChart curve={curve} units="mm" feature={feature} /> : null
-```
-
-`ReachChart` is as wide as its container. `ReachDrawing` is the same section
-with a caption and a note on how to read it, for a larger window of its own.
-Both stop drawing the curve half an inch past where the walls reach full
-height; `ReachDrawing` says so in its note.
-
-This is not the clearance overlay in `@toolpath/tool-drawing/clearance`: that
-draws the walls beside a cutting tool, to show whether the tool fits. This
-draws the walls alone.
-
-## Feature panel
-
-`FeaturePanel` is the card a click on the part opens: every feature the face
-belongs to, then the details of the one being read. With several faces
-shift-clicked, each face's candidates sit under a letter, above a table of
-what each was read as. It fills what it is put in — where it sits, and
-whether it can be dragged, is the app's — and the app decides what a click
-means: which faces, which candidates in which order, which is read.
-
-```tsx
-import { FeatureDetails, FeaturePanel, storageFolds } from '@toolpath/dfm'
-import { brokenRules, featureMeasurements, featureProfile } from '@toolpath/dfm/model'
-
-const folds = storageFolds(localStorage, 'toolpath.fold.')
-
-export const Inspector = () => (
-  <FeaturePanel
-    faces={[{ region, rows, selected }]}
-    active={0}
-    onSelect={(tag) => setSelected(tag)}
-    onHover={setHovered}
-    onClose={close}
-    folds={folds}
-  >
-    <FeatureDetails
-      feature={feature}
-      units="mm"
-      directionColor={directionHex}
-      profile={featureProfile(sheets[key], feature.featureType)}
-      required={check.required.has(key)}
-      onFrame={() => frame(feature.tag)}
-      rules={brokenRules(check, feature.tag, 'mm')}
-      measurements={{
-        status: 'ready',
-        value: featureMeasurements({ features, feature, sheets, units: 'mm' }),
-      }}
-      record={{ status: 'ready', value: records[key] ?? null }}
-      PopOut={AppWindow}
-      folds={folds}
-    />
-  </FeaturePanel>
-)
-```
-
-The parts work alone too. An app with an inspect panel of its own puts
-`CandidateList` and `FeatureDetails` in it and fills their slots with its own
-controls — a folder in a row's `detail`, a Pin button in its `action`, Zoom to
-in the details' `actions`, a folder badge in `status`.
-
-A turned feature reads the same way: give `FeaturePanel`, `CandidateList` and
-`FeatureDetails` `vocabulary={TURNING_RULES}` and a stretch from
-`turnedStretches`, and the feature is named as a turned one — "OD groove from
-both ends", "Machined from both ends" — with its considerations under
-"Turning considerations". Milling is the default.
-
-- **Rules broken** are `BrokenRule` rows: a colour, the rule's text, the figure
-  that broke it, and optionally the limit and a note on hover. `brokenRules`
-  builds them from this package's check; an app with a checker of its own
-  builds them from its hits.
-- **Measurements** are `featureMeasurements` rows, each with how it was worked
-  out behind an ⓘ. `inchMark` writes inches as `0.46"`.
-- **Reach, the datasheet fields and the raw record** read the feature's
-  `FeatureRecord`: its report entry and datasheet as the API sent them.
-- **Reads take time.** `measurements` and `record` are `Loadable`. While
-  `loading`, a section says what it is reading; on `error` it shows the app's
-  message and a Retry, held until `retryAt`.
-- **The look** differs where apps want it to: `look.rules`, `look.selected` and
-  `look.muted`. Left out, it is the CAD viewer's.
-- **Folds** are kept in the app's `FoldStore`; `storageFolds(storage, prefix)`
-  builds one over a `Storage`. Without one, a section remembers only while it
-  is mounted.
-- **Pop-outs** need `PopOut`, the app's window component: the panel decides
-  what is open and fills it, and the app draws the frame. Define it at module
-  level, and render it through a portal to the page's body: the panel's blur
-  makes it the box a `fixed` window inside it would be placed in.
-- **Keys:** Escape closes the panel and the arrow keys walk the candidates. On
-  a `CandidateList` used alone, put `candidateListKeys` on whatever holds it.
+`serializeRuleSet` writes a set as one JSON file and `parseRuleSetFile` reads
+one back. `llmRulePrompt(rules, vocabulary)` is a prompt that walks an LLM
+through writing a set for a shop. The rule list in `@toolpath/ui` has no button
+for it; an app that wants one adds it through the list's `actions`.
 
 ## Pinch points
 
 The widest tool a feature admits, standing where the feature is tightest. The
-data is here; the drawing is `@toolpath/viewer`'s `<ToolMarks>`, which knows
-nothing of datasheets:
+data is here. **Drawing it is the viewer's job, and needs `@toolpath/viewer`**;
+this package does not depend on it. The viewer's `<ToolMarks>` knows nothing of
+datasheets:
 
 ```tsx
 import { useMemo } from 'react'
-import { pinchLabel, pinchMark, placePinchTool } from '@toolpath/dfm/model'
+import { pinchLabel, pinchMark, placePinchTool } from '@toolpath/dfm'
 import { featureTriangles, ToolMarks, usePartContext } from '@toolpath/viewer'
 
 // A child of <EnginePart> or <PartMesh>, which gives it the part.

@@ -26,11 +26,22 @@
  *   what `helpers/` was.
  * - Nothing sits loose at the top of `src/` but the entry point, because a
  *   loose file is the same bucket without the directory.
- * - No module imports a Toolpath sibling. The two files removed here each
- *   spelled `UnitSystem` out as a literal union, with a comment explaining that
- *   a component kit should not put the cutting-tool domain in a consumer's
- *   `node_modules` — a package boundary being routed around rather than
- *   respected, and the tell that the code was in the wrong package.
+ * - No module imports a Toolpath sibling but the logic-only ones in
+ *   `LOGIC_PACKAGES`. The two files removed here each spelled `UnitSystem`
+ *   out as a literal union, with a comment explaining that a component kit
+ *   should not put the cutting-tool domain in a consumer's `node_modules` — a
+ *   package boundary being routed around rather than respected, and the tell
+ *   that the code was in the wrong package.
+ *
+ * The allow-list exists because this kit is now the one home for styling in
+ * the repository, the DFM views included: `@toolpath/dfm` is the rules and
+ * the checker, and the rule list, feature panel and reach chart that render
+ * them live here. A view may read logic; it may not read another package's
+ * state, storage, routes or rendering. `@toolpath/dfm` and
+ * `@toolpath/tool-support` each prove from their own import graph that they
+ * reach no React, no DOM and no CSS, so taking them on adds no renderer and
+ * no stylesheet. `app-support`, `viewer`, `tool-drawing`, `tool-scraper` and
+ * `api` stay out.
  *
  * Read from the tree and the manifest rather than from a list, in the shape
  * `tool-support`'s `boundary.test.ts` uses and for the same reason: a rostered
@@ -86,6 +97,13 @@ const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as
   peerDependencies?: Record<string, string>
 }
 
+/** The Toolpath siblings this kit may import: logic only, proven so by their own tests. */
+const LOGIC_PACKAGES = ['@toolpath/dfm', '@toolpath/tool-support']
+
+/** A Toolpath sibling that is not on the allow-list. */
+const isForbiddenSibling = (spec: string): boolean =>
+  spec.startsWith('@toolpath/') && !LOGIC_PACKAGES.includes(spec)
+
 const DIRECTORIES = directories(SRC)
 const SOURCES = modules(SRC)
 const rel = (path: string) => relative(SRC, path)
@@ -125,11 +143,11 @@ describe('every directory is a component’s', () => {
   })
 })
 
-describe('the kit reaches for no Toolpath sibling', () => {
+describe('the kit reaches for no Toolpath sibling but the logic-only ones', () => {
   it.each(SOURCES.map((path) => [rel(path), path] as const))(
-    'src/%s imports no sibling package',
+    'src/%s imports no sibling package outside the allow-list',
     (name, path) => {
-      const siblings = importsOf(path).filter((spec) => spec.startsWith('@toolpath/'))
+      const siblings = importsOf(path).filter(isForbiddenSibling)
 
       expect(
         siblings,
@@ -140,12 +158,12 @@ describe('the kit reaches for no Toolpath sibling', () => {
     },
   )
 
-  it('declares no dependency on a Toolpath sibling', () => {
+  it('declares no dependency on a Toolpath sibling outside the allow-list', () => {
     const declared = [
       ...Object.keys(manifest.dependencies ?? {}),
       ...Object.keys(manifest.peerDependencies ?? {}),
     ]
 
-    expect(declared.filter((name) => name.startsWith('@toolpath/'))).toEqual([])
+    expect(declared.filter(isForbiddenSibling)).toEqual([])
   })
 })

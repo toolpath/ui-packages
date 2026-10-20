@@ -1,7 +1,7 @@
 {
   "name": "@toolpath/ui",
   "version": "1.0.1",
-  "description": "Toolpath React and Tailwind UI primitives",
+  "description": "Toolpath React and Tailwind UI primitives, and the DFM views",
   "license": "MIT",
   "engines": {
     "node": ">=20"
@@ -49,6 +49,8 @@
     "tailwindcss": "^4.0.0"
   },
   "dependencies": {
+    "@toolpath/dfm": "workspace:^",
+    "@toolpath/tool-support": "workspace:^",
     "@base-ui/react": "1.2.0",
     "@phosphor-icons/react": "2.1.10",
     "@table-library/react-table-library": "^4.1.15",

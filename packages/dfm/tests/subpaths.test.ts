@@ -1,18 +1,18 @@
 /**
  * What each entry point drags in, asserted from the import graph.
  *
- * `/model` is the DFM rules and the checker, and its promise is that a server
- * can import it: no React, no DOM, no `@toolpath/ui`. `@toolpath/tool-support`
- * proves its own half: it depends on nothing. The root is the rule
- * list, and its promise is that it does not pull in three.js through
- * `@toolpath/viewer` for the one label it borrowed (`direction-label.ts`).
+ * The package is the DFM rules and the checker — logic, data types and
+ * functions — and its promise is that a server can import it: no React, no
+ * DOM, no `@toolpath/ui`, no CSS. The views over it are in `@toolpath/ui`.
+ * `@toolpath/tool-support` proves its own half: it depends on nothing.
  *
- * The graph is walked rather than rostered, so a module added under `model/`
- * lands covered. `ts.preProcessFile` returns every specifier in a file
- * without type checking it.
+ * Both entries are held to the same list, because the root is `/model` under
+ * a shorter name. The graph is walked rather than rostered, so a module added
+ * under `src/` lands covered. `ts.preProcessFile` returns every specifier in a
+ * file without type checking it.
  */
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -48,18 +48,17 @@ const packagesFrom = (entry: string, seen = new Set<string>()): Set<string> => {
   return packages
 }
 
-describe('/model stays importable from a server', () => {
-  const packages = packagesFrom(join(SRC, 'model/index.ts'))
+describe.each(['index.ts', 'model/index.ts'])('src/%s', (entry) => {
+  const packages = packagesFrom(join(SRC, entry))
 
   it('reaches only the cutting-tool domain', () => {
     expect([...packages].sort()).toEqual(['@toolpath/tool-support'])
   })
 })
 
-describe('the root stays free of three.js', () => {
-  const packages = packagesFrom(join(SRC, 'index.ts'))
-
-  it('reaches no viewer and no three.js', () => {
-    expect([...packages].filter((name) => /three|@toolpath\/viewer/.test(name))).toEqual([])
+describe('the package ships logic only', () => {
+  it('holds no .tsx and no .css', () => {
+    const files = readdirSync(SRC, { recursive: true, encoding: 'utf8' })
+    expect(files.filter((file) => /\.(tsx|css)$/.test(file))).toEqual([])
   })
 })

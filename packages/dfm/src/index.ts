@@ -1,46 +1,11 @@
 /**
- * `@toolpath/dfm` — the DFM rule list: each rule as an editable sentence, its
- * colour, and how many of a part's features break it; and the reach chart: the
- * walls beside a feature, how high and how far out.
+ * `@toolpath/dfm` — the DFM rules and the part checker. Logic, data types and
+ * functions only: no React, no DOM, no CSS.
  *
- * The rules are an input. The app keeps them and decides what they start as;
- * the list only shows and edits them, as milling rules or, given
- * `TURNING_RULES`, turning rules. The rules and the checker themselves,
- * with no React, are `@toolpath/dfm/model`.
+ * The rules are an input. The app keeps them and decides what they start as.
+ * The views that show and edit them — `RuleList`, `FeaturePanel`,
+ * `ReachChart` — are in `@toolpath/ui`. `@toolpath/dfm/model` is the same
+ * entry under its old name.
  */
 
-export { RuleList, ruleListKeys } from './rule-list/rule-list.js'
-export { Swatch, type SwatchProps } from './rule-list/swatch.js'
-export { isField, listKeys } from './rule-list/list-keys.js'
-export type { DfmRules, Hovered, RuleListProps } from './rule-list/types.js'
-export { MILLING_RULES, type RuleProcess, type RuleVocabulary } from './model/dfm-metrics.js'
-export { TURNING_RULES } from './model/turning-metrics.js'
-export { ReachChart, ReachDrawing } from './reach/reach-chart.js'
-export type { ReachChartProps } from './reach/types.js'
-export { storageFolds, type FoldStore } from './feature-panel/fold-store.js'
-export { FeatureDetails, type FeatureDetailsProps } from './feature-panel/feature-details.js'
-export type { FeaturePanelLook } from './feature-panel/look.js'
-export type {
-  FeatureIdentity,
-  Loadable,
-  PopOutId,
-  PopOutWindow,
-  PopOutWindowProps,
-} from './feature-panel/types.js'
-export {
-  CandidateList,
-  candidateListKeys,
-  type CandidateListProps,
-  type CandidateRow,
-  type ComparedFaceList,
-} from './feature-panel/candidate-list.js'
-export {
-  ComparisonTable,
-  type ComparedFace,
-  type ComparisonTableProps,
-} from './feature-panel/comparison-table.js'
-export {
-  FeaturePanel,
-  type FeaturePanelProps,
-  type InspectedFace,
-} from './feature-panel/feature-panel.js'
+export * from './model/index.js'

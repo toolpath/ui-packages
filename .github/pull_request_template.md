@@ -12,6 +12,12 @@
 <!-- Select exactly one item above when relevant. A maintainer must apply the
      exemption label. See AGENTS.md for package ownership and versioning. -->
 
+## Where code goes
+
+- [ ] Styling and views (CSS, `className`, icons, `.tsx` page UI) are in `@toolpath/ui`, or in
+      a package AGENTS.md "Where code goes" names as an exception. Other packages hold logic,
+      data types and functions only.
+
 ## Validation
 
 - [ ] I ran the relevant checks and tests.

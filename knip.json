@@ -11,8 +11,8 @@
       "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
     },
     "packages/dfm": {
-      "entry": ["src/index.ts", "src/model/index.ts", "tests/**/*.test.{ts,tsx}"],
-      "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
+      "entry": ["src/index.ts", "src/model/index.ts", "tests/**/*.test.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"]
     },
     "packages/quoting": {
       "entry": ["src/index.ts", "src/model/index.ts", "tests/**/*.test.ts"],

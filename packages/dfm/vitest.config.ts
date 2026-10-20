@@ -2,10 +2,11 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    // jsdom, for the rule list's tests. The model suites are pure and do not
-    // need it, but one environment is simpler than a per-file split.
-    environment: 'jsdom',
-    include: ['tests/**/*.test.{ts,tsx}'],
-    setupFiles: ['./tests/setup.ts'],
+    // Nothing here touches a DOM, and nothing here is allowed to: the package
+    // is the DFM rules and the checker, and the views over them are in
+    // `@toolpath/ui`. `tests/subpaths.test.ts` is the check; this is the same
+    // claim stated in the environment the suite runs in.
+    environment: 'node',
+    include: ['tests/**/*.test.ts'],
   },
 })
