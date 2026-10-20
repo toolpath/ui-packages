@@ -14,3 +14,6 @@ packages/sdk-typescript/src/schema.ts
 # digest compares content rather than layout.
 packages/tool-support/src/export/mastercam/schema.generated.ts
 packages/tool-scraper/docs/
+# three's r185 typeface, kept byte-identical to the source the view cube's
+# glyph subset is cut from.
+packages/viewer/scripts/fonts/
