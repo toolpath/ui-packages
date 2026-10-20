@@ -2,6 +2,7 @@ import tsPlugin from '@typescript-eslint/eslint-plugin'
 import tsParser from '@typescript-eslint/parser'
 import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
+import { STYLED_PACKAGES, STYLING_IMPORTS } from './scripts/styling-home.mjs'
 
 export default [
   {
@@ -67,6 +68,41 @@ export default [
           caughtErrorsIgnorePattern: '^_',
           destructuredArrayIgnorePattern: '^_',
           ignoreRestSiblings: true,
+        },
+      ],
+    },
+  },
+  {
+    // **`@toolpath/ui` is the one home for styling.** Every other package's
+    // shipped source is logic, data types and functions, so it imports no kit,
+    // icon set, primitive, Tailwind or stylesheet, and renders no `className` or `style`.
+    // `scripts/styling-home.mjs` holds the lists and the reason, and
+    // `scripts/check-styling-home.mjs` covers what ESLint cannot read: a
+    // stylesheet on disk, a `.tsx` file, and the manifests.
+    files: ['packages/*/src/**/*.ts', 'packages/*/src/**/*.tsx'],
+    ignores: Object.keys(STYLED_PACKAGES).map((dir) => `${dir}/**`),
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: STYLING_IMPORTS,
+              message:
+                'Styling belongs in @toolpath/ui. This package ships logic, data types and functions.',
+            },
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "JSXAttribute[name.name='className']",
+          message: 'Styling belongs in @toolpath/ui. Move this view into packages/ui.',
+        },
+        {
+          selector: "JSXAttribute[name.name='style']",
+          message: 'Styling belongs in @toolpath/ui. Move this view into packages/ui.',
         },
       ],
     },

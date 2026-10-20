@@ -1,14 +1,15 @@
 # Toolpath UI
 
 React components and a Tailwind CSS theme for Toolpath applications: form controls,
-menus, dialogs, tables, resizable panels, and feedback. No Engine API key or SDK is
-required to use this package.
+menus, dialogs, tables, resizable panels, and feedback, and the DFM views. No Engine
+API key or SDK is required to use this package.
 
 - [Install and configure styles](#install)
 - [Quick start](#quick-start)
 - [Theme and dark mode](#theme-and-dark-mode)
 - [Component catalog](#component-catalog)
 - [Composition examples](#composition-examples)
+- [DFM views](#dfm-views)
 - [Troubleshooting](#troubleshooting)
 - [Working on this package](#working-on-this-package)
 
@@ -30,6 +31,13 @@ For a new application, install them alongside the package:
 
 ```sh
 npm install @toolpath/ui react@^19.2.0 react-dom@^19.2.0 tailwindcss@^4
+```
+
+The DFM views bring `@toolpath/dfm` with them. To import its rules and checker in
+your own code, add it to your own dependencies too:
+
+```sh
+npm install @toolpath/dfm
 ```
 
 The JavaScript package is ESM; use `import`, not `require()`. TypeScript declarations
@@ -201,6 +209,7 @@ installed version.
 | `Field`                                  | Settings-row layout with `title`, optional `description`/`content`, and a control as children. It does not create an input label.                                                 |
 | `PageHeader`                             | Page title with optional actions as children.                                                                                                                                     |
 | `Attribution`                            | Activity metadata composed with `Action`, `By`, and `At` (`date`, optional `hideTime`).                                                                                           |
+| `RuleList`, `FeaturePanel`, `ReachChart` | The DFM views over `@toolpath/dfm`, and their parts. See [DFM views](#dfm-views).                                                                                                 |
 | `cn`                                     | Merge conditional classes and conflicting Tailwind utilities.                                                                                                                     |
 
 Unit preference helpers live in
@@ -455,6 +464,202 @@ dismissal persists in localStorage, shared across apps
 on the same origin. Use unique IDs, or set `rememberDismissed={false}` for local
 component state. `useDismissedCallouts().reset(id)` clears a remembered dismissal;
 `reset()` clears all remembered callouts for that origin.
+
+## DFM views
+
+The DFM (design for manufacturing) views are here: the rule list, the reach
+chart and the feature panel. The rules and the checker they show are
+[`@toolpath/dfm`](https://www.npmjs.com/package/@toolpath/dfm), which has no
+React and no CSS; this package installs it. The theme above covers the views'
+classes, so they need no stylesheet of their own.
+
+### Rule list
+
+`RuleList` shows each rule written as the sentence it is — "Holes with L/D to
+top of part ≥ 8" — whose words are its fields, beside its colour and how many
+of a part's features break it. Under the list, Import and Export share a rule
+set as one JSON file. The rules are an input: the app keeps them and passes
+them in with the functions that change them.
+
+```tsx
+import { RuleList, type DfmRules } from '@toolpath/ui'
+import { checkPart, dfmFeatures } from '@toolpath/dfm'
+
+const rules: DfmRules = { rules, add, update, remove, replace }
+
+// From a part analysis: the Engine's report, and each feature's datasheet.
+const features = dfmFeatures(report.features)
+const check = checkPart(features, { sheets, datasheets, regionAreas }, rules.rules)
+
+<RuleList
+  rules={rules}
+  check={check} // null while the part is still being analysed
+  features={features}
+  sheets={sheets}
+  units="mm"
+  selected={selectedTag}
+  selectedGroup={selectedGroup}
+  onInspect={(tag, group) => inspect(tag, group)}
+  onHover={(hovered) => highlight(hovered)}
+/>
+```
+
+`sheets` is each feature's measurements, built with `featureSheet` from its
+datasheet; `datasheets` is the datasheets as the API sent them, both by
+lower-cased feature tag; `regionAreas` is each face's area by region index.
+
+Put `ruleListKeys` on the panel that holds the list, so the arrow keys walk the
+rules from anywhere in it.
+
+`actions` puts the app's own buttons at the end of the footer's row, after
+Import… and Export — a way back to the app's default rules, say, since neither
+package has any of its own. The list has no LLM button. An app that wants one
+adds it here, over `llmRulePrompt` from `@toolpath/dfm`:
+
+```tsx
+import { Button, RuleList, type DfmRules, type RuleListProps } from '@toolpath/ui'
+import { llmRulePrompt } from '@toolpath/dfm'
+
+const copyPrompt = (rules: DfmRules) => navigator.clipboard.writeText(llmRulePrompt(rules.rules))
+
+export const Rules = ({ rules, ...props }: RuleListProps) => (
+  <RuleList
+    rules={rules}
+    {...props}
+    actions={
+      <Button variant="secondary" onClick={() => void copyPrompt(rules)}>
+        Copy LLM prompt
+      </Button>
+    }
+  />
+)
+```
+
+For turning rules, pass `vocabulary={TURNING_RULES}`:
+
+```tsx
+import { RuleList } from '@toolpath/ui'
+import { TURNING_RULES, checkTurnedPart, turnedStretches } from '@toolpath/dfm'
+
+// From a part analysis's `turning.features`.
+const stretches = turnedStretches(report.turning.features)
+const check = checkTurnedPart(stretches, rules.rules)
+
+<RuleList
+  rules={rules}
+  vocabulary={TURNING_RULES}
+  check={check}
+  features={stretches}
+  sheets={{}}
+  units="mm"
+  {...rest}
+/>
+```
+
+### Reach chart
+
+`ReachChart` draws a feature's reach curve: the section through the part at the
+feature's wall, to scale. The feature is on the left, in blue; the walls step up
+on the right, with their heights and their distances from the feature written
+on. Pointing at the walls reads the curve at that distance.
+
+```tsx
+import { ReachChart, ReachDrawing } from '@toolpath/ui'
+import { featureProfile, readReachCurve } from '@toolpath/dfm'
+
+const curve = readReachCurve(datasheet) // null where the feature has none
+const feature = featureProfile(sheets[tag], featureType)
+
+export const Reach = () =>
+  curve ? <ReachChart curve={curve} units="mm" feature={feature} /> : null
+```
+
+`ReachChart` is as wide as its container. `ReachDrawing` is the same section
+with a caption and a note on how to read it, for a larger window of its own.
+Both stop drawing the curve half an inch past where the walls reach full
+height; `ReachDrawing` says so in its note.
+
+This is not the clearance overlay in `@toolpath/tool-drawing/clearance`: that
+draws the walls beside a cutting tool, to show whether the tool fits. This
+draws the walls alone.
+
+### Feature panel
+
+`FeaturePanel` is the card a click on the part opens: every feature the face
+belongs to, then the details of the one being read. With several faces
+shift-clicked, each face's candidates sit under a letter, above a table of
+what each was read as. It fills what it is put in — where it sits, and
+whether it can be dragged, is the app's — and the app decides what a click
+means: which faces, which candidates in which order, which is read.
+
+```tsx
+import { FeatureDetails, FeaturePanel, storageFolds } from '@toolpath/ui'
+import { brokenRules, featureMeasurements, featureProfile } from '@toolpath/dfm'
+
+const folds = storageFolds(localStorage, 'toolpath.fold.')
+
+export const Inspector = () => (
+  <FeaturePanel
+    faces={[{ region, rows, selected }]}
+    active={0}
+    onSelect={(tag) => setSelected(tag)}
+    onHover={setHovered}
+    onClose={close}
+    folds={folds}
+  >
+    <FeatureDetails
+      feature={feature}
+      units="mm"
+      directionColor={directionHex}
+      profile={featureProfile(sheets[key], feature.featureType)}
+      required={check.required.has(key)}
+      onFrame={() => frame(feature.tag)}
+      rules={brokenRules(check, feature.tag, 'mm')}
+      measurements={{
+        status: 'ready',
+        value: featureMeasurements({ features, feature, sheets, units: 'mm' }),
+      }}
+      record={{ status: 'ready', value: records[key] ?? null }}
+      PopOut={AppWindow}
+      folds={folds}
+    />
+  </FeaturePanel>
+)
+```
+
+The parts work alone too. An app with an inspect panel of its own puts
+`CandidateList` and `FeatureDetails` in it and fills their slots with its own
+controls — a folder in a row's `detail`, a Pin button in its `action`, Zoom to
+in the details' `actions`, a folder badge in `status`.
+
+A turned feature reads the same way: give `FeaturePanel`, `CandidateList` and
+`FeatureDetails` `vocabulary={TURNING_RULES}` and a stretch from
+`turnedStretches`, and the feature is named as a turned one — "OD groove from
+both ends", "Machined from both ends" — with its considerations under
+"Turning considerations". Milling is the default.
+
+- **Rules broken** are `BrokenRule` rows: a colour, the rule's text, the figure
+  that broke it, and optionally the limit and a note on hover. `brokenRules`
+  builds them from `@toolpath/dfm`'s check; an app with a checker of its own
+  builds them from its hits.
+- **Measurements** are `featureMeasurements` rows, each with how it was worked
+  out behind an ⓘ. `inchMark` writes inches as `0.46"`.
+- **Reach, the datasheet fields and the raw record** read the feature's
+  `FeatureRecord`: its report entry and datasheet as the API sent them.
+- **Reads take time.** `measurements` and `record` are `Loadable`. While
+  `loading`, a section says what it is reading; on `error` it shows the app's
+  message and a Retry, held until `retryAt`.
+- **The look** differs where apps want it to: `look.rules`, `look.selected` and
+  `look.muted`. Left out, it is the CAD viewer's.
+- **Folds** are kept in the app's `FoldStore`; `storageFolds(storage, prefix)`
+  builds one over a `Storage`. Without one, a section remembers only while it
+  is mounted.
+- **Pop-outs** need `PopOut`, the app's window component: the panel decides
+  what is open and fills it, and the app draws the frame. Define it at module
+  level, and render it through a portal to the page's body: the panel's blur
+  makes it the box a `fixed` window inside it would be placed in.
+- **Keys:** Escape closes the panel and the arrow keys walk the candidates. On
+  a `CandidateList` used alone, put `candidateListKeys` on whatever holds it.
 
 ## Troubleshooting
 

@@ -13,10 +13,11 @@ machined, and what it may cost.
 | Call Toolpath from JavaScript | `@toolpath/api`                 | [TypeScript SDK](packages/sdk-typescript)                          |
 | Call Toolpath from Python     | `toolpath`                      | [Python SDK](packages/sdk-python)                                  |
 | Show a part in a React app    | `@toolpath/viewer`              | [Viewer](packages/viewer)                                          |
-| Build Toolpath-styled UI      | `@toolpath/ui`                  | [UI kit](packages/ui)                                              |
+| Build UI, DFM views included  | `@toolpath/ui`                  | [UI kit](packages/ui)                                              |
 | Collect vendor tool data      | `@toolpath/tool-scraper`        | [Tool scraper](packages/tool-scraper)                              |
 | Draw a tool and its holder    | `@toolpath/tool-drawing`        | [Tool drawing](packages/tool-drawing)                              |
-| Show and edit DFM rules       | `@toolpath/dfm`                 | [DFM](packages/dfm)                                                |
+| Check parts for DFM rules     | `@toolpath/dfm`                 | [DFM](packages/dfm)                                                |
+| Share quote flow rules        | `@toolpath/quoting`             | [Quoting](packages/quoting)                                        |
 | Share the cutting-tool domain | `@toolpath/tool-support`        | [Tool support](packages/tool-support)                              |
 | Share application logic       | `@toolpath/app-support`         | [App support](packages/app-support)                                |
 | See usage examples            | TypeScript, Python, or React    | [Examples](#examples)                                              |
