@@ -12,6 +12,7 @@ import {
 } from 'three'
 import { useContentBox } from './content-box.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
+import { onWindowKeys } from './render/keys.js'
 import { AXIS_COLORS } from './render/measure.js'
 import { readPointer } from './render/pointer.js'
 import {
@@ -83,11 +84,11 @@ export const SectionTool = ({ theme }: SectionToolProps) => {
 
   useEffect(() => {
     if (!section) return undefined
-    const clear = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') store.set(null)
-    }
-    window.addEventListener('keydown', clear)
-    return () => window.removeEventListener('keydown', clear)
+    return onWindowKeys({
+      keydown: (event) => {
+        if (event.key === 'Escape') store.set(null)
+      },
+    })
   }, [section, store])
 
   // Nothing is sized until the part has been measured; see `useContentBox`.
