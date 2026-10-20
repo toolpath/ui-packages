@@ -57,6 +57,7 @@ export { MeasureTool } from './measure-tool.js'
 export { MEASURE_LABEL_CLASS } from './measure-labels.js'
 export { MEASURE_HINT_CLASS } from './measure-hint.js'
 export { ToolMarks } from './tool-marks.js'
+export { SceneLabel } from './scene-label.js'
 export {
   ANGLE_ARC_FRACTION,
   AXIS_COLORS,
@@ -282,6 +283,7 @@ export type { MeasureLabelKind } from './measure-labels.js'
 export type { MeasureGroup, MeasurePick, MeasuredPoint } from './render/measure-picks.js'
 export type { MeasuredFace } from './render/face-measure.js'
 export type { ToolMarksProps } from './tool-marks.js'
+export type { SceneLabelProps } from './scene-label.js'
 export type { ToolMark, ToolProfilePoint } from './render/tool-marks.js'
 export type {
   AngleMeasurement,
