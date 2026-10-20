@@ -44,6 +44,7 @@ import {
   createStencilMaterials,
 } from './render/section-cap.js'
 import { EXCLUDE_FROM_FRAME, type ViewerCamera, screenLength } from './render/camera.js'
+import { SECTION_CAPS } from './render/section-cap-support.js'
 import type { ViewerTheme } from './render/theme.js'
 import { useStableList } from './stable-list.js'
 
@@ -229,6 +230,7 @@ export const SectionView = ({
   // Before R3F's own render, so the mask the cap samples is this frame's.
   const clearColor = useMemo(() => new Color(), [])
   useFrame(({ gl: renderer, camera: eye }) => {
+    if (!SECTION_CAPS) return
     const previousAlpha = renderer.getClearAlpha()
     renderer.getClearColor(clearColor)
     renderer.setRenderTarget(mask)
@@ -347,36 +349,40 @@ export const SectionView = ({
     // the part's diagonal, so a Fit that measured it would frame the cut rather
     // than the part and leave the part a speck in the middle of it.
     <group userData={FURNITURE}>
-      {/* The stencil pass. Back faces increment and front faces decrement, so
-          what is left marks where the plane is inside solid material — of any
-          of the meshes, since the counts of separate bodies only add. */}
-      {geometries.map((each) => (
-        <Fragment key={each.uuid}>
-          <mesh
-            geometry={each}
-            material={stencils[0]}
-            renderOrder={SECTION_RENDER_ORDER.stencil}
-            raycast={() => null}
-          />
-          <mesh
-            geometry={each}
-            material={stencils[1]}
-            renderOrder={SECTION_RENDER_ORDER.stencil}
-            raycast={() => null}
-          />
-        </Fragment>
-      ))}
+      {SECTION_CAPS ? (
+        <>
+          {/* The stencil pass. Back faces increment and front faces decrement, so
+            what is left marks where the plane is inside solid material — of any
+            of the meshes, since the counts of separate bodies only add. */}
+          {geometries.map((each) => (
+            <Fragment key={each.uuid}>
+              <mesh
+                geometry={each}
+                material={stencils[0]}
+                renderOrder={SECTION_RENDER_ORDER.stencil}
+                raycast={() => null}
+              />
+              <mesh
+                geometry={each}
+                material={stencils[1]}
+                renderOrder={SECTION_RENDER_ORDER.stencil}
+                raycast={() => null}
+              />
+            </Fragment>
+          ))}
 
-      {/* The cap: a quad over the whole cut, filled only where the stencil says
-          the plane is inside material. */}
-      <mesh
-        geometry={quad}
-        material={cap}
-        position={capPosition}
-        quaternion={capQuaternion}
-        renderOrder={SECTION_RENDER_ORDER.cap}
-        raycast={() => null}
-      />
+          {/* The cap: a quad over the whole cut, filled only where the stencil says
+            the plane is inside material. */}
+          <mesh
+            geometry={quad}
+            material={cap}
+            position={capPosition}
+            quaternion={capQuaternion}
+            renderOrder={SECTION_RENDER_ORDER.cap}
+            raycast={() => null}
+          />
+        </>
+      ) : null}
 
       {showHandle && onDrag ? (
         <>
