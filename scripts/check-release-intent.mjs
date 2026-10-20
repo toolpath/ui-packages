@@ -24,6 +24,10 @@ const releaseSensitivePaths = [
     paths: ['packages/dfm/src/', 'packages/dfm/dfm.css'],
   },
   {
+    packageName: '@toolpath/quoting',
+    paths: ['packages/quoting/src/'],
+  },
+  {
     packageName: '@toolpath/ui',
     paths: ['packages/ui/src/', 'packages/ui/tailwind-preset.cjs'],
   },

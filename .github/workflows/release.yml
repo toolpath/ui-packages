@@ -12,6 +12,8 @@ on:
       - packages/dfm/src/**
       - packages/dfm/dfm.css
       - packages/dfm/package.json
+      - packages/quoting/src/**
+      - packages/quoting/package.json
       - packages/ui/src/**
       - packages/ui/tailwind-preset.cjs
       - packages/ui/package.json

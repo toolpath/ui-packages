@@ -14,6 +14,10 @@
       "entry": ["src/index.ts", "src/model/index.ts", "tests/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
     },
+    "packages/quoting": {
+      "entry": ["src/index.ts", "src/model/index.ts", "tests/**/*.test.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"]
+    },
     "packages/sdk-typescript": {
       "project": ["src/**/*.ts"],
       "ignore": ["src/generated/**"]

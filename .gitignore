@@ -10,6 +10,7 @@ __pycache__/
 .pytest_cache/
 packages/app-support/dist/
 packages/dfm/dist/
+packages/quoting/dist/
 packages/sdk-typescript/dist/
 packages/sdk-python/build/
 packages/sdk-python/dist/
