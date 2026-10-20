@@ -11,7 +11,6 @@ import {
   Plane,
   PlaneGeometry,
   Quaternion,
-  Raycaster,
   Scene,
   Vector2,
   Vector3,
@@ -138,7 +137,6 @@ export const SectionView = ({
   const gl = useThree((state) => state.gl)
   const invalidate = useThree((state) => state.invalidate)
   const controls = useThree((state) => state.controls)
-  const domElement = useThree((state) => state.gl.domElement)
 
   const handleRef = useRef<Group>(null)
   const [hovered, setHovered] = useState(false)
@@ -256,63 +254,78 @@ export const SectionView = ({
     [controls],
   )
 
+  // While a drag is live, the pointer's capture being taken away — by the
+  // system, for a notification shade or a gesture of its own — ends it, and so
+  // does a cancelled pointer or unmounting. Otherwise the controls stay off.
+  const releaseDrag = useRef<(() => void) | null>(null)
+
+  const endDrag = useCallback(() => {
+    releaseDrag.current?.()
+    releaseDrag.current = null
+    if (!dragging.current) return
+    dragging.current = null
+    setControlsEnabled(true)
+  }, [setControlsEnabled])
+  useEffect(() => endDrag, [endDrag])
+
   /**
-   * The drag runs on the window rather than on the handle.
+   * The drag is captured by the handle rather than tracked on it.
    *
    * A pointer that has left the arrow is still dragging it — that is what a
    * drag *is* — and an overlay that only tracks while the pointer stays within
-   * a 78-pixel arrow stops the moment the cut starts to move.
+   * a 78-pixel arrow stops the moment the cut starts to move. Capturing the
+   * pointer sends every later event for it here, with R3F's ray for it, wherever
+   * the pointer goes.
    */
-  const beginDrag = (event: ThreeEvent<PointerEvent>) => {
-    if (!onDrag) return
-    event.stopPropagation()
+  const grab = {
+    onPointerDown: (event: ThreeEvent<PointerEvent>) => {
+      if (!onDrag) return
+      event.stopPropagation()
+      ;(event.target as Element).setPointerCapture(event.pointerId)
+      // A drag that also orbits is a drag nobody can aim.
+      setControlsEnabled(false)
 
-    const view = camera.position.clone().sub(capPosition).normalize()
-    const surface = dragPlane(plane.normal.clone(), view, capPosition)
-    const hit = event.ray.intersectPlane(surface, new Vector3())
-    const start = {
-      plane: surface,
-      from: hit ? hit.dot(plane.normal) : 0,
-      constant: plane.constant,
-    }
-    dragging.current = start
-    // A drag that also orbits is a drag nobody can aim.
-    setControlsEnabled(false)
+      const view = camera.position.clone().sub(capPosition).normalize()
+      const surface = dragPlane(plane.normal.clone(), view, capPosition)
+      const hit = event.ray.intersectPlane(surface, new Vector3())
+      dragging.current = {
+        plane: surface,
+        from: hit ? hit.dot(plane.normal) : 0,
+        constant: plane.constant,
+      }
 
-    const raycaster = new Raycaster()
-    const pointer = new Vector2()
-
-    const move = (native: PointerEvent) => {
-      const rect = domElement.getBoundingClientRect()
-      pointer.set(
-        ((native.clientX - rect.left) / rect.width) * 2 - 1,
-        -((native.clientY - rect.top) / rect.height) * 2 + 1,
-      )
-      raycaster.setFromCamera(pointer, camera)
-      const point = raycaster.ray.intersectPlane(start.plane, new Vector3())
+      const element = gl.domElement as Pick<
+        HTMLCanvasElement,
+        'addEventListener' | 'removeEventListener'
+      >
+      releaseDrag.current?.()
+      element.addEventListener('lostpointercapture', endDrag)
+      element.addEventListener('pointercancel', endDrag)
+      releaseDrag.current = () => {
+        element.removeEventListener('lostpointercapture', endDrag)
+        element.removeEventListener('pointercancel', endDrag)
+      }
+    },
+    onPointerMove: (event: ThreeEvent<PointerEvent>) => {
+      const start = dragging.current
+      if (!start || !onDrag) return
+      event.stopPropagation()
+      const point = event.ray.intersectPlane(start.plane, new Vector3())
       if (!point) return
 
       // The pointer's travel along the plane's own normal is how far the cut
       // moves; the constant runs the other way, since a larger one clips less.
       onDrag(start.constant - (point.dot(plane.normal) - start.from))
       invalidate()
-    }
-
-    const end = () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', end)
-      window.removeEventListener('pointercancel', end)
-      dragging.current = null
-      setControlsEnabled(true)
-    }
-
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', end)
-    window.addEventListener('pointercancel', end)
-  }
-
-  const grab = {
-    onPointerDown: beginDrag,
+    },
+    onPointerUp: (event: ThreeEvent<PointerEvent>) => {
+      if (!dragging.current) return
+      event.stopPropagation()
+      // Released explicitly rather than left to the end of the gesture: iOS
+      // reuses touch ids, and a capture left behind would claim the next touch.
+      ;(event.target as Element).releasePointerCapture(event.pointerId)
+      endDrag()
+    },
     onPointerOver: (event: ThreeEvent<PointerEvent>) => {
       event.stopPropagation()
       setHovered(true)
