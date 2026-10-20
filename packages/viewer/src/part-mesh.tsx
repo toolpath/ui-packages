@@ -32,6 +32,7 @@ import { type SharpCornerOptions, sharpCornerKey } from './render/sharp-corners.
 import { type ThreadOptions, threadKey } from './render/threads.js'
 import { regionAdjacency } from './render/adjacency.js'
 import { type PartPick, buildPick, viewDirection } from './render/picking.js'
+import { preventPointerDefault, readPointer } from './render/pointer.js'
 import { trackDoubleTaps } from './render/tap.js'
 import { useRetarget, useSectionStore, useViewerControls } from './viewer.js'
 import { SectionView, resolveSectionPlane } from './section-view.js'
@@ -394,7 +395,7 @@ export const PartMesh = ({
     // tie, so which reading a click means depends on where it was made from.
     const target = readTarget(controls)
     const normal = event.face?.normal ?? UP
-    const source = event.nativeEvent
+    const source = readPointer(event.nativeEvent)
 
     const pick = buildPick({
       model,
@@ -411,7 +412,7 @@ export const PartMesh = ({
         ctrl: source.ctrlKey,
         meta: source.metaKey,
         shift: source.shiftKey,
-        secondary: 'button' in source && source.button === 2,
+        secondary: source.button === 2,
       },
     })
     const corner = part.sharpCornerAt({ point: event.point, region }, camera as ViewerCamera, size)
@@ -563,7 +564,7 @@ export const PartMesh = ({
          */
         onPointerUp={(event: ThreeEvent<PointerEvent>) => {
           if (engaged || pressedWhileEngaged.current) return
-          if (event.nativeEvent.button !== 2) return
+          if (readPointer(event.nativeEvent).button !== 2) return
           if (!isTap(event.nativeEvent)) return
 
           const pick = pickFor(event)
@@ -572,7 +573,7 @@ export const PartMesh = ({
         onContextMenu={(event: ThreeEvent<MouseEvent>) => {
           // Only over geometry, so a right click that hits nothing still gets
           // the browser's own menu.
-          if (pickFor(event)) event.nativeEvent.preventDefault()
+          if (pickFor(event)) preventPointerDefault(event.nativeEvent)
         }}
       />
       {cut ? (

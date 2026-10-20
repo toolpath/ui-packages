@@ -13,6 +13,7 @@ import {
 import type { CSSProperties, PropsWithChildren, ReactNode } from 'react'
 import { Box3, Group, Vector3 } from 'three'
 import { CadCameraControls } from './camera.js'
+import { readPointer } from './render/pointer.js'
 import { retargetPose } from './render/retarget.js'
 import { type SectionStore, createSectionStore } from './render/section-store.js'
 import { type TapTracker, trackDoubleTaps, trackTaps } from './render/tap.js'
@@ -405,7 +406,7 @@ const ViewerScene = ({
 
     const doubles = trackDoubleTaps()
     const recentre = (event: MouseEvent) => {
-      if (event.button !== 1) return
+      if (readPointer(event).button !== 1) return
 
       // The end of a pan is not a request to re-frame. The middle button is
       // TRUCK, so *every* pan ends in an `auxclick` here — and two quick pans
