@@ -87,3 +87,31 @@ describe('pairing presses into a double tap by hand', () => {
     expect(doubles.isDouble(at(0, 0, 200))).toBe(false)
   })
 })
+
+describe('React Native presses', () => {
+  /*
+   * Fiber's native events carry page coordinates and a lower-case `timestamp`,
+   * and no `clientX` or `timeStamp` at all. Read through `readPointer`, they
+   * judge the same as the DOM's.
+   */
+  const touch = (pageX: number, pageY: number, timestamp: number) =>
+    ({ pageX, pageY, offsetX: pageX - 20, offsetY: pageY - 20, timestamp }) as unknown as {
+      clientX: number
+      clientY: number
+      timeStamp: number
+    }
+
+  it('tells a tap from a drag', () => {
+    expect(movedFar(touch(100, 100, 0), touch(102, 101, 0))).toBe(false)
+    expect(movedFar(touch(100, 100, 0), touch(140, 100, 0))).toBe(true)
+  })
+
+  it('pairs two taps into a double tap', () => {
+    const doubles = trackDoubleTaps()
+
+    expect(doubles.isDouble(touch(10, 10, 0))).toBe(false)
+    expect(doubles.isDouble(touch(11, 10, 200))).toBe(true)
+    expect(doubles.isDouble(touch(10, 10, 300))).toBe(false)
+    expect(doubles.isDouble(touch(10, 10, 900))).toBe(false)
+  })
+})

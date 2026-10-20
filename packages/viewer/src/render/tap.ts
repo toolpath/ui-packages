@@ -12,6 +12,8 @@
  * at.
  */
 
+import { readPointer } from './pointer.js'
+
 /** How far a pointer may travel and still be a click, in CSS pixels. */
 export const TAP_SLOP = 4
 
@@ -20,9 +22,16 @@ export interface TapPoint {
   readonly clientY: number
 }
 
-/** Whether the pointer travelled far enough for this to be a drag. */
+/**
+ * Whether the pointer travelled far enough for this to be a drag.
+ *
+ * Both ends are read through `readPointer`, so a React Native event — which
+ * has page coordinates rather than client ones — compares the same way.
+ */
 export function movedFar(from: TapPoint, to: TapPoint, slop: number = TAP_SLOP): boolean {
-  return Math.hypot(to.clientX - from.clientX, to.clientY - from.clientY) > slop
+  const start = readPointer(from)
+  const end = readPointer(to)
+  return Math.hypot(end.clientX - start.clientX, end.clientY - start.clientY) > slop
 }
 
 export interface TapTracker {
@@ -42,7 +51,8 @@ export function trackTaps(element: HTMLElement): TapTracker {
   let start: TapPoint | null = null
 
   const down = (event: PointerEvent) => {
-    start = { clientX: event.clientX, clientY: event.clientY }
+    const { clientX, clientY } = readPointer(event)
+    start = { clientX, clientY }
   }
 
   element.addEventListener('pointerdown', down, { capture: true })
@@ -111,10 +121,12 @@ export function trackDoubleTaps(
 
   return {
     isDouble: (event: DoubleTapPoint) => {
+      const { clientX, clientY, timeStamp } = readPointer(event)
+      const press = { clientX, clientY, timeStamp }
       const paired =
-        last !== null && event.timeStamp - last.timeStamp <= within && !movedFar(last, event, slop)
+        last !== null && press.timeStamp - last.timeStamp <= within && !movedFar(last, press, slop)
 
-      last = paired ? null : event
+      last = paired ? null : press
       return paired
     },
     reset: () => {

@@ -34,6 +34,7 @@ import { type ThreadOptions, threadKey } from './render/threads.js'
 import { regionAdjacency } from './render/adjacency.js'
 import { type PartPick, buildPick, viewDirection } from './render/picking.js'
 import { readTarget } from './render/orbit-target.js'
+import { readPointer } from './render/pointer.js'
 import { useSectionStore, useViewerControls } from './viewer.js'
 import { SectionView, resolveSectionPlane } from './section-view.js'
 import { useContentBox } from './content-box.js'
@@ -424,7 +425,7 @@ export const PartMesh = ({
     // tie, so which reading a click means depends on where it was made from.
     const target = readTarget(controls)
     const normal = event.face?.normal ?? UP
-    const source = event.nativeEvent
+    const source = readPointer(event.nativeEvent)
 
     const pick = buildPick({
       model,
@@ -441,7 +442,7 @@ export const PartMesh = ({
         ctrl: source.ctrlKey,
         meta: source.metaKey,
         shift: source.shiftKey,
-        secondary: 'button' in source && source.button === 2,
+        secondary: source.button === 2,
       },
     })
     const corner = part.sharpCornerAt({ point: event.point, region }, camera as ViewerCamera, size)
@@ -541,7 +542,7 @@ export const PartMesh = ({
               gestures.onClick(event)
             },
             onPointerUp: (event: ThreeEvent<MouseEvent>) => {
-              if (event.nativeEvent.button === 2) {
+              if (readPointer(event.nativeEvent).button === 2) {
                 event.stopPropagation()
               }
               gestures.onPointerUp(event)

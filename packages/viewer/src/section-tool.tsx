@@ -13,6 +13,7 @@ import {
 import { useContentBox } from './content-box.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
 import { AXIS_COLORS } from './render/measure.js'
+import { readPointer } from './render/pointer.js'
 import {
   type AxesPlane,
   OUTLINE_SCALE,
@@ -138,6 +139,7 @@ const Picker = ({ box, theme }: PickerProps) => {
   const camera = useThree((state) => state.camera)
   const scene = useThree((state) => state.scene)
   const domElement = useThree((state) => state.gl.domElement)
+  const size = useThree((state) => state.size)
   const invalidate = useThree((state) => state.invalidate)
   const isTap = useTapGuard()
   const square = useSquare()
@@ -170,11 +172,11 @@ const Picker = ({ box, theme }: PickerProps) => {
     }
 
     const move = (event: PointerEvent) => {
-      const rect = domElement.getBoundingClientRect()
-      pointer.set(
-        ((event.clientX - rect.left) / rect.width) * 2 - 1,
-        -((event.clientY - rect.top) / rect.height) * 2 + 1,
-      )
+      // Canvas-local pixels, over the canvas's size as R3F measured it: the
+      // same normalised device coordinates on the web and on native, where the
+      // canvas has no bounding rectangle to measure.
+      const { x, y } = readPointer(event, domElement)
+      pointer.set((x / size.width) * 2 - 1, -(y / size.height) * 2 + 1)
       raycaster.setFromCamera(pointer, camera)
       const hit = surfaceUnderRay(raycaster, scene)
       const preview = previewRef.current
@@ -197,7 +199,7 @@ const Picker = ({ box, theme }: PickerProps) => {
       // position before relying on the preview's cached hover.
       move(event)
       const hit = hover.current
-      if (event.button !== 0 || !hit || !isTap(event)) return
+      if (readPointer(event).button !== 0 || !hit || !isTap(event)) return
       store.set({
         enabled: true,
         plane: sectionFromPick({ point: hit.point, normal: hit.normal }),
@@ -213,7 +215,7 @@ const Picker = ({ box, theme }: PickerProps) => {
       domElement.removeEventListener('pointerleave', hide)
       domElement.removeEventListener('pointerup', up)
     }
-  }, [box, camera, domElement, invalidate, isTap, scene, span, store])
+  }, [box, camera, domElement, invalidate, isTap, scene, size, span, store])
 
   // The global planes stand on whichever side of the part the camera is not,
   // so they move only when the camera crosses an axis — a render then, and not
