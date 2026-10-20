@@ -3,6 +3,8 @@ import {
   Box3,
   Matrix4,
   OrthographicCamera,
+  PerspectiveCamera,
+  Plane,
   Quaternion,
   Raycaster,
   Sphere,
@@ -115,7 +117,7 @@ const REST_THRESHOLD = 0.005
  *   the controls to the component tree for two booleans.
  */
 export class ExtendedCameraControls extends CameraControls {
-  #domElement: HTMLElement
+  #domElement: HTMLElement | undefined
   #freeOrbit: boolean
   #scheme: ControlScheme = 'toolpath'
   #attached = false
@@ -123,6 +125,8 @@ export class ExtendedCameraControls extends CameraControls {
   #shiftPressed = false
   #ctrlPressed = false
   #wheelHandler: ((event: WheelEvent) => void) | null = null
+  /** Where each touch pointer last was, for one-finger orbit; see `#onPointerMove`. */
+  #touches = new Map<number, { clientX: number; clientY: number }>()
 
   // Scratch objects — `#onPointerMove` and `#adaptUpVector` run at pointer and
   // frame rate respectively, so neither may allocate.
@@ -130,10 +134,23 @@ export class ExtendedCameraControls extends CameraControls {
   #scratchA = new Vector3()
   #scratchB = new Vector3()
   #scratchC = new Vector3()
+  // `zoomAt`'s own: the `update` between its two readings runs
+  // `#adaptUpVector`, which writes the three above.
+  #zoomBefore = new Vector3()
+  #zoomAfter = new Vector3()
+  #scratchPlane = new Plane()
+  #scratchRay = new Raycaster()
+  #scratchPointer = new Vector2()
 
+  /**
+   * `domElement` is the canvas the controls listen on. Without one they listen
+   * to nothing and are driven entirely through {@link orbitBy},
+   * {@link zoomAt} and {@link panBy} — which is how a React Native canvas,
+   * with no DOM element, moves the camera from its own touch handling.
+   */
   constructor(
     camera: ViewerCamera,
-    domElement: HTMLElement,
+    domElement?: HTMLElement,
     options: ExtendedCameraControlsOptions = {},
   ) {
     super(camera, domElement)
@@ -181,21 +198,22 @@ export class ExtendedCameraControls extends CameraControls {
     return this.#scheme
   }
 
-  /** Adds the listeners this subclass owns, on top of the base connection. */
+  /**
+   * Adds the listeners this subclass owns, on top of the base connection.
+   *
+   * With no element there is nothing to listen on, so only the parts that are
+   * not listeners happen: free orbit's up vector, and the scheme.
+   */
   attach(): void {
     if (this.#attached) {
       return
     }
 
     this.#attached = true
-    this.#domElement.ownerDocument.addEventListener('pointermove', this.#onPointerMove)
 
-    const view = this.#domElement.ownerDocument.defaultView
-    view?.addEventListener('keydown', this.#onModifierChange)
-    view?.addEventListener('keyup', this.#onModifierChange)
-    // A window that loses focus never delivers the matching keyup, which would
-    // otherwise leave a modifier-aware scheme stuck in its shifted variant.
-    view?.addEventListener('blur', this.#onWindowBlur)
+    if (this.#domElement) {
+      this.#addListeners(this.#domElement)
+    }
 
     if (this.#freeOrbit) {
       this.#enableAutoUp()
@@ -204,18 +222,40 @@ export class ExtendedCameraControls extends CameraControls {
     this.applyScheme(this.#scheme)
   }
 
+  #addListeners(element: HTMLElement): void {
+    element.addEventListener('pointerdown', this.#onPointerDown)
+    element.ownerDocument.addEventListener('pointermove', this.#onPointerMove)
+    element.ownerDocument.addEventListener('pointerup', this.#onPointerEnd)
+    element.ownerDocument.addEventListener('pointercancel', this.#onPointerEnd)
+
+    const view = element.ownerDocument.defaultView
+    view?.addEventListener('keydown', this.#onModifierChange)
+    view?.addEventListener('keyup', this.#onModifierChange)
+    // A window that loses focus never delivers the matching keyup, which would
+    // otherwise leave a modifier-aware scheme stuck in its shifted variant.
+    view?.addEventListener('blur', this.#onWindowBlur)
+  }
+
   detach(): void {
     if (!this.#attached) {
       return
     }
 
     this.#attached = false
-    this.#domElement.ownerDocument.removeEventListener('pointermove', this.#onPointerMove)
 
-    const view = this.#domElement.ownerDocument.defaultView
-    view?.removeEventListener('keydown', this.#onModifierChange)
-    view?.removeEventListener('keyup', this.#onModifierChange)
-    view?.removeEventListener('blur', this.#onWindowBlur)
+    const element = this.#domElement
+    if (element) {
+      element.removeEventListener('pointerdown', this.#onPointerDown)
+      element.ownerDocument.removeEventListener('pointermove', this.#onPointerMove)
+      element.ownerDocument.removeEventListener('pointerup', this.#onPointerEnd)
+      element.ownerDocument.removeEventListener('pointercancel', this.#onPointerEnd)
+
+      const view = element.ownerDocument.defaultView
+      view?.removeEventListener('keydown', this.#onModifierChange)
+      view?.removeEventListener('keyup', this.#onModifierChange)
+      view?.removeEventListener('blur', this.#onWindowBlur)
+    }
+    this.#touches.clear()
 
     this.#disableAutoUp()
     this.#disableCadWheel()
@@ -253,6 +293,7 @@ export class ExtendedCameraControls extends CameraControls {
       rotate: CameraControls.ACTION.TOUCH_ROTATE,
       truck: CameraControls.ACTION.TOUCH_TRUCK,
       'dolly-truck': CameraControls.ACTION.TOUCH_DOLLY_TRUCK,
+      'zoom-truck': CameraControls.ACTION.TOUCH_ZOOM_TRUCK,
     } as const
 
     this.#disableCadWheel()
@@ -321,7 +362,7 @@ export class ExtendedCameraControls extends CameraControls {
   }
 
   #enableCadWheel(): void {
-    if (!this.#attached || this.#wheelHandler) {
+    if (!this.#attached || this.#wheelHandler || !this.#domElement) {
       return
     }
 
@@ -336,7 +377,7 @@ export class ExtendedCameraControls extends CameraControls {
       return
     }
 
-    this.#domElement.removeEventListener('wheel', this.#wheelHandler)
+    this.#domElement?.removeEventListener('wheel', this.#wheelHandler)
     this.#wheelHandler = null
   }
 
@@ -356,25 +397,21 @@ export class ExtendedCameraControls extends CameraControls {
   }
 
   /**
-   * Rotation, done here rather than by the base class so a constrained orbit
+   * Turns the camera by a pointer's travel, in pixels: half a turn across the
+   * viewport's shorter side, `viewportMin`.
+   *
+   * Rotation is done here rather than by the base class so a constrained orbit
    * can bounce off a pole — flipping the up vector and inverting azimuth —
-   * instead of sticking there.
+   * instead of sticking there. The mouse and one-finger touch reach it from
+   * `#onPointerMove`; a canvas with no element calls it directly.
    */
-  #onPointerMove = (event: PointerEvent): void => {
-    if (this.currentAction !== CameraControls.ACTION.ROTATE) {
-      return
-    }
-
-    // Recomputed per move rather than cached in the constructor: the element
-    // is usually still unlaid-out at construction, so a cached scale is wrong
-    // exactly once, permanently.
-    const scale =
-      Math.PI / Math.max(1, Math.min(this.#domElement.clientWidth, this.#domElement.clientHeight))
+  orbitBy(dx: number, dy: number, viewportMin: number): void {
+    const scale = Math.PI / Math.max(1, viewportMin)
 
     const spherical = this.getSpherical(this.#spherical)
 
-    let azimuth = spherical.theta - event.movementX * scale
-    let polar = spherical.phi - event.movementY * scale
+    let azimuth = spherical.theta - dx * scale
+    let polar = spherical.phi - dy * scale
 
     const exceededUpper = polar > Math.PI - EPSILON
     const exceededLower = polar < EPSILON
@@ -390,6 +427,138 @@ export class ExtendedCameraControls extends CameraControls {
     this.update(0)
   }
 
+  /**
+   * Zooms by `scale` (above 1 is in) about the point `at`, in canvas-local
+   * pixels of a viewport `viewport` in size: what was under `at` on the plane
+   * through the orbit target stays under it.
+   *
+   * An orthographic camera zooms; a perspective one dollies toward the
+   * target, by the distance that makes things `scale` times larger there.
+   * Either of those alone scales about the middle of the view, so the camera
+   * is then trucked by however far the point under `at` moved.
+   */
+  zoomAt(
+    scale: number,
+    at: { x: number; y: number },
+    viewport: { width: number; height: number },
+  ): void {
+    if (!(scale > 0) || !Number.isFinite(scale)) {
+      return
+    }
+
+    const before = this.#pointOnTargetPlane(at, viewport, this.#zoomBefore)
+
+    if (this.camera instanceof OrthographicCamera) {
+      void this.zoomTo(this.camera.zoom * scale, false)
+    } else {
+      void this.dolly(this.distance * (1 - 1 / scale), false)
+    }
+    this.update(0)
+
+    const after = this.#pointOnTargetPlane(at, viewport, this.#zoomAfter)
+    if (before && after) {
+      // `before` now sits `before - after` away from where `at` looks. Both
+      // points are on the plane facing the camera, so trucking by that offset —
+      // along the camera's right, and down being positive — puts it back.
+      const offset = before.sub(after)
+      const right = this.#scratchA.setFromMatrixColumn(this.camera.matrixWorld, 0)
+      const up = this.#scratchB.setFromMatrixColumn(this.camera.matrixWorld, 1)
+      void this.truck(offset.dot(right), -offset.dot(up), false)
+      this.update(0)
+    }
+  }
+
+  /**
+   * Pans the view by `dx`, `dy` pixels, so whatever was under the pointer
+   * follows it: world-per-pixel at the target's depth, the camera moving the
+   * opposite way.
+   *
+   * `truck(x, y)` moves the camera right by `x` and *down* by `y`, which is
+   * why both are negated — a finger moving down drags the scene down.
+   */
+  panBy(dx: number, dy: number, viewport: { width: number; height: number }): void {
+    const perPixel = this.#worldPerPixel(viewport.height)
+    void this.truck(-dx * perPixel, -dy * perPixel, false)
+    this.update(0)
+  }
+
+  /** World units per pixel at the orbit target's depth, for a viewport this tall. */
+  #worldPerPixel(height: number): number {
+    const camera = this.camera
+    if (camera instanceof OrthographicCamera) {
+      return (camera.top - camera.bottom) / camera.zoom / Math.max(1, height)
+    }
+    const fov = camera instanceof PerspectiveCamera ? camera.fov : 50
+    return (2 * this.distance * Math.tan(((fov / 2) * Math.PI) / 180)) / Math.max(1, height)
+  }
+
+  /** The world point under `at` on the plane through the target, facing the camera. */
+  #pointOnTargetPlane(
+    at: { x: number; y: number },
+    viewport: { width: number; height: number },
+    into: Vector3,
+  ): Vector3 | null {
+    const camera = this.camera
+    camera.updateMatrixWorld()
+    const target = this.getTarget(this.#scratchA)
+    const facing = camera.getWorldDirection(this.#scratchB)
+    this.#scratchPlane.setFromNormalAndCoplanarPoint(facing, target)
+    this.#scratchPointer.set(
+      (at.x / Math.max(1, viewport.width)) * 2 - 1,
+      -(at.y / Math.max(1, viewport.height)) * 2 + 1,
+    )
+    this.#scratchRay.setFromCamera(this.#scratchPointer, camera)
+    return this.#scratchRay.ray.intersectPlane(this.#scratchPlane, into)
+  }
+
+  #onPointerDown = (event: PointerEvent): void => {
+    if (event.pointerType === 'touch') {
+      this.#touches.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY })
+    }
+  }
+
+  #onPointerEnd = (event: PointerEvent): void => {
+    this.#touches.delete(event.pointerId)
+  }
+
+  /**
+   * The mouse turns the view by its own `movementX`/`movementY`, as it always
+   * has. One finger turns it by the travel between its own successive
+   * positions, kept per pointer from `pointerdown` — touch pointer events
+   * carry no useful movement, and the base class's touch rotation is switched
+   * off with the rest of its rotation, so without this a one-finger drag did
+   * nothing at all.
+   */
+  #onPointerMove = (event: PointerEvent): void => {
+    const element = this.#domElement
+    if (!element) {
+      return
+    }
+
+    // Recomputed per move rather than cached in the constructor: the element
+    // is usually still unlaid-out at construction, so a cached scale is wrong
+    // exactly once, permanently.
+    const viewportMin = Math.min(element.clientWidth, element.clientHeight)
+
+    if (this.currentAction === CameraControls.ACTION.ROTATE) {
+      this.orbitBy(event.movementX, event.movementY, viewportMin)
+      return
+    }
+
+    const last = this.#touches.get(event.pointerId)
+    if (!last) {
+      return
+    }
+    const dx = event.clientX - last.clientX
+    const dy = event.clientY - last.clientY
+    last.clientX = event.clientX
+    last.clientY = event.clientY
+
+    if (this.currentAction === CameraControls.ACTION.TOUCH_ROTATE) {
+      this.orbitBy(dx, dy, viewportMin)
+    }
+  }
+
   #onCadWheel = (event: WheelEvent): void => {
     event.preventDefault()
 
@@ -397,8 +566,9 @@ export class ExtendedCameraControls extends CameraControls {
       // Trackpad pinch arrives as a wheel event with ctrlKey set.
       void this.zoom(-event.deltaY * FUSION_PINCH_ZOOM_SCALE, false)
     } else if (this.#shiftPressed) {
+      const element = this.#domElement
       const scale =
-        Math.PI / Math.max(1, Math.min(this.#domElement.clientWidth, this.#domElement.clientHeight))
+        Math.PI / Math.max(1, Math.min(element?.clientWidth ?? 0, element?.clientHeight ?? 0))
 
       void this.rotate(
         event.deltaX * scale * FUSION_ROTATE_SCALE,
