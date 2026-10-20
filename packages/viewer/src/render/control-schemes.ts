@@ -28,7 +28,7 @@ export interface ControlSchemeMapping {
   }
   readonly touches: {
     readonly one: 'rotate'
-    readonly two: 'rotate' | 'truck' | 'dolly-truck'
+    readonly two: 'rotate' | 'truck' | 'dolly-truck' | 'zoom-truck'
     readonly three: 'truck'
   }
   /** Fusion and Inventor distinguish a trackpad scroll from a pinch wheel event. */
@@ -47,19 +47,24 @@ export interface ControlSchemeEnvironment {
   readonly modifiers: ControlModifiers
 }
 
-const DEFAULT_TOUCHES: ControlSchemeMapping['touches'] = {
-  one: 'rotate',
-  two: 'dolly-truck',
-  three: 'truck',
-}
-
 const wheelFor = (orthographic: boolean): WheelAction => (orthographic ? 'zoom' : 'dolly')
+
+/**
+ * Pinch zooms by whatever the camera zooms by, as the wheel does: an
+ * orthographic camera scales its frustum, and dollying one moves it without
+ * changing anything on screen — so a pinch on it did nothing.
+ */
+const defaultTouches = (orthographic: boolean): ControlSchemeMapping['touches'] => ({
+  one: 'rotate',
+  two: orthographic ? 'zoom-truck' : 'dolly-truck',
+  three: 'truck',
+})
 
 const mapping = (
   environment: ControlSchemeEnvironment,
   mouse: Partial<ControlSchemeMapping['mouse']>,
   options: Pick<ControlSchemeMapping, 'usesCadWheel' | 'immediate'>,
-  touches: ControlSchemeMapping['touches'] = DEFAULT_TOUCHES,
+  touches: ControlSchemeMapping['touches'] = defaultTouches(environment.orthographic),
 ): ControlSchemeMapping => ({
   mouse: {
     left: 'none',

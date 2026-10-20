@@ -227,3 +227,76 @@ export const findColour = async (
     { png, colour, tolerance },
   )
 }
+
+/** A box on the canvas, in canvas-relative CSS pixels. */
+export interface PixelBounds {
+  count: number
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+/**
+ * The bounds of everything light on the canvas — the part, against the page's
+ * dark background — leaving out page elements laid over it (`mask`) and any
+ * regions given as fractions of the canvas (`ignore`), such as the view cube's
+ * corner, which keeps its size whatever the camera does.
+ */
+export const brightBounds = async (
+  page: Page,
+  canvas: Locator,
+  {
+    mask = [],
+    ignore = [],
+    threshold = 150,
+  }: {
+    mask?: Locator[]
+    ignore?: Array<{ left: number; top: number; right: number; bottom: number }>
+    threshold?: number
+  } = {},
+): Promise<PixelBounds> => {
+  const png = (await canvas.screenshot({ mask })).toString('base64')
+  return page.evaluate(
+    async ({ png, ignore, threshold }) => {
+      const image = new Image()
+      image.src = `data:image/png;base64,${png}`
+      await image.decode()
+      const surface = document.createElement('canvas')
+      surface.width = image.width
+      surface.height = image.height
+      const context = surface.getContext('2d')
+      if (!context) throw new Error('no 2D context to decode the screenshot in')
+      context.drawImage(image, 0, 0)
+      const { data } = context.getImageData(0, 0, image.width, image.height)
+
+      const bounds = {
+        count: 0,
+        left: Infinity,
+        top: Infinity,
+        right: -Infinity,
+        bottom: -Infinity,
+      }
+      for (let y = 0; y < image.height; y += 1) {
+        for (let x = 0; x < image.width; x += 1) {
+          const fx = x / image.width
+          const fy = y / image.height
+          if (ignore.some((r) => fx >= r.left && fx <= r.right && fy >= r.top && fy <= r.bottom)) {
+            continue
+          }
+          const at = (y * image.width + x) * 4
+          // Rec. 709 luma; masked elements are painted magenta, which stays under it.
+          const luma = 0.2126 * data[at]! + 0.7152 * data[at + 1]! + 0.0722 * data[at + 2]!
+          if (luma < threshold) continue
+          bounds.count += 1
+          bounds.left = Math.min(bounds.left, x)
+          bounds.top = Math.min(bounds.top, y)
+          bounds.right = Math.max(bounds.right, x)
+          bounds.bottom = Math.max(bounds.bottom, y)
+        }
+      }
+      return bounds
+    },
+    { png, ignore, threshold },
+  )
+}

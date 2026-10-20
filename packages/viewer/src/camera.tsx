@@ -26,6 +26,16 @@ export interface CadCameraControlsProps {
 }
 
 /**
+ * Whether R3F's canvas is a real DOM element. Under React Native it is a
+ * stand-in object with event-listener methods and no layout, which
+ * `camera-controls` must not connect to: the controls are driven from the
+ * native frame's own touch handling instead.
+ */
+const isDomElement = (element: unknown): element is HTMLElement =>
+  typeof (element as { getBoundingClientRect?: unknown } | null)?.getBoundingClientRect ===
+    'function' && typeof (element as { setAttribute?: unknown }).setAttribute === 'function'
+
+/**
  * Mounts `camera-controls` against the R3F camera and canvas.
  *
  * `frameloop="demand"` means no frame runs unless something asks for one, so
@@ -46,7 +56,12 @@ export const CadCameraControls = ({
   const set = useThree((state) => state.set)
 
   const controls = useMemo(
-    () => new ExtendedCameraControls(camera as ViewerCamera, domElement, { freeOrbit }),
+    () =>
+      new ExtendedCameraControls(
+        camera as ViewerCamera,
+        isDomElement(domElement) ? domElement : undefined,
+        { freeOrbit },
+      ),
     // `freeOrbit` is the constructor's initial value only; the effect below
     // owns it from then on, and rebuilding the controls would drop the pose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
