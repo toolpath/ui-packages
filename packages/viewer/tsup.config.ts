@@ -47,7 +47,8 @@ export default defineConfig([
     format: ['esm'],
     dts: false,
     clean: true,
-    external: [...external, 'react-native', 'expo-asset', 'expo-gl', '*.glb'],
+    // A RegExp, since tsup reads a string external as a package name.
+    external: [...external, 'react-native', 'expo-asset', 'expo-gl', /\.glb$/],
     outDir: 'dist/native',
     loader: { '.json': 'json' },
     esbuildPlugins: [nativeSiblings],
