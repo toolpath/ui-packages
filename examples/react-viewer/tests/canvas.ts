@@ -135,3 +135,95 @@ export const expectPivot = (
 
 /** The middle of the part, which is where the pivot starts. */
 export const ORIGIN = [0, 0, 0] as const
+
+/** Where pixels of one colour sit on the canvas, in canvas-relative CSS pixels. */
+export interface ColourPatch {
+  /** How many pixels matched. */
+  count: number
+  /** Their centroid. */
+  centre: { x: number; y: number }
+  /** The unit direction they are most spread along. */
+  axis: { x: number; y: number }
+}
+
+/**
+ * Finds a solid shape of one shaded colour on the canvas: every pixel that is
+ * the colour scaled by 0.7 to 1.05, which covers a lit control's light and
+ * dark sides, to within `tolerance` per channel — and that is inside a patch
+ * of them, rather than on a thin line of the same colour.
+ *
+ * The screenshot is decoded in the page itself, into a 2D canvas, so reading
+ * pixels needs no image library here. Only the patch's summary comes back.
+ * `mask` covers page elements laid over the canvas, such as the toolbar, so
+ * their colours are not counted.
+ */
+export const findColour = async (
+  page: Page,
+  canvas: Locator,
+  colour: number,
+  { tolerance = 16, mask = [] }: { tolerance?: number; mask?: Locator[] } = {},
+): Promise<ColourPatch> => {
+  const png = (await canvas.screenshot({ mask })).toString('base64')
+  return page.evaluate(
+    async ({ png, colour, tolerance }) => {
+      const image = new Image()
+      image.src = `data:image/png;base64,${png}`
+      await image.decode()
+      const surface = document.createElement('canvas')
+      surface.width = image.width
+      surface.height = image.height
+      const context = surface.getContext('2d')
+      if (!context) throw new Error('no 2D context to decode the screenshot in')
+      context.drawImage(image, 0, 0)
+      const { data } = context.getImageData(0, 0, image.width, image.height)
+
+      const target = [(colour >> 16) & 0xff, (colour >> 8) & 0xff, colour & 0xff] as const
+      const brightest = Math.max(...target)
+      const lead = target.indexOf(brightest)
+      const { width, height } = image
+      const matches = new Uint8Array(width * height)
+      for (let at = 0; at < matches.length; at += 1) {
+        const pixel = [data[at * 4]!, data[at * 4 + 1]!, data[at * 4 + 2]!]
+        const shade = pixel[lead]! / brightest
+        if (shade < 0.7 || shade > 1.05) continue
+        if (
+          pixel.every((value, channel) => Math.abs(value - target[channel]! * shade) <= tolerance)
+        ) {
+          matches[at] = 1
+        }
+      }
+
+      // Eroded: only pixels whose whole 3x3 neighbourhood matches. A line drawn
+      // in the same colour is a pixel or two wide and goes; a solid shape stays.
+      const points: Array<[number, number]> = []
+      for (let y = 1; y < height - 1; y += 1) {
+        for (let x = 1; x < width - 1; x += 1) {
+          let solid = true
+          for (let dy = -1; dy <= 1 && solid; dy += 1) {
+            for (let dx = -1; dx <= 1 && solid; dx += 1) {
+              solid = matches[(y + dy) * width + x + dx] === 1
+            }
+          }
+          if (solid) points.push([x, y])
+        }
+      }
+
+      const count = points.length
+      if (count === 0) return { count, centre: { x: 0, y: 0 }, axis: { x: 1, y: 0 } }
+      const cx = points.reduce((sum, [x]) => sum + x, 0) / count
+      const cy = points.reduce((sum, [, y]) => sum + y, 0) / count
+      let xx = 0
+      let xy = 0
+      let yy = 0
+      for (const [x, y] of points) {
+        xx += (x - cx) ** 2
+        xy += (x - cx) * (y - cy)
+        yy += (y - cy) ** 2
+      }
+      // The principal axis of the patch's spread.
+      const angle = 0.5 * Math.atan2(2 * xy, xx - yy)
+      return { count, centre: { x: cx, y: cy }, axis: { x: Math.cos(angle), y: Math.sin(angle) } }
+    },
+    { png, colour, tolerance },
+  )
+}
