@@ -17,6 +17,7 @@ export {
   assertSupportedKernelVersion,
   normalizePartReport,
 } from './normalize.js'
+export { threadMark } from './threads.js'
 export type { EnginePartProps } from './engine-part.js'
 export type {
   CacheablePart,

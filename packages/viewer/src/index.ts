@@ -133,6 +133,7 @@ export { BANANA_GAP, bananaFrameBounds, bananaPosition } from './render/banana.j
 export { regionEdgesGeometry } from './render/edges.js'
 export { findSharpCorners, sharpCornerPositions, surfaceCreases } from './render/sharp-corners.js'
 export type { SharpCorner, SharpCornerOptions, SurfaceCreases } from './render/sharp-corners.js'
+export type { ThreadMark, ThreadOptions } from './render/threads.js'
 export { visualSurfaces } from './model/surfaces.js'
 export { CadCameraControls } from './camera.js'
 export {

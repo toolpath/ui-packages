@@ -92,6 +92,13 @@ const SharpCornersIcon = () => (
   </SvgIcon>
 )
 
+/** A bolt's shank, its thread crossing it on the slant. */
+const ThreadsIcon = () => (
+  <SvgIcon>
+    <path d="M8 3h8v18H8zM8 8l8-2M8 12l8-2M8 16l8-2M8 20l8-2" />
+  </SvgIcon>
+)
+
 const HoverIcon = () => (
   <SvgIcon>
     <path d="M4 4h16v12H9l-5 4zm4 5h8m-8 3h5" />
@@ -134,6 +141,7 @@ export type ToolbarIconName =
   | 'directions'
   | 'dfm'
   | 'sharpCorners'
+  | 'threads'
   | 'hover'
   | 'focus'
   | 'wireframe'
@@ -152,6 +160,7 @@ const ICONS: Record<ToolbarIconName, () => ReactNode> = {
   directions: DirectionsIcon,
   dfm: DfmIcon,
   sharpCorners: SharpCornersIcon,
+  threads: ThreadsIcon,
   hover: HoverIcon,
   focus: FocusIcon,
   wireframe: WireframeIcon,
