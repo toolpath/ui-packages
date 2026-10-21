@@ -8,6 +8,7 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
+  useSyncExternalStore,
 } from 'react'
 import type { CSSProperties, PropsWithChildren, ReactNode } from 'react'
 import { Box3, Group, Vector3 } from 'three'
@@ -36,7 +37,9 @@ import {
 } from './render/camera.js'
 import type { ControlScheme, ExtendedCameraControls } from './render/controls.js'
 import { type ViewerTheme, resolveTheme } from './render/theme.js'
+import { webGLAvailableSnapshot } from './render/webgl.js'
 import { TargetMarker } from './target-marker.js'
+import { WebGLUnavailable } from './webgl-unavailable.js'
 import { squaredUp } from './render/view-cube.js'
 import type { VectorLike, ViewerControls, ViewerHandle, ViewerView } from './types.js'
 
@@ -608,7 +611,17 @@ export interface ViewerProps {
    * section handle. The usual meaning is "put the selection down".
    */
   onPointerMissed?: () => void
+  /**
+   * What to show in place of the canvas when the browser will not create a
+   * WebGL context — hardware acceleration off, or the GPU blocklisted. It goes
+   * inside a `role="alert"` element (`viewer-webgl-unavailable`), and replaces
+   * the default message asking the user to turn acceleration on.
+   */
+  webglUnavailable?: ReactNode
 }
+
+// Support does not change while the page is open, so there is nothing to subscribe to.
+const subscribeNever = () => () => {}
 
 export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
   {
@@ -624,9 +637,13 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     showOrbitTarget = false,
     theme,
     onPointerMissed,
+    webglUnavailable,
   },
   ref,
 ) {
+  // The server assumes WebGL, so its markup hydrates as the canvas; a blocked
+  // browser then re-renders into the alert.
+  const webglAvailable = useSyncExternalStore(subscribeNever, webGLAvailableSnapshot, () => true)
   const actionsRef = useRef<ViewerControls | null>(null)
   const resolved = useMemo(() => resolveTheme(theme), [theme])
   const sectionStore = useMemo(() => createSectionStore(), [])
@@ -682,54 +699,58 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
           }}
           style={{ height: '100%', width: '100%', ...style }}
         >
-          <Canvas
-            className="viewer-canvas-container"
-            data-viewer-canvas-container="true"
-            key={projection}
-            orthographic={projection === 'orthographic'}
-            camera={{ fov: PERSPECTIVE_FOV, up: [0, 0, 1], position: [1, -1, 1] }}
-            dpr={[1, 2]}
-            frameloop="demand"
-            // `stencil` is off by default in three, and the section cap is a
-            // stencil trick — without it the cut still happens and the part just
-            // looks hollow. `localClippingEnabled` is what lets a material carry
-            // its own clipping plane rather than the whole scene sharing one.
-            gl={{ antialias: true, alpha: true, stencil: true, localClippingEnabled: true }}
-            onCreated={({ gl }) => {
-              const canvas = gl.domElement
-              canvas.classList.add('viewer-canvas')
-              canvas.dataset.viewerCanvas = 'true'
-              canvas.parentElement?.classList.add('viewer-canvas-frame')
-              canvas.parentElement?.setAttribute('data-viewer-canvas-frame', 'true')
-            }}
-            // Two guards, and both are about gestures that are not a click.
-            //
-            // Only the primary button puts a selection down. R3F treats
-            // `contextmenu` as a click, and the browser sends that the instant a
-            // right button goes down — before any movement — so a pan cleared
-            // the selection at the moment it started, whatever it did next.
-            //
-            // And an orbit that ends over empty space is not somebody letting go
-            // of what they were orbiting to look at.
-            onPointerMissed={(event) => {
-              if (event.button !== 0) return
-              if (tracker.current?.isTap(event) ?? true) onPointerMissed?.()
-            }}
-          >
-            <ViewerScene
-              setControls={setControls}
-              projection={projection}
-              scheme={controls}
-              freeOrbit={freeOrbit}
-              zoomTo={zoomTo}
-              recentreOnDoubleClick={recentreOnDoubleClick}
-              retargetOnDoubleClick={retargetOnDoubleClick}
-              showOrbitTarget={showOrbitTarget}
-              theme={resolved}
+          {webglAvailable ? (
+            <Canvas
+              className="viewer-canvas-container"
+              data-viewer-canvas-container="true"
+              key={projection}
+              orthographic={projection === 'orthographic'}
+              camera={{ fov: PERSPECTIVE_FOV, up: [0, 0, 1], position: [1, -1, 1] }}
+              dpr={[1, 2]}
+              frameloop="demand"
+              // `stencil` is off by default in three, and the section cap is a
+              // stencil trick — without it the cut still happens and the part just
+              // looks hollow. `localClippingEnabled` is what lets a material carry
+              // its own clipping plane rather than the whole scene sharing one.
+              gl={{ antialias: true, alpha: true, stencil: true, localClippingEnabled: true }}
+              onCreated={({ gl }) => {
+                const canvas = gl.domElement
+                canvas.classList.add('viewer-canvas')
+                canvas.dataset.viewerCanvas = 'true'
+                canvas.parentElement?.classList.add('viewer-canvas-frame')
+                canvas.parentElement?.setAttribute('data-viewer-canvas-frame', 'true')
+              }}
+              // Two guards, and both are about gestures that are not a click.
+              //
+              // Only the primary button puts a selection down. R3F treats
+              // `contextmenu` as a click, and the browser sends that the instant a
+              // right button goes down — before any movement — so a pan cleared
+              // the selection at the moment it started, whatever it did next.
+              //
+              // And an orbit that ends over empty space is not somebody letting go
+              // of what they were orbiting to look at.
+              onPointerMissed={(event) => {
+                if (event.button !== 0) return
+                if (tracker.current?.isTap(event) ?? true) onPointerMissed?.()
+              }}
             >
-              {children}
-            </ViewerScene>
-          </Canvas>
+              <ViewerScene
+                setControls={setControls}
+                projection={projection}
+                scheme={controls}
+                freeOrbit={freeOrbit}
+                zoomTo={zoomTo}
+                recentreOnDoubleClick={recentreOnDoubleClick}
+                retargetOnDoubleClick={retargetOnDoubleClick}
+                showOrbitTarget={showOrbitTarget}
+                theme={resolved}
+              >
+                {children}
+              </ViewerScene>
+            </Canvas>
+          ) : (
+            <WebGLUnavailable>{webglUnavailable}</WebGLUnavailable>
+          )}
         </div>
       </SectionStoreContext.Provider>
     </ViewerControlsContext.Provider>
