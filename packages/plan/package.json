@@ -38,6 +38,9 @@
     "check-types": "tsc --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@toolpath/tool-support": "workspace:^"
+  },
   "devDependencies": {
     "@toolpath/api": "workspace:^",
     "@types/node": "24.10.1",

@@ -15,7 +15,7 @@ pnpm add @toolpath/plan
 import { actionsFor, applyDraftAction, classifyFaces, statementOf } from '@toolpath/plan'
 ```
 
-The package is logic only: no React, no DOM, no CSS and no runtime dependencies. A view over these rules
+The package is logic only: no React, no DOM and no CSS. Its one dependency is `@toolpath/tool-support`, for the inch. A view over these rules
 belongs in `@toolpath/ui`.
 
 ## Your app's own fields

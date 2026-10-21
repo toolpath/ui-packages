@@ -11,11 +11,14 @@
  * reader who has asked for `in`.
  */
 
+import { MM_PER_INCH } from '@toolpath/tool-support'
+
 export type Units = 'in' | 'mm'
 
 export const isUnits = (value: unknown): value is Units => value === 'in' || value === 'mm'
 
-export const MM_PER_INCH = 25.4
+/** Millimetres in an inch, from `@toolpath/tool-support`: the one place the repo states it. */
+export { MM_PER_INCH }
 /** 1 lb/in³ in kg/m³. */
 const KG_M3_PER_LB_IN3 = 27679.9047
 /** Pounds in a kilogram. */

@@ -4,7 +4,7 @@
 
 Add `@toolpath/plan`: plan mode for any app that plans parts with Toolpath. It holds the plan a
 person states and the plan Toolpath makes from it, as logic, data types and functions only, with no
-React, no DOM and no runtime dependencies. An app keeps its own fields beside the constraints:
+React and no DOM; its one dependency is `@toolpath/tool-support`, for the inch. An app keeps its own fields beside the constraints:
 `applyDraftAction` hands them back unchanged.
 
 - The draft: `Constraints`, `DraftSetup`, `DraftFolder` and the edits over them, such as `addFolder`,
