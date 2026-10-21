@@ -7,6 +7,7 @@ import {
   upperOf,
   withMetric,
   withSubject,
+  type Choices,
   type DfmRule,
   type RangeLow,
   type RuleVocabulary,
@@ -15,7 +16,7 @@ import {
 import { Comparison } from './comparison'
 import { LOW_SYMBOLS, ONE_SIDED_CHOICES, OP_TITLES, rangeEnd } from './ops'
 import { metricChoices, subjectChoices } from './options'
-import { Picker, type Choices } from './picker'
+import { Picker } from './picker'
 import { ValueField } from './value-field'
 
 const RANGE_LOW: Choices = {

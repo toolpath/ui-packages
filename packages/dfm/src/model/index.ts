@@ -76,6 +76,18 @@ export {
   type FeatureThreading,
   type FeatureUndercut,
 } from './feature-sheet.js'
+export type {
+  CandidateRow,
+  Choice,
+  ChoiceGroup,
+  Choices,
+  ComparedFace,
+  ComparedFaceList,
+  DfmRules,
+  FeatureIdentity,
+  Hovered,
+  InspectedFace,
+} from './feature-panel-types.js'
 export { MAX_DATASHEET_FIELDS, datasheetFields, type FeatureRecord } from './feature-record.js'
 export { dfmFeatures, type DfmFeature, type ReportFeature } from './geometry.js'
 export { directionLabel } from './direction-label.js'
