@@ -1,6 +1,6 @@
 import { useMemo, type FC, type ReactElement, type ReactNode } from 'react'
 import { cn } from '../common'
-import { type BrokenRule, type Measurement, featureTypeLabel, directionLabel } from '@toolpath/dfm'
+import { type ComparedFace, featureTypeLabel, directionLabel } from '@toolpath/dfm'
 import { Swatch } from '../dfm-rule-list/swatch'
 import { FaceLetter } from './candidate-list'
 import { FeatureName } from './feature-name'
@@ -8,18 +8,6 @@ import { FoldSection } from './fold-section'
 import type { FoldStore } from './fold-store'
 import { resolveLook, secondaryText, type FeaturePanelLook } from './look'
 import type { FeatureIdentity } from './types'
-
-/** One compared face: the feature it is read as, and what that feature is and measures. */
-export interface ComparedFace {
-  /** Null for a face no feature owns. */
-  readonly feature: FeatureIdentity | null
-  /** Its machining direction's colour, as the part shows it. */
-  readonly directionColor: string
-  /** Whether it is required. Left out on every face, the Required row goes. */
-  readonly required?: boolean
-  readonly rules: readonly BrokenRule[]
-  readonly measurements: readonly Measurement[]
-}
 
 export interface ComparisonTableProps {
   faces: readonly ComparedFace[]

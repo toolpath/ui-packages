@@ -4,18 +4,19 @@ import { IconButton } from '../icon-button'
 import { ScrollArea } from '../scroll-area'
 import { cn } from '../common'
 import { CandidateList, candidateListKeys, type CandidateRow } from './candidate-list'
-import { ComparisonTable, type ComparedFace } from './comparison-table'
+import { ComparisonTable } from './comparison-table'
 import type { FoldStore } from './fold-store'
 import { resolveLook, secondaryText, type FeaturePanelLook } from './look'
-import { type RuleVocabulary } from '@toolpath/dfm'
+import {
+  type ComparedFace,
+  type InspectedFace as InspectedFaceData,
+  type RuleVocabulary,
+} from '@toolpath/dfm'
 
-/** One face being inspected: the features it could mean, and the one being read. */
-export interface InspectedFace {
-  /** The face clicked; null for a feature chosen from a list, which has no candidates to show. */
-  readonly region: number | null
+/** One face being inspected: `@toolpath/dfm`'s, with this panel's rows. */
+export interface InspectedFace extends InspectedFaceData {
   /** In the app's order: see `CandidateList`. */
   readonly rows: readonly CandidateRow[]
-  readonly selected: string | null
 }
 
 export interface FeaturePanelProps {
