@@ -806,6 +806,11 @@ picks, as on the web; double tap re-targets. A tap on a face with `SectionTool`
 up cuts, and the handle drags the cut. `Viewer`'s `style` goes to the `View` that
 holds the canvas.
 
+A finger doesn't hover, so on React Native `PartMesh` lights no face under a
+moving finger, and `onHover` isn't called. Its picks go through a bounding volume
+hierarchy ([`three-mesh-bvh`](https://github.com/gkjohnson/three-mesh-bvh)),
+built once per mesh, so a large part stays smooth to touch under Hermes.
+
 ### App setup
 
 1. Install the native modules with Expo, and three.js, React Three Fiber 9.8 or
