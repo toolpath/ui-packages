@@ -35,6 +35,9 @@ const WEB_FILES = new Set([
   'hover-card.tsx',
   'viewer-toolbar.tsx',
   'toolbar-icons.tsx',
+  // The WebGL check and its alert: only the web frame imports them.
+  'render/webgl.ts',
+  'webgl-unavailable.tsx',
 ])
 
 const DOM_GLOBALS = new Set([

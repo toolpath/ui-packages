@@ -972,7 +972,8 @@ are swapped for native ones.
 On React Native, one finger orbits, two fingers pinch to zoom and pan, and a tap
 picks, as on the web; double tap re-targets. A tap on a face with `SectionTool`
 up cuts, and the handle drags the cut. `Viewer`'s `style` goes to the `View` that
-holds the canvas.
+holds the canvas. There's no WebGL check on React Native, where expo-gl always
+creates a context, so `webglUnavailable` is never shown.
 
 A finger doesn't hover, so on React Native `PartMesh` lights no face under a
 moving finger, and `onHover` isn't called. Its picks go through a bounding volume
