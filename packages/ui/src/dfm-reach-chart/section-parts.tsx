@@ -1,14 +1,15 @@
 import type { FC, ReactElement } from 'react'
-import { lengthValue, type Units } from '@toolpath/dfm'
-import type { SectionGeometry } from './section-geometry'
 import {
   AXIS_LABEL_HALF_PX,
   DEPTH_WORD_PX,
+  featureBreak,
   FLOOR_STRIP,
+  lengthValue,
   READ_INSET,
   SECTION_PAD,
-  featureBreak,
-} from './section-layout'
+  type SectionGeometry,
+  type Units,
+} from '@toolpath/dfm'
 import {
   ARROW,
   FEATURE_FILL,
