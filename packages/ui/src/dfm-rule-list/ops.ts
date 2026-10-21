@@ -1,5 +1,5 @@
 import { OPS, opSymbol, withOp, type DfmOp, type DfmRule, type RangeLow } from '@toolpath/dfm'
-import type { ChoiceGroup } from './picker'
+import type { ChoiceGroup } from '@toolpath/dfm'
 
 export const OP_TITLES: Record<DfmOp, string> = {
   gte: 'at least',

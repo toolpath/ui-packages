@@ -8,8 +8,11 @@ import { FeatureName, RequiredBadge } from './feature-name'
 import { FoldSection } from './fold-section'
 import type { FoldStore } from './fold-store'
 import { resolveLook, secondaryText, type FeaturePanelLook, type ResolvedLook } from './look'
-import type { FeatureIdentity } from './types'
-import { type RuleVocabulary } from '@toolpath/dfm'
+import {
+  type CandidateRow as CandidateRowData,
+  type ComparedFaceList,
+  type RuleVocabulary,
+} from '@toolpath/dfm'
 
 /**
  * Up, down, Home and End through the candidates: put them on whatever holds
@@ -18,30 +21,19 @@ import { type RuleVocabulary } from '@toolpath/dfm'
  */
 export const candidateListKeys = listKeys('candidates')
 
-/** One feature a face could have meant, as its row says it. */
-export interface CandidateRow {
-  readonly feature: FeatureIdentity
+/**
+ * One feature a face could have meant, as its row says it: `@toolpath/dfm`'s
+ * row, and what the row renders beside it.
+ */
+export interface CandidateRow extends CandidateRowData {
   /** In place of the feature's type: `Blind hole ⌀ 6.35 × 4`. */
   readonly label?: ReactNode
-  /** The dot before it: the colour it is painted, or its direction's. Left out, a gap keeps the rows aligned. */
-  readonly color?: string
-  /** How many rules it breaks: `2 rules`. */
-  readonly ruleCount?: number
-  readonly required?: boolean
   /** Right-aligned in the row: the folder it is in, say. */
   readonly detail?: ReactNode
   /** A second line under it: a note on how it overlaps another. */
   readonly note?: ReactNode
   /** Beside the row, outside its button: the app's own action on it. */
   readonly action?: ReactNode
-}
-
-/** When comparing faces, which face this list is: its letter, and how to stop comparing it. */
-export interface ComparedFaceList {
-  readonly index: number
-  /** The face being read: its letter is filled. */
-  readonly active: boolean
-  readonly onStop?: () => void
 }
 
 export interface CandidateListProps {

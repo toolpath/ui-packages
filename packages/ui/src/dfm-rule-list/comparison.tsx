@@ -5,12 +5,13 @@ import {
   highOf,
   opSymbol,
   withOp,
+  type Choices,
   type DfmOp,
   type DfmRule,
   type RangeHigh,
 } from '@toolpath/dfm'
 import { ONE_SIDED_CHOICES, OP_TITLES, rangeEnd } from './ops'
-import { Picker, type Choices } from './picker'
+import { Picker } from './picker'
 
 const COMPARISONS: Choices = {
   groups: [{ choices: OPS.map((op) => ({ value: op, label: opSymbol(op) })) }],

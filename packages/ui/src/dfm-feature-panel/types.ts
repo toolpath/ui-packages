@@ -1,8 +1,7 @@
 import type { ComponentType, ReactElement, ReactNode } from 'react'
-import { type DfmFeature } from '@toolpath/dfm'
 
-/** What the panel needs to name a feature: its tag, its type, and the way it is machined from. */
-export type FeatureIdentity = Pick<DfmFeature, 'tag' | 'featureType' | 'machiningDirection'>
+/** What the panel needs to name a feature: `@toolpath/dfm`'s, which the panel's data types share. */
+export type { FeatureIdentity } from '@toolpath/dfm'
 
 /**
  * Something the app reads for the panel, and how far it has got: the panel
