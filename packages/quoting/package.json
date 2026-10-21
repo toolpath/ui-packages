@@ -1,7 +1,7 @@
 {
   "name": "@toolpath/quoting",
   "version": "0.1.0",
-  "description": "The quote flow: where a part, a quote, a revision and a payment stand, and what moving a part means. Logic only; views belong in @toolpath/ui",
+  "description": "The quote flow: where a part, a quote, a revision and a payment stand, what moving a part means, and the quoting app's plan draft. Logic only; views belong in @toolpath/ui",
   "license": "MIT",
   "engines": {
     "node": ">=20"
@@ -29,6 +29,14 @@
       "types": "./dist/model/index.d.ts",
       "import": "./dist/model/index.js"
     },
+    "./pipeline": {
+      "types": "./dist/pipeline/index.d.ts",
+      "import": "./dist/pipeline/index.js"
+    },
+    "./plan": {
+      "types": "./dist/plan/index.d.ts",
+      "import": "./dist/plan/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -38,9 +46,12 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsup src/index.ts src/model/index.ts --format esm --dts --clean",
+    "build": "tsup src/index.ts src/model/index.ts src/pipeline/index.ts src/plan/index.ts --format esm --dts --clean",
     "check-types": "tsc --noEmit",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@toolpath/plan": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

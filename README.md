@@ -8,21 +8,22 @@ machined, and what it may cost.
 
 ## Where to start
 
-| I want to…                    | Use                             | Documentation                                                      |
-| ----------------------------- | ------------------------------- | ------------------------------------------------------------------ |
-| Call Toolpath from JavaScript | `@toolpath/api`                 | [TypeScript SDK](packages/sdk-typescript)                          |
-| Call Toolpath from Python     | `toolpath`                      | [Python SDK](packages/sdk-python)                                  |
-| Show a part in a React app    | `@toolpath/viewer`              | [Viewer](packages/viewer)                                          |
-| Build UI, DFM views included  | `@toolpath/ui`                  | [UI kit](packages/ui)                                              |
-| Collect vendor tool data      | `@toolpath/tool-scraper`        | [Tool scraper](packages/tool-scraper)                              |
-| Draw a tool and its holder    | `@toolpath/tool-drawing`        | [Tool drawing](packages/tool-drawing)                              |
-| Check parts for DFM rules     | `@toolpath/dfm`                 | [DFM](packages/dfm)                                                |
-| Share quote flow rules        | `@toolpath/quoting`             | [Quoting](packages/quoting)                                        |
-| Share the cutting-tool domain | `@toolpath/tool-support`        | [Tool support](packages/tool-support)                              |
-| Share application logic       | `@toolpath/app-support`         | [App support](packages/app-support)                                |
-| See usage examples            | TypeScript, Python, or React    | [Examples](#examples)                                              |
-| Start a customer application  | Part Viewer template            | [toolpath-template](https://github.com/toolpath/toolpath-template) |
-| Call the API without an SDK   | HTTP, cURL, or another language | [API documentation](https://developers.toolpath.com)               |
+| I want to…                     | Use                             | Documentation                                                      |
+| ------------------------------ | ------------------------------- | ------------------------------------------------------------------ |
+| Call Toolpath from JavaScript  | `@toolpath/api`                 | [TypeScript SDK](packages/sdk-typescript)                          |
+| Call Toolpath from Python      | `toolpath`                      | [Python SDK](packages/sdk-python)                                  |
+| Show a part in a React app     | `@toolpath/viewer`              | [Viewer](packages/viewer)                                          |
+| Build UI, DFM views included   | `@toolpath/ui`                  | [UI kit](packages/ui)                                              |
+| Collect vendor tool data       | `@toolpath/tool-scraper`        | [Tool scraper](packages/tool-scraper)                              |
+| Draw a tool and its holder     | `@toolpath/tool-drawing`        | [Tool drawing](packages/tool-drawing)                              |
+| Check parts for DFM rules      | `@toolpath/dfm`                 | [DFM](packages/dfm)                                                |
+| Build plan mode (pins, setups) | `@toolpath/plan`                | [Plan](packages/plan)                                              |
+| Share quote flow rules         | `@toolpath/quoting`             | [Quoting](packages/quoting)                                        |
+| Share the cutting-tool domain  | `@toolpath/tool-support`        | [Tool support](packages/tool-support)                              |
+| Share application logic        | `@toolpath/app-support`         | [App support](packages/app-support)                                |
+| See usage examples             | TypeScript, Python, or React    | [Examples](#examples)                                              |
+| Start a customer application   | Part Viewer template            | [toolpath-template](https://github.com/toolpath/toolpath-template) |
+| Call the API without an SDK    | HTTP, cURL, or another language | [API documentation](https://developers.toolpath.com)               |
 
 The SDKs are generated from the same OpenAPI document, so their request and response types match the
 public API contract retained in this repository. They also provide a focused helper for directly

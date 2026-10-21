@@ -1,0 +1,41 @@
+# Toolpath UI packages
+
+> Open-source SDKs, UI primitives, logic packages and examples for building applications with the Toolpath API. Toolpath analyzes a CAD part so an application can show it, plan how to machine it, and price it.
+
+Each package's README is its full documentation, and the npm packages ship it. The API key is a secret: call Toolpath from a server, never from the browser. The logic packages (plan, quoting, dfm, tool-support) store nothing and call nothing; the application keeps its data and makes the API calls.
+
+## Call the API
+
+- [@toolpath/api](https://github.com/toolpath/ui-packages/blob/main/packages/sdk-typescript/README.md): TypeScript client for the Toolpath Engine API, and the helper that uploads a CAD file to its presigned URL
+- [toolpath (Python)](https://github.com/toolpath/ui-packages/blob/main/packages/sdk-python/README.md): the same API in Python, shipped as a wheel on GitHub releases
+- [API documentation](https://developers.toolpath.com): guides, authentication and the HTTP API
+- [OpenAPI contract](https://github.com/toolpath/ui-packages/blob/main/openapi/openapi.json): the API shapes the SDKs are generated from
+
+## Show and edit a part
+
+- [@toolpath/viewer](https://github.com/toolpath/ui-packages/blob/main/packages/viewer/README.md): React Three Fiber viewer for analyzed parts; `/engine` loads a Toolpath report
+- [@toolpath/ui](https://github.com/toolpath/ui-packages/blob/main/packages/ui/README.md): React and Tailwind controls, the theme, and the DFM views
+- [@toolpath/plan](https://github.com/toolpath/ui-packages/blob/main/packages/plan/README.md): plan mode (setups, folders, pinned features, ignored faces), every edit as one action list, Undo/Redo, and the plan Toolpath makes from it
+- [@toolpath/app-support](https://github.com/toolpath/ui-packages/blob/main/packages/app-support/README.md): shared application logic (preferences, contexts, route helpers)
+
+## Quote and check a part
+
+- [@toolpath/quoting](https://github.com/toolpath/ui-packages/blob/main/packages/quoting/README.md): the quote flow (part state, stages and moves, quote status, revisions, expiry), the quoting app's plan draft, and the rules for sending a part to Toolpath (`/pipeline`)
+- [@toolpath/dfm](https://github.com/toolpath/ui-packages/blob/main/packages/dfm/README.md): design-for-manufacturing rules and the part checker
+
+## Cutting tools
+
+- [@toolpath/tool-support](https://github.com/toolpath/ui-packages/blob/main/packages/tool-support/README.md): tools, holders, collets and assemblies, with CAM exporters
+- [@toolpath/tool-drawing](https://github.com/toolpath/ui-packages/blob/main/packages/tool-drawing/README.md): a 2D drawing of a tool and its holder
+- [@toolpath/tool-scraper](https://github.com/toolpath/ui-packages/blob/main/packages/tool-scraper/README.md): reads tool geometry from vendor catalogs
+
+## Examples and templates
+
+- [TypeScript example](https://github.com/toolpath/ui-packages/blob/main/examples/typescript/README.md): upload a STEP file and read its analysis
+- [Python example](https://github.com/toolpath/ui-packages/blob/main/examples/python/README.md): the same in Python
+- [React viewer example](https://github.com/toolpath/ui-packages/blob/main/examples/react-viewer/README.md): show an analyzed part with `@toolpath/viewer`
+- [Part Viewer template](https://github.com/toolpath/toolpath-template): a starting point for a customer application
+
+## Optional
+
+- [Contributor guide](https://github.com/toolpath/ui-packages/blob/main/AGENTS.md): for work on these packages, not for building an application with them

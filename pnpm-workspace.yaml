@@ -3,6 +3,7 @@ packages:
   - examples/react-viewer
   - packages/app-support
   - packages/dfm
+  - packages/plan
   - packages/quoting
   - packages/sdk-typescript
   - packages/tool-drawing
