@@ -13,6 +13,12 @@ export interface FoldStore {
   write: (id: string, open: boolean) => void
 }
 
+/** The two calls of a web `Storage` a fold store makes: this package has no DOM types. */
+export interface FoldStorage {
+  getItem: (key: string) => string | null
+  setItem: (key: string, value: string) => void
+}
+
 /**
  * A fold store over a `Storage` — `localStorage`, `sessionStorage` — under a
  * key prefix of the app's: `toolpath.fold.` keeps `toolpath.fold.reach` as
@@ -20,7 +26,7 @@ export interface FoldStore {
  * window, say), leaves the sections folding for as long as they are mounted.
  */
 export const storageFolds = (
-  storage: Pick<Storage, 'getItem' | 'setItem'> | null | undefined,
+  storage: FoldStorage | null | undefined,
   prefix: string,
 ): FoldStore => ({
   read: (id) => {

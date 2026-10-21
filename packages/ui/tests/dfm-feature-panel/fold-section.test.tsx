@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { FoldSection } from '../../src/dfm-feature-panel/fold-section'
-import { storageFolds } from '../../src/dfm-feature-panel/fold-store'
+import { storageFolds } from '@toolpath/dfm'
 
 const memory = (): Storage => {
   const items = new Map<string, string>()

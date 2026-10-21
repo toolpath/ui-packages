@@ -1,4 +1,4 @@
-export { storageFolds, type FoldStore } from './fold-store'
+export { storageFolds, type FoldStore } from '@toolpath/dfm'
 export { FeatureDetails, type FeatureDetailsProps } from './feature-details'
 export type { FeaturePanelLook } from './look'
 export type { FeatureIdentity, Loadable, PopOutId, PopOutWindow, PopOutWindowProps } from './types'

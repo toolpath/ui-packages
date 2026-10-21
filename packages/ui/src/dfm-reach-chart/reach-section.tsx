@@ -1,6 +1,6 @@
 import { useId, useMemo, useState, type FC, type ReactElement } from 'react'
+import { sectionGeometry } from '@toolpath/dfm'
 import { ReadingMark, offsetUnder, readingAt } from './reading'
-import { sectionGeometry } from './section-geometry'
 import {
   Arrows,
   FeatureBreak,

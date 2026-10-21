@@ -5,19 +5,19 @@ import { Tooltip } from '../tooltip'
 import { cn } from '../common'
 import {
   type BrokenRule,
-  type Measurement,
-  type FeatureRecord,
-  readReachCurve,
   type FeatureProfile,
-  type Units,
+  type FeatureRecord,
+  type FoldStore,
+  type Measurement,
   MILLING_RULES,
+  readReachCurve,
   type RuleVocabulary,
+  type Units,
 } from '@toolpath/dfm'
 import { ReachChart } from '../dfm-reach-chart/reach-chart'
 import { Swatch } from '../dfm-rule-list/swatch'
 import { FeatureName, RequiredBadge } from './feature-name'
 import { FoldSection } from './fold-section'
-import type { FoldStore } from './fold-store'
 import {
   faintText,
   resolveLook,

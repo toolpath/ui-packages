@@ -1,16 +1,18 @@
 import type { FC, ReactElement } from 'react'
 import {
-  OPS,
-  RANGE_HIGHS,
-  highOf,
-  opSymbol,
-  withOp,
   type Choices,
   type DfmOp,
   type DfmRule,
+  highOf,
+  ONE_SIDED_CHOICES,
+  OP_TITLES,
+  OPS,
+  opSymbol,
+  RANGE_HIGHS,
+  rangeEnd,
   type RangeHigh,
+  withOp,
 } from '@toolpath/dfm'
-import { ONE_SIDED_CHOICES, OP_TITLES, rangeEnd } from './ops'
 import { Picker } from './picker'
 
 const COMPARISONS: Choices = {

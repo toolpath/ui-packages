@@ -1,4 +1,4 @@
-import { runStart, type ReachCurve } from '@toolpath/dfm'
+import { runStart, type ReachCurve } from './reach.js'
 
 /** Room around the section for its dimensions, CSS pixels. */
 export const SECTION_PAD = { left: 12, right: 64, top: 24, bottom: 62 }

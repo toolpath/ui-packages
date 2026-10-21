@@ -5,10 +5,10 @@ import { ScrollArea } from '../scroll-area'
 import { cn } from '../common'
 import { CandidateList, candidateListKeys, type CandidateRow } from './candidate-list'
 import { ComparisonTable } from './comparison-table'
-import type { FoldStore } from './fold-store'
 import { resolveLook, secondaryText, type FeaturePanelLook } from './look'
 import {
   type ComparedFace,
+  type FoldStore,
   type InspectedFace as InspectedFaceData,
   type RuleVocabulary,
 } from '@toolpath/dfm'

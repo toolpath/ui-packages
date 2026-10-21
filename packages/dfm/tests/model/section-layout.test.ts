@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { featureBreak, risersOf, spaced, wallBreak } from '../../src/dfm-reach-chart/section-layout'
+import { featureBreak, risersOf, spaced, wallBreak } from '../../src/model/section-layout.js'
 
 describe('risersOf: each place the material steps up', () => {
   it('starts each step just past the knot before', () => {

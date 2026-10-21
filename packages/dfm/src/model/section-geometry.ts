@@ -4,7 +4,7 @@ import {
   trimmedCurve,
   type FeatureProfile,
   type ReachCurve,
-} from '@toolpath/dfm'
+} from './reach.js'
 import {
   FEATURE_SHARE,
   FEATURE_SHARE_MAX,
@@ -21,7 +21,7 @@ import {
   wallBreak,
   WALL_LABEL_GAP_X,
   type Riser,
-} from './section-layout'
+} from './section-layout.js'
 
 /**
  * Where everything in the section goes, worked out once from the curve, the

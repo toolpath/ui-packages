@@ -7,6 +7,12 @@ no DOM, no CSS — so a server route can import it as readily as a browser.
 
 The views that show and edit the rules — `RuleList`, `ReachChart`,
 `FeaturePanel` — are in [`@toolpath/ui`](https://www.npmjs.com/package/@toolpath/ui).
+The logic they read is here, so a view in another renderer (React Native, say)
+builds the same thing: the views' data types (`CandidateRow`, `InspectedFace`,
+`ComparedFace`, `DfmRules`, `Choices`), the rule editor's choices
+(`subjectChoices`, `metricChoices`, `OP_TITLES`, `rangeEnd`), the feature
+panel's fold store (`storageFolds`), and the reach chart's section geometry
+(`sectionGeometry`, `SECTION_PAD`).
 
 ## Install
 

@@ -1,21 +1,25 @@
 import { useState, type FC, type ReactElement } from 'react'
 import {
-  RANGE_LOWS,
+  type Choices,
+  type DfmRule,
+  LOW_SYMBOLS,
   lowOf,
+  metricChoices,
   metricInfo,
+  ONE_SIDED_CHOICES,
+  OP_TITLES,
   quantityUnit,
+  RANGE_LOWS,
+  rangeEnd,
+  type RangeLow,
+  type RuleVocabulary,
+  subjectChoices,
+  type Units,
   upperOf,
   withMetric,
   withSubject,
-  type Choices,
-  type DfmRule,
-  type RangeLow,
-  type RuleVocabulary,
-  type Units,
 } from '@toolpath/dfm'
 import { Comparison } from './comparison'
-import { LOW_SYMBOLS, ONE_SIDED_CHOICES, OP_TITLES, rangeEnd } from './ops'
-import { metricChoices, subjectChoices } from './options'
 import { Picker } from './picker'
 import { ValueField } from './value-field'
 
