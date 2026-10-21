@@ -39,6 +39,8 @@ interface ViewerFrameProps {
   canvas: CanvasSettings
   labels?: ViewerTheme['labels']
   onPointerMissed?: () => void
+  /** Unused: expo-gl always creates a context, so there is nothing to probe. */
+  webglUnavailable?: ReactNode
   children: ReactNode
 }
 
