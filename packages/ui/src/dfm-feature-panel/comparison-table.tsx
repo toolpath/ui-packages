@@ -1,11 +1,10 @@
 import { useMemo, type FC, type ReactElement, type ReactNode } from 'react'
 import { cn } from '../common'
-import { type ComparedFace, featureTypeLabel, directionLabel } from '@toolpath/dfm'
+import { type ComparedFace, directionLabel, featureTypeLabel, type FoldStore } from '@toolpath/dfm'
 import { Swatch } from '../dfm-rule-list/swatch'
 import { FaceLetter } from './candidate-list'
 import { FeatureName } from './feature-name'
 import { FoldSection } from './fold-section'
-import type { FoldStore } from './fold-store'
 import { resolveLook, secondaryText, type FeaturePanelLook } from './look'
 import type { FeatureIdentity } from './types'
 

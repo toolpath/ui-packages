@@ -1,8 +1,15 @@
 import { heightAt } from '@toolpath/tool-support'
 import type { FC, ReactElement } from 'react'
-import { type ReachCurve, lengthValue, unitLabel, type Units } from '@toolpath/dfm'
-import type { SectionGeometry } from './section-geometry'
-import { READ_CHAR_PX, READ_INSET, SECTION_PAD } from './section-layout'
+import {
+  lengthValue,
+  type ReachCurve,
+  READ_CHAR_PX,
+  READ_INSET,
+  SECTION_PAD,
+  type SectionGeometry,
+  unitLabel,
+  type Units,
+} from '@toolpath/dfm'
 import { READ, READ_DOT, TEXT } from './styles'
 
 /** The curve read off at one offset: the material's height within that offset of the wall. */

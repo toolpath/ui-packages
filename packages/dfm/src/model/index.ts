@@ -6,7 +6,9 @@
  * A named list, not `export *`: everything here is public for good once it
  * ships, so a helper becomes public only when an app needs it. The rule list,
  * feature panel and reach chart in `@toolpath/ui` count as an app: the rule
- * editing, field and unit helpers here are what those views read.
+ * editing, field and unit helpers here are what those views read, and so are
+ * their data types, pickers' choices, fold store and section drawing's
+ * geometry, which a view in another renderer reads the same way.
  */
 
 export { brokenRules, featureColor, type BrokenRule } from './broken-rules.js'
@@ -88,10 +90,13 @@ export type {
   Hovered,
   InspectedFace,
 } from './feature-panel-types.js'
+export { storageFolds, type FoldStorage, type FoldStore } from './fold-store.js'
 export { MAX_DATASHEET_FIELDS, datasheetFields, type FeatureRecord } from './feature-record.js'
 export { dfmFeatures, type DfmFeature, type ReportFeature } from './geometry.js'
 export { directionLabel } from './direction-label.js'
 export { featureRows, sameDepth, type FeatureRow } from './hole-groups.js'
+export { LOW_SYMBOLS, ONE_SIDED_CHOICES, OP_TITLES, rangeEnd } from './ops.js'
+export { metricChoices, subjectChoices } from './options.js'
 export { readPinch, type ClearanceFit, type FeaturePinch, type PinchDisc } from './pinch.js'
 export { pinchLabel, pinchMark, type PinchMark } from './pinch-mark.js'
 export { placePinchTool, type FaceTriangles, type PlacedTool, type Vec3 } from './tool-frame.js'
@@ -112,6 +117,17 @@ export {
   serializeRuleSet,
   type RuleSetFile,
 } from './rule-set-file.js'
+export { sectionGeometry, type SectionGeometry } from './section-geometry.js'
+export {
+  AXIS_LABEL_HALF_PX,
+  DEPTH_WORD_PX,
+  FLOOR_STRIP,
+  READ_CHAR_PX,
+  READ_INSET,
+  SECTION_PAD,
+  featureBreak,
+  type Riser,
+} from './section-layout.js'
 export {
   checkTurnedPart,
   turnedStretches,

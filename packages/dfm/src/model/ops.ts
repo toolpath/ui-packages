@@ -1,5 +1,6 @@
-import { OPS, opSymbol, withOp, type DfmOp, type DfmRule, type RangeLow } from '@toolpath/dfm'
-import type { ChoiceGroup } from '@toolpath/dfm'
+import type { DfmOp } from './dfm-metrics.js'
+import { OPS, opSymbol, withOp, type DfmRule, type RangeLow } from './dfm-rules.js'
+import type { ChoiceGroup } from './feature-panel-types.js'
 
 export const OP_TITLES: Record<DfmOp, string> = {
   gte: 'at least',
