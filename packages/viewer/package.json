@@ -90,6 +90,7 @@
     "vitest": "4.1.10"
   },
   "dependencies": {
-    "camera-controls": "3.1.0"
+    "camera-controls": "3.1.0",
+    "three-mesh-bvh": "0.8.3"
   }
 }
