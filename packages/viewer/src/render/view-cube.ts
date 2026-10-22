@@ -172,6 +172,20 @@ export function squaredUp(direction: Vec3, currentUp: Vec3): Vec3 {
 export const VIEW_CUBE_HALF_PX = 38
 
 /**
+ * How far a face's name floats proud of its face, in cube units. Coplanar with
+ * the face it would z-fight, and the panel's polygon offset pushes the face
+ * *back*, so the two are moving apart rather than fighting.
+ */
+export const CUBE_LABEL_LIFT = 0.004
+
+/**
+ * The share of a face's width its widest name, BOTTOM, spans. Every name is
+ * set at the size that fits that one: a cube whose labels are set in six sizes
+ * looks like a mistake.
+ */
+export const CUBE_LABEL_WIDTH = 0.78
+
+/**
  * Half-width of a face panel, where the cube's half-extent is 1 — so the
  * chamfer taken off each edge is the remaining `1 - CHAMFER`.
  */
@@ -354,13 +368,11 @@ export function labelGeometry(zone: CubeZone): BufferGeometry {
     const uv = corner[index]
     if (!point || !uv) continue
 
-    // Pushed out along the normal by a hair. Coplanar with the face it would
-    // z-fight, and the panel's polygon offset pushes the face *back*, so the
-    // two are moving apart rather than fighting.
+    // Pushed out along the normal by a hair: see `CUBE_LABEL_LIFT`.
     positions.push(
-      point.x + zone.direction.x * 0.004,
-      point.y + zone.direction.y * 0.004,
-      point.z + zone.direction.z * 0.004,
+      point.x + zone.direction.x * CUBE_LABEL_LIFT,
+      point.y + zone.direction.y * CUBE_LABEL_LIFT,
+      point.z + zone.direction.z * CUBE_LABEL_LIFT,
     )
     uvs.push(uv[0] ?? 0, uv[1] ?? 0)
   }

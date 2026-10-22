@@ -1,4 +1,6 @@
 import { CanvasTexture, SRGBColorSpace } from 'three'
+import { cssHex } from './theme.js'
+import { CUBE_LABEL_WIDTH } from './view-cube.js'
 
 /**
  * The view cube's face names, drawn with the browser's 2D canvas.
@@ -17,14 +19,12 @@ export function labelTexture(label: string, color: number): CanvasTexture {
   const context = canvas.getContext('2d')
   if (context) {
     const text = label.toUpperCase()
-    const hex = `#${color.toString(16).padStart(6, '0')}`
+    const hex = cssHex(color)
 
     context.font = `600 ${size / 4}px system-ui, sans-serif`
-    // `BOTTOM` is half again as wide as `TOP`, and a cube whose labels are set
-    // in six different sizes looks like a mistake — so measure the widest at a
-    // reference size and let the rest of them use it.
+    // Measured at a reference size, and the rest of them set to fit it.
     const width = context.measureText('BOTTOM').width || 1
-    const scale = Math.min(1, (size * 0.78) / width)
+    const scale = Math.min(1, (size * CUBE_LABEL_WIDTH) / width)
 
     context.font = `600 ${(size / 4) * scale}px system-ui, sans-serif`
     context.textAlign = 'center'

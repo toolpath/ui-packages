@@ -7,7 +7,7 @@ import {
 } from '@react-three/fiber/native'
 import { GLView } from 'expo-gl'
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
-import type { CSSProperties, ComponentRef, ReactNode } from 'react'
+import type { ComponentRef } from 'react'
 import {
   AppState,
   type GestureResponderEvent,
@@ -19,7 +19,6 @@ import { SceneLabelStoreContext } from './label-context.js'
 import { LabelOverlay } from './label-overlay.js'
 import { type LabelStore, createLabelStore } from './render/label-store.js'
 import { createPresenter, createRelease, disposeTree } from './render/native-gl.js'
-import type { ViewerTheme } from './render/theme.js'
 import {
   type FingerTracker,
   type TouchOps,
@@ -32,20 +31,9 @@ import {
   createTouchOrbit,
   localPoint,
 } from './render/touch-orbit.js'
-import type { CanvasSettings } from './viewer-frame.js'
+import type { CanvasSettings, ViewerFrameProps } from './viewer-frame.js'
 
-export type { CanvasSettings } from './viewer-frame.js'
-
-interface ViewerFrameProps {
-  className?: string
-  style?: CSSProperties
-  canvas: CanvasSettings
-  labels?: ViewerTheme['labels']
-  onPointerMissed?: () => void
-  /** Unused: expo-gl always creates a context, so there is nothing to probe. */
-  webglUnavailable?: ReactNode
-  children: ReactNode
-}
+export type { CanvasSettings, ViewerFrameProps } from './viewer-frame.js'
 
 /** The touch camera's state, shared between the frame's touch handlers and the canvas. */
 interface TouchState {
@@ -76,6 +64,8 @@ const isTouchControls = (controls: unknown): controls is TouchControls =>
  * The fingers are tracked from each event's `changedTouches`, because on an
  * iPhone feeding the orbit React Native's `touches` jumped and drifted more.
  */
+// `webglUnavailable` is never shown: expo-gl always creates a context, so
+// there is nothing to probe.
 export const ViewerFrame = ({
   style,
   canvas,

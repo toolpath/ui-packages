@@ -1,33 +1,19 @@
 import { Matrix4, ShapeGeometry, Vector3 } from 'three'
 import { type Font, type FontData, FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
-import { CHAMFER, type CubeZone } from './view-cube.js'
+import { CHAMFER, CUBE_LABEL_LIFT, CUBE_LABEL_WIDTH, type CubeZone } from './view-cube.js'
 import glyphs from './view-cube-glyphs.json'
-
-/**
- * How far the name floats proud of its face, in cube units: the web quad's
- * offset, so it clears the face's polygon offset the same way.
- */
-export const LIFT = 0.004
-
-/** The share of a face's width its widest name, BOTTOM, spans — as on the web. */
-const WIDEST = 0.78
 
 let font: Font | null = null
 let scale = 1
 
-/**
- * The cube's font, parsed once, and the one scale every name is set at.
- *
- * One scale rather than one per name: a cube whose labels are set in six
- * sizes looks like a mistake, so the widest sets it for all of them.
- */
+/** The cube's font, parsed once, and the one scale every name is set at: the widest's. */
 const viewCubeFont = (): { font: Font; scale: number } => {
   if (!font) {
     font = new FontLoader().parse(glyphs as unknown as FontData)
     const widest = new ShapeGeometry(font.generateShapes('BOTTOM', 1))
     widest.computeBoundingBox()
     const box = widest.boundingBox
-    scale = box ? (WIDEST * 2 * CHAMFER) / Math.max(1e-6, box.max.x - box.min.x) : 1
+    scale = box ? (CUBE_LABEL_WIDTH * 2 * CHAMFER) / Math.max(1e-6, box.max.x - box.min.x) : 1
     widest.dispose()
   }
   return { font, scale }
@@ -54,7 +40,7 @@ export const glyphLabelGeometry = (zone: CubeZone): ShapeGeometry => {
     const right = new Vector3(second.x, second.y, second.z).sub(origin).normalize()
     const up = new Vector3(fourth.x, fourth.y, fourth.z).sub(origin).normalize()
     // A face's polygon is centred on its outward normal at the cube's surface.
-    const centre = normal.clone().multiplyScalar(1 + LIFT)
+    const centre = normal.clone().multiplyScalar(1 + CUBE_LABEL_LIFT)
     shape.applyMatrix4(new Matrix4().makeBasis(right, up, normal).setPosition(centre))
   }
   return shape
