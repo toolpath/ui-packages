@@ -4,7 +4,9 @@ import {
   type ReachReading,
   readingLabelX,
   readingText,
+  SECTION_LABEL,
   SECTION_PAD,
+  SECTION_TYPE,
   type SectionGeometry,
   type Units,
 } from '@toolpath/dfm'
@@ -39,9 +41,9 @@ export const ReadingMark: FC<{
       <circle cx={pointerX} cy={y(reading.height)} r={4} className={READ_DOT} />
       <text
         x={label.x}
-        y={SECTION_PAD.top + 14}
+        y={SECTION_PAD.top + SECTION_LABEL.readingBelow}
         textAnchor={label.anchor}
-        fontSize={11}
+        fontSize={SECTION_TYPE.reading}
         fontWeight={600}
         className={TEXT}
       >

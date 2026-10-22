@@ -153,7 +153,9 @@ export {
   FLOOR_STRIP,
   READ_CHAR_PX,
   READ_INSET,
+  SECTION_LABEL,
   SECTION_PAD,
+  SECTION_TYPE,
   featureBreak,
   type Riser,
 } from './section-layout.js'

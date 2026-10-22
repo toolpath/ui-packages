@@ -1,6 +1,43 @@
 import { runStart, type ReachCurve } from './reach.js'
 
-/** Room around the section for its dimensions, CSS pixels. */
+/*
+ * The section drawing's measurements are drawing pixels: CSS pixels on the
+ * web, points on React Native.
+ */
+
+/**
+ * The drawing's type sizes. The layout's width guesses — `READ_CHAR_PX`,
+ * `HEADING_CHAR_PX`, `AXIS_LABEL_HALF_PX` — are made at these sizes, so a
+ * view that draws the section sets its text at them.
+ */
+export const SECTION_TYPE = { heading: 9, label: 10, reading: 11 } as const
+
+/**
+ * Where the drawing's labels sit against what they label. "Above" and "below"
+ * are up and down the drawing from the line or edge named.
+ */
+export const SECTION_LABEL = {
+  /** The headings' baseline, above the drawing's top. */
+  headingAbove: 8,
+  /** `depth`, in from the drawing's left and above the feature's top. */
+  depthInset: 4,
+  depthAbove: 4,
+  /** A height's label, right of the datum; its baseline below its line, to centre a label on it. */
+  heightInset: 4,
+  heightBaseline: 3.5,
+  /** The read run's dimension line, the end of its extension line, and its text, above the ordinates. */
+  runAbove: 8,
+  runEndAbove: 4,
+  runTextAbove: 11,
+  /** An offset's tick runs below the ordinate line, its label below that, then the axis heading. */
+  tickBelow: 4,
+  offsetBelow: 15,
+  axisBelow: 32,
+  /** The reading's baseline, below the drawing's top. */
+  readingBelow: 14,
+} as const
+
+/** Room around the section for its dimensions. */
 export const SECTION_PAD = { left: 12, right: 64, top: 24, bottom: 62 }
 export const SECTION_MAX_H = 380
 export const SECTION_MIN_H = 120
@@ -17,12 +54,12 @@ export const FEATURE_SHARE = 0.4
  */
 export const FEATURE_SHARE_MIN = 0.06
 export const FEATURE_SHARE_MAX = 0.6
-/** The least room between two dimension labels on one line, CSS pixels. */
+/** The least room between two dimension labels on one line. */
 export const LABEL_GAP_X = 40
 export const LABEL_GAP_Y = 14
 /**
- * The least room between the wall's 0 and an offset's label beside it, CSS
- * pixels: half a label and the 0, which is one character, with a little air.
+ * The least room between the wall's 0 and an offset's label beside it: half
+ * a label and the 0, which is one character, with a little air.
  */
 export const WALL_LABEL_GAP_X = 30
 /** A rough width per character of the 11 px reading, to keep it inside the drawing. */
