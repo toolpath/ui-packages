@@ -1,9 +1,11 @@
 /**
- * What each entry point drags in, asserted from the import graph: nothing. The package is the quote
- * flow — logic, data types and functions — plain rules a server, a browser or a worker can import
- * alike; a view over them belongs in `@toolpath/ui`. Both entries are held to it, because the root
- * is `/model` under a shorter name. The graph is walked rather than rostered, so a module added
- * under `src/` lands covered. `ts.preProcessFile` returns every specifier without type checking.
+ * What each entry point drags in, asserted from the import graph. The package is the quote flow —
+ * logic, data types and functions — plain rules a server, a browser or a worker can import alike; a
+ * view over them belongs in `@toolpath/ui`. The root and `/model` reach no package, because the root
+ * is `/model` under a shorter name. `/plan` reaches `@toolpath/plan` alone, whose constraints the
+ * app's draft holds, and so does `/pipeline`, which states them for Toolpath. The graph is walked
+ * rather than rostered, so a module added under `src/` lands covered. `ts.preProcessFile` returns
+ * every specifier without type checking.
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
@@ -49,11 +51,16 @@ const packagesFrom = (entry: string, seen = new Set<string>()): Set<string> => {
   return packages
 }
 
-describe.each(['index.ts', 'model/index.ts'])('src/%s', (entry) => {
-  it('reaches no package at all', () => {
+describe.each([
+  { entry: 'index.ts', reaches: [] },
+  { entry: 'model/index.ts', reaches: [] },
+  { entry: 'pipeline/index.ts', reaches: ['@toolpath/plan'] },
+  { entry: 'plan/index.ts', reaches: ['@toolpath/plan'] },
+])('src/$entry', ({ entry, reaches }) => {
+  it(`reaches ${reaches.length === 0 ? 'no package at all' : reaches.join(', ')}`, () => {
     const path = join(SRC, entry)
     expect(existsSync(path)).toBe(true)
-    expect([...packagesFrom(path)]).toEqual([])
+    expect([...packagesFrom(path)]).toEqual(reaches)
   })
 })
 

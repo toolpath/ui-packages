@@ -24,6 +24,10 @@ const releaseSensitivePaths = [
     paths: ['packages/dfm/src/'],
   },
   {
+    packageName: '@toolpath/plan',
+    paths: ['packages/plan/src/'],
+  },
+  {
     packageName: '@toolpath/quoting',
     paths: ['packages/quoting/src/'],
   },

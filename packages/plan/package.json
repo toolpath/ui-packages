@@ -1,0 +1,51 @@
+{
+  "name": "@toolpath/plan",
+  "version": "0.0.0",
+  "description": "Plan mode for Toolpath: the plan a person states (setups, folders, pinned features, ignored faces), every edit to it, and the plan Toolpath makes from it. Logic only; views belong in @toolpath/ui",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toolpath/ui-packages.git",
+    "directory": "packages/plan"
+  },
+  "homepage": "https://developers.toolpath.com",
+  "bugs": {
+    "url": "https://github.com/toolpath/ui-packages/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@toolpath/tool-support": "workspace:^"
+  },
+  "devDependencies": {
+    "@toolpath/api": "workspace:^",
+    "@types/node": "24.10.1",
+    "tsup": "8.5.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

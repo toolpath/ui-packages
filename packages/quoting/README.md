@@ -106,3 +106,68 @@ whole date. `defaultExpiry` is a week from today.
 `paid`/`refunded` → `superseded` → `closed` (lost) → `expired` (unless a purchase order was sent in
 time) → `not_ready` (does not price) → `unavailable` (no payments, or already ordered: takes a
 purchase order) → `payable`.
+
+## The quoting app's plan draft: `@toolpath/quoting/plan`
+
+```ts
+import { intentSessionRules, type PlanDraft } from '@toolpath/quoting/plan'
+```
+
+Plan mode itself is [`@toolpath/plan`](../plan): the constraints a person states, every edit to
+them, and the plan Toolpath makes. `/plan` here is what the quoting app keeps beside the
+constraints on each part:
+
+- `PlanDraft`: the constraints, plus the kernel the pins were made by, when the draft was last
+  saved, its saved version, and whether it changed since the part's times.
+- `PartInputsHeld`: the material, machine, tool crib and stock, held with the constraints until
+  Apply. `Intent` is the two together: what Undo puts back.
+- `StockState`, `StockProfileInput` and `StockProfileSummary`: a part's saved stock and the shop's
+  stock profiles.
+- The Plan page's session holds an `Intent`, with no save stamps (`intentOf`).
+  `intentSessionRules(rules)` gives `planSession` the app's rules for it: `sameIntent` compares
+  a stock as a policy, whatever its key order, and `rebaseIntent` keeps the inputs edited here when
+  the plan is read again, and takes the others from it.
+
+`applyDraftAction` from `@toolpath/plan` takes a `PlanDraft` and gives a `PlanDraft` back, with
+these fields as they were. The package depends on `@toolpath/plan` for these; the root entry and
+`/model` import nothing.
+
+## Sending a part to Toolpath: `@toolpath/quoting/pipeline`
+
+```ts
+import { fingerprintText, jobStep, planInputsOf, runDecision } from '@toolpath/quoting/pipeline'
+```
+
+After Apply the app sends the part to Toolpath, waits on its job, and lands its times. A plan
+request is billed, so these rules keep a part to one run for each set of inputs. They read facts
+and give answers; the app reads its rows, asks them, and does what they say. Only the app hashes,
+writes to its database and calls Toolpath.
+
+- **What the part is planned from.** `planInputsOf(part, draft)` gives its `PlanInputs`: the
+  constraints Toolpath is told, the faces ignored, the stock, material, machine and tool crib.
+  `fingerprintText(inputs)` is one text for them, every key in order, with no names: hash it
+  (SHA-256) to get the part's fingerprint. Every run, plan and estimate is stamped with one, and
+  `partArtifactsOf` compares them.
+- **Whether to send it.** `runDecision(facts)` reads the fingerprint, the pipeline, the last run
+  and the baseline:
+
+  | Answer      | What the app does                                                               |
+  | ----------- | ------------------------------------------------------------------------------- |
+  | `available` | Nothing: the plan is of these inputs already                                    |
+  | `pending`   | Nothing: a run is on its way, and asks again for the newest inputs once it ends |
+  | `wait`      | Nothing: the last run, of these same inputs, failed — a person asks again       |
+  | `reanalyze` | Read the model again, with its plan (billed)                                    |
+  | `start`     | A new plan from the inputs as they stand (billed)                               |
+
+  `tryAgain` is true when a person asked (Try again, Request plan), and false for a save or a run
+  that ended. Only a person sends a failed run of the same inputs again.
+
+- **Following the job.** `jobStep` says what Toolpath's answer about the job allows: wait, fail
+  with the words to show, go on from the analysis to the plan queued with it, or read the times.
+  `timesStep` says whether those times land, fail or are waited for. A send that never said how
+  it went fails after `SENDING_MS`.
+- **Whether the page shows the part's inputs.** `changedFrom` and `timesChangedFrom` compare the
+  fingerprint with the run and the baseline; `toolpathHas` says Toolpath has the part, so its
+  inputs can't change under it.
+- **Whether Apply can save.** `applyRefusal` answers `locked`, `not_in_plan`, `stale`, a stock
+  that can't be sent with these folders, or null.

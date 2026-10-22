@@ -14,8 +14,18 @@
       "entry": ["src/index.ts", "src/model/index.ts", "tests/**/*.test.ts"],
       "project": ["src/**/*.ts", "tests/**/*.ts"]
     },
+    "packages/plan": {
+      "entry": ["src/index.ts", "tests/**/*.test.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"]
+    },
     "packages/quoting": {
-      "entry": ["src/index.ts", "src/model/index.ts", "tests/**/*.test.ts"],
+      "entry": [
+        "src/index.ts",
+        "src/model/index.ts",
+        "src/pipeline/index.ts",
+        "src/plan/index.ts",
+        "tests/**/*.test.ts"
+      ],
       "project": ["src/**/*.ts", "tests/**/*.ts"]
     },
     "packages/sdk-typescript": {

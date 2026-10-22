@@ -11,6 +11,8 @@ on:
       - packages/app-support/package.json
       - packages/dfm/src/**
       - packages/dfm/package.json
+      - packages/plan/src/**
+      - packages/plan/package.json
       - packages/quoting/src/**
       - packages/quoting/package.json
       - packages/ui/src/**
