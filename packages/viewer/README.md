@@ -1048,6 +1048,9 @@ strings:
 Those are the defaults. A label's own `color` replaces `border`, and a label with
 an `axis` takes that axis's colour.
 
+Each label view has the `testID` `scene-label-<kind>`, from its `kind`, for an
+app's tests to find it by. A pressable label is announced as a button.
+
 ## Working with the Toolpath API
 
 Keep analysis/job orchestration outside the viewer. A server-side
