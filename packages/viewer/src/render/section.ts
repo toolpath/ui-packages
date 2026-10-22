@@ -146,6 +146,22 @@ export function sectionHandleColor(themeColor: number | undefined, directionColo
   return themeColor ?? directionColor
 }
 
+/** How far toward white a handle goes under the pointer or a finger. */
+const HANDLE_LIT = 0.45
+
+/**
+ * A handle under the pointer, or pressed: its own colour, lighter, so it reads
+ * as that handle lit rather than as a different one. The theme's `hover`, one
+ * colour for every handle, turned a red or green handle blue.
+ */
+export function sectionHandleHoverColor(color: number): number {
+  const lit = (shift: number) => {
+    const channel = (color >> shift) & 0xff
+    return Math.round(channel + (0xff - channel) * HANDLE_LIT)
+  }
+  return (lit(16) << 16) | (lit(8) << 8) | lit(0)
+}
+
 /**
  * The options that would resolve to `state` again.
  *
