@@ -12,6 +12,7 @@ import {
   type ComparedFaceList,
   type FoldStore,
   type RuleVocabulary,
+  faceLetter,
 } from '@toolpath/dfm'
 
 /**
@@ -50,9 +51,6 @@ export interface CandidateListProps {
   /** How the rows' features are named: milling where left out. */
   vocabulary?: RuleVocabulary
 }
-
-/** A compared face's name: A, B, C… */
-const faceLetter = (index: number): string => String.fromCharCode(65 + (index % 26))
 
 /** A compared face's letter, as a chip: filled for the face being read. */
 export const FaceLetter: FC<{ index: number; active: boolean }> = ({
