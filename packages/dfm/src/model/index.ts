@@ -11,7 +11,13 @@
  * geometry, which a view in another renderer reads the same way.
  */
 
-export { brokenRules, featureColor, type BrokenRule } from './broken-rules.js'
+export {
+  brokenRules,
+  featureColor,
+  ruleListOrder,
+  type BrokenRule,
+  type ListedRule,
+} from './broken-rules.js'
 export { featureTypeLabel, hitFigure } from './dfm-explain.js'
 export { comparisonRows, faceLetter, type ComparisonRow } from './comparison-rows.js'
 export {
@@ -26,6 +32,7 @@ export {
   MILLING_RULES,
   PRESENCE_METRIC,
   QUICK_SUBJECTS,
+  takesNumber,
   type DfmMetric,
   type DfmOp,
   type DfmQuantity,
@@ -98,7 +105,16 @@ export { MAX_DATASHEET_FIELDS, datasheetFields, type FeatureRecord } from './fea
 export { dfmFeatures, type DfmFeature, type ReportFeature } from './geometry.js'
 export { directionLabel } from './direction-label.js'
 export { featureRows, sameDepth, type FeatureRow } from './hole-groups.js'
-export { LOW_SYMBOLS, ONE_SIDED_CHOICES, OP_TITLES, rangeEnd } from './ops.js'
+export {
+  LOW_SYMBOLS,
+  ONE_SIDED_CHOICES,
+  OP_TITLES,
+  comparisonChoices,
+  rangeEnd,
+  rangeHighChoices,
+  rangeLowChoices,
+  type OpLabel,
+} from './ops.js'
 export { metricChoices, subjectChoices } from './options.js'
 export { readPinch, type ClearanceFit, type FeaturePinch, type PinchDisc } from './pinch.js'
 export { pinchLabel, pinchMark, type PinchMark } from './pinch-mark.js'
@@ -122,10 +138,13 @@ export {
 } from './reach-reading.js'
 export {
   FILE_KIND,
+  importError,
+  importNote,
   llmRulePrompt,
   parseRuleSetFile,
   serializeRuleSet,
   type RuleSetFile,
+  type RuleSetRead,
 } from './rule-set-file.js'
 export { sectionGeometry, type SectionGeometry } from './section-geometry.js'
 export {

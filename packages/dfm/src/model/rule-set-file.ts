@@ -72,6 +72,13 @@ const fileProcess = (raw: unknown): unknown => {
   return process === undefined || process === null ? 'milling' : process
 }
 
+/** A rule-set file read: its rules, how many it held that could not be read, and its name. */
+export interface RuleSetRead {
+  rules: DfmRule[]
+  skipped: number
+  name?: string
+}
+
 /**
  * The rules in a file, or the reason it cannot be read. Lenient about the
  * wrapper — a bare array of rules is accepted, and so is an object with a
@@ -86,7 +93,7 @@ const fileProcess = (raw: unknown): unknown => {
 export const parseRuleSetFile = (
   text: string,
   vocabulary: RuleVocabulary = MILLING_RULES,
-): { rules: DfmRule[]; skipped: number; name?: string } | { error: string } => {
+): RuleSetRead | { error: string } => {
   let raw: unknown
   try {
     raw = JSON.parse(text)
@@ -353,3 +360,14 @@ export const llmRulePrompt = (
     '',
   ].join('\n')
 }
+
+/** What an app says once a set is imported: `Imported 3 rules (Aluminium), 1 skipped`. */
+export const importNote = ({ rules, skipped, name }: RuleSetRead): string => {
+  const rulesRead = `Imported ${rules.length} rule${rules.length === 1 ? '' : 's'}`
+  const named = name ? ` (${name})` : ''
+  const skippedSome = skipped > 0 ? `, ${skipped} skipped` : ''
+  return `${rulesRead}${named}${skippedSome}`
+}
+
+/** What an app says when a set cannot be imported, for `parseRuleSetFile`'s `error` or its own. */
+export const importError = (reason: string): string => `Could not import: ${reason}`
