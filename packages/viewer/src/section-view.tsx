@@ -34,6 +34,7 @@ import {
   sectionCutDistance,
   sectionDirectionColor,
   sectionHandleColor,
+  sectionHandleHoverColor,
   sectionOffset,
 } from './render/section.js'
 import {
@@ -410,7 +411,7 @@ export const SectionView = ({
                 keeps a press from also reaching the part behind it. */}
             <ArrowMesh
               geometry={handleShape}
-              color={hovered ? theme.hover : resolvedHandleColor}
+              color={hovered ? sectionHandleHoverColor(resolvedHandleColor) : resolvedHandleColor}
               opacity={1}
               onTop
               events={grab}
