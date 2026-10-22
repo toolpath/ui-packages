@@ -116,11 +116,11 @@ export interface FingerTracker {
  * The fingers that are down, kept from each event's `changedTouches` rather
  * than read from its `touches`.
  *
- * Feeding the orbit React Native's `touches` jumped and drifted more on an
- * iPhone than tracking the fingers from what changed: after an interruption
- * iOS can report a finger in `touches` that it never ended. A finger that did
- * not change this event still takes its position from `touches`. A lost end
- * is forgotten when the next gesture starts.
+ * After an interruption iOS can report a finger in `touches` that it never
+ * ended, so an orbit fed from `touches` jumps and drifts; one fed from what
+ * changed does not. A finger that did not change this event still takes its
+ * position from `touches`. A lost end is forgotten when the next gesture
+ * starts.
  */
 export const createFingerTracker = (): FingerTracker => {
   const fingers = new Map<number, TouchPoint>()
