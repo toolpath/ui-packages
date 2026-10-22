@@ -113,6 +113,13 @@ export {
   type ReachCurve,
 } from './reach.js'
 export {
+  offsetUnder,
+  readingAt,
+  readingLabelX,
+  readingText,
+  type ReachReading,
+} from './reach-reading.js'
+export {
   FILE_KIND,
   llmRulePrompt,
   parseRuleSetFile,
