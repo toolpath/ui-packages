@@ -1,18 +1,16 @@
 import { Html } from '@react-three/drei'
 import type { CSSProperties } from 'react'
 import type { Vector3 } from 'three'
-import { MEASURE_LABEL_CLASS } from './measure-labels.js'
+import { MEASURE_LABEL_CLASS } from './render/measure.js'
 
 export interface SceneLabelProps {
-  position: Vector3 | readonly [number, number, number]
+  position: Vector3 | [number, number, number]
   text: string
   note?: string
   /** `data-measure-label` */
   kind: string
   /** `data-axis` */
   axis?: 'x' | 'y' | 'z'
-  /** `data-measurement-id` */
-  measurementId?: string
   /** Web: sets `--measure-color`. Native: the label's border colour. */
   color?: string
   /** Web only: added after {@link MEASURE_LABEL_CLASS}. */
@@ -28,9 +26,8 @@ export interface SceneLabelProps {
  *
  * On the web it is an unstyled DOM element over the canvas, through drei's
  * `<Html>`: the {@link MEASURE_LABEL_CLASS} class plus `className`, with
- * `data-measure-label`, `data-axis` and `data-measurement-id` for styling, the
- * text in a `data-measure-value` span and the note in a `data-measure-note`
- * one. It takes no pointer events, so the canvas under it keeps the gesture.
+ * `data-measure-label` and `data-axis` for styling, the text in a
+ * `data-measure-value` span and the note in a `data-measure-note` one. It takes no pointer events, so the canvas under it keeps the gesture.
  */
 export const SceneLabel = ({
   position,
@@ -38,23 +35,15 @@ export const SceneLabel = ({
   note,
   kind,
   axis,
-  measurementId,
   color,
   className,
   layer,
 }: SceneLabelProps) => (
-  <Html
-    position={position as Vector3}
-    center
-    zIndexRange={[layer ?? 0, 0]}
-    pointerEvents="none"
-    style={{ pointerEvents: 'none' }}
-  >
+  <Html position={position} center zIndexRange={[layer ?? 0, 0]} style={{ pointerEvents: 'none' }}>
     <div
       className={[MEASURE_LABEL_CLASS, className].filter(Boolean).join(' ')}
       data-measure-label={kind}
       data-axis={axis}
-      data-measurement-id={measurementId}
       style={color ? ({ '--measure-color': color } as CSSProperties) : undefined}
     >
       <span data-measure-value>{text}</span>

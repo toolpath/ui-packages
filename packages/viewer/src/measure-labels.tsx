@@ -1,18 +1,6 @@
 import { addAfterEffect, useThree } from '@react-three/fiber'
 import { useEffect } from 'react'
-
-/**
- * The class every measure label carries, for a stylesheet to find.
- *
- * The labels ship with no look at all. Each one is a `<div>` with this class
- * and `data-measure-label` naming what it is: `face` for a reading of the
- * picks, `delta` for one leg of a distance's breakdown, with `data-axis` on
- * a leg. A measurement's own colour is set on its `face` labels as
- * `--measure-color`, for a border, and the value a click copies is in the
- * label's `[data-measure-value]`. A label marks itself `data-copied` for a
- * moment once copied. The README shows a stylesheet to start from.
- */
-export const MEASURE_LABEL_CLASS = 'toolpath-measure-label'
+import { MEASURE_LABEL_CLASS } from './render/measure.js'
 
 /** What a label is, for a stylesheet to tell them apart. */
 export type MeasureLabelKind = 'face' | 'delta'

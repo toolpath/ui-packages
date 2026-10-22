@@ -3,7 +3,6 @@ import {
   Box3,
   Matrix4,
   OrthographicCamera,
-  PerspectiveCamera,
   Plane,
   Quaternion,
   Raycaster,
@@ -15,7 +14,7 @@ import {
 } from 'three'
 
 import { adaptedUp } from './camera.js'
-import type { CameraLimits, ViewerCamera } from './camera.js'
+import type { CameraLimits, ViewerCamera, ViewportSize } from './camera.js'
 import { resolveControlScheme } from './control-schemes.js'
 import type { ControlScheme, ControlSchemeMapping } from './control-schemes.js'
 
@@ -362,12 +361,13 @@ export class ExtendedCameraControls extends CameraControls {
   }
 
   #enableCadWheel(): void {
-    if (!this.#attached || this.#wheelHandler || !this.#domElement) {
+    const element = this.#domElement
+    if (!this.#attached || this.#wheelHandler || !element) {
       return
     }
 
-    this.#wheelHandler = (event: WheelEvent) => this.#onCadWheel(event)
-    this.#domElement.addEventListener('wheel', this.#wheelHandler, {
+    this.#wheelHandler = (event: WheelEvent) => this.#onCadWheel(event, element)
+    element.addEventListener('wheel', this.#wheelHandler, {
       passive: false,
     })
   }
@@ -437,11 +437,7 @@ export class ExtendedCameraControls extends CameraControls {
    * Either of those alone scales about the middle of the view, so the camera
    * is then trucked by however far the point under `at` moved.
    */
-  zoomAt(
-    scale: number,
-    at: { x: number; y: number },
-    viewport: { width: number; height: number },
-  ): void {
+  zoomAt(scale: number, at: { x: number; y: number }, viewport: ViewportSize): void {
     if (!(scale > 0) || !Number.isFinite(scale)) {
       return
     }
@@ -476,7 +472,7 @@ export class ExtendedCameraControls extends CameraControls {
    * `truck(x, y)` moves the camera right by `x` and *down* by `y`, which is
    * why both are negated — a finger moving down drags the scene down.
    */
-  panBy(dx: number, dy: number, viewport: { width: number; height: number }): void {
+  panBy(dx: number, dy: number, viewport: ViewportSize): void {
     const perPixel = this.#worldPerPixel(viewport.height)
     void this.truck(-dx * perPixel, -dy * perPixel, false)
     this.update(0)
@@ -488,14 +484,13 @@ export class ExtendedCameraControls extends CameraControls {
     if (camera instanceof OrthographicCamera) {
       return (camera.top - camera.bottom) / camera.zoom / Math.max(1, height)
     }
-    const fov = camera instanceof PerspectiveCamera ? camera.fov : 50
-    return (2 * this.distance * Math.tan(((fov / 2) * Math.PI) / 180)) / Math.max(1, height)
+    return (2 * this.distance * Math.tan(((camera.fov / 2) * Math.PI) / 180)) / Math.max(1, height)
   }
 
   /** The world point under `at` on the plane through the target, facing the camera. */
   #pointOnTargetPlane(
     at: { x: number; y: number },
-    viewport: { width: number; height: number },
+    viewport: ViewportSize,
     into: Vector3,
   ): Vector3 | null {
     const camera = this.camera
@@ -559,16 +554,14 @@ export class ExtendedCameraControls extends CameraControls {
     }
   }
 
-  #onCadWheel = (event: WheelEvent): void => {
+  #onCadWheel = (event: WheelEvent, element: HTMLElement): void => {
     event.preventDefault()
 
     if (event.ctrlKey) {
       // Trackpad pinch arrives as a wheel event with ctrlKey set.
       void this.zoom(-event.deltaY * FUSION_PINCH_ZOOM_SCALE, false)
     } else if (this.#shiftPressed) {
-      const element = this.#domElement
-      const scale =
-        Math.PI / Math.max(1, Math.min(element?.clientWidth ?? 0, element?.clientHeight ?? 0))
+      const scale = Math.PI / Math.max(1, Math.min(element.clientWidth, element.clientHeight))
 
       void this.rotate(
         event.deltaX * scale * FUSION_ROTATE_SCALE,

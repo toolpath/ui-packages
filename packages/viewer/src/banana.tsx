@@ -7,8 +7,6 @@ import { EXCLUDE_FROM_FRAME } from './render/camera.js'
 import { bananaFrameBounds, bananaPosition } from './render/banana.js'
 import { BANANA_MODEL_URL } from './banana-asset.js'
 
-export { BANANA_MODEL_URL }
-
 const SKIN = '#e8b530'
 const FURNITURE = { [EXCLUDE_FROM_FRAME]: true }
 

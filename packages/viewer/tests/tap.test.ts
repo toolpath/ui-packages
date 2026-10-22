@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { readPointer } from '../src/render/pointer.js'
 import { TAP_SLOP, movedFar, trackDoubleTaps } from '../src/render/tap.js'
 
 /**
@@ -94,16 +95,19 @@ describe('React Native presses', () => {
    * and no `clientX` or `timeStamp` at all. Read through `readPointer`, they
    * judge the same as the DOM's.
    */
-  const touch = (pageX: number, pageY: number, timestamp: number) =>
-    ({ pageX, pageY, offsetX: pageX - 20, offsetY: pageY - 20, timestamp }) as unknown as {
-      clientX: number
-      clientY: number
-      timeStamp: number
-    }
+  const touch = (pageX: number, pageY: number, timestamp: number) => ({
+    pageX,
+    pageY,
+    offsetX: pageX - 20,
+    offsetY: pageY - 20,
+    timestamp,
+  })
+  const moved = (from: ReturnType<typeof touch>, to: ReturnType<typeof touch>) =>
+    movedFar(readPointer(from), readPointer(to))
 
   it('tells a tap from a drag', () => {
-    expect(movedFar(touch(100, 100, 0), touch(102, 101, 0))).toBe(false)
-    expect(movedFar(touch(100, 100, 0), touch(140, 100, 0))).toBe(true)
+    expect(moved(touch(100, 100, 0), touch(102, 101, 0))).toBe(false)
+    expect(moved(touch(100, 100, 0), touch(140, 100, 0))).toBe(true)
   })
 
   it('pairs two taps into a double tap', () => {
