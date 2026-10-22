@@ -8,9 +8,8 @@ type Plugin = NonNullable<Options['esbuildPlugins']>[number]
  * `./x.js` to `./x.native.tsx` or `./x.native.ts`, where one exists.
  *
  * The sources import each other with `.js` specifiers, as Node's ESM
- * resolution wants. esbuild maps those to `.ts` and `.tsx` itself, but
- * `resolveExtensions` applies only to specifiers without an extension, so on
- * its own it never reaches a `.native` sibling.
+ * resolution wants. esbuild maps those to `.ts` and `.tsx` itself, but never
+ * to a `.native` sibling.
  */
 const nativeSiblings: Plugin = {
   name: 'native-siblings',
@@ -52,18 +51,6 @@ export default defineConfig([
     external: [...external, 'react-native', 'expo-asset', 'expo-gl', /\.glb$/],
     outDir: 'dist/native',
     onSuccess: 'node scripts/copy-assets.mjs native',
-    loader: { '.json': 'json' },
     esbuildPlugins: [nativeSiblings],
-    esbuildOptions(options) {
-      options.resolveExtensions = [
-        '.native.tsx',
-        '.native.ts',
-        '.tsx',
-        '.ts',
-        '.jsx',
-        '.js',
-        '.json',
-      ]
-    },
   },
 ] satisfies Options[])
