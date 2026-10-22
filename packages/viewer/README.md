@@ -26,19 +26,21 @@ npm install @toolpath/viewer
 
 Your application must provide compatible peers:
 
-| Dependency           | Declared range | Needed for                                   |
-| -------------------- | -------------- | -------------------------------------------- |
-| `react`              | `^19.0.0`      | Both                                         |
-| `react-dom`          | `^19.0.0`      | The web (optional peer)                      |
-| `three`              | `>=0.159.0`    | Both                                         |
-| `@react-three/fiber` | `^9.7.0`       | Both                                         |
-| `@react-three/drei`  | `^10.7.8`      | Both                                         |
-| `react-native`       | `>=0.78`       | React Native (optional peer)                 |
-| `expo-asset`         | `>=8.4`        | React Native: the banana model (optional)    |
-| `expo-gl`            | `>=11.0`       | React Native: the GL context (optional peer) |
+| Dependency           | Declared range | Needed for                                           |
+| -------------------- | -------------- | ---------------------------------------------------- |
+| `react`              | `^19.0.0`      | Both                                                 |
+| `react-dom`          | `^19.0.0`      | The web (optional peer)                              |
+| `three`              | `>=0.159.0`    | Both                                                 |
+| `@react-three/fiber` | `^9.7.0`       | Both                                                 |
+| `@react-three/drei`  | `^10.7.8`      | Both                                                 |
+| `react-native`       | `>=0.78`       | React Native (optional peer)                         |
+| `expo-asset`         | `>=8.4`        | React Native, where it is required: imported at load |
+| `expo-gl`            | `>=11.0`       | React Native: the GL context (optional peer)         |
 
 A web application installs `react-dom` itself; it is optional only so a React
-Native app does not need it. For React Native, see
+Native app does not need it. The React Native peers are optional only so a web
+application does not need them: `dist/native` imports `expo-asset` and
+`expo-gl` as it loads. For React Native, see
 [React Native (Expo)](#react-native-expo).
 
 For a new application, this is the combination used by the repository's example:
@@ -810,11 +812,11 @@ creates a context, so `webglUnavailable` is never shown.
 A finger doesn't hover, so on React Native `PartMesh` lights no face under a
 moving finger, and `onHover` isn't called. Its picks go through a bounding volume
 hierarchy ([`three-mesh-bvh`](https://github.com/gkjohnson/three-mesh-bvh)),
-built once per mesh, so a large part stays smooth to touch under Hermes.
+built once per geometry, so a large part stays smooth to touch under Hermes.
 
 ### App setup
 
-1. Install the native modules with Expo, and three.js, React Three Fiber 9.8 or
+1. Install the native modules with Expo, and three.js, React Three Fiber 9.7 or
    later, and drei:
 
    ```sh
