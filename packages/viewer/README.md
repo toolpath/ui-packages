@@ -306,6 +306,7 @@ the part opaque. For multiselection, update your own tag array and avoid duplica
 | `Viewer`                     | Canvas, camera, lighting, controls, initial framing, and viewer-owned section state. |
 | `EnginePart`                 | Validated Engine report plus cached mesh loading; imports from `/engine`.            |
 | `PartMesh`                   | Your normalized model and prepared geometry; selection, paint, picking, sections.    |
+| `ExplodedPart`               | Supplied surface groups, translations, colors, and controlled explosion amount.      |
 | `ViewCube`                   | 26 orientation targets: faces, edges, and corners.                                   |
 | `Grid`, `Axes`               | Reference geometry excluded from camera framing.                                     |
 | `DirectionArrows`            | Candidate and optional named/preview machining directions.                           |
@@ -393,6 +394,85 @@ With an active direction, picking ranks only reachable owners; a face with none
 has `best === null`. `owners` still carries all owners. `directionHighlights(model,
 index)` produces region paint matching `DirectionArrows`; it does not hide geometry
 or establish that an unpainted face is impossible to machine.
+
+### `<ExplodedPart>`
+
+Renders application-defined surface pieces inside `<Viewer>` or an R3F canvas. Import
+`ExplodedPart`, `ExplodedPartProps`, `ExplodeGroup`, `ExplodeInput`, and `ExplodePick` from
+`@toolpath/viewer`. Version 2.3.3 does not contain these exports.
+
+The application supplies the pieces and their translations. The renderer neither selects
+feature interpretations nor chooses machining directions, setups, or an ownership policy for
+overlapping surfaces. It reads no planning data and makes no API requests.
+
+```tsx
+import { useMemo, useState } from 'react'
+import { ExplodedPart, Viewer, type ExplodeGroup, type PartModel } from '@toolpath/viewer'
+import type { BufferGeometry } from 'three'
+
+const ExplodeView = ({
+  model,
+  geometry,
+  groups,
+  amount,
+}: {
+  model: PartModel
+  geometry: BufferGeometry
+  groups: readonly ExplodeGroup[]
+  amount: number
+}) => {
+  const [selected, select] = useState<string | null>(null)
+  const [hovered, hover] = useState<string | null>(null)
+  const explode = useMemo(() => ({ groups, amount }), [groups, amount])
+  return (
+    <Viewer>
+      <ExplodedPart
+        model={model}
+        geometry={geometry}
+        explode={explode}
+        selected={selected}
+        hovered={hovered}
+        onPick={(pick) => select(pick.explodeGroupId)}
+        onHover={(pick) => hover(pick?.explodeGroupId ?? null)}
+      />
+    </Viewer>
+  )
+}
+```
+
+Each `ExplodeGroup` contains a unique `id`, `regionIdxs`, an `offset: { x, y, z }` in
+millimetres in the source geometry's frame, and a numeric RGB `color`. IDs belong to the
+application and need not be feature tags. Groups may contain any region set, and different
+groups can share the same surfaces without being merged. Region IDs must come from the same
+model and mesh. Source geometry must be non-indexed and match `model.mesh.triangleCount`.
+An empty `groups` array draws nothing. Invalid IDs, regions, or offsets throw before allocation.
+
+`explode.amount` interpolates all supplied offsets from zero to their full translations;
+values outside `[0, 1]` are clamped and nonfinite amounts use zero. The caller owns animation,
+timing, and reduced-motion preferences. For an imperative animation, a stable input object's
+`amount` getter can read a clock or ref each frame; keep the demand-driven canvas invalidated
+while that clock changes. The renderer never moves the camera. Fit and Reset remain explicit.
+
+Keep the `groups` array stable across amount, selection, and color changes. An optional
+`explode.colors: ReadonlyMap<string, number>` changes colors by group ID without rebuilding
+the layout. `visible={false}` retains its buffers while excluding it from rendering, picking,
+and framing. Optional `onReady` runs after warming shaders and buffers for a layout; an app can
+keep it hidden or disable its play control until then. Changing the source or group array
+rebuilds the owned buffers; unmounting releases them without disposing the source geometry.
+Batching uses per-instance colors where Three.js provides them and shared vertex colors on
+earlier supported Three.js releases.
+
+The source part is drawn as an unpickable ghost during explosion. Selecting a group highlights
+its original surfaces and draws one connector. `onPick` and `onHover` return an `ExplodePick`:
+the usual source `region` and `triangleIndex`, the application's `explodeGroupId`, the displayed
+world-space `point`/`normal`, and `modelPoint` in the original geometry's frame. Region owners
+and the default ranked feature remain available as `PartPick` fields; applications can use
+the group ID to supply their own metadata. Hidden groups and source overlays do not accept picks.
+
+At stationary zero, the example gives rendering and picking back to its ordinary `PartMesh`.
+That assembled/exploded mode switch and its toolbar are application UI. The example's candidate
+grouping, colors, translation spacing, and rendering-budget policy stay in
+`examples/react-viewer/src/explode/` and are not exported by the package.
 
 ### `<ViewCube>`, `<Grid>`, and `<Axes>`
 
