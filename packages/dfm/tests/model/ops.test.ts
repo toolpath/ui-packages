@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { makeRule, withOp, type DfmRule } from '../../src/model/dfm-rules.js'
 import {
+  LOW_SYMBOLS,
+  ONE_SIDED_CHOICES,
   OP_TITLES,
   comparisonChoices,
+  rangeEnd,
   rangeHighChoices,
   rangeLowChoices,
 } from '../../src/model/ops.js'
@@ -28,5 +32,31 @@ describe('the comparison pickers', () => {
     expect(high[0]).toEqual(['Range', ['<', '≤']])
     expect(low[1]?.[0]).toBe('One-sided')
     expect(high[1]?.[0]).toBe('One-sided')
+  })
+})
+
+describe('leaving a range or holding its end', () => {
+  const range: DfmRule = withOp(makeRule('any', 'ld', 'mm'), 'between')
+
+  it('offers every one-sided comparison, marked apart from a range’s ends', () => {
+    const values = ONE_SIDED_CHOICES.choices.map((choice) => choice.value)
+    expect(values).toHaveLength(6)
+    expect(values.every((value) => value.startsWith('one:'))).toBe(true)
+    expect(values).not.toContain('one:between')
+  })
+
+  it('leaves the range for a one-sided comparison', () => {
+    const left = rangeEnd(range, 'one:lte', () => ({}))
+    expect(left.op).toBe('lte')
+  })
+
+  it('holds an end the new way, and stays a range', () => {
+    const held = rangeEnd(range, 'gt', (op) => ({ lowOp: op as 'gt' }))
+    expect(held.op).toBe('between')
+    expect(held.lowOp).toBe('gt')
+  })
+
+  it('reads a low end from the number toward the measure', () => {
+    expect(LOW_SYMBOLS).toEqual({ gte: '≤', gt: '<' })
   })
 })

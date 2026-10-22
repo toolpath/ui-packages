@@ -24,3 +24,45 @@ describe('storageFolds: sections that start shut', () => {
     expect(folds.read('reach')).toBe(true)
   })
 })
+
+describe('storageFolds', () => {
+  it('keeps each section under the app’s prefix, as open or shut', () => {
+    const storage = memory()
+    const folds = storageFolds(storage, 'toolpath.fold.')
+    folds.write('reach', false)
+    folds.write('rules', true)
+    expect([...storage.map]).toEqual([
+      ['toolpath.fold.reach', 'shut'],
+      ['toolpath.fold.rules', 'open'],
+    ])
+    expect(folds.read('reach')).toBe(false)
+    expect(folds.read('rules')).toBe(true)
+  })
+
+  it('reads a section never folded, or a value it does not know, as undefined', () => {
+    const folds = storageFolds(memory({ 'f.raw': 'sideways' }), 'f.')
+    expect(folds.read('reach')).toBeUndefined()
+    expect(folds.read('raw')).toBeUndefined()
+  })
+
+  it('folds without keeping anything when there is no storage', () => {
+    const folds = storageFolds(null, 'f.')
+    expect(() => folds.write('reach', false)).not.toThrow()
+    expect(folds.read('reach')).toBeUndefined()
+  })
+
+  it('folds without keeping anything when the storage refuses', () => {
+    const refusing: FoldStorage = {
+      getItem: () => {
+        throw new Error('denied')
+      },
+      setItem: () => {
+        throw new Error('denied')
+      },
+    }
+    const folds = storageFolds(refusing, 'f.', { shutAtFirst: ['raw'] })
+    expect(() => folds.write('reach', false)).not.toThrow()
+    expect(folds.read('reach')).toBeUndefined()
+    expect(folds.read('raw')).toBe(false)
+  })
+})
