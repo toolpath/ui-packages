@@ -693,6 +693,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
  *
  * `stencil` is off by default in three, and the section cap is a stencil
  * trick — without it the cut still happens and the part just looks hollow.
+ * WebGL and expo-gl contexts both have a stencil buffer, so the cap is drawn
+ * on every platform.
  * `localClippingEnabled` is what lets a material carry its own clipping plane
  * rather than the whole scene sharing one.
  */
