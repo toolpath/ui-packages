@@ -73,7 +73,6 @@
         "src/index.ts",
         "src/engine/index.ts",
         "src/**/*.native.{ts,tsx}",
-        "scripts/subset-view-cube-font.mjs",
         "tests/**/*.test.ts"
       ],
       "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts"]
