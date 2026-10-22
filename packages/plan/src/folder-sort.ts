@@ -81,34 +81,58 @@ export const projectFolder = (
   const rest = items.filter((item) => item.id !== activeId)
   const index = Math.max(0, Math.min(gap, rest.length))
   const moved = [...rest.slice(0, index), active, ...rest.slice(index)]
-  const previous = moved[index - 1]
-  const next = moved[index + 1]
   const wanted = active.depth + Math.round(offsetX / indent)
-  const deepest = Math.min(previous ? previous.depth + 1 : 0, maxDepth - active.height)
-  const shallowest = Math.min(next ? next.depth : 0, deepest)
-  const depth = Math.max(shallowest, Math.min(wanted, deepest))
-
-  const parentOf = (): string | null => {
-    if (depth === 0 || !previous) {
-      return null
-    }
-    if (depth > previous.depth) {
-      return previous.id
-    }
-    // The nearest folder above at this depth shares its parent.
-    const above = moved
-      .slice(0, index)
-      .reverse()
-      .find((item) => item.depth === depth)
-    return above?.parentId ?? null
-  }
-  const parentId = parentOf()
-
+  const depth = depthAllowed(moved, index, wanted, maxDepth)
+  const parentId = parentAt(moved, index, depth)
   const unmoved = moved.every((item, at) => item.id === items[at]?.id)
   if (unmoved && depth === active.depth) {
     return { depth, parentId, at: null }
   }
   return { depth, parentId, at: dropAtFor(moved, index, depth, parentId) }
+}
+
+/**
+ * The depth nearest `wanted` the carried folder, at `index` of the list, can take: no deeper than
+ * one below the folder before it, nor than `maxDepth` with the folders it carries; no shallower than
+ * the folder after it.
+ */
+const depthAllowed = (
+  moved: ReadonlyArray<FlatFolder>,
+  index: number,
+  wanted: number,
+  maxDepth: number,
+): number => {
+  // The carried folder is at `index`, as `projectFolder` placed it.
+  const active = moved[index]!
+  const previous = moved[index - 1]
+  const next = moved[index + 1]
+  const deepest = Math.min(previous ? previous.depth + 1 : 0, maxDepth - active.height)
+  const shallowest = Math.min(next ? next.depth : 0, deepest)
+  return Math.max(shallowest, Math.min(wanted, deepest))
+}
+
+/**
+ * The folder the place at `index` of the list, at `depth`, is in: the folder before it where it is
+ * one deeper, else the parent of the nearest folder above at that depth — none at the top.
+ */
+const parentAt = (
+  moved: ReadonlyArray<FlatFolder>,
+  index: number,
+  depth: number,
+): string | null => {
+  const previous = moved[index - 1]
+  if (depth === 0 || !previous) {
+    return null
+  }
+  if (depth > previous.depth) {
+    return previous.id
+  }
+  // The nearest folder above at this depth shares its parent.
+  const above = moved
+    .slice(0, index)
+    .reverse()
+    .find((item) => item.depth === depth)
+  return above?.parentId ?? null
 }
 
 /** The gap a point is in: how many of the folders' rows, without the carried one, it is below. */

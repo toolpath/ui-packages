@@ -97,6 +97,9 @@ export const defaultStock = (
 /** The largest stock Toolpath takes, mm, sides largest first: 80 × 50 × 30 in. */
 const ENVELOPE_MM = [2032, 1270, 762] as const
 
+/** The refusal of a stock of no mode Toolpath takes. */
+const CHOOSE_STOCK = 'Choose automatic stock, a fixed box or a fixed cylinder.'
+
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 const mm = (value: unknown, min: number, max: number): value is number =>
@@ -105,38 +108,58 @@ const mm = (value: unknown, min: number, max: number): value is number =>
 /** Validate the service contract, including its stock envelope, before saving or forwarding. */
 export const parseStock = (value: unknown): StockOption | string => {
   if (!record(value)) {
-    return 'Choose automatic stock, a fixed box or a fixed cylinder.'
+    return CHOOSE_STOCK
   }
   const { mode } = value
   if (mode === 'automaticFlatBar' || mode === 'automaticRoundStock') {
-    const fields = mode === 'automaticFlatBar' ? FLAT_BAR_FIELDS : ROUND_STOCK_FIELDS
-    const keys: Array<string> = fields.map(([key]) => key)
-    const allowed = ['mode', ...keys, ...(mode === 'automaticRoundStock' ? ['verticalAxis'] : [])]
-    if (Object.keys(value).some((key) => !allowed.includes(key))) {
-      return 'The automatic stock contains an unknown setting.'
-    }
-    if (keys.some((key) => value[key] !== undefined && !mm(value[key], 0, 762))) {
-      return 'Stock oversize, grip and rounding must be between 0 and 30 in (762 mm).'
-    }
-    if (
-      mode === 'automaticRoundStock' &&
-      value.verticalAxis !== undefined &&
-      typeof value.verticalAxis !== 'boolean'
-    ) {
-      return 'Choose whether Round Stock stands along the cutting direction.'
-    }
-    return value as AutomaticStock
+    return parseAutomaticStock(value, mode)
   }
   if (mode !== 'fixedBox' && mode !== 'fixedCylinder') {
-    return 'Choose automatic stock, a fixed box or a fixed cylinder.'
+    return CHOOSE_STOCK
   }
+  return parseFixedStock(value, mode)
+}
+
+/** Whether `value` names a setting `allowed` does not. */
+const hasUnknownKey = (value: Record<string, unknown>, allowed: ReadonlyArray<string>): boolean =>
+  Object.keys(value).some((key) => !allowed.includes(key))
+
+/** Flat Bar or Round Stock as the contract takes it, or why not. */
+const parseAutomaticStock = (
+  value: Record<string, unknown>,
+  mode: AutomaticStock['mode'],
+): AutomaticStock | string => {
+  const fields = mode === 'automaticFlatBar' ? FLAT_BAR_FIELDS : ROUND_STOCK_FIELDS
+  const keys: Array<string> = fields.map(([key]) => key)
+  const allowed = ['mode', ...keys, ...(mode === 'automaticRoundStock' ? ['verticalAxis'] : [])]
+  if (hasUnknownKey(value, allowed)) {
+    return 'The automatic stock contains an unknown setting.'
+  }
+  if (keys.some((key) => value[key] !== undefined && !mm(value[key], 0, 762))) {
+    return 'Stock oversize, grip and rounding must be between 0 and 30 in (762 mm).'
+  }
+  if (
+    mode === 'automaticRoundStock' &&
+    value.verticalAxis !== undefined &&
+    typeof value.verticalAxis !== 'boolean'
+  ) {
+    return 'Choose whether Round Stock stands along the cutting direction.'
+  }
+  return value as AutomaticStock
+}
+
+/** A fixed box or cylinder as the contract takes it, or why not. */
+const parseFixedStock = (
+  value: Record<string, unknown>,
+  mode: FixedStock['mode'],
+): FixedStock | string => {
   const allowed = [
     'mode',
     'position',
     'positionOffset',
     ...(mode === 'fixedBox' ? ['dimensions'] : ['diameter', 'length']),
   ]
-  if (Object.keys(value).some((key) => !allowed.includes(key))) {
+  if (hasUnknownKey(value, allowed)) {
     return 'The fixed stock contains an unknown setting.'
   }
   if (!['modelCentered', 'offsetFromTop', 'offsetFromBottom'].includes(String(value.position))) {
@@ -145,33 +168,45 @@ export const parseStock = (value: unknown): StockOption | string => {
   if (value.positionOffset !== undefined && !mm(value.positionOffset, -2032, 2032)) {
     return 'The stock position offset must be between -80 and 80 in (-2032 and 2032 mm).'
   }
-  if (mode === 'fixedBox') {
-    const dims = value.dimensions
-    if (
-      !record(dims) ||
-      Object.keys(dims).some((key) => !['x', 'y', 'z'].includes(key)) ||
-      ![dims.x, dims.y, dims.z].every((n) => mm(n, 0, 2032) && n > 0)
-    ) {
-      return 'Give the fixed box positive X, Y and Z dimensions.'
-    }
-    // Entered in the part's axes: which side runs along the cutting direction is the first
-    // folder's to say (`stockRequest`), so here it need only fit the envelope some way round.
-    const sides = [dims.x as number, dims.y as number, dims.z as number].sort((a, b) => b - a)
-    if (sides.some((n, i) => n > ENVELOPE_MM[i]!)) {
-      return 'The box must fit within 80 × 50 × 30 in in some order.'
-    }
-  } else {
-    if (![value.diameter, value.length].every((n) => mm(n, 0, 2032) && n > 0)) {
-      return 'Give the fixed cylinder a positive diameter and length.'
-    }
-    const sides = [value.diameter as number, value.diameter as number, value.length as number].sort(
-      (a, b) => b - a,
-    )
-    if (sides.some((n, i) => n > ENVELOPE_MM[i]!)) {
-      return 'The cylinder’s diameter × diameter × length must fit within 80 × 50 × 30 in in some order.'
-    }
+  const sizeProblem =
+    mode === 'fixedBox' ? fixedBoxSizeProblem(value.dimensions) : fixedCylinderSizeProblem(value)
+  return sizeProblem ?? (value as FixedStock)
+}
+
+/** Whether a positive size in mm, within the largest side Toolpath takes. */
+const positiveSide = (n: unknown): boolean => mm(n, 0, 2032) && n > 0
+
+/** Whether three sides fit the envelope in no order: the largest against its largest, and so on. */
+const outsideEnvelope = (sides: ReadonlyArray<number>): boolean =>
+  [...sides].sort((a, b) => b - a).some((n, i) => n > ENVELOPE_MM[i]!)
+
+/** Why a fixed box's dimensions can't be taken, or null. */
+const fixedBoxSizeProblem = (dims: unknown): string | null => {
+  if (
+    !record(dims) ||
+    hasUnknownKey(dims, ['x', 'y', 'z']) ||
+    ![dims.x, dims.y, dims.z].every(positiveSide)
+  ) {
+    return 'Give the fixed box positive X, Y and Z dimensions.'
   }
-  return value as FixedStock
+  // Entered in the part's axes: which side runs along the cutting direction is the first
+  // folder's to say (`stockRequest`), so here it need only fit the envelope some way round.
+  if (outsideEnvelope([dims.x as number, dims.y as number, dims.z as number])) {
+    return 'The box must fit within 80 × 50 × 30 in in some order.'
+  }
+  return null
+}
+
+/** Why a fixed cylinder's diameter and length can't be taken, or null. */
+const fixedCylinderSizeProblem = (value: Record<string, unknown>): string | null => {
+  if (![value.diameter, value.length].every(positiveSide)) {
+    return 'Give the fixed cylinder a positive diameter and length.'
+  }
+  const { diameter, length } = value as { diameter: number; length: number }
+  if (outsideEnvelope([diameter, diameter, length])) {
+    return 'The cylinder’s diameter × diameter × length must fit within 80 × 50 × 30 in in some order.'
+  }
+  return null
 }
 
 /** Stable comparison of policy values, independent of JSON property order. */
@@ -216,6 +251,8 @@ export const NO_FIRST_FOLDER = 'Add a folder first: a fixed box is measured from
 export const TILTED_FIRST_FOLDER = 'A fixed box needs a first folder facing along X, Y or Z.'
 export const BOX_ENVELOPE =
   'The box must fit 80 × 50 in across the first folder’s direction and 30 in along it.'
+/** What Apply says while the fixed box does not fit. */
+const FIX_STOCK_FIRST = 'Fix the stock first'
 
 /** The model axis a direction faces along, and which way; null for one off every axis. */
 export const axisAlong = (direction: PlanDirection): { axis: ModelAxis; sign: 1 | -1 } | null => {
@@ -491,42 +528,65 @@ export const stockPlacement = (
   if (!frame) {
     return null
   }
-  const extent = (k: ModelAxis) => extentAlong(part, frame[k])
   if (stock.mode === 'fixedCylinder') {
-    const { diameter, length, position, positionOffset = 0 } = stock
-    return {
-      cylinder: placeCylinder(frame, part, 'z', diameter, length, (span) =>
-        stockStart(position, positionOffset, span, length),
-      ),
-    }
+    return { cylinder: placeFixedCylinder(stock, frame, part) }
   }
   if (stock.mode === 'automaticFlatBar') {
-    const { oversizeX, oversizeY, oversizeZTop, oversizeZBottom, snapX, snapY, snapZ } = {
-      ...defaultStock(stock.mode),
-      ...stock,
-    } as Required<typeof stock>
-    const size = {
-      x: snapUp(extent('x') + 2 * oversizeX, snapX),
-      y: snapUp(extent('y') + 2 * oversizeY, snapY),
-      z: snapUp(extent('z') + oversizeZTop + oversizeZBottom, snapZ),
-    }
-    return { box: placeBlock(frame, part, size, 'offsetFromBottom', oversizeZBottom) }
+    return { box: placeFlatBar(stock, frame, part) }
   }
+  return { cylinder: placeRoundStock(stock, frame, part) }
+}
+
+type StockOf<M extends StockOption['mode']> = Extract<StockOption, { mode: M }>
+
+/** A fixed cylinder standing along the direction, placed along it by its position. */
+const placeFixedCylinder = (
+  stock: StockOf<'fixedCylinder'>,
+  frame: StockFrame,
+  part: ModelBox,
+): ModelCylinder => {
+  const { diameter, length, position, positionOffset = 0 } = stock
+  return placeCylinder(frame, part, 'z', diameter, length, (span) =>
+    stockStart(position, positionOffset, span, length),
+  )
+}
+
+/** Flat Bar: the part's extent plus its oversizes, rounded up, the grip kept exact below it. */
+const placeFlatBar = (
+  stock: StockOf<'automaticFlatBar'>,
+  frame: StockFrame,
+  part: ModelBox,
+): ModelBox => {
+  const extent = (k: ModelAxis) => extentAlong(part, frame[k])
+  const { oversizeX, oversizeY, oversizeZTop, oversizeZBottom, snapX, snapY, snapZ } = {
+    ...defaultStock(stock.mode),
+    ...stock,
+  } as Required<typeof stock>
+  const size = {
+    x: snapUp(extent('x') + 2 * oversizeX, snapX),
+    y: snapUp(extent('y') + 2 * oversizeY, snapY),
+    z: snapUp(extent('z') + oversizeZTop + oversizeZBottom, snapZ),
+  }
+  return placeBlock(frame, part, size, 'offsetFromBottom', oversizeZBottom)
+}
+
+/** Round Stock: lying along the part's longer side across the direction, or standing along it. */
+const placeRoundStock = (
+  stock: StockOf<'automaticRoundStock'>,
+  frame: StockFrame,
+  part: ModelBox,
+): ModelCylinder => {
+  const extent = (k: ModelAxis) => extentAlong(part, frame[k])
   // An omitted `verticalAxis` is the kernel's default, lying down — not the new profile's default.
   const { radialOversize, axialOversize, gripStock, diaRoundToNearest, lengthRoundToNearest } = {
     ...defaultStock(stock.mode),
     ...stock,
   } as Required<typeof stock>
   const along = stock.verticalAxis ? 'z' : 'x'
-  const [a, b] = AXES.filter((k) => k !== along)
-  const diameter = snapUp(
-    Math.hypot(extent(a!), extent(b!)) + 2 * radialOversize,
-    diaRoundToNearest,
-  )
+  const [a, b] = across(along)
+  const diameter = snapUp(Math.hypot(extent(a), extent(b)) + 2 * radialOversize, diaRoundToNearest)
   const length = snapUp(gripStock + extent(along) + axialOversize, lengthRoundToNearest)
-  return {
-    cylinder: placeCylinder(frame, part, along, diameter, length, ([low]) => low - gripStock),
-  }
+  return placeCylinder(frame, part, along, diameter, length, ([low]) => low - gripStock)
 }
 
 /** What a fixed box held for Apply comes to (`fixedBoxCheck`). */
@@ -553,10 +613,7 @@ export const fixedBoxCheck = (
   }
   const request = stockRequest(stock, first)
   if (typeof request === 'string') {
-    return {
-      problem: request,
-      applyReason: request === BOX_ENVELOPE ? 'Fix the stock first' : request,
-    }
+    return unsendableBox(request)
   }
   if (!size) {
     return null
@@ -566,19 +623,43 @@ export const fixedBoxCheck = (
   if (!box) {
     return null
   }
+  return partOutsideBox(box, part, units) ?? turnedBox(box)
+}
+
+/** Why `stockRequest` refused the box, beside it and on Apply. */
+const unsendableBox = (request: string): FixedBoxCheck => ({
+  problem: request,
+  applyReason: request === BOX_ENVELOPE ? FIX_STOCK_FIRST : request,
+})
+
+/** How far the part stands outside the box, along the axis it stands furthest; null within it. */
+const partOutsideBox = (box: ModelBox, part: ModelBox, units: Units): FixedBoxCheck | null => {
+  const worst = furthestOutside(box, part)
+  if (worst && worst.by > FIT_TOLERANCE_MM) {
+    return {
+      problem: `The part stands ${formatLength(worst.by, units)} outside the box along ${worst.axis.toUpperCase()}.`,
+      applyReason: FIX_STOCK_FIRST,
+    }
+  }
+  return null
+}
+
+/** The axis the part stands furthest outside the box along, and by how much (negative within). */
+const furthestOutside = (
+  box: ModelBox,
+  part: ModelBox,
+): { axis: ModelAxis; by: number } | undefined => {
   const [worst] = AXES.map((axis) => ({
     axis,
     by: Math.max(box.min[axis] - part.min[axis], part.max[axis] - box.max[axis]),
   })).sort((p, q) => q.by - p.by)
-  if (worst && worst.by > FIT_TOLERANCE_MM) {
-    return {
-      problem: `The part stands ${formatLength(worst.by, units)} outside the box along ${worst.axis.toUpperCase()}.`,
-      applyReason: 'Fix the stock first',
-    }
-  }
-  return box.turned
+  return worst
+}
+
+/** A note where Toolpath turns the box from how it was entered; null where it doesn't. */
+const turnedBox = (box: { turned: boolean }): FixedBoxCheck | null =>
+  box.turned
     ? {
         note: 'Toolpath turns the box a quarter turn about the first folder’s direction, to lay its longer side along the part’s.',
       }
     : null
-}

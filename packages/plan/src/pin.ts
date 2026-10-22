@@ -21,7 +21,7 @@ import {
 } from './plan-draft'
 import type { PlanDirection } from './engine-plan'
 import { unignoreEdit, unignoredNote } from './ignore'
-import { listsTag, rowsOf, type PlanSetupView } from './plan-view'
+import { listsTag, rowsOf, type PlanFeatureRow, type PlanSetupView } from './plan-view'
 
 /*
   What pinning and unpinning do to the plan, apart from the page that wires them. Every way to pin
@@ -242,27 +242,50 @@ export const chooseReading = (
   folder: { id: string; direction: PlanDirection },
   context: PinContext,
 ): { intent: Constraints; chosen: Array<string> } => {
-  // What it took — the pins it replaced — put back first; then it leaves.
-  const leaves = (all: Constraints, tag: string) => letGo(takeBack(all, saved, tag, context), tag)
-  if (line.target === 'pin') {
-    return {
-      intent:
-        reading === line.tag
-          ? plan
-          : pinHere(leaves(plan, line.tag), reading, folder.id, context).intent,
-      chosen: [reading],
-    }
+  const choice: ReadingChoice = { plan, saved, line, reading, read, folder, context }
+  return line.target === 'pin' ? chosenForPin(choice) : chosenForTakeOut(choice)
+}
+
+/** A line's choice among its click's readings, with all `chooseReading` is given. */
+interface ReadingChoice {
+  plan: Constraints
+  saved: Constraints
+  line: PinChange
+  reading: string
+  read: ReadonlyArray<string>
+  folder: { id: string; direction: PlanDirection }
+  context: PinContext
+}
+
+/** The plan once a choice is made, and the lines whose choice is made. */
+interface ChosenReading {
+  intent: Constraints
+  chosen: Array<string>
+}
+
+/** A choice on a pin: itself changes nothing; another is pinned in its place. */
+const chosenForPin = ({
+  plan,
+  saved,
+  line,
+  reading,
+  folder,
+  context,
+}: Omit<ReadingChoice, 'read'>): ChosenReading => {
+  if (reading === line.tag) {
+    return { intent: plan, chosen: [reading] }
   }
-  // One of them instead of taking it out: any other pinned here since, from this choice, goes.
-  const cleared = read
-    .filter(
-      (each) =>
-        each !== line.tag &&
-        each !== reading &&
-        pinnedIn(plan.setups, each) === folder.id &&
-        pinnedIn(saved.setups, each) !== folder.id,
-    )
-    .reduce(leaves, plan)
+  const left = leaving(plan, saved, line.tag, context)
+  return { intent: pinHere(left, reading, folder.id, context).intent, chosen: [reading] }
+}
+
+/**
+ * A choice on a feature taken out: it stays out, and the one chosen — unless it is the line's own —
+ * is pinned instead, any chosen before it let go.
+ */
+const chosenForTakeOut = (choice: ReadingChoice): ChosenReading => {
+  const { plan, saved, line, reading, folder, context } = choice
+  const cleared = chosenBefore(choice).reduce((all, tag) => leaving(all, saved, tag, context), plan)
   // Putting one back can put back what this line takes out: it stays out.
   const out =
     pinnedIn(cleared.setups, line.tag) === pinnedIn(plan.setups, line.tag)
@@ -273,6 +296,37 @@ export const chooseReading = (
     chosen: reading === line.tag ? [line.tag] : [reading, line.tag],
   }
 }
+
+/**
+ * The plan with a feature gone: what it took — the pins it replaced — put back as `saved` had them
+ * first; then it leaves.
+ */
+const leaving = (
+  plan: Constraints,
+  saved: Constraints,
+  tag: string,
+  context: PinContext,
+): Constraints => letGo(takeBack(plan, saved, tag, context), tag)
+
+/**
+ * The click's other readings pinned in this folder since the plan was saved: earlier choices,
+ * which go.
+ */
+const chosenBefore = ({
+  plan,
+  saved,
+  line,
+  reading,
+  read,
+  folder,
+}: Omit<ReadingChoice, 'context'>): Array<string> =>
+  read.filter(
+    (each) =>
+      each !== line.tag &&
+      each !== reading &&
+      pinnedIn(plan.setups, each) === folder.id &&
+      pinnedIn(saved.setups, each) !== folder.id,
+  )
 
 /** A plan as a Pin features note reads it: every folder of the tree, and who machines each face. */
 export interface PlanReading {
@@ -315,14 +369,9 @@ export const stateOf = (
   regionsOf: (tag: string) => ReadonlyArray<number>,
 ): FeatureState => {
   const faces = regionsOf(tag)
-  const kinds = faces.map(plan.kindOf)
-  const kind = COVERAGE_KINDS.find((each) => kinds.includes(each)) ?? 'open'
-  const said = (text: string, folders: ReadonlyArray<PlanSetupView> = []): FeatureState => {
-    const first = folders[0]
-    const where = !first || first.id === folderId ? '' : ` in ${first.name}`
-    const more = folders.length > 1 ? ` +${folders.length - 1}` : ''
-    return { text: `${text}${where}${more}`, folders: folders.map((folder) => folder.id) }
-  }
+  const kind = kindAmong(faces.map(plan.kindOf))
+  const said = (text: string, folders: ReadonlyArray<PlanSetupView> = []): FeatureState =>
+    stateSaid(text, folders, folderId)
   if (kind === 'ignored') {
     return said(COVERAGE_LABELS.ignored)
   }
@@ -330,27 +379,69 @@ export const stateOf = (
   if (own.length > 0) {
     return said(COVERAGE_LABELS.pinned, own)
   }
-  const around = plan.folders.flatMap((folder) =>
-    rowsOf(folder)
-      .filter((row) => coversAll(regionsOf(row.tag), faces))
-      .map((row) => ({ folder, row })),
-  )
-  if (around.length > 0) {
-    const folders = [...new Set(around.map((each) => each.folder))]
-    const { row } = around[0]!
+  const around = pinCovering(plan.folders, faces, regionsOf)
+  if (around) {
     // Another way's reading of the same faces is where they were; a larger feature, what they were part of.
-    return regionsOf(row.tag).length === faces.length
-      ? said(COVERAGE_LABELS.pinned, folders)
-      : said(`Part of ${row.label}`, folders)
+    return regionsOf(around.row.tag).length === faces.length
+      ? said(COVERAGE_LABELS.pinned, around.folders)
+      : said(`Part of ${around.row.label}`, around.folders)
   }
-  const shared = plan.folders.filter((folder) =>
-    rowsOf(folder).some((row) => regionsOf(row.tag).some((region) => faces.includes(region))),
-  )
+  const shared = foldersSharing(plan.folders, faces, regionsOf)
   if (shared.length > 0 && kind === 'pinned') {
     return said(COVERAGE_LABELS.pinned, shared)
   }
   return said(COVERAGE_LABELS[kind])
 }
+
+/** What a feature's faces say it is: the first kind of `COVERAGE_KINDS` among theirs, else Open. */
+const kindAmong = (kinds: ReadonlyArray<CoverageKind>): CoverageKind =>
+  COVERAGE_KINDS.find((each) => kinds.includes(each)) ?? 'open'
+
+/**
+ * A state in words, from the open folder (`folderId`): the first folder named where it is not the
+ * open one, and how many more.
+ */
+const stateSaid = (
+  text: string,
+  folders: ReadonlyArray<PlanSetupView>,
+  folderId: string,
+): FeatureState => {
+  const first = folders[0]
+  const where = !first || first.id === folderId ? '' : ` in ${first.name}`
+  const more = folders.length > 1 ? ` +${folders.length - 1}` : ''
+  return { text: `${text}${where}${more}`, folders: folders.map((folder) => folder.id) }
+}
+
+/**
+ * The first pinned row whose faces include all of `faces` — the same faces read another way, or a
+ * larger feature — and every folder listing such a row, in tree order; none where no row does.
+ */
+const pinCovering = (
+  folders: ReadonlyArray<PlanSetupView>,
+  faces: ReadonlyArray<number>,
+  regionsOf: (tag: string) => ReadonlyArray<number>,
+): { row: PlanFeatureRow; folders: Array<PlanSetupView> } | undefined => {
+  const around = folders.flatMap((folder) =>
+    rowsOf(folder)
+      .filter((row) => coversAll(regionsOf(row.tag), faces))
+      .map((row) => ({ folder, row })),
+  )
+  const first = around[0]
+  if (!first) {
+    return undefined
+  }
+  return { row: first.row, folders: [...new Set(around.map((each) => each.folder))] }
+}
+
+/** The folders listing a row that shares any of `faces`. */
+const foldersSharing = (
+  folders: ReadonlyArray<PlanSetupView>,
+  faces: ReadonlyArray<number>,
+  regionsOf: (tag: string) => ReadonlyArray<number>,
+): Array<PlanSetupView> =>
+  folders.filter((folder) =>
+    rowsOf(folder).some((row) => regionsOf(row.tag).some((region) => faces.includes(region))),
+  )
 
 /** A feature read from the open folder's direction, as its Pin features read it. */
 export interface FolderFeature {

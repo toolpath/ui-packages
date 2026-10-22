@@ -168,12 +168,160 @@ export const canRedo = (
   rules: Pick<SessionRules<Constraints>, 'locked'> = {},
 ): boolean => !rules.locked && session.future.length > 0
 
+/**
+ * The session after `event`: the one function that moves it on. It answers the session as it was
+ * when the event changes nothing, so React draws nothing new. A refused action changes no draft and
+ * says why in `refused`.
+ *
+ * ```ts
+ * const [session, send] = useReducer(
+ *   (now: PlanSession<Draft>, event: SessionEvent<Draft>) => planSession(now, event, rules),
+ *   saved,
+ *   startSession,
+ * )
+ * ```
+ */
+export const planSession = <D extends Constraints>(
+  session: PlanSession<D>,
+  event: SessionEvent<D>,
+  rules: SessionRules<D>,
+): PlanSession<D> => {
+  const same = sameOf(rules)
+  if (rules.locked && EDITS.includes(event.type)) {
+    return session
+  }
+  const settled = settle(session)
+  // Only untyped code, or a stored event, names a type not on the list: it changes nothing.
+  if (!Object.hasOwn(TAKE, event.type)) {
+    return settled
+  }
+  // Each type's function takes that type's event; TypeScript can't pair them through the lookup.
+  const take = TAKE[event.type] as Take<SessionEventType>
+  return take({ session, settled, rules, same }, event)
+}
+
+/** The session with the last action's notes — `refused`, `folderId`, `facts` — cleared. */
+const settle = <D extends Constraints>(session: PlanSession<D>): PlanSession<D> =>
+  session.refused === null && session.folderId === null && session.facts === null
+    ? session
+    : { ...session, refused: null, folderId: null, facts: null }
+
+type SessionEventType = SessionEvent<Constraints>['type']
+
+type EventOf<D extends Constraints, K extends SessionEventType> = Extract<
+  SessionEvent<D>,
+  { type: K }
+>
+
+/**
+ * What an event is taken into: the session as it was, the same with the last action's notes
+ * cleared (`settle`), the rules, and how two drafts are compared.
+ */
+interface Taking<D extends Constraints> {
+  session: PlanSession<D>
+  settled: PlanSession<D>
+  rules: SessionRules<D>
+  same: (a: D, b: D) => boolean
+}
+
+/** How one type of event moves a session on. */
+type Take<K extends SessionEventType> = <D extends Constraints>(
+  taking: Taking<D>,
+  event: EventOf<D, K>,
+) => PlanSession<D>
+
+/** A plan action on the draft as it is now: one step, or why it was refused. */
+const takeAct = <D extends Constraints>(
+  { session, settled, rules, same }: Taking<D>,
+  event: EventOf<D, 'act'>,
+): PlanSession<D> => {
+  const result = applyDraftAction(session.draft, event.action, rules, session.saved)
+  if ('refused' in result) {
+    return { ...settled, refused: result.refused }
+  }
+  const next = step(settled, result.draft, event.coalesce, same)
+  return { ...next, folderId: result.folderId ?? null, facts: result.facts }
+}
+
+/** The app's own fields as one step, any constraint the edit answers passed over. */
+const takeEdit = <D extends Constraints>(
+  { session, settled, same }: Taking<D>,
+  event: EventOf<D, 'edit'>,
+): PlanSession<D> => {
+  const fields = fieldsOnly(event.change(session.draft))
+  return step(settled, { ...session.draft, ...fields }, event.coalesce, same)
+}
+
+/** The draft back as applied: one step. */
+const takeDiscard = <D extends Constraints>({
+  session,
+  settled,
+  same,
+}: Taking<D>): PlanSession<D> => step(settled, session.saved, undefined, same)
+
+/** One step back, where there is one. */
+const takeUndo = <D extends Constraints>({ session, settled }: Taking<D>): PlanSession<D> => {
+  const back = session.past.at(-1)
+  if (back === undefined) {
+    return settled
+  }
+  return {
+    ...settled,
+    draft: back,
+    past: session.past.slice(0, -1),
+    future: [session.draft, ...session.future],
+    run: null,
+  }
+}
+
+/** One step forward, where there is one. */
+const takeRedo = <D extends Constraints>({ session, settled }: Taking<D>): PlanSession<D> => {
+  const [forward, ...rest] = session.future
+  if (forward === undefined) {
+    return settled
+  }
+  return {
+    ...settled,
+    draft: forward,
+    past: [...session.past, session.draft],
+    future: rest,
+    run: null,
+  }
+}
+
+/** The draft sent as the draft as applied now, unless an Apply since moved on. */
+const takeApplied = <D extends Constraints>(
+  { session, settled }: Taking<D>,
+  event: EventOf<D, 'applied'>,
+): PlanSession<D> => {
+  if (older(session, event.version)) {
+    return settled
+  }
+  return { ...settled, saved: event.sent, run: null, version: event.version ?? session.version }
+}
+
+/** The draft as applied, read again: the draft follows it, or the edits held move onto it. */
+const takeRead = <D extends Constraints>(
+  { session, settled, rules, same }: Taking<D>,
+  event: EventOf<D, 'read'>,
+): PlanSession<D> => {
+  if (older(session, event.version)) {
+    return settled
+  }
+  const held = !same(session.draft, session.saved)
+  const rebase = rules.rebase ?? followSaved
+  return {
+    ...settled,
+    saved: event.saved,
+    draft: held ? rebase(session.draft, session.saved, event.saved) : event.saved,
+    run: null,
+    version: event.version ?? session.version,
+  }
+}
+
 /** Whether a save `version` is older than the one the session has. */
 const older = (session: PlanSession<Constraints>, version: number | undefined): boolean =>
   version !== undefined && session.version !== null && version < session.version
-
-/** A value no event type names — from untyped code, or stored: it changes nothing. */
-const unknownEvent = <S>(_event: never, session: S): S => session
 
 /** `next` as the draft: one step Undo takes back, or part of the run `coalesce` names. */
 const step = <D extends Constraints>(
@@ -201,90 +349,13 @@ const step = <D extends Constraints>(
   }
 }
 
-/**
- * The session after `event`: the one function that moves it on. It answers the session as it was
- * when the event changes nothing, so React draws nothing new. A refused action changes no draft and
- * says why in `refused`.
- *
- * ```ts
- * const [session, send] = useReducer(
- *   (now: PlanSession<Draft>, event: SessionEvent<Draft>) => planSession(now, event, rules),
- *   saved,
- *   startSession,
- * )
- * ```
- */
-export const planSession = <D extends Constraints>(
-  session: PlanSession<D>,
-  event: SessionEvent<D>,
-  rules: SessionRules<D>,
-): PlanSession<D> => {
-  const same = sameOf(rules)
-  if (rules.locked && EDITS.includes(event.type)) {
-    return session
-  }
-  const settled =
-    session.refused === null && session.folderId === null && session.facts === null
-      ? session
-      : { ...session, refused: null, folderId: null, facts: null }
-  switch (event.type) {
-    case 'act': {
-      const result = applyDraftAction(session.draft, event.action, rules, session.saved)
-      if ('refused' in result) {
-        return { ...settled, refused: result.refused }
-      }
-      const next = step(settled, result.draft, event.coalesce, same)
-      return { ...next, folderId: result.folderId ?? null, facts: result.facts }
-    }
-    case 'edit': {
-      const fields = fieldsOnly(event.change(session.draft))
-      return step(settled, { ...session.draft, ...fields }, event.coalesce, same)
-    }
-    case 'discard':
-      return step(settled, session.saved, undefined, same)
-    case 'undo': {
-      const back = session.past.at(-1)
-      return back === undefined
-        ? settled
-        : {
-            ...settled,
-            draft: back,
-            past: session.past.slice(0, -1),
-            future: [session.draft, ...session.future],
-            run: null,
-          }
-    }
-    case 'redo': {
-      const [forward, ...rest] = session.future
-      return forward === undefined
-        ? settled
-        : {
-            ...settled,
-            draft: forward,
-            past: [...session.past, session.draft],
-            future: rest,
-            run: null,
-          }
-    }
-    case 'applied':
-      return older(session, event.version)
-        ? settled
-        : { ...settled, saved: event.sent, run: null, version: event.version ?? session.version }
-    case 'read': {
-      if (older(session, event.version)) {
-        return settled
-      }
-      const held = !same(session.draft, session.saved)
-      const rebase = rules.rebase ?? followSaved
-      return {
-        ...settled,
-        saved: event.saved,
-        draft: held ? rebase(session.draft, session.saved, event.saved) : event.saved,
-        run: null,
-        version: event.version ?? session.version,
-      }
-    }
-    default:
-      return unknownEvent(event, settled)
-  }
+/** How each type of event moves a session on. */
+const TAKE: { readonly [K in SessionEventType]: Take<K> } = {
+  act: takeAct,
+  edit: takeEdit,
+  undo: takeUndo,
+  redo: takeRedo,
+  discard: takeDiscard,
+  applied: takeApplied,
+  read: takeRead,
 }

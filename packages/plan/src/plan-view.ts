@@ -1,5 +1,11 @@
 import { tagKey, type Coverage, type Face } from './coverage'
-import { featureTypeLabel, notMachinedOf, type EnginePlan, type PlanDirection } from './engine-plan'
+import {
+  featureTypeLabel,
+  notMachinedOf,
+  type EnginePlan,
+  type EnginePlanSetup,
+  type PlanDirection,
+} from './engine-plan'
 import { notFinishedIn } from './not-machined'
 import { placedFolders, sameDirection, type Constraints, type PlacedFolder } from './plan-draft'
 
@@ -78,63 +84,97 @@ const boreKey = (bore: FeatureBore): string => bore.diameter.toFixed(4)
  * pinned, each row in its pinned order — and a hole type's rows grouped again by bore, smallest
  * first, any with no bore read yet after them. A row of no type read yet is under Other.
  */
-export const featureGroups = (rows: ReadonlyArray<PlanFeatureRow>): Array<FeatureGroupView> => {
+export const featureGroups = (rows: ReadonlyArray<PlanFeatureRow>): Array<FeatureGroupView> =>
+  [...rowsByType(rows)].map(([key, members]) => typeGroup(key, members))
+
+/** Rows by their type (`''` for none read yet): each type in the order first met, its rows in theirs. */
+const rowsByType = (rows: ReadonlyArray<PlanFeatureRow>): Map<string, Array<PlanFeatureRow>> => {
   const byType = new Map<string, Array<PlanFeatureRow>>()
   for (const row of rows) {
     const key = row.type ?? ''
     byType.set(key, [...(byType.get(key) ?? []), row])
   }
-  return [...byType].map(([key, members]) => {
-    const type = key || undefined
-    const label = featureTypePlural(type)
-    if (!isHoleType(type)) {
-      return {
-        key: `t:${key}`,
-        level: 'type',
-        type,
-        label,
-        rows: members,
-        groups: [],
-        tags: members.map((r) => r.tag),
-      }
-    }
-    const byBore = new Map<string, { bore: FeatureBore; rows: Array<PlanFeatureRow> }>()
-    const unread: Array<PlanFeatureRow> = []
-    for (const row of members) {
-      if (!row.bore) {
-        unread.push(row)
-        continue
-      }
-      const at = byBore.get(boreKey(row.bore))
-      if (at) {
-        at.rows.push(row)
-      } else {
-        byBore.set(boreKey(row.bore), { bore: row.bore, rows: [row] })
-      }
-    }
-    const groups = [...byBore]
-      .sort(([, a], [, b]) => a.bore.diameter - b.bore.diameter)
-      .map(
-        ([bore, at]): FeatureGroupView => ({
-          key: `t:${key}:${bore}`,
-          level: 'bore',
-          type,
-          label: at.bore.label,
-          rows: at.rows,
-          groups: [],
-          tags: at.rows.map((r) => r.tag),
-        }),
-      )
+  return byType
+}
+
+/** Every tag of these rows, in their order. */
+const tagsOf = (rows: ReadonlyArray<PlanFeatureRow>): Array<string> => rows.map((r) => r.tag)
+
+/** One feature type's group, keyed by `key` (its type, or `''`): a hole type's grouped again by bore. */
+const typeGroup = (key: string, members: Array<PlanFeatureRow>): FeatureGroupView => {
+  const type = key || undefined
+  const label = featureTypePlural(type)
+  if (!isHoleType(type)) {
     return {
       key: `t:${key}`,
       level: 'type',
       type,
       label,
-      rows: unread,
-      groups,
-      tags: [...groups.flatMap((group) => group.tags), ...unread.map((r) => r.tag)],
+      rows: members,
+      groups: [],
+      tags: tagsOf(members),
     }
-  })
+  }
+  const unread = members.filter((row) => !hasBore(row))
+  // A hole type is never `''`: its key is its type.
+  const groups = boreGroups(key, members)
+  return {
+    key: `t:${key}`,
+    level: 'type',
+    type,
+    label,
+    rows: unread,
+    groups,
+    tags: [...groups.flatMap((group) => group.tags), ...tagsOf(unread)],
+  }
+}
+
+/** A hole type's rows with a bore read, one group per bore, smallest first. */
+const boreGroups = (
+  type: string,
+  members: ReadonlyArray<PlanFeatureRow>,
+): Array<FeatureGroupView> =>
+  [...rowsByBore(members)]
+    .sort(([, a], [, b]) => a.bore.diameter - b.bore.diameter)
+    .map(
+      ([bore, at]): FeatureGroupView => ({
+        key: `t:${type}:${bore}`,
+        level: 'bore',
+        type,
+        label: at.bore.label,
+        rows: at.rows,
+        groups: [],
+        tags: tagsOf(at.rows),
+      }),
+    )
+
+/** A row whose bore has been read. */
+type BoredRow = PlanFeatureRow & { bore: FeatureBore }
+
+/** Whether a row's bore has been read. */
+const hasBore = (row: PlanFeatureRow): row is BoredRow => Boolean(row.bore)
+
+/** One bore of a hole type, and its rows. */
+interface BoreRows {
+  bore: FeatureBore
+  rows: Array<PlanFeatureRow>
+}
+
+/** The rows with a bore read, by `boreKey`: each bore as first met, its rows in their order. */
+const rowsByBore = (rows: ReadonlyArray<PlanFeatureRow>): Map<string, BoreRows> => {
+  const byBore = new Map<string, BoreRows>()
+  for (const row of rows) {
+    if (!hasBore(row)) {
+      continue
+    }
+    const at = byBore.get(boreKey(row.bore))
+    if (at) {
+      at.rows.push(row)
+    } else {
+      byBore.set(boreKey(row.bore), { bore: row.bore, rows: [row] })
+    }
+  }
+  return byBore
 }
 
 /** One direction of a setup — the way the tool points — with the features cut from it. */
@@ -260,37 +300,65 @@ const unique = (tags: Iterable<string>): Array<string> => [...new Set(tags)]
 export const planView = (
   plan: Pick<EnginePlan, 'setups' | 'setupPlan'>,
   part: PlanPart,
-): Array<PlannedSetupView> => {
+): Array<PlannedSetupView> =>
+  plan.setups.map((setup, index) =>
+    plannedSetupView(setup, index, plannedDirections(plan, setup, index), part),
+  )
+
+/** One direction a planned setup is machined from, and the tags it takes. */
+interface PlannedDirection {
+  direction: PlanDirection
+  tags: Array<string>
+}
+
+/**
+ * The directions of the plan's setup at `index`: as the plan states them, or — with no statement —
+ * the setup's first direction, taking every tag its actions cut.
+ */
+const plannedDirections = (
+  plan: Pick<EnginePlan, 'setupPlan'>,
+  setup: EnginePlanSetup,
+  index: number,
+): Array<PlannedDirection> => {
+  const stated = plan.setupPlan?.setups[index]?.orientations
+  if (stated) {
+    return stated.map((orientation) => ({
+      direction: orientation.direction,
+      tags: unique(orientation.features),
+    }))
+  }
+  if (!setup.direction) {
+    return []
+  }
+  return [
+    {
+      direction: setup.direction,
+      tags: unique(setup.actions.flatMap((action) => action.featureTags)),
+    },
+  ]
+}
+
+/** A setup of the plan, `index` in machining order, as the tree shows it. */
+const plannedSetupView = (
+  setup: EnginePlanSetup,
+  index: number,
+  directions: ReadonlyArray<PlannedDirection>,
+  part: PlanPart,
+): PlannedSetupView => {
   const row = (tag: string): PlanFeatureRow => featureRow(part, tag)
-  return plan.setups.map((setup, index) => {
-    const stated = plan.setupPlan?.setups[index]?.orientations
-    const orientations = stated
-      ? stated.map((orientation) => ({
-          direction: orientation.direction,
-          tags: unique(orientation.features),
-        }))
-      : setup.direction
-        ? [
-            {
-              direction: setup.direction,
-              tags: unique(setup.actions.flatMap((action) => action.featureTags)),
-            },
-          ]
-        : []
-    return flatView({
-      id: `setup-${setup.idx}`,
-      name: `Setup ${index + 1}`,
-      process: orientations.length > 1 ? '3+2' : '3axis',
-      orientations: orientations.map(({ direction, tags }, at) => ({
-        id: `setup-${setup.idx}-${at}`,
-        direction,
-        directionIndex: part.directionIndex(direction),
-        features: tags.map(row),
-      })),
-      notMachined: unique(notMachinedOf(setup)).map(row),
-      notFinished: notFinishedIn(setup),
-      operations: setup.actions.length,
-    })
+  return flatView({
+    id: `setup-${setup.idx}`,
+    name: `Setup ${index + 1}`,
+    process: directions.length > 1 ? '3+2' : '3axis',
+    orientations: directions.map(({ direction, tags }, at) => ({
+      id: `setup-${setup.idx}-${at}`,
+      direction,
+      directionIndex: part.directionIndex(direction),
+      features: tags.map(row),
+    })),
+    notMachined: unique(notMachinedOf(setup)).map(row),
+    notFinished: notFinishedIn(setup),
+    operations: setup.actions.length,
   })
 }
 
@@ -350,33 +418,55 @@ interface PlanPaintInput {
   everyFolder?: boolean
 }
 
+/** A folder's direction listing a feature: its colour, and whether it is the open folder's own. */
+interface OwnerRow {
+  color: number
+  selected: boolean
+}
+
 /** The folder rows of a face's owners, each in its folder's colour, and whether the folder is open. */
 const folderRows = ({ setups, openId, colorOf }: PlanPaintInput) => {
   const folders = allFolders(setups)
-  /*
-    An open folder's direction is the one selected: what is in it, or in the folders inside it, from
-    that direction. A tilt inside it, or another way a 3+2 setup turns to, is another direction —
-    read as the other folders are.
-  */
   const open = folders.find((folder) => folder.id === openId)
-  const inOpen = new Set(open ? allFolders([open]) : [])
-  const way = open?.orientations[0]?.direction
-  // Each feature's rows: the folder and direction listing it, in its colour.
-  const rows = new Map<string, Array<{ color: number; selected: boolean }>>()
-  for (const folder of folders) {
-    for (const orientation of folder.orientations) {
-      const selected =
-        inOpen.has(folder) && way !== undefined && sameDirection(orientation.direction, way)
-      for (const feature of orientation.features) {
-        const key = tagKey(feature.tag)
-        rows.set(key, [...(rows.get(key) ?? []), { color: colorOf(orientation), selected }])
-      }
-    }
-  }
+  const rows = ownerRowsByTag(folders, colorOf, selectedIn(open))
   return {
     open,
     rowsOf: (face: Face) => face.owners.flatMap((tag) => rows.get(tagKey(tag)) ?? []),
   }
+}
+
+/**
+ * Whether a folder's direction is the one selected. An open folder's direction is: what is in it, or
+ * in the folders inside it, from that direction. A tilt inside it, or another way a 3+2 setup turns
+ * to, is another direction — read as the other folders are. With no folder open, none is.
+ */
+const selectedIn = (
+  open: PlanSetupView | undefined,
+): ((folder: PlanSetupView, orientation: PlanOrientationView) => boolean) => {
+  const inOpen = new Set(open ? allFolders([open]) : [])
+  const way = open?.orientations[0]?.direction
+  return (folder, orientation) =>
+    inOpen.has(folder) && way !== undefined && sameDirection(orientation.direction, way)
+}
+
+/** Each feature's rows, by its tag's key: the folder and direction listing it, in its colour. */
+const ownerRowsByTag = (
+  folders: ReadonlyArray<PlanSetupView>,
+  colorOf: (orientation: PlanOrientationView) => number,
+  isSelected: (folder: PlanSetupView, orientation: PlanOrientationView) => boolean,
+): Map<string, Array<OwnerRow>> => {
+  const rows = new Map<string, Array<OwnerRow>>()
+  const orientations = folders.flatMap((folder) =>
+    folder.orientations.map((orientation) => ({ folder, orientation })),
+  )
+  for (const { folder, orientation } of orientations) {
+    const selected = isSelected(folder, orientation)
+    for (const feature of orientation.features) {
+      const key = tagKey(feature.tag)
+      rows.set(key, [...(rows.get(key) ?? []), { color: colorOf(orientation), selected }])
+    }
+  }
+  return rows
 }
 
 /**
@@ -399,42 +489,45 @@ export const planPaint = ({
 }): Array<FacePaint> => {
   const { faces, everyFolder = true } = input
   const { open, rowsOf } = folderRows(input)
-  /**
-   * A face's paint from the rows of its owners: the selected direction's first, in its colour; with
-   * no folder open, the first met; with one open, gray where only other directions take it.
-   */
-  const fromFolder = (face: Face): Array<FacePaint> => {
-    const own = rowsOf(face)
-    const row = own.find((each) => each.selected) ?? own[0]
-    if (!row) {
-      return []
-    }
-    if (!open) {
-      return everyFolder ? [{ region: face.region, color: row.color, weight: PART_WEIGHT }] : []
-    }
-    if (row.selected) {
-      return [{ region: face.region, color: row.color, weight: OPEN_WEIGHT }]
-    }
-    return everyFolder
-      ? [{ region: face.region, color: OTHER_FOLDER_COLOR, weight: OTHER_FOLDER_WEIGHT }]
-      : []
-  }
+  const showing = { folderOpen: open !== undefined, everyFolder }
+  const fromFolder = (face: Face): Array<FacePaint> => folderPaint(face, rowsOf(face), showing)
   return [
     ...faces.pinned.flatMap(fromFolder),
     ...faces.machined.flatMap(fromFolder),
-    ...faces.ignored.map((face) => ({
-      region: face.region,
-      color: DONE_COLOR,
-      weight: IGNORED_WEIGHT,
-    })),
+    ...faces.ignored.map((face) => facePaint(face, DONE_COLOR, IGNORED_WEIGHT)),
     ...(uncovered
-      ? faces.notMachined.map((face) => ({
-          region: face.region,
-          color: UNMACHINED_FACE_COLOR,
-          weight: NOT_MACHINED_WEIGHT,
-        }))
+      ? faces.notMachined.map((face) => facePaint(face, UNMACHINED_FACE_COLOR, NOT_MACHINED_WEIGHT))
       : []),
   ]
+}
+
+/** One face in one colour, this strongly. */
+const facePaint = (face: Face, color: number, weight: number): FacePaint => ({
+  region: face.region,
+  color,
+  weight,
+})
+
+/**
+ * A face's paint from the rows of its owners (`own`): the selected direction's first, in its colour;
+ * with no folder open, the first met; with one open, gray where only other directions take it.
+ */
+const folderPaint = (
+  face: Face,
+  own: ReadonlyArray<OwnerRow>,
+  { folderOpen, everyFolder }: { folderOpen: boolean; everyFolder: boolean },
+): Array<FacePaint> => {
+  const row = own.find((each) => each.selected) ?? own[0]
+  if (!row) {
+    return []
+  }
+  if (!folderOpen) {
+    return everyFolder ? [facePaint(face, row.color, PART_WEIGHT)] : []
+  }
+  if (row.selected) {
+    return [facePaint(face, row.color, OPEN_WEIGHT)]
+  }
+  return everyFolder ? [facePaint(face, OTHER_FOLDER_COLOR, OTHER_FOLDER_WEIGHT)] : []
 }
 
 /** Diagonal lines across one face, in one colour: the viewer canvas's `RegionHatch`. */

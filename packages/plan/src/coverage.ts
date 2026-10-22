@@ -101,12 +101,7 @@ export interface ResultsCoverage extends ClassifiedPart {
  */
 export const classifyFaces = (input: ConstraintsCoverage | ResultsCoverage): Coverage => {
   const { regions, features, ignored = [] } = input
-  const owners = new Map<number, Array<string>>()
-  for (const feature of features) {
-    for (const region of feature.regionIdxs ?? []) {
-      owners.set(region, [...(owners.get(region) ?? []), feature.tag])
-    }
-  }
+  const owners = ownersByRegion(features)
   const ignoredSet = new Set(ignored)
   const faces: Coverage['faces'] = {
     pinned: [],
@@ -117,23 +112,40 @@ export const classifyFaces = (input: ConstraintsCoverage | ResultsCoverage): Cov
   }
   for (const region of regions) {
     const face = { region: region.idx, area: region.area, owners: owners.get(region.idx) ?? [] }
-    const any = (tags: ReadonlySet<string>) =>
-      face.owners.some((tag) => tags.has(tag.toLowerCase()))
-    const kind: CoverageKind = ignoredSet.has(face.region)
-      ? 'ignored'
-      : input.pinned !== undefined
-        ? any(input.pinned)
-          ? 'pinned'
-          : 'open'
-        : any(input.machined)
-          ? 'machined'
-          : 'notMachined'
-    faces[kind].push(face)
+    faces[kindOf(face, ignoredSet, input)].push(face)
   }
   for (const kind of COVERAGE_KINDS) {
     faces[kind].sort((a, b) => b.area - a.area)
   }
   return { total: areaOf(regions), faces }
+}
+
+/** The tags of the features that include each region, in feature order. */
+const ownersByRegion = (features: ReadonlyArray<CoverageFeature>): Map<number, Array<string>> => {
+  const owners = new Map<number, Array<string>>()
+  for (const feature of features) {
+    for (const region of feature.regionIdxs ?? []) {
+      owners.set(region, [...(owners.get(region) ?? []), feature.tag])
+    }
+  }
+  return owners
+}
+
+/** Who machines one face: ignored first, then by the view's pins or Toolpath's plan. */
+const kindOf = (
+  face: Face,
+  ignored: ReadonlySet<number>,
+  input: ConstraintsCoverage | ResultsCoverage,
+): CoverageKind => {
+  if (ignored.has(face.region)) {
+    return 'ignored'
+  }
+  const ownedBy = (tags: ReadonlySet<string>) =>
+    face.owners.some((tag) => tags.has(tag.toLowerCase()))
+  if (input.pinned !== undefined) {
+    return ownedBy(input.pinned) ? 'pinned' : 'open'
+  }
+  return ownedBy(input.machined) ? 'machined' : 'notMachined'
 }
 
 /** Faces gathered under the one feature that would machine them all: a row of a Not machined list. */
@@ -171,19 +183,60 @@ export const groupFaces = (
   features: ReadonlyArray<CoverageFeature>,
 ): Array<FaceGroup> => {
   const byTag = new Map(features.map((feature) => [feature.tag.toLowerCase(), feature]))
-  // Each known feature's faces, and how many of them are still ungathered.
+  const { groups, taken } = gatherUnderFeatures(facesOfFeatures(faces, byTag), byTag)
+  const alone = faces
+    .filter((face) => !taken.has(face.region))
+    .map((face): FaceGroup => ({ tag: null, faces: [face], area: face.area }))
+  return [...groups, ...alone].sort(
+    (a, b) => Number(a.tag === null) - Number(b.tag === null) || b.area - a.area,
+  )
+}
+
+/** Features by tag in lower case. */
+type FeaturesByTag = ReadonlyMap<string, CoverageFeature>
+
+/** Each known feature's faces, by its tag as the faces spell it. */
+const facesOfFeatures = (
+  faces: ReadonlyArray<Face>,
+  byTag: FeaturesByTag,
+): Map<string, Array<Face>> => {
   const includes = new Map<string, Array<Face>>()
   for (const face of faces) {
-    for (const tag of new Set(face.owners)) {
-      if (byTag.has(tag.toLowerCase())) {
-        includes.set(tag, [...(includes.get(tag) ?? []), face])
-      }
+    const known = [...new Set(face.owners)].filter((tag) => byTag.has(tag.toLowerCase()))
+    for (const tag of known) {
+      includes.set(tag, [...(includes.get(tag) ?? []), face])
     }
   }
+  return includes
+}
+
+/** The greedy gathering: a group per feature taken, in the order taken, and the faces it took. */
+const gatherUnderFeatures = (
+  includes: ReadonlyMap<string, ReadonlyArray<Face>>,
+  byTag: FeaturesByTag,
+): { groups: Array<FaceGroup>; taken: Set<number> } => {
+  // How many of each feature's faces are still ungathered.
   const left = new Map([...includes].map(([tag, all]) => [tag, all.length]))
+  const before = gathersBefore(byTag, left)
   const taken = new Set<number>()
-  /** Whether `a` gathers before `b`: not a profile, more faces, more specific, smaller, by tag. */
-  const before = (a: string, b: string): boolean => {
+  const groups: Array<FaceGroup> = []
+  let best = nextToGather(left, before)
+  while (best !== null) {
+    const gathered = includes.get(best)!.filter((face) => !taken.has(face.region))
+    markGathered(gathered, taken, left)
+    groups.push({ tag: best, faces: gathered, area: areaOf(gathered) })
+    best = nextToGather(left, before)
+  }
+  return { groups, taken }
+}
+
+/**
+ * Whether `a` gathers before `b`: not a profile, more faces, more specific, smaller, by tag. Reads
+ * `left` as it stands when asked.
+ */
+const gathersBefore =
+  (byTag: FeaturesByTag, left: ReadonlyMap<string, number>) =>
+  (a: string, b: string): boolean => {
     const [fa, fb] = [byTag.get(a.toLowerCase())!, byTag.get(b.toLowerCase())!]
     return (
       (Number(isFallback(fa.featureType)) - Number(isFallback(fb.featureType)) ||
@@ -193,32 +246,39 @@ export const groupFaces = (
         a.localeCompare(b)) < 0
     )
   }
-  const groups: Array<FaceGroup> = []
-  for (;;) {
-    let best: string | null = null
-    for (const [tag, count] of left) {
-      if (count > 0 && (best === null || before(tag, best))) {
-        best = tag
-      }
-    }
-    if (best === null) {
-      break
-    }
-    const gathered = includes.get(best)!.filter((face) => !taken.has(face.region))
-    for (const face of gathered) {
-      taken.add(face.region)
-      for (const tag of new Set(face.owners)) {
-        if (left.has(tag)) {
-          left.set(tag, left.get(tag)! - 1)
-        }
-      }
-    }
-    groups.push({ tag: best, faces: gathered, area: areaOf(gathered) })
-  }
-  for (const face of faces) {
-    if (!taken.has(face.region)) {
-      groups.push({ tag: null, faces: [face], area: face.area })
+
+/** The feature with faces left that gathers before every other, or null with none left. */
+const nextToGather = (
+  left: ReadonlyMap<string, number>,
+  before: (a: string, b: string) => boolean,
+): string | null => {
+  let best: string | null = null
+  for (const [tag, count] of left) {
+    if (count > 0 && (best === null || before(tag, best))) {
+      best = tag
     }
   }
-  return groups.sort((a, b) => Number(a.tag === null) - Number(b.tag === null) || b.area - a.area)
+  return best
+}
+
+/** Faces taken: each one's region marked, and one fewer left for every feature including it. */
+const markGathered = (
+  gathered: ReadonlyArray<Face>,
+  taken: Set<number>,
+  left: Map<string, number>,
+): void => {
+  for (const face of gathered) {
+    taken.add(face.region)
+    for (const tag of new Set(face.owners)) {
+      countDown(left, tag)
+    }
+  }
+}
+
+/** One fewer left for `tag`, where it is counted. */
+const countDown = (left: Map<string, number>, tag: string): void => {
+  const count = left.get(tag)
+  if (count !== undefined) {
+    left.set(tag, count - 1)
+  }
 }

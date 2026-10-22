@@ -371,6 +371,7 @@ describe('applyDraftAction', () => {
   it('refuses what is not an action instead of throwing', () => {
     const not = { refused: 'That is not a plan action.' }
     expect(apply({ kind: 'teleport' } as unknown as DraftAction)).toEqual(not)
+    expect(apply({ kind: 'toString' } as unknown as DraftAction)).toEqual(not)
     expect(apply(null as unknown as DraftAction)).toEqual(not)
     expect(apply({ kind: 'ignore' } as unknown as DraftAction)).toEqual(not)
     expect(apply({ kind: 'remove' } as unknown as DraftAction)).toEqual(not)

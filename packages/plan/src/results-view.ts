@@ -1,5 +1,5 @@
-import type { EnginePlan } from './engine-plan'
-import { framesOf, sameDirection, type Constraints } from './plan-draft'
+import type { EnginePlan, EnginePlanSetup } from './engine-plan'
+import { framesOf, sameDirection, type Constraints, type Frame } from './plan-draft'
 import { planView, type PlanFeatureRow, type PlanPart, type PlannedSetupView } from './plan-view'
 
 /*
@@ -58,60 +58,110 @@ export const resultsView = ({
     return EMPTY
   }
   const frames = framesOf(constraints?.setups ?? [])
-  const nameOf = (frame: (typeof frames)[number]): string => {
-    const hold = frame.id === frame.holdId ? null : frames.find((each) => each.id === frame.holdId)
-    return hold ? `${hold.name} › ${frame.name}` : frame.name
-  }
-  const matched = new Set<string>()
-  const setups = planView(plan, part).map((view, idx): ResultsSetupView => {
-    const setup = plan.setups[idx]!
-    // Every frame facing a way the setup is cut from: a stated 3+2 setup comes back as one setup
-    // with its tilts among its orientations, so its tilt frames are matched here too.
-    const facing = view.orientations.flatMap((orientation) => {
-      const frame = frames.find((each) => sameDirection(each.direction, orientation.direction))
-      return frame ? [frame] : []
-    })
-    for (const frame of facing) {
-      matched.add(frame.id)
-    }
-    const frame = facing[0]
-    const notFinished = new Set(view.notFinished.map((tag) => tag.toLowerCase()))
-    const notMachined = new Set(view.notMachined.map((row) => row.tag.toLowerCase()))
-    const row = (feature: PlanFeatureRow): ResultsFeatureRow => {
-      const key = feature.tag.toLowerCase()
-      const cuts = (action: { featureTags?: ReadonlyArray<string> | null }) =>
-        (action.featureTags ?? []).some((tag) => tag.toLowerCase() === key)
-      const tools = [...new Set(setup.actions.filter(cuts).map((action) => action.toolName))]
-      return {
-        ...feature,
-        tool: tools.length > 0 ? tools.join(', ') : null,
-        mark: notFinished.has(key) ? 'notFinished' : notMachined.has(key) ? 'notMachined' : false,
-      }
-    }
-    // Each feature once: a tag two orientations list is the first's row.
-    const listedKeys = new Set<string>()
-    const listed = view.orientations
-      .flatMap((orientation) => orientation.features)
-      .filter((feature) => {
-        const key = feature.tag.toLowerCase()
-        return listedKeys.has(key) ? false : listedKeys.add(key)
-      })
-    // What the setup was meant to machine and no pass cuts, where it is not a row already.
-    const unlisted = view.notMachined.filter((each) => !listedKeys.has(each.tag.toLowerCase()))
-    return {
-      ...view,
-      idx,
-      name: frame ? nameOf(frame) : view.name,
-      rows: [...listed, ...unlisted].map(row),
-      fromFolder: frame?.id ?? null,
-    }
-  })
+  const planned = planView(plan, part).map((view, idx) => ({
+    view,
+    idx,
+    facing: framesFacing(view, frames),
+  }))
+  const matched = new Set(planned.flatMap(({ facing }) => facing.map((frame) => frame.id)))
   return {
-    setups,
+    setups: planned.map((each) => resultsSetup(each, plan.setups[each.idx]!, frames)),
     leftOut: frames
       .filter((frame) => !matched.has(frame.id))
-      .map((frame) => ({ folderId: frame.id, name: nameOf(frame) })),
+      .map((frame) => ({ folderId: frame.id, name: frameName(frame, frames) })),
   }
+}
+
+/** A frame's name, with its setup's where it is a tilt: `Setup 1 › Tilt`. */
+const frameName = (frame: Frame, frames: ReadonlyArray<Frame>): string => {
+  const hold = frame.id === frame.holdId ? null : frames.find((each) => each.id === frame.holdId)
+  return hold ? `${hold.name} › ${frame.name}` : frame.name
+}
+
+/**
+ * Every frame facing a way the setup is cut from: a stated 3+2 setup comes back as one setup with
+ * its tilts among its orientations, so its tilt frames are matched here too.
+ */
+const framesFacing = (view: PlannedSetupView, frames: ReadonlyArray<Frame>): Array<Frame> =>
+  view.orientations.flatMap((orientation) => {
+    const frame = frames.find((each) => sameDirection(each.direction, orientation.direction))
+    return frame ? [frame] : []
+  })
+
+/** A setup of the plan as laid out: its place in the plan, and every frame facing it. */
+interface FacedSetup {
+  view: PlannedSetupView
+  idx: number
+  facing: ReadonlyArray<Frame>
+}
+
+/** One setup of the plan, named by the first frame facing it, with its rows. */
+const resultsSetup = (
+  { view, idx, facing }: FacedSetup,
+  setup: EnginePlanSetup,
+  frames: ReadonlyArray<Frame>,
+): ResultsSetupView => {
+  const frame = facing[0]
+  return {
+    ...view,
+    idx,
+    name: frame ? frameName(frame, frames) : view.name,
+    rows: setupRows(view, setup),
+    fromFolder: frame?.id ?? null,
+  }
+}
+
+/** A setup's rows: each feature it lists once, then what it was meant to machine and lists not. */
+const setupRows = (view: PlannedSetupView, setup: EnginePlanSetup): Array<ResultsFeatureRow> => {
+  const listed = listedOnce(view)
+  const listedKeys = new Set(listed.map((feature) => feature.tag.toLowerCase()))
+  // What the setup was meant to machine and no pass cuts, where it is not a row already.
+  const unlisted = view.notMachined.filter((each) => !listedKeys.has(each.tag.toLowerCase()))
+  const notFinished = new Set(view.notFinished.map((tag) => tag.toLowerCase()))
+  const notMachined = new Set(view.notMachined.map((row) => row.tag.toLowerCase()))
+  return [...listed, ...unlisted].map((feature) => {
+    const key = feature.tag.toLowerCase()
+    return {
+      ...feature,
+      tool: toolsCutting(setup, key),
+      mark: markOf(key, notFinished, notMachined),
+    }
+  })
+}
+
+/** Each feature the setup's orientations list, once: a tag two orientations list is the first's row. */
+const listedOnce = (view: PlannedSetupView): Array<PlanFeatureRow> => {
+  const keys = new Set<string>()
+  return view.orientations
+    .flatMap((orientation) => orientation.features)
+    .filter((feature) => {
+      const key = feature.tag.toLowerCase()
+      if (keys.has(key)) {
+        return false
+      }
+      keys.add(key)
+      return true
+    })
+}
+
+/** The tools whose passes cut a feature, by lowercase tag, each once; null where none does. */
+const toolsCutting = (setup: EnginePlanSetup, key: string): string | null => {
+  const cuts = (action: { featureTags?: ReadonlyArray<string> | null }) =>
+    (action.featureTags ?? []).some((tag) => tag.toLowerCase() === key)
+  const tools = [...new Set(setup.actions.filter(cuts).map((action) => action.toolName))]
+  return tools.length > 0 ? tools.join(', ') : null
+}
+
+/** A row's red mark, by lowercase tag: not finished before not machined. */
+const markOf = (
+  key: string,
+  notFinished: ReadonlySet<string>,
+  notMachined: ReadonlySet<string>,
+): UnmachinedMark => {
+  if (notFinished.has(key)) {
+    return 'notFinished'
+  }
+  return notMachined.has(key) ? 'notMachined' : false
 }
 
 /** The setup a feature is machined in, by tag in any case: the first listing it, or null. */

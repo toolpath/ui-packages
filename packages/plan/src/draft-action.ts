@@ -9,7 +9,6 @@ import {
   foldersFromPlan,
   frameFacing,
   isIndexed,
-  MAX_DEPTH,
   MAX_SETUPS,
   moveFeature,
   moveFolder,
@@ -33,6 +32,7 @@ import {
   type PlanRules,
   type SetupProcess,
 } from './plan-draft'
+import { GONE, MAX_DEPTH, TOO_DEEP } from './refusals'
 
 /*
   Every edit a person can make to a plan, as one closed list (`DraftAction`), carried out by one
@@ -203,8 +203,6 @@ const NO_FACTS: DraftFacts = Object.freeze({
   home: null,
 })
 
-const GONE = 'That folder is gone.'
-const TOO_DEEP = `Folders sit at most ${MAX_DEPTH} below their setup.`
 const TOO_MANY = `A plan holds at most ${MAX_SETUPS} setups.`
 const OTHER_WAY = 'Rows stay in folders cut from their own direction.'
 const TAKEN = 'That id is taken: each folder needs an id of its own.'
@@ -232,7 +230,7 @@ export const applyDraftAction = <T extends Constraints>(
   if (typeof action !== 'object' || action === null) {
     return { refused: NOT_AN_ACTION }
   }
-  const result = carryOut(draft, action, rules, saved)
+  const result = carryOut({ draft, rules, saved }, action)
   if ('refused' in result) {
     return result
   }
@@ -261,6 +259,24 @@ const ignoredIn = (plan: Constraints, rules: Pick<PlanRules, 'kernel'>): Array<n
 type Outcome<T extends Constraints> = Done<T> | { refused: string }
 type Done<T extends Constraints> = { draft: T; folderId?: string; facts?: Partial<DraftFacts> }
 
+/** What an action is carried out on: the draft, how to read the part, and the plan as applied. */
+interface Editing<T extends Constraints> {
+  draft: T
+  rules: PlanRules
+  saved: Constraints | undefined
+}
+
+type ActionOf<K extends DraftActionKind> = Extract<DraftAction, { kind: K }>
+
+/** How one kind of action is carried out. */
+type CarryOut<K extends DraftActionKind> = <T extends Constraints>(
+  editing: Editing<T>,
+  action: ActionOf<K>,
+) => Outcome<T>
+
+/** Where `pinEdit` pins: a folder named, or the folder facing a direction. */
+type PinAt = Parameters<typeof pinEdit>[2]
+
 /** The draft with new constraints, everything else of it as it was. */
 const withConstraints = <T extends Constraints>(
   draft: T,
@@ -268,171 +284,253 @@ const withConstraints = <T extends Constraints>(
   more: Omit<Done<T>, 'draft'> = {},
 ): Done<T> => ({ ...more, draft: { ...draft, ...intent } })
 
-const carryOut = <T extends Constraints>(
+/** The draft with new setups, and the folder to open after it. */
+const withSetups = <T extends Constraints>(
   draft: T,
-  action: DraftAction,
-  rules: PlanRules,
-  saved: Constraints | undefined,
-): Outcome<T> => {
-  const { setups } = draft
-  const exists = (id: string) => findPlaced(setups, id) !== undefined
-  /** Whether any of these ids is in the draft already, or named twice. */
-  const taken = (...ids: Array<string>) => ids.some(exists) || new Set(ids).size < ids.length
-  const withSetups = (next: Array<DraftSetup>, folderId?: string): Outcome<T> =>
-    withConstraints(draft, { ...draft, setups: next }, folderId ? { folderId } : {})
-  const edited = (next: Edited, folderId?: string): Outcome<T> =>
-    Array.isArray(next) ? withSetups(next, folderId) : { refused: next.refused }
-  /** A pin as `pinEdit` makes it, with what it did. */
-  const pinned = (at: Parameters<typeof pinEdit>[2], tag: string): Outcome<T> => {
-    const pin = pinEdit(draft, tag, at, rules)
-    return 'refused' in pin
-      ? pin
-      : withConstraints(draft, pin.intent, {
-          facts: {
-            replaced: pin.replaced,
-            added: pin.added,
-            letGo: pin.unpinned,
-            home: pin.setupId,
-          },
-        })
-  }
+  setups: Array<DraftSetup>,
+  folderId?: string,
+): Done<T> => withConstraints(draft, { ...draft, setups }, folderId ? { folderId } : {})
 
-  switch (action.kind) {
-    case 'addFolder': {
-      const parent = findPlaced(setups, action.parentId)
-      if (!parent) {
-        return { refused: GONE }
-      }
-      if (parent.depth >= MAX_DEPTH) {
-        return { refused: TOO_DEEP }
-      }
-      if (taken(action.id, action.workId)) {
-        return { refused: TAKEN }
-      }
-      return withSetups(addFolder(setups, action.parentId, action.id, action.workId), action.id)
-    }
-    case 'renameFolder':
-      return exists(action.id)
-        ? withSetups(renameFolder(setups, action.id, action.name))
-        : { refused: GONE }
-    case 'remove': {
-      if (!Array.isArray(action.folders)) {
-        return { refused: NOT_AN_ACTION }
-      }
-      const unpinned = (action.features ?? []).reduce(
-        (all, pin) => unpinFeature(all, pin.setupId, pin.tag),
-        [...setups],
-      )
-      return withSetups(removeFolders(unpinned, action.folders.filter(exists)))
-    }
-    case 'moveFolder':
-      if (!exists(action.id)) {
-        return { refused: GONE }
-      }
-      if (taken(action.newId)) {
-        return { refused: TAKEN }
-      }
-      return edited(moveFolder(setups, action.id, action.to, action.newId), action.id)
-    case 'moveWithin':
-      if (!exists(action.id)) {
-        return { refused: GONE }
-      }
-      if (!Number.isInteger(action.by)) {
-        return { refused: 'A folder moves a whole number of places.' }
-      }
-      return withSetups(moveWithin(setups, action.id, action.by))
-    case 'addSetup': {
-      const facing = frameFacing(setups, action.direction)
-      if (facing) {
-        return { refused: `${facing.name} is cut from that direction already.` }
-      }
-      if (setups.length >= MAX_SETUPS) {
-        return { refused: TOO_MANY }
-      }
-      if (taken(action.id)) {
-        return { refused: TAKEN }
-      }
-      return withSetups(addSetup(setups, action.direction, action.id), action.id)
-    }
-    case 'setProcess':
-      if (!setups.some((setup) => setup.id === action.setupId)) {
-        return { refused: exists(action.setupId) ? 'Only a setup has a hold.' : GONE }
-      }
-      return edited(setSetupProcess(setups, action.setupId, action.process ?? undefined))
-    case 'setToolOrientation':
-      return exists(action.folderId)
-        ? edited(setToolOrientation(setups, action.folderId, action.direction))
-        : { refused: GONE }
-    case 'pinInto': {
-      const target = findPlaced(setups, action.folderId)
-      if (!target) {
-        return { refused: GONE }
-      }
-      if (taken(action.newId)) {
-        return { refused: TAKEN }
-      }
-      // Pinned there already, it is taken out, whichever way the folder now faces.
-      if (pinnedIn(setups, action.tag) === action.folderId) {
-        return pinned({ folderId: action.folderId }, action.tag)
-      }
-      if (!sameDirection(target.direction, action.direction)) {
-        return { refused: OTHER_WAY }
-      }
-      return pinned({ folderId: action.folderId, newId: action.newId }, action.tag)
-    }
-    case 'pinFrom':
-      return taken(action.newId)
-        ? { refused: TAKEN }
-        : pinned({ direction: action.direction, newId: action.newId }, action.tag)
-    case 'moveFeature': {
-      if (taken(action.newId)) {
-        return { refused: TAKEN }
-      }
-      const moved = moveFeature(setups, action.tag, action.direction, action.folderId, action.newId)
-      if (!Array.isArray(moved)) {
-        return { refused: moved.refused }
-      }
-      const pin = withPin(draft, action.tag, moved, rules)
-      return withConstraints(draft, pin.intent, {
-        folderId: pinnedIn(moved, action.tag) ?? action.folderId,
-        facts: { replaced: pin.replaced },
-      })
-    }
-    case 'unpin': {
-      const at = pinnedIn(setups, action.tag)
-      return at ? withSetups(unpinFeature(setups, at, action.tag)) : { draft }
-    }
-    case 'ignore': {
-      if (!Array.isArray(action.regions)) {
-        return { refused: NOT_AN_ACTION }
-      }
-      const ignored = ignoreEdit(draft, action.regions, rules)
-      return withConstraints(draft, ignored.intent, { facts: { unpinned: ignored.unpinned } })
-    }
-    case 'unignore':
-      return Array.isArray(action.regions)
-        ? withConstraints(draft, unignoreEdit(draft, action.regions, rules))
-        : { refused: NOT_AN_ACTION }
-    case 'choosePinReading':
-      return choosePinReading(draft, action, rules, saved)
-    case 'chooseIgnoreReading':
-      return chooseIgnoreReading(draft, action, rules, saved)
-    case 'fromPlan':
-      return fromPlan(draft, action, rules)
-    default:
-      // Only reached from untyped code: an action not on the list.
-      return { refused: NOT_AN_ACTION }
+/** `withSetups` for an edit `plan-draft` may refuse. */
+const withEdited = <T extends Constraints>(
+  draft: T,
+  edited: Edited,
+  folderId?: string,
+): Outcome<T> =>
+  Array.isArray(edited) ? withSetups(draft, edited, folderId) : { refused: edited.refused }
+
+/** Whether the draft has a setup or folder with this id. */
+const holds = (draft: Constraints, id: string): boolean =>
+  findPlaced(draft.setups, id) !== undefined
+
+/** Whether any of these ids is in the draft already, or named twice. */
+const anyTaken = (draft: Constraints, ...ids: Array<string>): boolean =>
+  ids.some((id) => holds(draft, id)) || new Set(ids).size < ids.length
+
+/** A pin as `pinEdit` makes it, with what it did. */
+const pinned = <T extends Constraints>(
+  { draft, rules }: Editing<T>,
+  at: PinAt,
+  tag: string,
+): Outcome<T> => {
+  const pin = pinEdit(draft, tag, at, rules)
+  if ('refused' in pin) {
+    return pin
   }
+  return withConstraints(draft, pin.intent, {
+    facts: { replaced: pin.replaced, added: pin.added, letGo: pin.unpinned, home: pin.setupId },
+  })
 }
 
-type ActionOf<K extends DraftActionKind> = Extract<DraftAction, { kind: K }>
+/** `addFolder`: a folder inside another — unless the parent is gone or too deep, or an id taken. */
+const applyAddFolder = <T extends Constraints>(
+  { draft }: Editing<T>,
+  action: ActionOf<'addFolder'>,
+): Outcome<T> => {
+  const parent = findPlaced(draft.setups, action.parentId)
+  if (!parent) {
+    return { refused: GONE }
+  }
+  if (parent.depth >= MAX_DEPTH) {
+    return { refused: TOO_DEEP }
+  }
+  if (anyTaken(draft, action.id, action.workId)) {
+    return { refused: TAKEN }
+  }
+  const setups = addFolder(draft.setups, action.parentId, action.id, action.workId)
+  return withSetups(draft, setups, action.id)
+}
 
-/** A pick among a folder click's readings, the click made again first where it no longer stands. */
-const choosePinReading = <T extends Constraints>(
-  draft: T,
+/** `renameFolder`: a folder renamed, unless it is gone. */
+const applyRenameFolder = <T extends Constraints>(
+  { draft }: Editing<T>,
+  action: ActionOf<'renameFolder'>,
+): Outcome<T> => {
+  if (!holds(draft, action.id)) {
+    return { refused: GONE }
+  }
+  return withSetups(draft, renameFolder(draft.setups, action.id, action.name))
+}
+
+/** `remove`: the pins named let go, then the folders named removed, any gone passed over. */
+const applyRemove = <T extends Constraints>(
+  { draft }: Editing<T>,
+  action: ActionOf<'remove'>,
+): Outcome<T> => {
+  if (!Array.isArray(action.folders)) {
+    return { refused: NOT_AN_ACTION }
+  }
+  const unpinned = (action.features ?? []).reduce(
+    (setups, pin) => unpinFeature(setups, pin.setupId, pin.tag),
+    [...draft.setups],
+  )
+  const folders = action.folders.filter((id) => holds(draft, id))
+  return withSetups(draft, removeFolders(unpinned, folders))
+}
+
+/** `moveFolder`: a folder dropped in the tree — unless it is gone, or the new id taken. */
+const applyMoveFolder = <T extends Constraints>(
+  { draft }: Editing<T>,
+  action: ActionOf<'moveFolder'>,
+): Outcome<T> => {
+  if (!holds(draft, action.id)) {
+    return { refused: GONE }
+  }
+  if (anyTaken(draft, action.newId)) {
+    return { refused: TAKEN }
+  }
+  const moved = moveFolder(draft.setups, action.id, action.to, action.newId)
+  return withEdited(draft, moved, action.id)
+}
+
+/** `moveWithin`: a folder moved a whole number of places among the folders beside it. */
+const applyMoveWithin = <T extends Constraints>(
+  { draft }: Editing<T>,
+  action: ActionOf<'moveWithin'>,
+): Outcome<T> => {
+  if (!holds(draft, action.id)) {
+    return { refused: GONE }
+  }
+  if (!Number.isInteger(action.by)) {
+    return { refused: 'A folder moves a whole number of places.' }
+  }
+  return withSetups(draft, moveWithin(draft.setups, action.id, action.by))
+}
+
+/** `addSetup`: a setup facing a new direction, last — unless the plan is full, or the id taken. */
+const applyAddSetup = <T extends Constraints>(
+  { draft }: Editing<T>,
+  action: ActionOf<'addSetup'>,
+): Outcome<T> => {
+  const facing = frameFacing(draft.setups, action.direction)
+  if (facing) {
+    return { refused: `${facing.name} is cut from that direction already.` }
+  }
+  if (draft.setups.length >= MAX_SETUPS) {
+    return { refused: TOO_MANY }
+  }
+  if (anyTaken(draft, action.id)) {
+    return { refused: TAKEN }
+  }
+  return withSetups(draft, addSetup(draft.setups, action.direction, action.id), action.id)
+}
+
+/** `setProcess`: a setup's hold set — unless it is gone, or the id is not a setup's. */
+const applySetProcess = <T extends Constraints>(
+  { draft }: Editing<T>,
+  action: ActionOf<'setProcess'>,
+): Outcome<T> => {
+  if (!draft.setups.some((setup) => setup.id === action.setupId)) {
+    return { refused: holds(draft, action.setupId) ? 'Only a setup has a hold.' : GONE }
+  }
+  const process = action.process ?? undefined
+  return withEdited(draft, setSetupProcess(draft.setups, action.setupId, process))
+}
+
+/** `setToolOrientation`: a folder made a tool orientation, or following again. */
+const applySetToolOrientation = <T extends Constraints>(
+  { draft }: Editing<T>,
+  action: ActionOf<'setToolOrientation'>,
+): Outcome<T> => {
+  if (!holds(draft, action.folderId)) {
+    return { refused: GONE }
+  }
+  return withEdited(draft, setToolOrientation(draft.setups, action.folderId, action.direction))
+}
+
+/** `pinInto`: a feature pinned in a folder facing its way, or taken out where pinned there. */
+const applyPinInto = <T extends Constraints>(
+  editing: Editing<T>,
+  action: ActionOf<'pinInto'>,
+): Outcome<T> => {
+  const { setups } = editing.draft
+  const target = findPlaced(setups, action.folderId)
+  if (!target) {
+    return { refused: GONE }
+  }
+  if (anyTaken(editing.draft, action.newId)) {
+    return { refused: TAKEN }
+  }
+  // Pinned there already, it is taken out, whichever way the folder now faces.
+  if (pinnedIn(setups, action.tag) === action.folderId) {
+    return pinned(editing, { folderId: action.folderId }, action.tag)
+  }
+  if (!sameDirection(target.direction, action.direction)) {
+    return { refused: OTHER_WAY }
+  }
+  return pinned(editing, { folderId: action.folderId, newId: action.newId }, action.tag)
+}
+
+/** `pinFrom`: a feature pinned from its direction, in a setup added where none faces it. */
+const applyPinFrom = <T extends Constraints>(
+  editing: Editing<T>,
+  action: ActionOf<'pinFrom'>,
+): Outcome<T> => {
+  if (anyTaken(editing.draft, action.newId)) {
+    return { refused: TAKEN }
+  }
+  return pinned(editing, { direction: action.direction, newId: action.newId }, action.tag)
+}
+
+/** `moveFeature`: a feature's row dropped on a folder, and pinned there as any pin is. */
+const applyMoveFeature = <T extends Constraints>(
+  { draft, rules }: Editing<T>,
+  action: ActionOf<'moveFeature'>,
+): Outcome<T> => {
+  if (anyTaken(draft, action.newId)) {
+    return { refused: TAKEN }
+  }
+  const { tag, direction, folderId, newId } = action
+  const moved = moveFeature(draft.setups, tag, direction, folderId, newId)
+  if (!Array.isArray(moved)) {
+    return { refused: moved.refused }
+  }
+  const pin = withPin(draft, tag, moved, rules)
+  return withConstraints(draft, pin.intent, {
+    folderId: pinnedIn(moved, tag) ?? folderId,
+    facts: { replaced: pin.replaced },
+  })
+}
+
+/** `unpin`: a pinned feature let go; one pinned nowhere changes nothing. */
+const applyUnpin = <T extends Constraints>(
+  { draft }: Editing<T>,
+  action: ActionOf<'unpin'>,
+): Outcome<T> => {
+  const home = pinnedIn(draft.setups, action.tag)
+  if (!home) {
+    return { draft }
+  }
+  return withSetups(draft, unpinFeature(draft.setups, home, action.tag))
+}
+
+/** `ignore`: faces ignored, and every pin they cover let go. */
+const applyIgnore = <T extends Constraints>(
+  { draft, rules }: Editing<T>,
+  action: ActionOf<'ignore'>,
+): Outcome<T> => {
+  if (!Array.isArray(action.regions)) {
+    return { refused: NOT_AN_ACTION }
+  }
+  const ignored = ignoreEdit(draft, action.regions, rules)
+  return withConstraints(draft, ignored.intent, { facts: { unpinned: ignored.unpinned } })
+}
+
+/** `unignore`: faces no longer ignored. */
+const applyUnignore = <T extends Constraints>(
+  { draft, rules }: Editing<T>,
+  action: ActionOf<'unignore'>,
+): Outcome<T> => {
+  if (!Array.isArray(action.regions)) {
+    return { refused: NOT_AN_ACTION }
+  }
+  return withConstraints(draft, unignoreEdit(draft, action.regions, rules))
+}
+
+/** `choosePinReading`: a pick among a click's readings, the click made again if taken back. */
+const applyChoosePinReading = <T extends Constraints>(
+  { draft, rules, saved }: Editing<T>,
   action: ActionOf<'choosePinReading'>,
-  rules: PlanRules,
-  saved: Constraints | undefined,
 ): Outcome<T> => {
   const placed = findPlaced(draft.setups, action.folderId)
   if (!placed) {
@@ -441,20 +539,9 @@ const choosePinReading = <T extends Constraints>(
   if (!saved) {
     return { refused: NEEDS_SAVED }
   }
-  const inFolder = pinnedIn(draft.setups, action.tag) === action.folderId
-  // The click's edit stands where a pin is in the folder, or a feature taken out is not.
-  const standing = inFolder !== (action.target === 'takeOut')
-  const made = standing
-    ? draft
-    : folderClick(
-        draft,
-        // Only the click's note reads the label, and the note is not used here.
-        { tag: action.tag, label: action.tag, direction: placed.direction, inFolder },
-        { id: action.folderId, name: placed.folder.name },
-        rules,
-      ).intent
+  const clicked = withClickStanding(draft, action, placed, rules)
   const chosen = chooseReading(
-    made,
+    clicked,
     saved,
     { tag: action.tag, target: action.target },
     action.reading,
@@ -465,12 +552,29 @@ const choosePinReading = <T extends Constraints>(
   return withConstraints(draft, chosen.intent)
 }
 
-/** A pick among an Ignore click's readings: the click's faces back as applied, `tag`'s ignored. */
-const chooseIgnoreReading = <T extends Constraints>(
-  draft: T,
-  action: ActionOf<'chooseIgnoreReading'>,
+/** The draft with a folder click's edit standing: made again where Undo or Discard took it back. */
+const withClickStanding = (
+  draft: Constraints,
+  action: ActionOf<'choosePinReading'>,
+  placed: NonNullable<ReturnType<typeof findPlaced>>,
   rules: PlanRules,
-  saved: Constraints | undefined,
+): Constraints => {
+  const inFolder = pinnedIn(draft.setups, action.tag) === action.folderId
+  // The click's edit stands where a pin is in the folder, or a feature taken out is not.
+  const standing = inFolder !== (action.target === 'takeOut')
+  if (standing) {
+    return draft
+  }
+  // Only the click's note reads the label, and the note is not used here.
+  const feature = { tag: action.tag, label: action.tag, direction: placed.direction, inFolder }
+  const folder = { id: action.folderId, name: placed.folder.name }
+  return folderClick(draft, feature, folder, rules).intent
+}
+
+/** `chooseIgnoreReading`: a pick among an Ignore click's readings, its faces back as applied. */
+const applyChooseIgnoreReading = <T extends Constraints>(
+  { draft, rules, saved }: Editing<T>,
+  action: ActionOf<'chooseIgnoreReading'>,
 ): Outcome<T> => {
   if (!saved) {
     return { refused: NEEDS_SAVED }
@@ -487,11 +591,10 @@ const chooseIgnoreReading = <T extends Constraints>(
   return withConstraints(draft, chosen.intent, { facts: { unpinned: chosen.unpinned } })
 }
 
-/** Toolpath's plan as the person's folders, and with `pins` its features pinned where planned. */
-const fromPlan = <T extends Constraints>(
-  draft: T,
+/** `fromPlan`: Toolpath's plan as folders, and with `pins` its features pinned where planned. */
+const applyFromPlan = <T extends Constraints>(
+  { draft, rules }: Editing<T>,
   action: ActionOf<'fromPlan'>,
-  rules: PlanRules,
 ): Outcome<T> => {
   if (draft.setups.length > 0) {
     return { refused: NOT_EMPTY }
@@ -499,11 +602,43 @@ const fromPlan = <T extends Constraints>(
   let count = 0
   const newId = () => `${action.idSeed}-${count++}`
   if (!action.pins) {
-    return withConstraints(draft, { ...draft, setups: foldersFromPlan(action.planned, newId) })
+    return withSetups(draft, foldersFromPlan(action.planned, newId))
   }
   const stated = planFromResults(action.planned, newId)
   const tags = pinsWhere(stated, () => true).map((pin) => pin.tag)
   return withConstraints(draft, unignorePinned({ ...draft, setups: stated }, tags, rules).intent)
+}
+
+/** How each kind of action is carried out. */
+const CARRY_OUT: { readonly [K in DraftActionKind]: CarryOut<K> } = {
+  addFolder: applyAddFolder,
+  renameFolder: applyRenameFolder,
+  remove: applyRemove,
+  moveFolder: applyMoveFolder,
+  moveWithin: applyMoveWithin,
+  addSetup: applyAddSetup,
+  setProcess: applySetProcess,
+  setToolOrientation: applySetToolOrientation,
+  pinInto: applyPinInto,
+  pinFrom: applyPinFrom,
+  moveFeature: applyMoveFeature,
+  unpin: applyUnpin,
+  ignore: applyIgnore,
+  unignore: applyUnignore,
+  choosePinReading: applyChoosePinReading,
+  chooseIgnoreReading: applyChooseIgnoreReading,
+  fromPlan: applyFromPlan,
+}
+
+/** One action carried out by its kind's function — or refused, its kind not on the list. */
+const carryOut = <T extends Constraints>(editing: Editing<T>, action: DraftAction): Outcome<T> => {
+  // Only untyped code names a kind not on the list.
+  if (!Object.hasOwn(CARRY_OUT, action.kind)) {
+    return { refused: NOT_AN_ACTION }
+  }
+  // Each kind's function takes that kind's action; TypeScript can't pair them through the lookup.
+  const carry = CARRY_OUT[action.kind] as CarryOut<DraftActionKind>
+  return carry(editing, action)
 }
 
 /** What a page asks `actionsFor` about: what the person clicked, or picked. */
@@ -530,23 +665,39 @@ export const actionsFor = (
   target: ActionTarget,
   rules: Pick<PlanRules, 'kernel'>,
 ): Array<DraftActionKind> => {
-  const allowed = new Set<DraftActionKind>(
-    'folder' in target
-      ? folderActions(draft.setups, target.folder)
-      : 'feature' in target
-        ? featureActions(draft.setups, target.feature, target.direction)
-        : 'faces' in target
-          ? faceActions(draft, target.faces, rules.kernel)
-          : partActions(draft.setups),
-  )
+  const allowed = new Set(actionsOn(draft, target, rules.kernel))
   return DRAFT_ACTION_KINDS.filter((kind) => allowed.has(kind))
 }
 
+/** The kinds of action that can be made on a target, in any order: `actionsFor` orders them. */
+const actionsOn = (
+  draft: Constraints,
+  target: ActionTarget,
+  kernel: string | null,
+): Array<DraftActionKind> => {
+  if ('folder' in target) {
+    return folderActions(draft.setups, target.folder)
+  }
+  if ('feature' in target) {
+    return featureActions(draft.setups, target.feature, target.direction)
+  }
+  if ('faces' in target) {
+    return faceActions(draft, target.faces, kernel)
+  }
+  return partActions(draft.setups)
+}
+
+/** `kinds` where `yes`, none where not. */
+const when = (yes: boolean, ...kinds: Array<DraftActionKind>): Array<DraftActionKind> =>
+  yes ? kinds : []
+
+/** What can be done on the part: add a setup, while there is room; remove them all. */
 const partActions = (setups: ReadonlyArray<DraftSetup>): Array<DraftActionKind> => [
-  ...(setups.length < MAX_SETUPS ? (['addSetup'] as const) : []),
-  ...(setups.length > 0 ? (['remove'] as const) : []),
+  ...when(setups.length < MAX_SETUPS, 'addSetup'),
+  ...when(setups.length > 0, 'remove'),
 ]
 
+/** What can be done to a setup or folder; nothing for one the draft does not hold. */
 const folderActions = (setups: ReadonlyArray<DraftSetup>, id: string): Array<DraftActionKind> => {
   const placed = findPlaced(setups, id)
   if (!placed) {
@@ -554,18 +705,15 @@ const folderActions = (setups: ReadonlyArray<DraftSetup>, id: string): Array<Dra
   }
   const top = placed.depth === 0
   const beside = top ? setups : (placed.parent?.folders ?? [])
+  const toolOriented = isIndexed(placed.setup) || placed.toolOrientation
   return [
     'renameFolder',
     'remove',
-    ...(placed.depth < MAX_DEPTH ? (['addFolder'] as const) : []),
-    ...(beside.length > 1 ? (['moveWithin', 'moveFolder'] as const) : []),
-    ...(canMoveAway(setups, placed.folder.id, placed.parent?.id ?? null)
-      ? (['moveFolder'] as const)
-      : []),
-    ...(top ? (['setProcess'] as const) : []),
-    ...(!top && (isIndexed(placed.setup) || placed.toolOrientation)
-      ? (['setToolOrientation'] as const)
-      : []),
+    ...when(placed.depth < MAX_DEPTH, 'addFolder'),
+    ...when(beside.length > 1, 'moveWithin', 'moveFolder'),
+    ...when(canMoveAway(setups, placed.folder.id, placed.parent?.id ?? null), 'moveFolder'),
+    ...when(top, 'setProcess'),
+    ...when(!top && toolOriented, 'setToolOrientation'),
   ]
 }
 
@@ -586,41 +734,65 @@ const canMoveAway = (
 /** An id no draft holds, for trying a move that makes a folder. */
 const PROBE_ID = '\u0000probe'
 
+/** What can be done to one direction's reading of a feature. */
 const featureActions = (
   setups: ReadonlyArray<DraftSetup>,
   tag: string,
   direction: PlanDirection,
 ): Array<DraftActionKind> => {
   const home = pinnedIn(setups, tag)
-  const placed = placedFolders(setups)
-  const facing = placed.filter(
-    (each) => each.folder.id !== home && sameDirection(each.direction, direction),
-  )
-  // A row dropped on a parent goes to the first folder in it cut from its way: somewhere new?
-  const movesAway = facing.some((each) => {
-    const moved = moveFeature(setups, tag, direction, each.folder.id, PROBE_ID)
-    return Array.isArray(moved) && pinnedIn(moved, tag) !== home
-  })
-  const frame = frameFacing(setups, direction)
-  const inFrame =
-    home !== null && placed.some((each) => each.folder.id === home && each.frameId === frame?.id)
-  const fromItsWay = frame ? !inFrame : setups.length < MAX_SETUPS
+  const facingIds = placedFolders(setups)
+    .filter((each) => each.folder.id !== home && sameDirection(each.direction, direction))
+    .map((each) => each.folder.id)
   return [
-    ...(facing.length > 0 ? (['pinInto'] as const) : []),
-    ...(fromItsWay ? (['pinFrom'] as const) : []),
-    ...(movesAway ? (['moveFeature'] as const) : []),
-    ...(home ? (['unpin'] as const) : []),
+    ...when(facingIds.length > 0, 'pinInto'),
+    ...when(canPinFromItsWay(setups, home, direction), 'pinFrom'),
+    ...when(canMoveFeature(setups, tag, direction, facingIds), 'moveFeature'),
+    ...when(home !== null, 'unpin'),
   ]
 }
 
+/** Whether a pin from its direction lands somewhere new: a setup facing it, or one it would add. */
+const canPinFromItsWay = (
+  setups: ReadonlyArray<DraftSetup>,
+  home: string | null,
+  direction: PlanDirection,
+): boolean => {
+  const frame = frameFacing(setups, direction)
+  if (!frame) {
+    return setups.length < MAX_SETUPS
+  }
+  const inFrame =
+    home !== null &&
+    placedFolders(setups).some((each) => each.folder.id === home && each.frameId === frame.id)
+  return !inFrame
+}
+
+/**
+ * Whether dropping the row on a folder facing its way would move it somewhere new: a parent sends
+ * it to the first folder in it cut from its way. `facingIds` are those folders, its own left out.
+ */
+const canMoveFeature = (
+  setups: ReadonlyArray<DraftSetup>,
+  tag: string,
+  direction: PlanDirection,
+  facingIds: ReadonlyArray<string>,
+): boolean => {
+  const home = pinnedIn(setups, tag)
+  return facingIds.some((folderId) => {
+    const moved = moveFeature(setups, tag, direction, folderId, PROBE_ID)
+    return Array.isArray(moved) && pinnedIn(moved, tag) !== home
+  })
+}
+
+/** What can be done to faces picked: ignore any open, unignore any ignored. */
 const faceActions = (
   draft: Constraints,
   regions: ReadonlyArray<number>,
   kernel: string | null,
 ): Array<DraftActionKind> => {
   const ignored = new Set(currentFor(draft.done, draft.doneKernel, kernel))
-  return [
-    ...(regions.some((region) => !ignored.has(region)) ? (['ignore'] as const) : []),
-    ...(regions.some((region) => ignored.has(region)) ? (['unignore'] as const) : []),
-  ]
+  const anyOpen = regions.some((region) => !ignored.has(region))
+  const anyIgnored = regions.some((region) => ignored.has(region))
+  return [...when(anyOpen, 'ignore'), ...when(anyIgnored, 'unignore')]
 }

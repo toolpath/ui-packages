@@ -1,5 +1,6 @@
 import { tagKey } from './coverage'
 import type { PlanDirection } from './engine-plan'
+import { GONE, MAX_DEPTH, TOO_DEEP } from './refusals'
 
 /*
   A part's plan as the person editing it has expressed it — their constraints, and nothing more.
@@ -63,9 +64,14 @@ export interface Constraints {
 /** As many setups as the Engine takes in a stated plan, and the longest name worth keeping. */
 export const MAX_SETUPS = 64
 export const MAX_NAME = 100
-/** How deep a folder may sit below its setup (FLD7). */
-export const MAX_DEPTH = 6
+// Defined in `refusals`, beside the refusal that names it.
+export { MAX_DEPTH }
 const MAX_FEATURES = 5000
+
+/** The refusal of a direction a frame faces already: Toolpath takes each direction once. */
+const alreadyCut = (frame: { name: string }): { refused: string } => ({
+  refused: `${frame.name} is cut from that direction already.`,
+})
 
 /** Two directions are the same only bit for bit: Toolpath compares its direction tokens exactly. */
 export const sameDirection = (a: PlanDirection, b: PlanDirection): boolean =>
@@ -104,17 +110,7 @@ export const placedFolders = (setups: ReadonlyArray<DraftSetup>): Array<PlacedFo
     parent: PlacedFolder | null,
     depth: number,
   ) => {
-    const toolOrientation = parent !== null && isIndexed(setup) && folder.direction !== undefined
-    const here: PlacedFolder = {
-      folder,
-      setup,
-      parent: parent?.folder ?? null,
-      depth,
-      direction:
-        parent === null ? setup.direction : toolOrientation ? folder.direction! : parent.direction,
-      frameId: parent === null || toolOrientation ? folder.id : parent.frameId,
-      toolOrientation,
-    }
+    const here = placedAt(folder, setup, parent, depth)
     placed.push(here)
     for (const child of folder.folders ?? []) {
       walk(child, setup, here, depth + 1)
@@ -124,6 +120,26 @@ export const placedFolders = (setups: ReadonlyArray<DraftSetup>): Array<PlacedFo
     walk(setup, setup, null, 0)
   }
   return placed
+}
+
+/** Where one folder sits: in its setup, `depth` below it, under its placed parent (null for a setup). */
+const placedAt = (
+  folder: DraftFolder,
+  setup: DraftSetup,
+  parent: PlacedFolder | null,
+  depth: number,
+): PlacedFolder => {
+  const toolOrientation = parent !== null && isIndexed(setup) && folder.direction !== undefined
+  return {
+    folder,
+    setup,
+    parent: parent?.folder ?? null,
+    depth,
+    direction:
+      parent === null ? setup.direction : toolOrientation ? folder.direction! : parent.direction,
+    frameId: parent === null || toolOrientation ? folder.id : parent.frameId,
+    toolOrientation,
+  }
 }
 
 export const findPlaced = (
@@ -243,26 +259,34 @@ const liftedFrom = (here: DraftFolder, top: boolean): DraftFolder | null => {
   // What comes up is cut from the way it was: its own tilt, or its place's.
   const { direction: ownTilt, ...kept } = only
   if (top) {
-    const setup = here as DraftSetup
-    if (ownTilt) {
-      // A tilt come up to the top: a setup facing it, indexed to the tilts it holds, if any.
-      const tilts = tiltsBelow(kept)
-      return {
-        ...kept,
-        direction: ownTilt,
-        ...(tilts.length > 0 ? { process: indexedFor(ownTilt, tilts) } : {}),
-      } as DraftSetup
-    }
-    // Its hold stays only while there is a tilt left in it to turn to.
-    return {
-      ...kept,
-      direction: setup.direction,
-      ...(setup.process && tiltsBelow(kept).length > 0 ? { process: setup.process } : {}),
-    } as DraftSetup
+    return liftedToTop(here as DraftSetup, kept, ownTilt)
   }
   // Inside a setup: it keeps its own tilt, else takes its place's.
   const tilt = ownTilt ?? here.direction
   return { ...kept, ...(tilt ? { direction: tilt } : {}) }
+}
+
+/** A setup's lone folder, its own tilt aside, come up to be the setup in its place. */
+const liftedToTop = (
+  setup: DraftSetup,
+  kept: DraftFolder,
+  ownTilt: PlanDirection | undefined,
+): DraftSetup => {
+  if (ownTilt) {
+    // A tilt come up to the top: a setup facing it, indexed to the tilts it holds, if any.
+    const tilts = tiltsBelow(kept)
+    return {
+      ...kept,
+      direction: ownTilt,
+      ...(tilts.length > 0 ? { process: indexedFor(ownTilt, tilts) } : {}),
+    } as DraftSetup
+  }
+  // Its hold stays only while there is a tilt left in it to turn to.
+  return {
+    ...kept,
+    direction: setup.direction,
+    ...(setup.process && tiltsBelow(kept).length > 0 ? { process: setup.process } : {}),
+  } as DraftSetup
 }
 
 /**
@@ -289,11 +313,20 @@ export const liftLoneFolder = (
   if (!placed.parent) {
     return setups.map((setup) => (setup.id === id ? (next as DraftSetup) : setup))
   }
-  return updateFolder(setups, placed.parent.id, (folder) => ({
-    ...folder,
-    folders: folder.folders.map((child) => (child.id === id ? next : child)),
-  }))
+  return replaceChild(setups, placed.parent.id, id, next)
 }
+
+/** The draft with one folder inside a parent swapped for another. */
+const replaceChild = (
+  setups: ReadonlyArray<DraftSetup>,
+  parentId: string,
+  childId: string,
+  next: DraftFolder,
+): Array<DraftSetup> =>
+  updateFolder(setups, parentId, (folder) => ({
+    ...folder,
+    folders: folder.folders.map((child) => (child.id === childId ? next : child)),
+  }))
 
 /** Every folder's name in the draft. */
 const namesIn = (setups: ReadonlyArray<DraftSetup>): Array<string> =>
@@ -408,7 +441,7 @@ export const setToolOrientation = (
       )
     : undefined
   if (taken) {
-    return { refused: `${taken.name} is cut from that direction already.` }
+    return alreadyCut(taken)
   }
   return updateFolder(setups, folderId, (folder) =>
     direction ? { ...following(folder), direction } : following(folder),
@@ -452,84 +485,133 @@ export const parseDraftSetups = (value: unknown): Array<DraftSetup> | string => 
   if (value.length > MAX_SETUPS) {
     return `A plan can state at most ${MAX_SETUPS} setups.`
   }
-  const ids = new Set<string>()
-  const tags = new Set<string>()
-  const names: Array<string> = []
-  const parse = (entry: unknown, depth: number): DraftFolder | string => {
-    const { id, name, direction, features, folders } = (entry ?? {}) as Record<string, unknown>
-    if (typeof id !== 'string' || !id || ids.has(id) || typeof name !== 'string') {
-      return 'A folder needs an id of its own and a name.'
-    }
-    if (depth > MAX_DEPTH) {
-      return `A folder can sit at most ${MAX_DEPTH} below its setup.`
-    }
-    if (direction !== undefined && !isDirection(direction)) {
-      return 'A folder’s direction is three numbers.'
-    }
-    const pinned = features ?? []
-    if (
-      !Array.isArray(pinned) ||
-      pinned.length > MAX_FEATURES ||
-      !pinned.every((tag) => typeof tag === 'string' && /^[0-9a-f]{1,16}$/.test(tag))
-    ) {
-      return 'A folder’s features are feature tags.'
-    }
-    const own = [...new Set(pinned as Array<string>)]
-    if (own.length > 0 && Array.isArray(folders) && folders.length > 0) {
-      return 'A folder holds features or folders, never both.'
-    }
-    if (own.some((tag) => tags.has(tag))) {
-      return 'A feature can be pinned in one folder only.'
-    }
-    own.forEach((tag) => tags.add(tag))
-    ids.add(id)
-    const children: Array<DraftFolder> = []
-    for (const child of Array.isArray(folders) ? folders : []) {
-      const parsed = parse(child, depth + 1)
-      if (typeof parsed === 'string') {
-        return parsed
-      }
-      children.push(parsed)
-    }
-    const folder: DraftFolder = {
-      id,
-      name: name.trim().slice(0, MAX_NAME) || nextFolderName(names),
-      features: own,
-      folders: children,
-      ...(direction ? { direction: copyDirection(direction) } : {}),
-    }
-    names.push(folder.name)
-    return folder
+  const seen: Seen = { ids: new Set(), tags: new Set(), names: [] }
+  const setups = parseEach(value, (entry) => parseSetup(entry, seen))
+  if (typeof setups === 'string') {
+    return setups
   }
-  const setups: Array<DraftSetup> = []
-  for (const entry of value) {
-    const { direction, process } = (entry ?? {}) as Record<string, unknown>
-    if (!isDirection(direction)) {
-      return 'A setup needs a direction.'
-    }
-    if (process !== undefined && process !== '3+1' && process !== '3+2') {
-      return 'A setup is held 3 axis, 3+1 or 3+2.'
-    }
-    const parsed = parse(entry, 0)
-    if (typeof parsed === 'string') {
-      return parsed
-    }
-    setups.push({
-      ...parsed,
-      direction: copyDirection(direction),
-      ...(process ? { process } : {}),
-    })
-  }
-  const frames = framesOf(setups)
-  if (
-    frames.some(
-      (frame, index) =>
-        frames.findIndex((other) => sameDirection(other.direction, frame.direction)) !== index,
-    )
-  ) {
+  if (anyDirectionTwice(setups)) {
     return 'Each direction can be a setup only once.'
   }
   return setups
+}
+
+/** What reading a draft has met so far: the ids and tags taken, and the names given, in order. */
+interface Seen {
+  ids: Set<string>
+  tags: Set<string>
+  names: Array<string>
+}
+
+/** Each entry read in turn — or the first reason one can't be. */
+const parseEach = <T>(
+  entries: ReadonlyArray<unknown>,
+  parse: (entry: unknown) => T | string,
+): Array<T> | string => {
+  const parsed: Array<T> = []
+  for (const entry of entries) {
+    const each = parse(entry)
+    if (typeof each === 'string') {
+      return each
+    }
+    parsed.push(each)
+  }
+  return parsed
+}
+
+/** A setup as stored: a folder facing a direction, held 3 axis, 3+1 or 3+2 — or why not. */
+const parseSetup = (entry: unknown, seen: Seen): DraftSetup | string => {
+  const { direction, process } = (entry ?? {}) as Record<string, unknown>
+  if (!isDirection(direction)) {
+    return 'A setup needs a direction.'
+  }
+  if (process !== undefined && process !== '3+1' && process !== '3+2') {
+    return 'A setup is held 3 axis, 3+1 or 3+2.'
+  }
+  const parsed = parseFolder(entry, 0, seen)
+  if (typeof parsed === 'string') {
+    return parsed
+  }
+  return {
+    ...parsed,
+    direction: copyDirection(direction),
+    ...(process ? { process } : {}),
+  }
+}
+
+/**
+ * A folder as stored, `depth` below its setup, and the folders inside it — or why not. Takes its
+ * id and tags; its name, unnamed, is the next "Folder N" past those inside it and before it.
+ */
+const parseFolder = (entry: unknown, depth: number, seen: Seen): DraftFolder | string => {
+  const { id, name, direction, features, folders } = (entry ?? {}) as Record<string, unknown>
+  if (typeof id !== 'string' || !id || seen.ids.has(id) || typeof name !== 'string') {
+    return 'A folder needs an id of its own and a name.'
+  }
+  if (depth > MAX_DEPTH) {
+    return `A folder can sit at most ${MAX_DEPTH} below its setup.`
+  }
+  if (direction !== undefined && !isDirection(direction)) {
+    return 'A folder’s direction is three numbers.'
+  }
+  const own = claimFeatures(features, folders, seen)
+  if (typeof own === 'string') {
+    return own
+  }
+  seen.ids.add(id)
+  const children = parseEach(Array.isArray(folders) ? folders : [], (child) =>
+    parseFolder(child, depth + 1, seen),
+  )
+  if (typeof children === 'string') {
+    return children
+  }
+  const folder: DraftFolder = {
+    id,
+    name: name.trim().slice(0, MAX_NAME) || nextFolderName(seen.names),
+    features: own,
+    folders: children,
+    ...(direction ? { direction: copyDirection(direction) } : {}),
+  }
+  seen.names.push(folder.name)
+  return folder
+}
+
+/** A pinned feature's tag as stored: lower-case hex. */
+const FEATURE_TAG = /^[0-9a-f]{1,16}$/
+
+/**
+ * A folder's pinned features, each once — or why not: not feature tags, beside folders, or
+ * pinned in another folder already. Marks them taken in `seen`.
+ */
+const claimFeatures = (features: unknown, folders: unknown, seen: Seen): Array<string> | string => {
+  const pinned = features ?? []
+  if (!isTagList(pinned)) {
+    return 'A folder’s features are feature tags.'
+  }
+  const own = [...new Set(pinned)]
+  if (own.length > 0 && Array.isArray(folders) && folders.length > 0) {
+    return 'A folder holds features or folders, never both.'
+  }
+  if (own.some((tag) => seen.tags.has(tag))) {
+    return 'A feature can be pinned in one folder only.'
+  }
+  own.forEach((tag) => seen.tags.add(tag))
+  return own
+}
+
+/** Whether a value is a list of feature tags, no longer than a folder may pin. */
+const isTagList = (value: unknown): value is Array<string> =>
+  Array.isArray(value) &&
+  value.length <= MAX_FEATURES &&
+  value.every((tag) => typeof tag === 'string' && FEATURE_TAG.test(tag))
+
+/** Whether two of the setups' frames face the same direction. */
+const anyDirectionTwice = (setups: ReadonlyArray<DraftSetup>): boolean => {
+  const frames = framesOf(setups)
+  return frames.some(
+    (frame, index) =>
+      frames.findIndex((other) => sameDirection(other.direction, frame.direction)) !== index,
+  )
 }
 
 /** A setup facing a direction no frame faces yet, added last — or the draft unchanged. */
@@ -579,79 +661,179 @@ const statedFrom = (
   newId: () => string,
   pins: boolean,
 ): Array<DraftSetup> => {
-  const setups: Array<DraftSetup> = []
-  const faced = (direction: PlanDirection) =>
-    framesOf(setups).some((frame) => sameDirection(frame.direction, direction))
-  const pinned = new Set<string>()
+  const stating: Stating = { setups: [], newId, pins, pinned: new Set() }
   for (const setup of planned) {
-    const [first, ...rest] = setup.orientations.map((orientation) => orientation.direction)
-    if (!first || faced(first) || setups.length >= MAX_SETUPS) {
-      continue
-    }
-    const tilts = rest.filter(
-      (tilt, index) =>
-        !faced(tilt) &&
-        !sameDirection(tilt, first) &&
-        rest.findIndex((each) => sameDirection(each, tilt)) === index,
-    )
-    const open = new Set(
-      (setup.rows ?? [])
-        .filter((row) => row.mark === 'notMachined')
-        .map((row) => row.tag.toLowerCase()),
-    )
-    /** The features to pin among `tags`: not pinned yet, and machined. */
-    const take = (tags: ReadonlyArray<string>): Array<string> =>
-      pins
-        ? tags.filter((tag) => {
-            const key = tag.toLowerCase()
-            return !open.has(key) && !pinned.has(key) && pinned.add(key) !== undefined
-          })
-        : []
-    // Each feature the setup lists is the first orientation's that lists it.
-    const claimed = new Map<string, { tag: string; direction: PlanDirection }>()
-    for (const orientation of setup.orientations) {
-      for (const { tag } of orientation.features ?? []) {
-        if (!claimed.has(tag.toLowerCase())) {
-          claimed.set(tag.toLowerCase(), { tag, direction: orientation.direction })
-        }
-      }
-    }
-    const listedBy = (direction: PlanDirection) =>
-      [...claimed.values()]
-        .filter((claim) => sameDirection(claim.direction, direction))
-        .map((claim) => claim.tag)
-    const folder = (direction?: PlanDirection, features: Array<string> = []): DraftFolder => ({
-      id: newId(),
-      name: nextFolderName(namesIn(setups)),
-      features,
-      folders: [],
-      ...(direction ? { direction } : {}),
-    })
-    const frame: DraftSetup = { ...folder(), direction: first }
-    setups.push(frame)
-    // Each tilt's features, then the frame's: its own orientation's, any tilt's passed over, and
-    // the rows no orientation lists.
-    const tilted = tilts.map((tilt) => [tilt, take(listedBy(tilt))] as const)
-    const own = take([
-      ...listedBy(first),
-      ...rest.filter((tilt) => !tilts.some((each) => sameDirection(each, tilt))).flatMap(listedBy),
-      ...(setup.rows ?? [])
-        .filter((row) => !claimed.has(row.tag.toLowerCase()))
-        .map((row) => row.tag),
-    ])
-    if (tilts.length === 0) {
-      frame.features = own
-      continue
-    }
-    frame.process = indexedFor(first, tilts)
-    if (tilts.length === 1 || own.length > 0) {
-      frame.folders.push(folder(undefined, own))
-    }
-    for (const [tilt, features] of tilted) {
-      frame.folders.push(folder(tilt, features))
+    const stated = stateSetup(stating, setup)
+    if (stated) {
+      // Pushed whole: the next setup is checked against this one's frames, and named past it.
+      stating.setups.push(stated)
     }
   }
-  return setups
+  return stating.setups
+}
+
+/** What stating Toolpath's plan carries from setup to setup. */
+interface Stating {
+  /** The setups stated so far. */
+  setups: Array<DraftSetup>
+  newId: () => string
+  /** Whether features are pinned where they were planned. */
+  pins: boolean
+  /** The features pinned so far, by lower-case tag. */
+  pinned: Set<string>
+}
+
+/** The orientation that lists a feature first, and the tag as it spells it. */
+interface Claim {
+  tag: string
+  direction: PlanDirection
+}
+
+/**
+ * One planned setup stated: a setup facing its first direction, holding its work — or null, where a
+ * setup faces that way already or there are setups enough. Pins the features it takes.
+ */
+const stateSetup = (stating: Stating, setup: PlannedSetup): DraftSetup | null => {
+  const [first, ...rest] = setup.orientations.map((orientation) => orientation.direction)
+  if (!first || frameFacing(stating.setups, first) || stating.setups.length >= MAX_SETUPS) {
+    return null
+  }
+  const tilts = tiltsToState(stating.setups, first, rest)
+  const passedOver = rest.filter((tilt) => !tilts.some((each) => sameDirection(each, tilt)))
+  const claimed = claimsOf(setup)
+  const notMachined = notMachinedIn(setup)
+  const take = (tags: ReadonlyArray<string>) => takePins(stating, notMachined, tags)
+  // Each tilt's features, then the frame's: its own orientation's, any tilt's passed over, and
+  // the rows no orientation lists. No feature is both a tilt's and the frame's, so the order does
+  // not matter here; only a pin an earlier setup took (`stating.pinned`) can hold one already.
+  const tilted = tilts.map((tilt) => [tilt, take(claimedFrom(claimed, tilt))] as const)
+  const own = take([
+    ...[first, ...passedOver].flatMap((direction) => claimedFrom(claimed, direction)),
+    ...unlistedRows(setup, claimed),
+  ])
+  return statedFrame(stating, first, own, tilted)
+}
+
+/** A setup's further directions that get a tilt folder: each once, none its own or faced already. */
+const tiltsToState = (
+  setups: ReadonlyArray<DraftSetup>,
+  first: PlanDirection,
+  rest: ReadonlyArray<PlanDirection>,
+): Array<PlanDirection> =>
+  rest.filter(
+    (tilt, index) =>
+      !frameFacing(setups, tilt) &&
+      !sameDirection(tilt, first) &&
+      rest.findIndex((each) => sameDirection(each, tilt)) === index,
+  )
+
+/** The features a planned setup marks as cut by no pass, by lower-case tag. */
+const notMachinedIn = (setup: PlannedSetup): Set<string> =>
+  new Set(
+    (setup.rows ?? [])
+      .filter((row) => row.mark === 'notMachined')
+      .map((row) => row.tag.toLowerCase()),
+  )
+
+/**
+ * The features to pin among `tags`, in order: machined, and not pinned yet — by an earlier setup, a
+ * tilt taken before, or earlier in `tags`. Each is added to `stating.pinned`. None without pins.
+ */
+const takePins = (
+  stating: Stating,
+  notMachined: ReadonlySet<string>,
+  tags: ReadonlyArray<string>,
+): Array<string> => {
+  if (!stating.pins) {
+    return []
+  }
+  const taken: Array<string> = []
+  for (const tag of tags) {
+    const key = tag.toLowerCase()
+    if (!notMachined.has(key) && !stating.pinned.has(key)) {
+      stating.pinned.add(key)
+      taken.push(tag)
+    }
+  }
+  return taken
+}
+
+/** Each feature a planned setup lists, by lower-case tag: claimed by the first orientation listing it. */
+const claimsOf = (setup: PlannedSetup): Map<string, Claim> => {
+  const claimed = new Map<string, Claim>()
+  const listed = setup.orientations.flatMap((orientation) =>
+    (orientation.features ?? []).map(({ tag }) => ({ tag, direction: orientation.direction })),
+  )
+  for (const claim of listed) {
+    if (!claimed.has(claim.tag.toLowerCase())) {
+      claimed.set(claim.tag.toLowerCase(), claim)
+    }
+  }
+  return claimed
+}
+
+/** The features claimed by the orientation facing this direction, in the order listed. */
+const claimedFrom = (
+  claimed: ReadonlyMap<string, Claim>,
+  direction: PlanDirection,
+): Array<string> =>
+  [...claimed.values()]
+    .filter((claim) => sameDirection(claim.direction, direction))
+    .map((claim) => claim.tag)
+
+/** The planned setup's rows that no orientation lists. */
+const unlistedRows = (setup: PlannedSetup, claimed: ReadonlyMap<string, Claim>): Array<string> =>
+  (setup.rows ?? []).filter((row) => !claimed.has(row.tag.toLowerCase())).map((row) => row.tag)
+
+/**
+ * A stated setup facing `direction`, given its work. With no tilts, it holds its own features. Else
+ * it is held to reach them (`indexedFor`), each a tilt folder inside it — beside a folder following
+ * it where there is only the one, or where its own features need a folder. The setup takes the
+ * first id and the first name, then its folders in order.
+ */
+const statedFrame = (
+  stating: Stating,
+  direction: PlanDirection,
+  own: Array<string>,
+  tilted: ReadonlyArray<readonly [PlanDirection, Array<string>]>,
+): DraftSetup => {
+  const newFolder = folderMaker(stating)
+  if (tilted.length === 0) {
+    return { ...newFolder(own), direction }
+  }
+  const frame = newFolder([])
+  const followers = tilted.length === 1 || own.length > 0 ? [newFolder(own)] : []
+  const tiltFolders = tilted.map(([tilt, features]) => ({
+    ...newFolder(features),
+    direction: tilt,
+  }))
+  return {
+    ...frame,
+    direction,
+    process: indexedFor(
+      direction,
+      tilted.map(([tilt]) => tilt),
+    ),
+    folders: [...followers, ...tiltFolders],
+  }
+}
+
+/**
+ * New folders for one stated setup, made in turn: each takes a fresh id, and is named past every
+ * folder stated so far and every one made before it.
+ */
+const folderMaker = (stating: Stating): ((features: Array<string>) => DraftFolder) => {
+  const names = namesIn(stating.setups)
+  return (features) => {
+    const folder: DraftFolder = {
+      id: stating.newId(),
+      name: nextFolderName(names),
+      features,
+      folders: [],
+    }
+    names.push(folder.name)
+    return folder
+  }
 }
 
 /** Folders facing each setup of Toolpath's plan, and nothing else: no pins (`statedFrom`). */
@@ -1105,6 +1287,7 @@ export const moveFolder = (
   return Array.isArray(moved) && left ? liftLoneFolder(moved, left) : moved
 }
 
+/** A folder moved where it lands, the folder it leaves as it was (`moveFolder`), or why not. */
 const placeFolder = (
   setups: ReadonlyArray<DraftSetup>,
   id: string,
@@ -1113,85 +1296,140 @@ const placeFolder = (
 ): Edited => {
   const moved = findPlaced(setups, id)
   if (!moved) {
-    return { refused: 'That folder is gone.' }
+    return { refused: GONE }
   }
-  const here = moved.parent?.id ?? null
-  // Taken out, then put back where it lands.
-  const without = (all: ReadonlyArray<DraftSetup>): Array<DraftSetup> =>
-    here === null ? all.filter((setup) => setup.id !== id) : pruneFolder(all, id)
-  const put = (all: Array<DraftSetup>, folder: DraftFolder): Array<DraftSetup> => {
-    if (to.parentId === null) {
-      const next = [...all]
-      next.splice(to.index, 0, folder as DraftSetup)
-      return next
-    }
-    return updateFolder(all, to.parentId, (parent) => {
-      const children = [...parent.folders]
-      children.splice(to.index, 0, folder)
-      return { ...parent, folders: children }
-    })
-  }
-  if (to.parentId === here) {
+  const move: FolderMove = { setups, moved, to, newId }
+  if (to.parentId === parentIdOf(moved)) {
     // FLD22: a reorder changes nothing about the folder or where it is.
-    return put(without(setups), moved.folder)
+    return withLanded(move, moved.folder)
   }
   if (to.parentId === null) {
-    if (!moved.toolOrientation) {
-      return { refused: `It is cut from ${moved.setup.name}’s direction, a setup already.` }
-    }
-    const { direction: tilt, ...rest } = moved.folder
-    const setup: DraftSetup = { ...rest, direction: tilt! }
-    const next = put(without(setups), setup)
-    const tilts = tiltsIn(
-      next.map((each) => (each.id === id ? { ...each, process: '3+2' as const } : each)),
-      id,
-    )
-    return tilts.length > 0
-      ? next.map((each) =>
-          each.id === id ? { ...each, process: indexedFor(each.direction, tilts) } : each,
-        )
-      : next
+    return placeAtTop(move)
   }
   const target = findPlaced(setups, to.parentId)
   if (!target) {
-    return { refused: 'That folder is gone.' }
+    return { refused: GONE }
   }
+  return placeInside(move, target)
+}
+
+/** A folder on its way: the draft, the folder where it sits, where it lands, and the id for a parent. */
+interface FolderMove {
+  setups: ReadonlyArray<DraftSetup>
+  moved: PlacedFolder
+  to: Landing
+  /** The id for a parent made to hold both, where it is dropped on a folder holding work. */
+  newId: string
+}
+
+/** The id of the folder a folder sits in, or null for a setup. */
+const parentIdOf = (placed: PlacedFolder): string | null => placed.parent?.id ?? null
+
+/** The draft with the moved folder taken out, and `folder` put where it lands. */
+const withLanded = ({ setups, moved, to }: FolderMove, folder: DraftFolder): Array<DraftSetup> =>
+  putAt(takenOut(setups, moved), folder, to)
+
+/** The draft with a folder, and everything in it, taken out of where it sits. */
+const takenOut = (setups: ReadonlyArray<DraftSetup>, placed: PlacedFolder): Array<DraftSetup> =>
+  parentIdOf(placed) === null
+    ? setups.filter((setup) => setup.id !== placed.folder.id)
+    : pruneFolder(setups, placed.folder.id)
+
+/** The draft with a folder put where it lands: among the setups, or inside a folder. */
+const putAt = (setups: Array<DraftSetup>, folder: DraftFolder, to: Landing): Array<DraftSetup> => {
+  if (to.parentId === null) {
+    const next = [...setups]
+    next.splice(to.index, 0, folder as DraftSetup)
+    return next
+  }
+  return updateFolder(setups, to.parentId, (parent) => {
+    const children = [...parent.folders]
+    children.splice(to.index, 0, folder)
+    return { ...parent, folders: children }
+  })
+}
+
+/**
+ * A folder moved to the top: a tool orientation becomes a setup facing its tilt, indexed if it holds
+ * tilts of its own. A folder that follows can't: its direction is a setup already.
+ */
+const placeAtTop = (move: FolderMove): Edited => {
+  const { moved } = move
+  if (!moved.toolOrientation) {
+    return { refused: `It is cut from ${moved.setup.name}’s direction, a setup already.` }
+  }
+  const { direction: tilt, ...rest } = moved.folder
+  const setup: DraftSetup = { ...rest, direction: tilt! }
+  return indexedForTiltsIn(withLanded(move, setup), setup.id)
+}
+
+/** The draft with a setup indexed to reach the tilts in it, if it holds any; else as it is. */
+const indexedForTiltsIn = (setups: Array<DraftSetup>, setupId: string): Array<DraftSetup> => {
+  // Read as indexed, so its tilts count as tool orientations.
+  const tilts = tiltsIn(
+    setups.map((each) => (each.id === setupId ? { ...each, process: '3+2' as const } : each)),
+    setupId,
+  )
+  if (tilts.length === 0) {
+    return setups
+  }
+  return setups.map((each) =>
+    each.id === setupId ? { ...each, process: indexedFor(each.direction, tilts) } : each,
+  )
+}
+
+/**
+ * A folder moved inside another, never into itself or deeper than six. Onto one holding no folders,
+ * both are kept side by side (`wrapBoth`). Into a folder cut from the same way, it follows it
+ * (FLD25); from another way, it is a tilt (`placeAsTilt`).
+ */
+const placeInside = (move: FolderMove, target: PlacedFolder): Edited => {
+  const { moved } = move
   if (idsIn(moved.folder).includes(target.folder.id)) {
     return { refused: 'A folder can’t go inside itself.' }
   }
   if (target.depth + heightOf(moved.folder) > MAX_DEPTH) {
-    return { refused: `Folders sit at most ${MAX_DEPTH} below their setup.` }
+    return { refused: TOO_DEEP }
   }
-  const plain = following(moved.folder)
   // Into a folder holding no folders — work, or nothing yet, which would then hold just this one —
   // both are kept, side by side in a parent made for them.
   if (target.folder.folders.length === 0) {
-    return wrapBoth(setups, moved, target, newId, without)
+    return wrapBoth(move, target)
   }
   if (sameDirection(moved.direction, target.direction)) {
-    // FLD25: cut from the same way, it follows.
-    return put(without(setups), plain)
+    return withLanded(move, following(moved.folder))
   }
-  // FLD26: cut from another way, it becomes a tilt of the setup it lands in.
-  const taken = framesOf(without(setups)).find((frame) =>
-    sameDirection(frame.direction, moved.direction),
-  )
+  return placeAsTilt(move, target)
+}
+
+/**
+ * FLD26: a folder moved into one cut from another way becomes a tilt of the setup it lands in,
+ * keeping its direction, and that setup is indexed to reach it — unless another frame faces it.
+ */
+const placeAsTilt = (move: FolderMove, target: PlacedFolder): Edited => {
+  const { setups, moved } = move
+  const taken = frameFacing(takenOut(setups, moved), moved.direction)
   if (taken) {
-    return { refused: `${taken.name} is cut from that direction already.` }
+    return alreadyCut(taken)
   }
-  const landed = put(without(setups), { ...plain, direction: moved.direction })
-  const setupId = target.setup.id
-  const indexedAll = landed.map((each) =>
+  const tilt: DraftFolder = { ...following(moved.folder), direction: moved.direction }
+  return indexedToReach(withLanded(move, tilt), target.setup.id)
+}
+
+/**
+ * The draft with a setup indexed to reach every tilt in it: an explicit 3+2 stays; otherwise the
+ * fewest axes that reach them all (FLD27).
+ */
+const indexedToReach = (setups: Array<DraftSetup>, setupId: string): Array<DraftSetup> => {
+  const indexed = setups.map((each) =>
     each.id === setupId ? { ...each, process: each.process ?? ('3+1' as const) } : each,
   )
-  const tilts = tiltsIn(indexedAll, setupId)
-  return indexedAll.map((each) => {
-    if (each.id !== setupId) {
-      return each
-    }
-    // An explicit 3+2 stays; otherwise the fewest axes that reach every tilt (FLD27).
-    return { ...each, process: each.process === '3+2' ? '3+2' : indexedFor(each.direction, tilts) }
-  })
+  const tilts = tiltsIn(indexed, setupId)
+  return indexed.map((each) =>
+    each.id === setupId
+      ? { ...each, process: each.process === '3+2' ? '3+2' : indexedFor(each.direction, tilts) }
+      : each,
+  )
 }
 
 /**
@@ -1200,68 +1438,63 @@ const placeFolder = (
  * groups them; from another, the dropped one is a tilt, and the setup is indexed to reach it: 3+1,
  * or 3+2 where one axis won't (an explicit 3+2 stays). A parent at the top is the setup.
  */
-const wrapBoth = (
-  setups: ReadonlyArray<DraftSetup>,
-  moved: PlacedFolder,
-  target: PlacedFolder,
-  newId: string,
-  without: (all: ReadonlyArray<DraftSetup>) => Array<DraftSetup>,
-): Edited => {
-  // The parent adds a level above the target: everything in both must still fit.
-  if (
-    target.depth + 1 + heightOf(moved.folder) > MAX_DEPTH ||
-    target.depth + 1 + heightOf(target.folder) - 1 > MAX_DEPTH
-  ) {
-    return { refused: `Folders sit at most ${MAX_DEPTH} below their setup.` }
+const wrapBoth = (move: FolderMove, target: PlacedFolder): Edited => {
+  const { setups, moved, newId } = move
+  if (tooDeepWrapped(moved, target)) {
+    return { refused: TOO_DEEP }
   }
-  const base = without(setups)
+  const base = takenOut(setups, moved)
   const sameWay = sameDirection(moved.direction, target.direction)
-  if (!sameWay) {
-    const taken = framesOf(base).find((frame) => sameDirection(frame.direction, moved.direction))
-    if (taken) {
-      return { refused: `${taken.name} is cut from that direction already.` }
-    }
+  const taken = sameWay ? undefined : frameFacing(base, moved.direction)
+  if (taken) {
+    return alreadyCut(taken)
   }
-  const parent: DraftFolder = {
-    id: newId,
-    // Named past every folder there is, the one being moved included.
-    name: nextFolderName(namesIn(setups)),
-    features: [],
-    folders: [
-      following(target.folder),
-      sameWay
-        ? following(moved.folder)
-        : { ...following(moved.folder), direction: moved.direction },
-    ],
-    // A tilt wrapped keeps its tilt on the parent: the parent now faces it.
-    ...(target.toolOrientation ? { direction: target.direction } : {}),
-  }
-  const top = target.depth === 0
-  const placed = top
-    ? base.map((setup) =>
-        setup.id === target.folder.id
-          ? {
-              ...parent,
-              direction: target.setup.direction,
-              ...(target.setup.process ? { process: target.setup.process } : {}),
-            }
-          : setup,
-      )
-    : updateFolder(base, target.parent!.id, (folder) => ({
-        ...folder,
-        folders: folder.folders.map((child) => (child.id === target.folder.id ? parent : child)),
-      }))
+  const placed = inPlaceOf(base, target, parentOfBoth(move, target))
   if (sameWay) {
     return placed
   }
-  const setupId = top ? newId : target.setup.id
-  const indexed = placed.map((each) =>
-    each.id === setupId ? { ...each, process: each.process ?? ('3+1' as const) } : each,
-  )
-  const tilts = tiltsIn(indexed, setupId)
-  return indexed.map((each) =>
-    each.id === setupId
-      ? { ...each, process: each.process === '3+2' ? '3+2' : indexedFor(each.direction, tilts) }
+  return indexedToReach(placed, target.depth === 0 ? newId : target.setup.id)
+}
+
+/** Whether a parent added above the target leaves anything in either deeper than a folder may sit. */
+const tooDeepWrapped = (moved: PlacedFolder, target: PlacedFolder): boolean =>
+  target.depth + 1 + heightOf(moved.folder) > MAX_DEPTH ||
+  target.depth + 1 + heightOf(target.folder) - 1 > MAX_DEPTH
+
+/**
+ * The parent made to hold the target and the dropped folder, named past every folder there is, the
+ * one being moved included. A tilt wrapped keeps its tilt on the parent: the parent now faces it.
+ */
+const parentOfBoth = ({ setups, moved, newId }: FolderMove, target: PlacedFolder): DraftFolder => ({
+  id: newId,
+  name: nextFolderName(namesIn(setups)),
+  features: [],
+  folders: [following(target.folder), besideTarget(moved, target)],
+  ...(target.toolOrientation ? { direction: target.direction } : {}),
+})
+
+/** The dropped folder beside the target: following it, or a tilt where it is cut from another way. */
+const besideTarget = (moved: PlacedFolder, target: PlacedFolder): DraftFolder =>
+  sameDirection(moved.direction, target.direction)
+    ? following(moved.folder)
+    : { ...following(moved.folder), direction: moved.direction }
+
+/** The draft with `parent` in the target's place; at the top, a setup as the target was held. */
+const inPlaceOf = (
+  setups: Array<DraftSetup>,
+  target: PlacedFolder,
+  parent: DraftFolder,
+): Array<DraftSetup> => {
+  if (target.depth !== 0) {
+    return replaceChild(setups, target.parent!.id, target.folder.id, parent)
+  }
+  return setups.map((each) =>
+    each.id === target.folder.id
+      ? {
+          ...parent,
+          direction: target.setup.direction,
+          ...(target.setup.process ? { process: target.setup.process } : {}),
+        }
       : each,
   )
 }
@@ -1282,18 +1515,9 @@ export const moveFeature = (
 ): Edited => {
   const dropped = findPlaced(setups, folderId)
   if (!dropped) {
-    return { refused: 'That folder is gone.' }
+    return { refused: GONE }
   }
-  const inside = new Set(idsIn(dropped.folder))
-  const target =
-    dropped.folder.folders.length === 0
-      ? dropped
-      : (placedFolders(setups).find(
-          (each) =>
-            inside.has(each.folder.id) &&
-            each.folder.folders.length === 0 &&
-            sameDirection(each.direction, featureDirection),
-        ) ?? (sameDirection(dropped.direction, featureDirection) ? dropped : undefined))
+  const target = rowTarget(setups, dropped, featureDirection)
   if (!target) {
     return { refused: `No folder in ${dropped.folder.name} is cut from that direction.` }
   }
@@ -1305,4 +1529,27 @@ export const moveFeature = (
   }
   const result = pinInto(setups, target.folder.id, tag, newId)
   return 'setups' in result ? result.setups : { refused: result.refused }
+}
+
+/**
+ * Where a row dropped on a folder goes: that folder, where it holds no folders; else the first
+ * folder in it cut from the feature's direction that holds none; else, cut from that direction
+ * itself, the folder dropped on.
+ */
+const rowTarget = (
+  setups: ReadonlyArray<DraftSetup>,
+  dropped: PlacedFolder,
+  featureDirection: PlanDirection,
+): PlacedFolder | undefined => {
+  if (dropped.folder.folders.length === 0) {
+    return dropped
+  }
+  const inside = new Set(idsIn(dropped.folder))
+  const leaf = placedFolders(setups).find(
+    (each) =>
+      inside.has(each.folder.id) &&
+      each.folder.folders.length === 0 &&
+      sameDirection(each.direction, featureDirection),
+  )
+  return leaf ?? (sameDirection(dropped.direction, featureDirection) ? dropped : undefined)
 }
