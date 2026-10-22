@@ -1,8 +1,5 @@
 import type { ComponentType, ReactElement, ReactNode } from 'react'
 
-/** What the panel needs to name a feature: `@toolpath/dfm`'s, which the panel's data types share. */
-export type { FeatureIdentity } from '@toolpath/dfm'
-
 /**
  * Something the app reads for the panel, and how far it has got: the panel
  * says what it is waiting on, or what went wrong, in place of the section.

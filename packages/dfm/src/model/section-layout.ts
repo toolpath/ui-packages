@@ -68,13 +68,13 @@ export const READ_CHAR_PX = 6.4
 export const HEADING_CHAR_PX = 6.5
 /** How far the reading sits from the pointer's line, and from the drawing's edges. */
 export const READ_INSET = 8
-/** Half the width of the offsets' axis label at 9 px, to hold it inside the drawing, CSS pixels. */
+/** Half the width of the offsets' axis label at 9 px, to hold it inside the drawing. */
 export const AXIS_LABEL_HALF_PX = 84
-/** How thick the floor strip under the drawing is, CSS pixels. */
+/** How thick the floor strip under the drawing is. */
 export const FLOOR_STRIP = 6
-/** The least width of the feature for "depth" to be written over its top, CSS pixels. */
+/** The least width of the feature for "depth" to be written over its top. */
 export const DEPTH_WORD_PX = 34
-/** How far apart the teeth of a break are, and how far each sways, CSS pixels. */
+/** How far apart the teeth of a break are, and how far each sways. */
 const BREAK_STEP = 8
 const BREAK_SWAY = 3
 

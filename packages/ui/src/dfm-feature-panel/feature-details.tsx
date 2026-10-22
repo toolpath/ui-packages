@@ -28,7 +28,8 @@ import {
 import { ReadFailure, Reading } from './read-state'
 import { PopOutButton, PopOuts } from './pop-outs'
 import { RecordSections } from './record-sections'
-import type { FeatureIdentity, Loadable, PopOutId, PopOutWindow } from './types'
+import type { FeatureIdentity } from '@toolpath/dfm'
+import type { Loadable, PopOutId, PopOutWindow } from './types'
 
 export interface FeatureDetailsProps {
   feature: FeatureIdentity

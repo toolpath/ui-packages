@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { comparisonRows, faceLetter } from '../../src/model/comparison-rows.js'
-import type { ComparedFace } from '../../src/model/feature-panel-types.js'
+import type { ComparedFace } from '../../src/model/view-types.js'
 
 const hole = (tag: string, overrides: Partial<ComparedFace> = {}): ComparedFace => ({
   feature: { tag, featureType: 'through_hole', machiningDirection: { x: 0, y: 0, z: 1 } },
