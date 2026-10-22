@@ -77,6 +77,10 @@ export interface DfmMetric {
   signed?: true
 }
 
+/** Whether a rule on this measure compares a number: not a yes/no, nor "any size". */
+export const takesNumber = (metric: Pick<DfmMetric, 'quantity'>): boolean =>
+  metric.quantity !== 'flag' && metric.quantity !== 'presence'
+
 interface MetricSpec extends Omit<DfmMetric, 'start' | 'path'> {
   start: number | Record<Units, number>
   path?: string | readonly string[]

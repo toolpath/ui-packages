@@ -1,6 +1,14 @@
 import type { DfmOp } from './dfm-metrics.js'
-import { OPS, opSymbol, withOp, type DfmRule, type RangeLow } from './dfm-rules.js'
-import type { ChoiceGroup } from './feature-panel-types.js'
+import {
+  OPS,
+  RANGE_HIGHS,
+  RANGE_LOWS,
+  opSymbol,
+  withOp,
+  type DfmRule,
+  type RangeLow,
+} from './dfm-rules.js'
+import type { ChoiceGroup, Choices } from './feature-panel-types.js'
 
 export const OP_TITLES: Record<DfmOp, string> = {
   gte: 'at least',
@@ -36,3 +44,39 @@ export const rangeEnd = (
   chosen.startsWith(ONE_SIDED)
     ? withOp(rule, chosen.slice(ONE_SIDED.length) as DfmOp)
     : { ...rule, ...hold(chosen) }
+
+/**
+ * How a picker words one comparison: from its symbol, `≥`, and the comparison
+ * itself. The web's pickers show the symbol alone; a phone's list, with room
+ * for words, adds the title.
+ */
+export type OpLabel = (symbol: string, op: DfmOp) => string
+
+const symbolOnly: OpLabel = (symbol) => symbol
+
+/** Every comparison, for a one-sided rule. */
+export const comparisonChoices = (label: OpLabel = symbolOnly): Choices => ({
+  groups: [{ choices: OPS.map((op) => ({ value: op, label: label(opSymbol(op), op) })) }],
+})
+
+/** A range's low end, held either way, and the one-sided comparisons to leave the range by. */
+export const rangeLowChoices = (label: OpLabel = symbolOnly): Choices => ({
+  groups: [
+    {
+      heading: 'Range',
+      choices: RANGE_LOWS.map((op) => ({ value: op, label: label(LOW_SYMBOLS[op], op) })),
+    },
+    ONE_SIDED_CHOICES,
+  ],
+})
+
+/** A range's high end, held either way, and the one-sided comparisons to leave the range by. */
+export const rangeHighChoices = (label: OpLabel = symbolOnly): Choices => ({
+  groups: [
+    {
+      heading: 'Range',
+      choices: RANGE_HIGHS.map((op) => ({ value: op, label: label(opSymbol(op), op) })),
+    },
+    ONE_SIDED_CHOICES,
+  ],
+})

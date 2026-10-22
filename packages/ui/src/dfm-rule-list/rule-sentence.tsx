@@ -1,19 +1,17 @@
 import { useState, type FC, type ReactElement } from 'react'
 import {
-  type Choices,
   type DfmRule,
-  LOW_SYMBOLS,
   lowOf,
   metricChoices,
   metricInfo,
-  ONE_SIDED_CHOICES,
   OP_TITLES,
   quantityUnit,
-  RANGE_LOWS,
   rangeEnd,
   type RangeLow,
+  rangeLowChoices,
   type RuleVocabulary,
   subjectChoices,
+  takesNumber,
   type Units,
   upperOf,
   withMetric,
@@ -23,12 +21,7 @@ import { Comparison } from './comparison'
 import { Picker } from './picker'
 import { ValueField } from './value-field'
 
-const RANGE_LOW: Choices = {
-  groups: [
-    { heading: 'Range', choices: RANGE_LOWS.map((op) => ({ value: op, label: LOW_SYMBOLS[op] })) },
-    ONE_SIDED_CHOICES,
-  ],
-}
+const RANGE_LOW = rangeLowChoices()
 
 interface SentenceProps {
   rule: DfmRule
@@ -57,7 +50,7 @@ export const RuleSentence: FC<SentenceProps> = ({
 }): ReactElement => {
   const info = metricInfo(rule.metric, vocabulary)
   // A yes/no, or "any size", has no comparison or number to set.
-  const flag = info?.quantity === 'flag' || info?.quantity === 'presence'
+  const flag = info !== undefined && !takesNumber(info)
   const presence = info?.quantity === 'presence'
   const ranged = info !== undefined && !flag && rule.op === 'between'
   const unit = info ? quantityUnit(info.quantity, units) : ''
