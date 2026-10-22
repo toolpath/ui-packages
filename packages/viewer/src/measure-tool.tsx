@@ -35,6 +35,7 @@ import {
   AXIS_COLORS,
   type Axis,
   DELTA_DASH_PIXELS,
+  MEASURE_LABEL_CLASS,
   MEASURE_LINE_PIXELS,
   MEASURE_MARKER_PIXELS,
   MEASURE_RENDER_ORDER,
@@ -67,18 +68,6 @@ import { useTapGuard } from './tap.js'
 import { useSectionStore } from './viewer.js'
 
 const FURNITURE = { [EXCLUDE_FROM_FRAME]: true }
-
-/**
- * The class every label carries, for a stylesheet to find.
- *
- * The labels ship with no styling at all. Each one is a `<div>` with this
- * class, `data-measure-label` naming what it is — `distance`, `angle`, `delta`
- * for one leg of a distance's breakdown, or `live` for the readout that
- * follows the pointer — `data-axis` on a leg, and `data-measurement-id` on
- * anything belonging to a finished measurement. The README shows a stylesheet
- * to start from.
- */
-export const MEASURE_LABEL_CLASS = 'toolpath-measure-label'
 
 /** What a label is, for a stylesheet to tell them apart. */
 export type MeasureLabelKind = 'distance' | 'angle' | 'delta' | 'live'

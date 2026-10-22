@@ -12,7 +12,7 @@ import {
 } from 'three'
 import { useContentBox } from './content-box.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
-import { onWindowKeys } from './render/keys.js'
+import { onWindowKeydown } from './render/keys.js'
 import { AXIS_COLORS } from './render/measure.js'
 import { readPointer } from './render/pointer.js'
 import {
@@ -84,10 +84,8 @@ export const SectionTool = ({ theme }: SectionToolProps) => {
 
   useEffect(() => {
     if (!section) return undefined
-    return onWindowKeys({
-      keydown: (event) => {
-        if (event.key === 'Escape') store.set(null)
-      },
+    return onWindowKeydown((event) => {
+      if (event.key === 'Escape') store.set(null)
     })
   }, [section, store])
 

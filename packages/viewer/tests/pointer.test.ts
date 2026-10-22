@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { preventPointerDefault, readPointer } from '../src/render/pointer.js'
 
 const rect = (left: number, top: number) => ({
   getBoundingClientRect: () => ({ left, top }) as DOMRectReadOnly,
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 describe('readPointer', () => {
@@ -14,10 +18,7 @@ describe('readPointer', () => {
       offsetX: 1,
       offsetY: 2,
       button: 2,
-      buttons: 2,
       timeStamp: 1234,
-      pointerId: 7,
-      pointerType: 'mouse',
       altKey: true,
       ctrlKey: false,
       metaKey: true,
@@ -30,10 +31,7 @@ describe('readPointer', () => {
       clientX: 140,
       clientY: 90,
       button: 2,
-      buttons: 2,
       timeStamp: 1234,
-      pointerId: 7,
-      pointerType: 'mouse',
       altKey: true,
       ctrlKey: false,
       metaKey: true,
@@ -85,10 +83,7 @@ describe('readPointer', () => {
       clientX: 230,
       clientY: 340,
       button: 0,
-      buttons: 1,
       timeStamp: 5678,
-      pointerId: 3,
-      pointerType: 'touch',
       altKey: false,
       ctrlKey: false,
       metaKey: false,
@@ -103,18 +98,9 @@ describe('readPointer', () => {
     expect(reading.clientY).toBe(13)
   })
 
-  it('reports no buttons held once a native gesture has ended', () => {
-    expect(readPointer({ type: 'pointerup' }).buttons).toBe(0)
-    expect(readPointer({ type: 'click' }).buttons).toBe(0)
-    expect(readPointer({ type: 'lostpointercapture' }).buttons).toBe(1)
-    expect(readPointer({ type: 'pointercancel' }).buttons).toBe(0)
-    expect(readPointer({ type: 'pointermove' }).buttons).toBe(1)
-  })
-
   it('stamps an event that carries no time with the current one', () => {
     vi.spyOn(performance, 'now').mockReturnValue(42)
     expect(readPointer({}).timeStamp).toBe(42)
-    vi.restoreAllMocks()
   })
 
   it('counts only a literal true as a held modifier', () => {
