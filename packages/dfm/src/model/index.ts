@@ -13,6 +13,7 @@
 
 export { brokenRules, featureColor, type BrokenRule } from './broken-rules.js'
 export { featureTypeLabel, hitFigure } from './dfm-explain.js'
+export { comparisonRows, faceLetter, type ComparisonRow } from './comparison-rows.js'
 export {
   checkPart,
   withSurroundedFaces,
