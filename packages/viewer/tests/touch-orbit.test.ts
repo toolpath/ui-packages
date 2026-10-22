@@ -5,6 +5,7 @@ import {
   createFingerTracker,
   createTouchOps,
   createTouchOrbit,
+  localPoint,
   type TouchPoint,
 } from '../src/render/touch-orbit.js'
 
@@ -181,5 +182,32 @@ describe('applyTouchOps', () => {
 
   it('reports nothing done when there was nothing to do', () => {
     expect(applyTouchOps([], controls(true), size, createTouchOrbit())).toBe(false)
+  })
+})
+
+describe('a lost finger', () => {
+  it('is forgotten when the next gesture starts without it', () => {
+    const fingers = createFingerTracker()
+    fingers.update('start', [finger(1, 10, 10)], [finger(1, 10, 10)])
+    // Finger 1's end never arrives.
+    expect(fingers.update('start', [finger(2, 50, 50)], [finger(2, 50, 50)])).toEqual([
+      finger(2, 50, 50),
+    ])
+  })
+
+  it('is kept while it is still down, as a second finger joins', () => {
+    const fingers = createFingerTracker()
+    fingers.update('start', [finger(1, 10, 10)], [finger(1, 10, 10)])
+    expect(
+      fingers.update('start', [finger(2, 50, 50)], [finger(1, 10, 10), finger(2, 50, 50)]),
+    ).toEqual([finger(1, 10, 10), finger(2, 50, 50)])
+  })
+})
+
+describe('localPoint', () => {
+  it('makes a page position local to the canvas, with a numeric id', () => {
+    expect(localPoint({ identifier: '3', pageX: 130, pageY: 260 }, { x: 30, y: 60 })).toEqual(
+      finger(3, 100, 200),
+    )
   })
 })

@@ -30,6 +30,7 @@ import {
   createFingerTracker,
   createTouchOps,
   createTouchOrbit,
+  localPoint,
 } from './render/touch-orbit.js'
 import type { CanvasSettings } from './viewer-frame.js'
 
@@ -95,22 +96,26 @@ export const ViewerFrame = ({
   const frame = useRef<ComponentRef<typeof View>>(null)
   const origin = useRef({ x: 0, y: 0 })
 
+  // An ancestor can move — a sheet sliding, a scroll — without the frame's
+  // own layout changing, so the origin is measured again as each gesture
+  // starts as well as on layout. The measurement is asynchronous: if it moved
+  // the origin, the orbit starts afresh from the fingers' next positions
+  // rather than reading the change as a jump.
   const measure = () => {
     frame.current?.measureInWindow((x, y) => {
+      const moved = x !== origin.current.x || y !== origin.current.y
       origin.current = { x, y }
+      if (moved) touch.orbit.reset()
     })
   }
 
   // Touch positions are page coordinates; the frame's origin makes them local to
-  // the canvas. Measured on layout only: the measurement is asynchronous, and
-  // one taken mid-gesture would land between two moves and read as a jump.
+  // the canvas.
   const onTouch = (kind: 'start' | 'move' | 'end' | 'cancel') => (event: GestureResponderEvent) => {
     const { touches, changedTouches } = event.nativeEvent
-    const point = (finger: (typeof touches)[number]): TouchPoint => ({
-      id: Number(finger.identifier),
-      x: finger.pageX - origin.current.x,
-      y: finger.pageY - origin.current.y,
-    })
+    if (kind === 'start' && touches.length === changedTouches.length) measure()
+    const point = (finger: (typeof touches)[number]): TouchPoint =>
+      localPoint(finger, origin.current)
     const fingers = touch.fingers.update(kind, changedTouches.map(point), touches.map(point))
     const ops = touch.orbit.update(fingers)
     if (ops.length === 0) return
