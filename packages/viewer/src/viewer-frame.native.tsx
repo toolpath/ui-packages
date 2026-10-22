@@ -15,16 +15,18 @@ import {
   View,
   type ViewStyle,
 } from 'react-native'
-import type { Material, Object3D, Texture, WebGLRenderer } from 'three'
 import { SceneLabelStoreContext } from './label-context.js'
 import { LabelOverlay } from './label-overlay.js'
 import { type LabelStore, createLabelStore } from './render/label-store.js'
+import { createPresenter, createRelease, disposeTree } from './render/native-gl.js'
 import type { ViewerTheme } from './render/theme.js'
 import {
   type FingerTracker,
   type TouchOps,
   type TouchOrbit,
+  type TouchControls,
   type TouchPoint,
+  applyTouchOps,
   createFingerTracker,
   createTouchOps,
   createTouchOrbit,
@@ -55,18 +57,7 @@ interface TouchState {
 
 const TouchOrbitContext = createContext<TouchState | null>(null)
 
-/** The controls' touch methods; anything else in R3F's `controls` slot is left alone. */
-interface TouchControls {
-  enabled: boolean
-  orbitBy(dx: number, dy: number, viewportMin: number): void
-  zoomAt(
-    scale: number,
-    at: { x: number; y: number },
-    viewport: { width: number; height: number },
-  ): void
-  panBy(dx: number, dy: number, viewport: { width: number; height: number }): void
-}
-
+/** Anything in R3F's `controls` slot without the touch methods is left alone. */
 const isTouchControls = (controls: unknown): controls is TouchControls =>
   typeof (controls as TouchControls | null)?.orbitBy === 'function'
 
@@ -147,10 +138,7 @@ export const ViewerFrame = ({
             frameloop={canvas.frameloop}
             // Fiber already ignores a press that moved, so a miss is a miss.
             onPointerMissed={onPointerMissed ? () => onPointerMissed() : undefined}
-            onCreated={(state) => {
-              presentOncePerFrame(state)
-              releaseOnContextLoss(state)
-            }}
+            onCreated={releaseWithTheCanvas}
           >
             {/* First, so it is torn down before anything below it leaves the scene. */}
             <ReleaseOnUnmount />
@@ -170,10 +158,8 @@ export const ViewerFrame = ({
  * Applies the touch camera's operations, once a frame.
  *
  * Touch events arrive faster than frames, and in bursts; applied one event at
- * a time the camera jumped. They are merged as they arrive and applied here.
- * While the controls are off — a drag owns the gesture, the section handle's —
- * they are dropped, and the orbit starts from where the fingers are when the
- * controls come back, rather than from where they were.
+ * a time the camera jumped. They are merged as they arrive and applied here,
+ * through `applyTouchOps`.
  */
 const TouchBridge = () => {
   const touch = useContext(TouchOrbitContext)
@@ -192,17 +178,8 @@ const TouchBridge = () => {
   useFrame(() => {
     if (!touch) return
     const ops = touch.ops.take()
-    if (ops.length === 0 || !isTouchControls(controls)) return
-    if (!controls.enabled) {
-      touch.orbit.reset()
-      return
-    }
-    for (const op of ops) {
-      if (op.kind === 'orbit') controls.orbitBy(op.dx, op.dy, Math.min(size.width, size.height))
-      else if (op.kind === 'zoom') controls.zoomAt(op.scale, { x: op.x, y: op.y }, size)
-      else controls.panBy(op.dx, op.dy, size)
-    }
-    invalidate()
+    if (!isTouchControls(controls)) return
+    if (applyTouchOps(ops, controls, size, touch.orbit)) invalidate()
   })
 
   return null
@@ -247,57 +224,22 @@ const PauseWhenInactive = ({ frameloop }: { frameloop: CanvasSettings['frameloop
 type ExpoContext = WebGL2RenderingContext & { endFrameEXP(): void }
 
 /**
- * The frame reaches the screen once, when it is finished.
- *
- * Fiber native presents after every `gl.render`, and the view cube's HUD is a
- * second render each frame — so every other present showed the scene without
- * the cube, and it flickered. `endFrameEXP` here only marks the frame; an
- * after-effect presents it, once, at the end of the frame.
+ * Presents each frame once (`createPresenter`), and makes the renderer's
+ * `forceContextLoss` free everything the canvas holds on the GPU
+ * (`createRelease`): expo-gl's own context loss does nothing.
  */
-const presentOncePerFrame = (state: RootState) => {
-  const context = state.gl.getContext() as ExpoContext
-  const present = context.endFrameEXP.bind(context)
-  let dirty = false
-  context.endFrameEXP = () => {
-    dirty = true
-  }
-  const remove = addAfterEffect(() => {
-    if (!dirty) return
-    dirty = false
-    present()
+const releaseWithTheCanvas = ({ gl, scene }: RootState) => {
+  const context = gl.getContext() as ExpoContext
+  gl.forceContextLoss = createRelease({
+    gl,
+    scene,
+    stopPresenting: createPresenter(context, addAfterEffect),
+    destroy: () => {
+      void GLView.destroyContextAsync(
+        context as unknown as Parameters<typeof GLView.destroyContextAsync>[0],
+      ).catch(() => undefined)
+    },
   })
-  stopPresenting.set(state.gl, remove)
-}
-
-/** The after-effect each renderer presents through, removed with the renderer's context. */
-const stopPresenting = new WeakMap<WebGLRenderer, () => void>()
-
-/**
- * Frees what the canvas holds on the GPU, once, with the canvas.
- *
- * expo-gl has no `WEBGL_lose_context`, so the context loss fiber asks for when
- * a canvas unmounts does nothing, and expo-gl's view does not destroy its
- * context on unmount either: every canvas a screen mounted kept its buffers.
- * Here, the renderer's `forceContextLoss` — the last thing fiber calls when it
- * tears a root down — disposes anything still under the scene, disposes the
- * renderer, and destroys the context. {@link ReleaseOnUnmount} disposes the
- * scene's contents before that, and calls it too, in case a fiber version
- * tears down without it.
- */
-const releaseOnContextLoss = (state: RootState) => {
-  const { gl, scene } = state
-  const context = gl.getContext()
-  let released = false
-  gl.forceContextLoss = () => {
-    if (released) return
-    released = true
-    stopPresenting.get(gl)?.()
-    disposeTree(scene)
-    gl.dispose()
-    void GLView.destroyContextAsync(
-      context as unknown as Parameters<typeof GLView.destroyContextAsync>[0],
-    ).catch(() => undefined)
-  }
 }
 
 /** Fiber's root teardown is done well within this, and calls `forceContextLoss` itself when it is. */
@@ -332,26 +274,4 @@ const ReleaseOnUnmount = () => {
     }
   }, [gl])
   return null
-}
-
-/** Disposes every geometry, material and texture under `root`, and any render target a material samples. */
-const disposeTree = (root: Object3D) => {
-  root.traverse((object) => {
-    const { geometry, material } = object as Object3D & {
-      geometry?: { dispose(): void }
-      material?: Material | Material[]
-    }
-    geometry?.dispose()
-    for (const each of Array.isArray(material) ? material : material ? [material] : []) {
-      for (const value of Object.values(each)) {
-        if ((value as Texture | null)?.isTexture) (value as Texture).dispose()
-      }
-      const uniforms = (each as Material & { uniforms?: Record<string, { value: unknown }> })
-        .uniforms
-      for (const uniform of Object.values(uniforms ?? {})) {
-        if ((uniform.value as Texture | null)?.isTexture) (uniform.value as Texture).dispose()
-      }
-      each.dispose()
-    }
-  })
 }

@@ -7,6 +7,8 @@
  * `ExtendedCameraControls`' `orbitBy`, `zoomAt` and `panBy` once per frame.
  */
 
+import type { ViewportSize } from './camera.js'
+
 /** One finger, in layout pixels local to the canvas. */
 export interface TouchPoint {
   id: number
@@ -171,4 +173,39 @@ export const createTouchOps = (): TouchOps => {
       return ops
     },
   }
+}
+
+/** The controls' touch methods: `ExtendedCameraControls`' own. */
+export interface TouchControls {
+  enabled: boolean
+  orbitBy(dx: number, dy: number, viewportMin: number): void
+  zoomAt(scale: number, at: { x: number; y: number }, viewport: ViewportSize): void
+  panBy(dx: number, dy: number, viewport: ViewportSize): void
+}
+
+/**
+ * Moves the camera by a frame's merged operations, and says whether it did.
+ *
+ * While the controls are off — a drag owns the gesture, the section handle's —
+ * the operations are dropped and the orbit forgets the fingers, so it starts
+ * from where they are when the controls come back rather than from where they
+ * were.
+ */
+export const applyTouchOps = (
+  ops: readonly TouchOp[],
+  controls: TouchControls,
+  size: ViewportSize,
+  orbit: TouchOrbit,
+): boolean => {
+  if (ops.length === 0) return false
+  if (!controls.enabled) {
+    orbit.reset()
+    return false
+  }
+  for (const op of ops) {
+    if (op.kind === 'orbit') controls.orbitBy(op.dx, op.dy, Math.min(size.width, size.height))
+    else if (op.kind === 'zoom') controls.zoomAt(op.scale, { x: op.x, y: op.y }, size)
+    else controls.panBy(op.dx, op.dy, size)
+  }
+  return true
 }

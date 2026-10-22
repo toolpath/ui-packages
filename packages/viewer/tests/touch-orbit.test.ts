@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  type TouchControls,
+  applyTouchOps,
   createFingerTracker,
   createTouchOps,
   createTouchOrbit,
@@ -135,5 +137,49 @@ describe('createTouchOps', () => {
       { kind: 'zoom', scale: expect.closeTo(2.2, 10), x: 20, y: 30 },
     ])
     expect(ops.take()).toEqual([])
+  })
+})
+
+describe('applyTouchOps', () => {
+  const controls = (enabled: boolean): TouchControls => ({
+    enabled,
+    orbitBy: vi.fn(),
+    zoomAt: vi.fn(),
+    panBy: vi.fn(),
+  })
+  const size = { width: 400, height: 300 }
+
+  it('moves the camera by each operation', () => {
+    const on = controls(true)
+    const moved = applyTouchOps(
+      [
+        { kind: 'orbit', dx: 3, dy: 4 },
+        { kind: 'pan', dx: 1, dy: 2 },
+        { kind: 'zoom', scale: 1.5, x: 10, y: 20 },
+      ],
+      on,
+      size,
+      createTouchOrbit(),
+    )
+
+    expect(moved).toBe(true)
+    expect(on.orbitBy).toHaveBeenCalledWith(3, 4, 300)
+    expect(on.panBy).toHaveBeenCalledWith(1, 2, size)
+    expect(on.zoomAt).toHaveBeenCalledWith(1.5, { x: 10, y: 20 }, size)
+  })
+
+  it('with the controls off, applies nothing and starts the orbit afresh', () => {
+    const off = controls(false)
+    const orbit = createTouchOrbit()
+    orbit.update([finger(1, 0, 0)])
+
+    expect(applyTouchOps([{ kind: 'orbit', dx: 3, dy: 4 }], off, size, orbit)).toBe(false)
+    expect(off.orbitBy).not.toHaveBeenCalled()
+    // Forgotten: the next update is a baseline, not a move from (0, 0).
+    expect(orbit.update([finger(1, 50, 50)])).toEqual([])
+  })
+
+  it('reports nothing done when there was nothing to do', () => {
+    expect(applyTouchOps([], controls(true), size, createTouchOrbit())).toBe(false)
   })
 })
