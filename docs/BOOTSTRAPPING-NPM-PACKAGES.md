@@ -24,6 +24,17 @@ bootstrap publish. This is the only manual publish; do not add an npm token to t
    to the workflow file name, so any job that publishes — the staging prerelease included — stays in
    `release.yml`.
 
+   npm asks for a one-time password before it reads or changes a package's trusted publishers, and
+   it can only ask when it owns a terminal. The command takes that password from
+   `NPM_CONFIG_OTP`, and without it asks for one itself and masks what you type:
+
+   ```sh
+   NPM_CONFIG_OTP=123456 pnpm bootstrap:npm-package @toolpath/tool-scraper
+   ```
+
+   Without a terminal and without `NPM_CONFIG_OTP`, the command stops before it changes anything
+   and says what to do.
+
 4. Merge the release-metadata PR. CI recognizes that version as already published. Every later
    release uses trusted publishing automatically.
 

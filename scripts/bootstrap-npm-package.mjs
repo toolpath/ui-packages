@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { createInterface } from 'node:readline/promises'
 import { repositoryRoot, run } from './lib.mjs'
 
 const registry = 'https://registry.npmjs.org'
@@ -106,12 +107,76 @@ if (publishedVersion) {
   await run('pnpm', ['publish', '--access', 'public', '--no-git-checks'], directory)
 }
 
+// npm asks for a one-time password before it reads or changes a package's
+// trusted publishers. The CLI can only ask for that code when it owns a
+// terminal, and this script runs npm without one, so take the code from the
+// environment or ask for it here and hand it to npm with --otp.
+const oneTimePasswordFromEnvironment = process.env.NPM_CONFIG_OTP ?? process.env.npm_config_otp
+
+let oneTimePassword = oneTimePasswordFromEnvironment
+let oneTimePasswordIsFromEnvironment = Boolean(oneTimePasswordFromEnvironment)
+
+const isOneTimePasswordError = (error) => /EOTP|one-time password|invalid otp/i.test(error.message)
+
+const readOneTimePassword = async () => {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error(
+      `npm needs a one-time password to manage trusted publishers, and this command has no terminal to ask for one.\n` +
+        `Set NPM_CONFIG_OTP to the code from your authenticator app and run the command again.`,
+    )
+  }
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true })
+  try {
+    // The first write is the prompt; everything after it is what the user
+    // types, and that is a one-time password, so it is masked.
+    const writeToOutput = rl._writeToOutput.bind(rl)
+    let promptWritten = false
+    rl._writeToOutput = (chunk) => {
+      if (!promptWritten) {
+        promptWritten = true
+        writeToOutput(chunk)
+        return
+      }
+      writeToOutput('*')
+    }
+    const answer = await rl.question('Enter the one-time password from your authenticator app: ')
+    return answer.trim()
+  } finally {
+    rl.close()
+  }
+}
+
+const runTrustCommand = async (args) => {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (!oneTimePassword) {
+      oneTimePassword = await readOneTimePassword()
+      oneTimePasswordIsFromEnvironment = false
+    }
+
+    try {
+      return await run('npm', [...args, `--otp=${oneTimePassword}`], repositoryRoot, {
+        capture: true,
+        quiet: true,
+      })
+    } catch (error) {
+      if (!isOneTimePasswordError(error)) throw error
+      if (oneTimePasswordIsFromEnvironment) {
+        throw new Error(
+          `npm rejected the one-time password in NPM_CONFIG_OTP. Run this command again with a fresh code.`,
+        )
+      }
+      // The code expired between two calls. Ask for another one.
+      oneTimePassword = undefined
+    }
+  }
+
+  throw new Error(`npm rejected the one-time password three times.`)
+}
+
 let trusts = []
 try {
-  const listed = await run('npm', ['trust', 'list', packageName, '--json'], repositoryRoot, {
-    capture: true,
-    quiet: true,
-  })
+  const listed = await runTrustCommand(['trust', 'list', packageName, '--json'])
   trusts = listed.stdout ? [JSON.parse(listed.stdout)].flat() : []
 } catch (error) {
   if (!error.message.includes('E404')) throw error
@@ -129,21 +194,18 @@ if (matchingTrust) {
     `${packageName} already has a different trusted publisher. Run npm trust list ${packageName}, revoke that entry, then rerun this command.`,
   )
 } else {
-  await run(
-    'npm',
-    [
-      'trust',
-      'github',
-      packageName,
-      '--repo',
-      repositorySlug,
-      '--file',
-      workflow,
-      '--allow-publish',
-      '--yes',
-    ],
-    repositoryRoot,
-  )
+  const created = await runTrustCommand([
+    'trust',
+    'github',
+    packageName,
+    '--repo',
+    repositorySlug,
+    '--file',
+    workflow,
+    '--allow-publish',
+    '--yes',
+  ])
+  if (created.stdout) process.stdout.write(`${created.stdout}\n`)
 }
 
 process.stdout.write(
