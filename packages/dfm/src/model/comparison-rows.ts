@@ -1,6 +1,6 @@
 import { featureTypeLabel } from './dfm-explain.js'
 import { directionLabel } from './direction-label.js'
-import type { ComparedFace, FeatureIdentity } from './feature-panel-types.js'
+import type { ComparedFace, FeatureIdentity } from './view-types.js'
 
 /** A row of the comparison: what it is, each face's reading, and whether the readings disagree. */
 export interface ComparisonRow {
