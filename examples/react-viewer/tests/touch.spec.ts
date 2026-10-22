@@ -17,8 +17,8 @@ const touches = async (session: CDPSession, type: string, points: Point[]) => {
   })
 }
 
-/** Moves every finger from `from` to `to` in even steps. */
-const glide = async (session: CDPSession, page: Page, from: Point[], to: Point[], steps = 12) => {
+/** Moves every finger from `from` to `to` in even steps, each one dispatched before the next. */
+const glide = async (session: CDPSession, from: Point[], to: Point[], steps = 12) => {
   await touches(session, 'touchStart', from)
   for (let step = 1; step <= steps; step += 1) {
     const t = step / steps
@@ -30,7 +30,6 @@ const glide = async (session: CDPSession, page: Page, from: Point[], to: Point[]
         y: start.y + (to[index]!.y - start.y) * t,
       })),
     )
-    await page.waitForTimeout(16)
   }
   await touches(session, 'touchEnd', [])
 }
@@ -54,7 +53,7 @@ test('one finger orbits the part and selects nothing', async ({ page }) => {
   const before = await canvas.screenshot()
 
   const start = middle(box)
-  await glide(session, page, [start], [{ x: start.x + 160, y: start.y + 40 }])
+  await glide(session, [start], [{ x: start.x + 160, y: start.y + 40 }])
 
   await expect.poll(async () => Buffer.compare(before, await canvas.screenshot())).not.toBe(0)
   await expect(selected).toHaveText(selection ?? '')
@@ -63,13 +62,12 @@ test('one finger orbits the part and selects nothing', async ({ page }) => {
 test('a pinch zooms the orthographic camera in', async ({ page }) => {
   const { canvas, box } = await openViewer(page, 'projection=orthographic')
   const session = await page.context().newCDPSession(page)
-  const before = await brightBounds(page, canvas, outside(page))
+  const before = await brightBounds(canvas, outside(page))
   expect(before.count, 'the part is on screen').toBeGreaterThan(1000)
 
   const { x, y } = middle(box)
   await glide(
     session,
-    page,
     [
       { x: x - 40, y },
       { x: x + 40, y },
@@ -79,12 +77,13 @@ test('a pinch zooms the orthographic camera in', async ({ page }) => {
       { x: x + 160, y },
     ],
   )
-  await page.waitForTimeout(300)
 
-  const after = await brightBounds(page, canvas, outside(page))
   const width = (bounds: typeof before) => bounds.right - bounds.left
   const height = (bounds: typeof before) => bounds.bottom - bounds.top
-  expect(Math.max(width(after) / width(before), height(after) / height(before))).toBeGreaterThan(
-    1.2,
-  )
+  await expect
+    .poll(async () => {
+      const after = await brightBounds(canvas, outside(page))
+      return Math.max(width(after) / width(before), height(after) / height(before))
+    }, 'the part grew on screen')
+    .toBeGreaterThan(1.2)
 })

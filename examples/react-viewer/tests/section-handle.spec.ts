@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { at, findColour, on, openViewer, readCamera } from './canvas.js'
 
 /** On the part, dead centre — the back face under this page's camera (`viewer.spec.ts`). */
@@ -14,6 +14,25 @@ const EMPTY = { x: 0.12, y: 0.6 }
  * renderer's tone mapping.
  */
 const Z_HANDLE = 0x89abe2
+
+/**
+ * The section handle on screen, once it is there in its own colour: the
+ * pointer has just left the canvas, and it takes a frame for the hover colour
+ * to go.
+ */
+const findHandle = async (page: Page, canvas: Locator) => {
+  const find = () =>
+    findColour(canvas, Z_HANDLE, {
+      mask: [
+        page.locator('[data-viewer-toolbar]'),
+        page.getByRole('group', { name: 'Section and measure options', exact: true }),
+      ],
+    })
+  await expect
+    .poll(async () => (await find()).count, 'the section handle is on screen')
+    .toBeGreaterThan(50)
+  return find()
+}
 
 /**
  * Dragging the section handle moves the cut and nothing else.
@@ -40,14 +59,7 @@ test('dragging the section handle moves the cut without changing the selection',
 
   // Off the canvas, so the handle is not drawn in its hover colour.
   await page.mouse.move(box.x + box.width + 20, box.y + box.height / 2)
-  await page.waitForTimeout(200)
-  const handle = await findColour(page, canvas, Z_HANDLE, {
-    mask: [
-      page.locator('[data-viewer-toolbar]'),
-      page.getByRole('group', { name: 'Section and measure options', exact: true }),
-    ],
-  })
-  expect(handle.count, 'the section handle is on screen').toBeGreaterThan(50)
+  const handle = await findHandle(page, canvas)
 
   // The arrow points out of the material, toward the top of the view under
   // this camera, and the cut starts at the face: outward it has nowhere to go.
@@ -73,7 +85,7 @@ test('dragging the section handle moves the cut without changing the selection',
  * The handle switches the camera controls off while it is dragged, and only
  * its own release or a cancel turns them on again. A finger's touch is
  * cancelled mid-drag here, as a phone does for a gesture of its own, so no
- * release ever reaches the handle, and the drag that follows on empty canvas
+ * release ever reaches the handle, and the next finger's drag on empty canvas
  * has to orbit as usual. Touch goes through the DevTools protocol, so this is
  * Chromium only.
  */
@@ -92,13 +104,7 @@ test('a cancelled handle drag leaves the view free to turn', async ({ page, brow
   await expect(page.locator('p', { hasText: 'Cut:' })).toContainText('Part surface')
 
   await page.mouse.move(box.x + box.width + 20, box.y + box.height / 2)
-  const handle = await findColour(page, canvas, Z_HANDLE, {
-    mask: [
-      page.locator('[data-viewer-toolbar]'),
-      page.getByRole('group', { name: 'Section and measure options', exact: true }),
-    ],
-  })
-  expect(handle.count, 'the section handle is on screen').toBeGreaterThan(50)
+  const handle = await findHandle(page, canvas)
 
   const along = handle.axis.y < 0 ? -1 : 1
   const from = { x: box.x + handle.centre.x, y: box.y + handle.centre.y }
@@ -114,12 +120,15 @@ test('a cancelled handle drag leaves the view free to turn', async ({ page, brow
   await expect(cut, 'the finger is dragging the handle').not.toHaveText(depth ?? '')
   await finger('touchCancel')
 
+  // Touch again, rather than the mouse: after touch input through the protocol,
+  // a synthetic mouse move can wait on the touch sequence and stall.
   const before = await readCamera(page)
   const start = at(box, EMPTY)
-  await page.mouse.move(start.x, start.y)
-  await page.mouse.down()
-  await page.mouse.move(start.x + 120, start.y, { steps: 8 })
-  await page.mouse.up()
+  await finger('touchStart', start)
+  for (let step = 1; step <= 8; step += 1) {
+    await finger('touchMove', { x: start.x + 15 * step, y: start.y })
+  }
+  await finger('touchEnd')
 
   await expect
     .poll(async () => (await readCamera(page)).position, 'the drag turned the view')
