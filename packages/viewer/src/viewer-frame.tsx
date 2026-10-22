@@ -15,7 +15,7 @@ export interface CanvasSettings {
   frameloop: NonNullable<CanvasProps['frameloop']>
 }
 
-interface ViewerFrameProps {
+export interface ViewerFrameProps {
   className?: string
   style?: CSSProperties
   canvas: CanvasSettings

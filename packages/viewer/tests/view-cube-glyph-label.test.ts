@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Vector3 } from 'three'
-import { LIFT, glyphLabelGeometry } from '../src/render/view-cube-glyph-label.js'
-import { cubeZones } from '../src/render/view-cube.js'
+import { glyphLabelGeometry } from '../src/render/view-cube-glyph-label.js'
+import { CUBE_LABEL_LIFT, cubeZones } from '../src/render/view-cube.js'
 
 describe('glyphLabelGeometry', () => {
   it('lays every face’s name on that face, just proud of it', () => {
@@ -17,7 +17,7 @@ describe('glyphLabelGeometry', () => {
       const point = new Vector3()
       for (let index = 0; index < positions.count; index += 1) {
         point.fromBufferAttribute(positions, index)
-        expect(point.dot(normal), zone.name).toBeCloseTo(1 + LIFT, 6)
+        expect(point.dot(normal), zone.name).toBeCloseTo(1 + CUBE_LABEL_LIFT, 6)
       }
       geometry.dispose()
     }

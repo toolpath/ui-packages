@@ -1,4 +1,5 @@
 import type { CanvasTexture } from 'three'
+import { webOnly } from './web-only.js'
 
 /**
  * React Native's `render/label-texture.ts`. There is no 2D canvas to draw a
@@ -6,5 +7,5 @@ import type { CanvasTexture } from 'three'
  * (`cube-label.native.tsx`) instead.
  */
 export function labelTexture(_label: string, _color: number): CanvasTexture {
-  throw new Error('@toolpath/viewer: labelTexture is not available on React Native.')
+  return webOnly('labelTexture')
 }
