@@ -2,10 +2,10 @@ import { Html, Line } from '@react-three/drei'
 import { type CSSProperties, useMemo } from 'react'
 import type { Vector3 } from 'three'
 import { cssColor } from './measure-hint.js'
-import { MEASURE_LABEL_CLASS, type MeasureLabelKind } from './measure-labels.js'
+import type { MeasureLabelKind } from './measure-labels.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
 import type { HoleIndex, SurfaceFor } from './render/face-measure.js'
-import { MEASURE_LINE_PIXELS, MEASURE_RENDER_ORDER } from './render/measure.js'
+import { MEASURE_LABEL_CLASS, MEASURE_LINE_PIXELS, MEASURE_RENDER_ORDER } from './render/measure.js'
 import { measureReadout, type MeasureGroup, type MeasureReadout } from './render/measure-picks.js'
 
 const FURNITURE = { [EXCLUDE_FROM_FRAME]: true }

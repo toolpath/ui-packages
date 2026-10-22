@@ -11,7 +11,7 @@ vi.mock('@react-three/drei', () => ({
 }))
 
 const { SceneLabel } = await import('../src/scene-label.js')
-const { MEASURE_LABEL_CLASS } = await import('../src/measure-labels.js')
+const { MEASURE_LABEL_CLASS } = await import('../src/render/measure.js')
 
 const inner = (markup: string) =>
   markup.replace(/^<div data-html="[^"]*">/, '').replace(/<\/div>$/, '')
@@ -42,7 +42,6 @@ describe('SceneLabel on the web', () => {
       position: [1, 2, 3],
       center: true,
       zIndexRange: [0, 0],
-      pointerEvents: 'none',
       style: { pointerEvents: 'none' },
     })
   })
@@ -52,7 +51,6 @@ describe('SceneLabel on the web', () => {
       <SceneLabel
         kind="distance"
         axis="z"
-        measurementId="m-3"
         color="#4f8ef7"
         layer={5}
         position={[0, 0, 0]}
@@ -61,7 +59,7 @@ describe('SceneLabel on the web', () => {
     )
 
     expect(inner(markup)).toBe(
-      `<div class="${MEASURE_LABEL_CLASS}" data-measure-label="distance" data-axis="z" data-measurement-id="m-3" style="--measure-color:#4f8ef7"><span data-measure-value="true">12.00 mm</span></div>`,
+      `<div class="${MEASURE_LABEL_CLASS}" data-measure-label="distance" data-axis="z" style="--measure-color:#4f8ef7"><span data-measure-value="true">12.00 mm</span></div>`,
     )
     expect(htmlProps(markup).zIndexRange).toEqual([5, 0])
   })

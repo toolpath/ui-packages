@@ -2,10 +2,9 @@
  * One way to read a pointer event, whichever renderer sent it.
  *
  * A DOM `PointerEvent` and the event React Native hands R3F carry different
- * fields. React Native's has no `clientX`/`clientY`, `button`, `buttons`,
- * `timeStamp` or modifier keys; it has `offsetX`/`offsetY` (R3F copies them
- * from `locationX`/`locationY`), `pageX`/`pageY`, `timestamp` and
- * `pointerId`. Everything in the package that judges a gesture reads through
+ * fields. React Native's has no `clientX`/`clientY`, `button`, `timeStamp` or
+ * modifier keys; it has `offsetX`/`offsetY` (R3F copies them from
+ * `locationX`/`locationY`), `pageX`/`pageY` and `timestamp`. Everything in the package that judges a gesture reads through
  * {@link readPointer}, so it reads both the same way.
  */
 export interface PointerReading {
@@ -16,17 +15,15 @@ export interface PointerReading {
   clientX: number
   clientY: number
   button: number
-  buttons: number
   timeStamp: number
-  pointerId: number
-  pointerType: string
   altKey: boolean
   ctrlKey: boolean
   metaKey: boolean
   shiftKey: boolean
 }
 
-type PointerFields = Partial<
+/** A DOM `PointerEvent`, React Native's, or anything else {@link readPointer} can read. */
+export type PointerLike = Partial<
   Record<
     | 'clientX'
     | 'clientY'
@@ -35,15 +32,15 @@ type PointerFields = Partial<
     | 'pageX'
     | 'pageY'
     | 'button'
-    | 'buttons'
     | 'timeStamp'
     | 'timestamp'
-    | 'pointerId',
+    | 'altKey'
+    | 'ctrlKey'
+    | 'metaKey'
+    | 'shiftKey',
     unknown
   >
-> &
-  Partial<Record<'type' | 'pointerType', unknown>> &
-  Partial<Record<'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey', unknown>>
+>
 
 const number = (value: unknown): number | undefined =>
   typeof value === 'number' ? value : undefined
@@ -53,8 +50,7 @@ export function readPointer(
   event: unknown,
   element?: { getBoundingClientRect?: () => DOMRectReadOnly },
 ): PointerReading {
-  const source = (event ?? {}) as PointerFields
-  const type = typeof source.type === 'string' ? source.type : ''
+  const source = (event ?? {}) as PointerLike
 
   let x: number
   let y: number
@@ -86,10 +82,7 @@ export function readPointer(
     clientX,
     clientY,
     button: number(source.button) ?? 0,
-    buttons: number(source.buttons) ?? (/up|click|cancel/.test(type) ? 0 : 1),
     timeStamp: number(source.timeStamp) ?? number(source.timestamp) ?? performance.now(),
-    pointerId: number(source.pointerId) ?? 0,
-    pointerType: typeof source.pointerType === 'string' ? source.pointerType : '',
     altKey: source.altKey === true,
     ctrlKey: source.ctrlKey === true,
     metaKey: source.metaKey === true,

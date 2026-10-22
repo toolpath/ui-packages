@@ -12,7 +12,7 @@
  * at.
  */
 
-import { readPointer } from './pointer.js'
+import { type PointerLike, readPointer } from './pointer.js'
 
 /** How far a pointer may travel and still be a click, in CSS pixels. */
 export const TAP_SLOP = 4
@@ -22,21 +22,19 @@ export interface TapPoint {
   readonly clientY: number
 }
 
-/**
- * Whether the pointer travelled far enough for this to be a drag.
- *
- * Both ends are read through `readPointer`, so a React Native event — which
- * has page coordinates rather than client ones — compares the same way.
- */
+/** Whether the pointer travelled far enough between two readings for this to be a drag. */
 export function movedFar(from: TapPoint, to: TapPoint, slop: number = TAP_SLOP): boolean {
-  const start = readPointer(from)
-  const end = readPointer(to)
-  return Math.hypot(end.clientX - start.clientX, end.clientY - start.clientY) > slop
+  return Math.hypot(to.clientX - from.clientX, to.clientY - from.clientY) > slop
 }
 
 export interface TapTracker {
-  /** Whether the gesture ending at this event was a click rather than a drag. */
-  isTap(event: TapPoint): boolean
+  /**
+   * Whether the gesture ending at this event was a click rather than a drag.
+   *
+   * Read through `readPointer`, so a React Native event — which has page
+   * coordinates rather than client ones — judges the same way.
+   */
+  isTap(event: PointerLike): boolean
   dispose(): void
 }
 
@@ -60,7 +58,7 @@ export function trackTaps(element: HTMLElement): TapTracker {
   return {
     // No recorded press means the gesture began somewhere else — over a panel,
     // or before this element existed. Not a click on this element.
-    isTap: (event: TapPoint) => start !== null && !movedFar(start, event),
+    isTap: (event: PointerLike) => start !== null && !movedFar(start, readPointer(event)),
     dispose: () => element.removeEventListener('pointerdown', down, { capture: true }),
   }
 }
@@ -80,7 +78,7 @@ export interface DoubleTapPoint extends TapPoint {
 
 export interface DoubleTapTracker {
   /** Whether this press completes a double tap begun by the last one. */
-  isDouble(event: DoubleTapPoint): boolean
+  isDouble(event: PointerLike): boolean
   /**
    * Forgets the press being waited on, so the next one starts a fresh pair.
    *
@@ -120,7 +118,7 @@ export function trackDoubleTaps(
   let last: DoubleTapPoint | null = null
 
   return {
-    isDouble: (event: DoubleTapPoint) => {
+    isDouble: (event: PointerLike) => {
       const { clientX, clientY, timeStamp } = readPointer(event)
       const press = { clientX, clientY, timeStamp }
       const paired =
