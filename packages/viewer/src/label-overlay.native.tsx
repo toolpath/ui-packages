@@ -66,12 +66,20 @@ const Label = ({ label, theme }: { label: ProjectedLabel; theme: LabelTheme }) =
     </Text>
   )
 
+  // Found by its kind in an app's tests, as a web label is by `data-measure-label`.
+  const testID = `scene-label-${label.kind}`
   return label.onPress ? (
-    <Pressable onPress={label.onPress} onLayout={onLayout} style={style}>
+    <Pressable
+      onPress={label.onPress}
+      onLayout={onLayout}
+      style={style}
+      testID={testID}
+      accessibilityRole="button"
+    >
       {text}
     </Pressable>
   ) : (
-    <View onLayout={onLayout} style={style} pointerEvents="none">
+    <View onLayout={onLayout} style={style} pointerEvents="none" testID={testID}>
       {text}
     </View>
   )

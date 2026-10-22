@@ -7,7 +7,7 @@ export interface SceneLabelProps {
   position: Vector3 | [number, number, number]
   text: string
   note?: string
-  /** `data-measure-label` */
+  /** Web: `data-measure-label`. Native: the label's `testID`, `scene-label-<kind>`. */
   kind: string
   /** `data-axis` */
   axis?: 'x' | 'y' | 'z'
