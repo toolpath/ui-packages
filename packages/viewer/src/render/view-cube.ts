@@ -163,6 +163,14 @@ export function squaredUp(direction: Vec3, currentUp: Vec3): Vec3 {
 }
 
 /**
+ * The view cube's half-extent on screen, in CSS pixels: its unit geometry is
+ * drawn at this scale in the gizmo's orthographic view. An app that judges
+ * whether a tap landed on the cube reaches this far from the gizmo's centre,
+ * `VIEW_CUBE_HALF_PX × √3` to cover a corner.
+ */
+export const VIEW_CUBE_HALF_PX = 38
+
+/**
  * Half-width of a face panel, where the cube's half-extent is 1 — so the
  * chamfer taken off each edge is the remaining `1 - CHAMFER`.
  */

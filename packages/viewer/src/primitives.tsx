@@ -9,6 +9,7 @@ import { type ViewerTheme, resolveTheme } from './render/theme.js'
 import {
   type CubeZone,
   type ViewName,
+  VIEW_CUBE_HALF_PX,
   cubeOutlineGeometry,
   cubeZones,
   panelGeometry,
@@ -135,7 +136,7 @@ const CubePanels = ({
   }
 
   return (
-    <group ref={groupRef} scale={38}>
+    <group ref={groupRef} scale={VIEW_CUBE_HALF_PX}>
       {panels.map(({ zone, geometry }) => (
         <mesh
           key={zone.name}
