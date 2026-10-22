@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { sectionGeometry, type FeatureProfile, type ReachCurve } from '@toolpath/dfm'
-import { offsetUnder, readingAt } from '../../src/dfm-reach-chart/reading'
+import type { FeatureProfile, ReachCurve } from '../../src/model/reach.js'
+import {
+  offsetUnder,
+  readingAt,
+  readingLabelX,
+  readingText,
+} from '../../src/model/reach-reading.js'
+import { sectionGeometry } from '../../src/model/section-geometry.js'
+import { READ_INSET } from '../../src/model/section-layout.js'
 
 const curve: ReachCurve = { offsets: [2, 5, 10], heights: [1, 4, 6] }
 const pocket: FeatureProfile = { across: null, depth: null, through: false }
@@ -41,5 +48,34 @@ describe('readingAt', () => {
     const long: ReachCurve = { offsets: [2, 5, 100], heights: [1, 4, 4] }
     expect(sectionGeometry(long, pocket, 400).last).toBeLessThan(15)
     expect(readingAt(long, 15)).toEqual({ offset: 15, height: 4, past: false })
+  })
+})
+
+describe('readingText', () => {
+  it('writes the offset and the reach, in the units asked for', () => {
+    expect(readingText({ offset: 3, height: 4, past: false }, 'mm')).toBe(
+      '3.000 mm → 4.000 mm reach',
+    )
+  })
+
+  it('says when the reading is past the last one the Engine read', () => {
+    expect(readingText({ offset: 12, height: 6, past: true }, 'mm')).toContain(
+      'past the last reading',
+    )
+  })
+})
+
+describe('readingLabelX: the reading beside its line', () => {
+  it('goes to the right of the line where it fits', () => {
+    expect(readingLabelX(100, 50, 400)).toEqual({ x: 100 + READ_INSET, anchor: 'start' })
+  })
+
+  it('goes to the left where it would run off the right edge', () => {
+    expect(readingLabelX(380, 50, 400)).toEqual({ x: 380 - READ_INSET, anchor: 'end' })
+  })
+
+  it('is held inside the drawing when it fits on neither side', () => {
+    // Ends at its x: never left of its own width from the left edge.
+    expect(readingLabelX(30, 200, 220)).toEqual({ x: READ_INSET + 200, anchor: 'end' })
   })
 })

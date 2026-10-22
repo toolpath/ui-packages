@@ -306,9 +306,6 @@ importers:
       '@toolpath/dfm':
         specifier: workspace:^
         version: link:../dfm
-      '@toolpath/tool-support':
-        specifier: workspace:^
-        version: link:../tool-support
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
