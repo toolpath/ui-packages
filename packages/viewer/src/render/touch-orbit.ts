@@ -16,6 +16,20 @@ export interface TouchPoint {
   y: number
 }
 
+/** A React Native touch, as far as {@link localPoint} reads it. */
+interface PageTouch {
+  identifier: string | number
+  pageX: number
+  pageY: number
+}
+
+/** A finger in page coordinates, made local to a canvas whose window origin is `origin`. */
+export const localPoint = (finger: PageTouch, origin: { x: number; y: number }): TouchPoint => ({
+  id: Number(finger.identifier),
+  x: finger.pageX - origin.x,
+  y: finger.pageY - origin.y,
+})
+
 type TouchOp =
   | { kind: 'orbit'; dx: number; dy: number }
   | { kind: 'zoom'; scale: number; x: number; y: number }
@@ -105,12 +119,17 @@ export interface FingerTracker {
  * Feeding the orbit React Native's `touches` jumped and drifted more on an
  * iPhone than tracking the fingers from what changed: after an interruption
  * iOS can report a finger in `touches` that it never ended. A finger that did
- * not change this event still takes its position from `touches`.
+ * not change this event still takes its position from `touches`. A lost end
+ * is forgotten when the next gesture starts.
  */
 export const createFingerTracker = (): FingerTracker => {
   const fingers = new Map<number, TouchPoint>()
   return {
     update(kind, changed, touches) {
+      // A gesture starting with none of the fingers this remembers means their
+      // ends were lost — an interruption swallowed them — and they would
+      // otherwise count as down forever.
+      if (kind === 'start' && touches.every((touch) => !fingers.has(touch.id))) fingers.clear()
       const ending = kind === 'end' || kind === 'cancel'
       for (const touch of changed) {
         if (ending) fingers.delete(touch.id)
