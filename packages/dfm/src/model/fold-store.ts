@@ -19,29 +19,44 @@ export interface FoldStorage {
   setItem: (key: string, value: string) => void
 }
 
+/** How a fold store starts before anyone has folded anything. */
+export interface FoldOptions {
+  /**
+   * Sections that start shut until someone opens them — a tall drawing, a
+   * long record — rather than open as the rest do.
+   */
+  shutAtFirst?: Iterable<string>
+}
+
 /**
  * A fold store over a `Storage` — `localStorage`, `sessionStorage` — under a
  * key prefix of the app's: `toolpath.fold.` keeps `toolpath.fold.reach` as
  * `open` or `shut`. A storage that is missing, or that refuses (a private
  * window, say), leaves the sections folding for as long as they are mounted.
+ * Nothing stored reads as undefined, or as shut for a `shutAtFirst` section.
  */
 export const storageFolds = (
   storage: FoldStorage | null | undefined,
   prefix: string,
-): FoldStore => ({
-  read: (id) => {
+  { shutAtFirst = [] }: FoldOptions = {},
+): FoldStore => {
+  const shut = new Set(shutAtFirst)
+  const stored = (id: string): boolean | undefined => {
     try {
-      const stored = storage?.getItem(`${prefix}${id}`)
-      return stored === 'open' ? true : stored === 'shut' ? false : undefined
+      const value = storage?.getItem(`${prefix}${id}`)
+      return value === 'open' ? true : value === 'shut' ? false : undefined
     } catch {
       return undefined
     }
-  },
-  write: (id, open) => {
-    try {
-      storage?.setItem(`${prefix}${id}`, open ? 'open' : 'shut')
-    } catch {
-      // Not kept, then: the section folds for as long as it is mounted.
-    }
-  },
-})
+  }
+  return {
+    read: (id) => stored(id) ?? (shut.has(id) ? false : undefined),
+    write: (id, open) => {
+      try {
+        storage?.setItem(`${prefix}${id}`, open ? 'open' : 'shut')
+      } catch {
+        // Not kept, then: the section folds for as long as it is mounted.
+      }
+    },
+  }
+}
