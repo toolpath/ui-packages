@@ -36,6 +36,14 @@ const REQUIRED = [
 /** What only a browser has: the DOM, `import.meta` (Metro has none), and the web halves of the renderers. */
 const FORBIDDEN = ['document.', 'window.addEventListener', 'import.meta', 'react-dom', 'drei/web']
 
+/** A DOM element made by the JSX runtime: `jsx("div", …)` and the like. */
+const DOM_JSX =
+  /\bjsx\w*\(\s*"(a|button|canvas|div|g|img|input|label|li|p|path|section|span|svg|ul)"/
+
+/** What only a phone has, which the web build must never import. */
+const NATIVE_SPECIFIER =
+  /from\s*"(react-native|expo-[^"]*|three-mesh-bvh[^"]*|@react-three\/fiber\/native)"/
+
 await run('pnpm', ['--filter', '@toolpath/viewer', 'build'])
 
 const failures = []
@@ -59,9 +67,31 @@ for (const path of files) {
   }
 }
 
+for (const path of files) {
+  const source = await readFile(path, 'utf8')
+  const match = DOM_JSX.exec(source)
+  if (!match) continue
+  const line = source.slice(0, match.index).split('\n').length
+  failures.push(`${relative(viewer, path)}:${line} makes a <${match[1]}>`)
+}
+
+// The web build: everything in `dist/` but the native build.
+const web = (await readdir(join(viewer, 'dist'), { recursive: true }))
+  .filter((file) => file.endsWith('.js') && !file.startsWith('native'))
+  .map((file) => join(viewer, 'dist', file))
+for (const path of web) {
+  const source = await readFile(path, 'utf8')
+  const match = NATIVE_SPECIFIER.exec(source)
+  if (!match) continue
+  const line = source.slice(0, match.index).split('\n').length
+  failures.push(`${relative(viewer, path)}:${line} imports ${match[1]}`)
+}
+
 if (failures.length > 0) {
   console.error(`The viewer's React Native build is not fit to ship:\n  ${failures.join('\n  ')}`)
   process.exit(1)
 }
 
-console.log(`Verified the viewer's React Native build: ${files.length} scripts, no DOM`)
+console.log(
+  `Verified the viewer's React Native build: ${files.length} scripts, no DOM; and the web build: ${web.length} scripts, nothing native`,
+)
