@@ -98,7 +98,7 @@ export type {
   Hovered,
   InspectedFace,
 } from './feature-panel-types.js'
-export { storageFolds, type FoldStorage, type FoldStore } from './fold-store.js'
+export { storageFolds, type FoldOptions, type FoldStorage, type FoldStore } from './fold-store.js'
 export { MAX_DATASHEET_FIELDS, datasheetFields, type FeatureRecord } from './feature-record.js'
 export { dfmFeatures, type DfmFeature, type ReportFeature } from './geometry.js'
 export { directionLabel } from './direction-label.js'
