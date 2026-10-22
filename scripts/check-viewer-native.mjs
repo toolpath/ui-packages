@@ -20,17 +20,17 @@ import { join, relative } from 'node:path'
 import { repositoryRoot, run } from './lib.mjs'
 
 const viewer = join(repositoryRoot, 'packages/viewer')
-const dist = join(viewer, 'dist')
-const native = join(dist, 'native')
+const native = join(viewer, 'dist/native')
 
-/** Under `dist/`. */
+/** Under the package. The notices cover the font outlines `dist/native` bundles. */
 const REQUIRED = [
-  'native/index.js',
-  'native/engine/index.js',
-  'native/assets/banana.glb',
-  'index.js',
-  'assets/banana.glb',
-  'toolbar.css',
+  'dist/native/index.js',
+  'dist/native/engine/index.js',
+  'dist/native/assets/banana.glb',
+  'dist/index.js',
+  'dist/assets/banana.glb',
+  'dist/toolbar.css',
+  'THIRD-PARTY-NOTICES',
 ]
 
 /** What only a browser has: the DOM, `import.meta` (Metro has none), and the web halves of the renderers. */
@@ -41,7 +41,7 @@ await run('pnpm', ['--filter', '@toolpath/viewer', 'build'])
 const failures = []
 
 for (const file of REQUIRED) {
-  if (!existsSync(join(dist, file))) failures.push(`dist/${file} is missing`)
+  if (!existsSync(join(viewer, file))) failures.push(`${file} is missing`)
 }
 
 const files = existsSync(native)

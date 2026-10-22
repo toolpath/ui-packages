@@ -1,3 +1,18 @@
+@toolpath/viewer bundles the following third-party material.
+
+--------------------------------------------------------------------------------
+Droid Sans Bold glyph outlines
+
+Used by: dist/native (src/render/view-cube-glyphs.json), the view cube's face
+names on React Native. The outlines of the letters in TOP, BOTTOM, FRONT, BACK,
+LEFT and RIGHT were taken, unchanged, from three.js r185:
+
+  examples/fonts/droid/droid_sans_bold.typeface.json
+  sha256 ec40f077e0695e4ce9f74e9953034312eb6d1d5a9eb6c584b1eb0fd84077fb81
+
+Licensed under the Apache License, Version 2.0, reproduced below.
+--------------------------------------------------------------------------------
+
 
    Copyright (c) 2005-2008, The Android Open Source Project
 
