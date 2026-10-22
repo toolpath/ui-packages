@@ -61,8 +61,8 @@ const isTouchControls = (controls: unknown): controls is TouchControls =>
  * Touches are read by observing them on this `View` rather than by taking the
  * responder: fiber's own `PanResponder`, inside the canvas, keeps the gesture
  * for picking, taps and the section handle's drag, and still sees every touch.
- * The fingers are tracked from each event's `changedTouches`, because on an
- * iPhone feeding the orbit React Native's `touches` jumped and drifted more.
+ * The fingers are tracked from each event's `changedTouches`, not its
+ * `touches` (see `createFingerTracker`).
  */
 // `webglUnavailable` is never shown: expo-gl always creates a context, so
 // there is nothing to probe.
@@ -194,7 +194,7 @@ const LabelProjector = ({ store }: { store: LabelStore }) => {
 /**
  * No frames while the app is not active.
  *
- * Behind Notification Centre an iPhone app is inactive but not suspended:
+ * Behind Notification Centre an iOS app is inactive but not suspended:
  * fiber's loop keeps running, iOS refuses the GPU work, and the GL view never
  * shows a new frame again, though touches still move the camera. Stopping the
  * loop while inactive and asking for a frame on the way back avoids it.
@@ -246,8 +246,8 @@ const RELEASE_FALLBACK_MS = 2000
  *
  * By the time fiber's teardown reaches `forceContextLoss` the scene is empty,
  * and what left it was not all disposed: a mesh rendered as a `<primitive>`,
- * or a geometry a cache keeps for the next mount, still had its buffers on the
- * GPU, and an emulator, at least, did not free them with the context. A layout
+ * or a geometry a cache keeps for the next mount, still has its buffers on the
+ * GPU, and a context's destruction is not guaranteed to free them. A layout
  * effect's cleanup on the canvas's first child runs before anything after it
  * leaves the scene. Disposing only frees GPU memory: a geometry kept for
  * reuse uploads again the next time it is drawn.

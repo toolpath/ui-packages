@@ -11,11 +11,11 @@ const trees = new WeakMap<BufferGeometry, { tree: MeshBVH; parts: number }>()
  * React Native's `render/part-picking.ts`: the part's raycasts go through a
  * bounding volume hierarchy, `three-mesh-bvh`'s.
  *
- * `@react-three/fiber` raycasts every mesh with a handler when a finger goes
- * down and when it comes up: twice a tap, four times a pinch. three's own
- * raycast tests every triangle, and Hermes, which has no JIT, took long enough
- * over the sample part's 54,000 triangles for each finger to stall a few
- * frames, so pinches stuttered. Through the tree a raycast tests a few dozen.
+ * Hermes has no JIT, and three's own raycast tests every triangle, so on React
+ * Native every raycast against the part goes through the tree, which tests a
+ * few dozen. `@react-three/fiber` raycasts every mesh with a handler when a
+ * finger goes down and when it comes up — twice a tap, four times a pinch —
+ * and a raycast per triangle stalls the frames a gesture needs.
  *
  * The tree is `indirect`, so the geometry's index is left as it is, and a hit's
  * `faceIndex` is still the triangle the region attribute and the model name.
