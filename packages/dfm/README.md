@@ -8,11 +8,21 @@ no DOM, no CSS — so a server route can import it as readily as a browser.
 The views that show and edit the rules — `RuleList`, `ReachChart`,
 `FeaturePanel` — are in [`@toolpath/ui`](https://www.npmjs.com/package/@toolpath/ui).
 The logic they read is here, so a view in another renderer (React Native, say)
-builds the same thing: the views' data types (`CandidateRow`, `InspectedFace`,
-`ComparedFace`, `DfmRules`, `Choices`), the rule editor's choices
-(`subjectChoices`, `metricChoices`, `OP_TITLES`, `rangeEnd`), the feature
-panel's fold store (`storageFolds`), and the reach chart's section geometry
-(`sectionGeometry`, `SECTION_PAD`).
+builds the same thing:
+
+- the views' data types (`CandidateRow`, `InspectedFace`, `ComparedFace`,
+  `DfmRules`, `Choices`)
+- the rule editor's choices (`subjectChoices`, `metricChoices`,
+  `comparisonChoices`, `rangeLowChoices`, `rangeHighChoices`, `OP_TITLES`,
+  `rangeEnd`) and `takesNumber`, for a measure with no number to compare
+- the rule list's order (`ruleListOrder`) and what an import says
+  (`importNote`, `importError`)
+- the feature panel's comparison (`comparisonRows`, `faceLetter`) and its fold
+  store (`storageFolds`, with `shutAtFirst` for sections that start shut)
+- the reach chart's section geometry and type (`sectionGeometry`,
+  `SECTION_PAD`, `SECTION_TYPE`, `SECTION_LABEL`), in drawing pixels — CSS
+  pixels on the web, points on React Native — and its reading under a pointer
+  or finger (`readingAt`, `readingText`, `offsetUnder`, `readingLabelX`)
 
 ## Install
 

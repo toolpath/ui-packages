@@ -1,6 +1,6 @@
 import { MILLING_RULES, type RuleVocabulary } from './dfm-metrics.js'
 import { metricsForSubject, subjectLabel } from './dfm-rules.js'
-import type { Choices } from './feature-panel-types.js'
+import type { Choices } from './view-types.js'
 
 /**
  * What a rule can be about: the short list, and the rule's own subject where

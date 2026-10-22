@@ -8,7 +8,7 @@ import {
   type DfmRule,
   type RangeLow,
 } from './dfm-rules.js'
-import type { ChoiceGroup, Choices } from './feature-panel-types.js'
+import type { ChoiceGroup, Choices } from './view-types.js'
 
 export const OP_TITLES: Record<DfmOp, string> = {
   gte: 'at least',
