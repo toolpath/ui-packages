@@ -28,6 +28,8 @@ export interface ViewerToolbarControls {
   dfm?: ViewerToolbarControl
   /** The DFM rules' sharp corners, drawn on the part: see `sharpCorners` on `<PartMesh>`. */
   sharpCorners?: ViewerToolbarControl
+  /** Threads drawn in their holes: see `threads` on `<PartMesh>`. */
+  threads?: ViewerToolbarControl
   hover?: ViewerToolbarControl
   focus?: ViewerToolbarControl
   wireframe?: ViewerToolbarControl
@@ -150,6 +152,13 @@ const SharpCornersButton = () => (
     label={(pressed) => (pressed ? 'Hide sharp corners' : 'Show sharp corners')}
   />
 )
+const ThreadsButton = () => (
+  <ToolbarButton
+    action="threads"
+    icon="threads"
+    label={(pressed) => (pressed ? 'Hide threads' : 'Show threads')}
+  />
+)
 const HoverButton = () => (
   <ToolbarButton
     action="hover"
@@ -222,6 +231,7 @@ const DefaultControls = () => {
     controls.directions ? <DirectionsButton key="directions" /> : null,
     controls.dfm ? <DfmButton key="dfm" /> : null,
     controls.sharpCorners ? <SharpCornersButton key="sharpCorners" /> : null,
+    controls.threads ? <ThreadsButton key="threads" /> : null,
     controls.hover ? <HoverButton key="hover" /> : null,
     controls.focus ? <FocusButton key="focus" /> : null,
     controls.wireframe ? <WireframeButton key="wireframe" /> : null,
@@ -282,6 +292,7 @@ export const ViewerToolbar = Object.assign(ViewerToolbarRoot, {
   DirectionsButton,
   DfmButton,
   SharpCornersButton,
+  ThreadsButton,
   HoverButton,
   FocusButton,
   WireframeButton,

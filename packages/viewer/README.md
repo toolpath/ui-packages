@@ -383,6 +383,7 @@ fails or is absent. It does not fetch a report or start an Engine job.
 | `activeDirection`                    | Candidate-direction index; `null`/omitted means all directions.                                                       |
 | `display`, `showEdges`               | `solid` or `wireframe`; outlines default on. Wireframe always shows semantic face boundaries, not triangle diagonals. |
 | `sharpCorners`                       | `{ features: tags }` for externally flagged features, or `null`.                                                      |
+| `threads`                            | `{ threads: marks }` to draw threads in their holes, or `null`. See "Showing threads".                                |
 | `section`, `onSectionChange`         | Controlled section options and change reporting. Omit `section` to follow the viewer's section store.                 |
 | `onAdjacency`                        | Receive touching-region sets for the prepared mesh.                                                                   |
 | `theme`                              | Partial `ViewerTheme` for the part.                                                                                   |
@@ -476,7 +477,7 @@ With no children, `ViewerToolbar` renders configured controls in standard order.
 For custom composition use `ViewerToolbar.Controls`, `ViewerToolbar.Divider`, and
 its `*Button` components. A button without a matching provider control throws.
 The supported action names are `stock`, `axes`, `grid`, `banana`, `tools`,
-`directions`, `dfm`, `sharpCorners`, `hover`, `focus`, `wireframe`, `section`,
+`directions`, `dfm`, `sharpCorners`, `threads`, `hover`, `focus`, `wireframe`, `section`,
 `measure`, `fit`, `reset`, and `top`; button names capitalize the action, such as
 `ViewerToolbar.SharpCornersButton`. `useViewerToolbar()` reads those controls.
 
@@ -677,6 +678,19 @@ axis legs also have `data-axis`, and finished labels have `data-measurement-id`.
 `labelClassName` adds a class. Labels do not take pointer events. Lengths default to
 millimetres; the `format(mm)` callback changes their displayed string, not geometry
 units or angles (which remain degrees).
+
+### Showing threads
+
+The Engine cuts a modeled internal thread out of the mesh, so a tapped hole arrives as a
+plain bore. Pass `threads={{ threads: marks }}` to draw each thread back in as shading
+over its hole's cylinders, at its pitch and hand. Build a mark from a hole's Engine
+datasheet with `threadMark(feature, datasheet)` from `@toolpath/viewer/engine`; it is
+`null` unless the datasheet carries a thread, so only threads the Engine reports are
+drawn. A `ThreadMark` is `{ regions, pitch, majorDiameter }`: `pitch` is in mm and
+negative for a left-hand thread, and cylinders wider than `majorDiameter` (a counterbore)
+stay plain. The axis is fitted from the mesh, so marks need no coordinates. The datasheet
+gives no thread length, so a tap-drill section of the same bore below the thread is
+drawn threaded too.
 
 ### Showing sharp corners and tool marks
 

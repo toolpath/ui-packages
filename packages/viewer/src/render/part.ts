@@ -5,6 +5,7 @@ import {
   DataTexture,
   DoubleSide,
   Float32BufferAttribute,
+  FloatType,
   Group,
   LineBasicMaterial,
   LineSegments,
@@ -32,12 +33,24 @@ import {
   surfaceCreases,
 } from './sharp-corners.js'
 import type { ViewerTheme } from './theme.js'
+import { THREAD_TEXTURE_ROWS, type ThreadOptions, threadKey, writeThreadTexels } from './threads.js'
 
 /** The vertex attribute carrying each vertex's column in the state texture. */
 export const REGION_ATTRIBUTE = 'aRegion'
 
 /** How much of a painted region's color also lights it from within. */
 const EMISSIVE_MIX = 0.4
+
+// How far a thread's flank turns the light. Steeper than a real 60° thread's
+// 30°: inside a bore the light is mostly ambient, and a true tilt barely shows.
+const THREAD_TILT = Math.tan(Math.PI / 4)
+
+// How dark a thread's root is drawn, beside its crest: a stand-in for the
+// shadow a real root sits in, which is most of what makes a thread read.
+const THREAD_ROOT_SHADE = 0.45
+
+// How much a crest is brightened, so the helix shows on a dark theme too.
+const THREAD_CREST_LIGHT = 1.15
 
 export type PartDisplay = 'solid' | 'wireframe'
 
@@ -103,6 +116,11 @@ export interface PartObject {
   ): SharpCorner | null
   /** Draws one corner up as the one under the pointer; `null` for none. */
   setHoveredSharpCorner(index: number | null): void
+  /**
+   * Draws threads into the bores they are cut in — see `render/threads.ts`.
+   * `null` draws none. Keyed by content, like `setSharpCorners`.
+   */
+  setThreads(options: ThreadOptions | null): void
   dispose(): void
 }
 
@@ -208,6 +226,11 @@ export function createPart(
   const opacity = new Uint8Array(width).fill(255)
   const opacityTexture = new DataTexture(opacity, width, 1, RedFormat, UnsignedByteType)
   opacityTexture.needsUpdate = true
+  // Per region: where its thread's axis runs and its pitch, 0 for none.
+  const threads = new Float32Array(width * THREAD_TEXTURE_ROWS * 4)
+  const threadTexture = new DataTexture(threads, width, THREAD_TEXTURE_ROWS, RGBAFormat, FloatType)
+  threadTexture.needsUpdate = true
+  let threadsKey = ''
 
   const focusState = { value: false }
   const wireframe = { value: false }
@@ -239,18 +262,29 @@ export function createPart(
       shader.uniforms['uWireframe'] = wireframe
       shader.uniforms['uFocus'] = focusState
       shader.uniforms['uOpaqueFocusPass'] = { value: opaqueFocusPass }
+      shader.uniforms['uThreads'] = { value: threadTexture }
 
       shader.vertexShader = shader.vertexShader
         .replace(
           '#include <common>',
           `#include <common>
         attribute float ${REGION_ATTRIBUTE};
-        varying float vRegion;`,
+        uniform sampler2D uThreads;
+        varying float vRegion;
+        varying vec3 vThreadPosition;
+        varying vec4 vThreadOrigin;
+        varying vec3 vThreadAxis;
+        varying vec3 vThreadAxisView;`,
         )
         .replace(
           '#include <begin_vertex>',
           `#include <begin_vertex>
-        vRegion = ${REGION_ATTRIBUTE};`,
+        vRegion = ${REGION_ATTRIBUTE};
+        // Every vertex of a triangle is in one region, so these are flat across it.
+        vThreadOrigin = texelFetch(uThreads, ivec2(int(vRegion + 0.5), 0), 0);
+        vThreadAxis = texelFetch(uThreads, ivec2(int(vRegion + 0.5), 1), 0).xyz;
+        vThreadAxisView = normalMatrix * vThreadAxis;
+        vThreadPosition = position;`,
         )
 
       shader.fragmentShader = shader.fragmentShader
@@ -263,6 +297,10 @@ export function createPart(
         uniform bool uFocus;
         uniform bool uOpaqueFocusPass;
         varying float vRegion;
+        varying vec3 vThreadPosition;
+        varying vec4 vThreadOrigin;
+        varying vec3 vThreadAxis;
+        varying vec3 vThreadAxisView;
         vec4 regionState;`,
         )
         // three compiles built-in materials as GLSL 3.0, so `texelFetch` is
@@ -279,6 +317,51 @@ export function createPart(
         diffuseColor.a *= regionOpacity;
         if (uWireframe) diffuseColor.a *= regionState.a;
 `,
+        )
+        // The thread, as a bump: the helix phase runs one turn per pitch along
+        // the axis and one per revolution round it, and its slope tilts the
+        // normal along the axis. Where a pitch spans too few pixels to draw,
+        // it fades out flat rather than shimmering.
+        .replace(
+          '#include <normal_fragment_maps>',
+          `#include <normal_fragment_maps>
+        // Worked out for every pixel, threaded or not, and applied only where
+        // there is a thread: derivatives are undefined inside a branch that
+        // differs between neighbouring pixels, as it does along a region's edge.
+        bool threaded = vThreadOrigin.w != 0.0;
+        float threadPitch = threaded ? vThreadOrigin.w : 1.0;
+        vec3 threadAxis = threaded ? normalize(vThreadAxis) : vec3(0.0, 0.0, 1.0);
+        vec3 threadOffset = vThreadPosition - vThreadOrigin.xyz;
+        float threadAlong = dot(threadOffset, threadAxis);
+        vec3 threadU = normalize(cross(
+          threadAxis,
+          abs(threadAxis.x) < 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0)
+        ));
+        vec3 threadV = cross(threadAxis, threadU);
+        float threadX = dot(threadOffset, threadU);
+        float threadY = dot(threadOffset, threadV);
+        float threadTurn = atan(threadY, threadX) / PI2;
+        float threadPhase = threadAlong / threadPitch - threadTurn;
+        // Two angle seams on opposite sides, so the blur estimate has none.
+        float threadBlur = fwidth(threadAlong / threadPitch) + min(
+          fwidth(threadTurn),
+          fwidth(atan(-threadY, -threadX) / PI2)
+        );
+        if (threaded) {
+          float threadStrength = 1.0 - smoothstep(0.2, 0.45, threadBlur);
+          // The V of the thread: 1 at its root (phase 0), 0 at its crest (phase ½).
+          float threadDepth = abs(fract(threadPhase) - 0.5) * 2.0;
+          float threadSlope = clamp(sin(PI2 * threadPhase) * 3.0, -1.0, 1.0) * sign(threadPitch);
+          normal = normalize(
+            normal - ${THREAD_TILT.toFixed(4)} * threadStrength * threadSlope * normalize(vThreadAxisView)
+          );
+          float threadShade = mix(
+            ${THREAD_CREST_LIGHT.toFixed(2)},
+            ${THREAD_ROOT_SHADE.toFixed(2)},
+            smoothstep(0.0, 1.0, threadDepth)
+          );
+          diffuseColor.rgb *= mix(1.0, threadShade, threadStrength);
+        }`,
         )
         .replace(
           '#include <emissivemap_fragment>',
@@ -508,6 +591,14 @@ export function createPart(
       sharpLines?.setHovered(index)
     },
 
+    setThreads(options) {
+      const key = threadKey(options)
+      if (key === threadsKey) return
+      threadsKey = key
+      writeThreadTexels(threads, width, geometry, model, texels, options)
+      threadTexture.needsUpdate = true
+    },
+
     dispose() {
       object.clear()
       // Only what this part put there. Another may have taken the geometry over
@@ -522,6 +613,7 @@ export function createPart(
       sharpLines?.dispose()
       stateTexture.dispose()
       opacityTexture.dispose()
+      threadTexture.dispose()
     },
   }
 }

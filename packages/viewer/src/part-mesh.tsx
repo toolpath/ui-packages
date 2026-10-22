@@ -28,6 +28,7 @@ import {
 import { useTapGuard } from './tap.js'
 import { createPart, type PartDisplay } from './render/part.js'
 import { type SharpCornerOptions, sharpCornerKey } from './render/sharp-corners.js'
+import { type ThreadOptions, threadKey } from './render/threads.js'
 import { regionAdjacency } from './render/adjacency.js'
 import { type PartPick, buildPick, viewDirection } from './render/picking.js'
 import { trackDoubleTaps } from './render/tap.js'
@@ -144,6 +145,13 @@ export interface PartMeshProps {
    * Coloured by the theme's `sharpCorner`.
    */
   sharpCorners?: SharpCornerOptions | null
+  /**
+   * Draws threads into the bores they are cut in: each mark's pitch, as a
+   * helix of light and shade over the hole's cylinders. The Engine cuts a
+   * modeled internal thread out of the mesh, so without this a tapped hole is
+   * a plain bore. Off when omitted or `null`. See `threadMark` in `/engine`.
+   */
+  threads?: ThreadOptions | null
   /** Wireframe shows region boundaries and any hovered/painted faces, with no triangle diagonals. */
   display?: PartDisplay
   /**
@@ -184,6 +192,7 @@ export const PartMesh = ({
   theme,
   showEdges = true,
   sharpCorners = null,
+  threads = null,
   display = 'solid',
   children,
 }: PartMeshProps) => {
@@ -318,6 +327,14 @@ export const PartMesh = ({
     if (hoverCorner.current !== null) dropHover()
     invalidate()
   }, [dropHover, invalidate, part, sharpKey])
+
+  const threadsRef = useRef(threads)
+  threadsRef.current = threads
+  const threadsKey = threadKey(threads)
+  useLayoutEffect(() => {
+    part.setThreads(threadsRef.current)
+    invalidate()
+  }, [invalidate, part, threadsKey])
 
   const reportedSection = useRef<string>('')
   useLayoutEffect(() => {
