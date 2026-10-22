@@ -19,6 +19,8 @@ On the web:
 - `ViewerTheme.labels` styles labels drawn without a DOM, on React Native.
 - The section handle lights in a lighter shade of its own colour under the pointer or a finger,
   rather than in the theme's `hover` colour, which turned a red or green handle blue.
+- `VIEW_CUBE_HALF_PX` is the view cube's half-extent on screen, in CSS pixels, for an app that
+  judges whether a tap landed on the cube.
 
 `react-dom` is now an optional peer dependency, alongside the new optional `react-native` and
 `expo-asset` peers.

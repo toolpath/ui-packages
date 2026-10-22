@@ -138,6 +138,7 @@ export { useTapGuard } from './tap.js'
 export { DOUBLE_TAP_MS, TAP_SLOP, movedFar, trackDoubleTaps, trackTaps } from './render/tap.js'
 export {
   CHAMFER,
+  VIEW_CUBE_HALF_PX,
   VIEW_NAMES,
   VIEW_SIGNS,
   cubeOutlineGeometry,
