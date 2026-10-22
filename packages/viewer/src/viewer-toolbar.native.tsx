@@ -1,3 +1,4 @@
+import { webOnly } from './render/web-only.js'
 import type { ViewerToolbar as WebToolbar } from './viewer-toolbar.js'
 
 export type { ViewerToolbarControlsProps, ViewerToolbarProps } from './viewer-toolbar.js'
@@ -8,9 +9,7 @@ export {
   type ViewerToolbarControls,
 } from './viewer-toolbar-context.js'
 
-const unavailable = (name: string) => (): never => {
-  throw new Error(`@toolpath/viewer: ${name} is not available on React Native.`)
-}
+const unavailable = (name: string) => (): never => webOnly(name)
 
 /**
  * Every member of the web toolbar, stubbed. Checked against the web's own, so a

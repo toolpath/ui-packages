@@ -2,21 +2,19 @@ import { useState, useSyncExternalStore } from 'react'
 import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native'
 import { AXIS_COLORS } from './render/measure.js'
 import type { ProjectedLabel } from './render/label-store.js'
-import type { ViewerTheme } from './render/theme.js'
+import { type ViewerTheme, cssHex } from './render/theme.js'
 import type { LabelOverlayProps } from './label-overlay.js'
 
 export type { LabelOverlayProps } from './label-overlay.js'
 
 type LabelTheme = NonNullable<ViewerTheme['labels']>
 
-const css = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
-
 /** `theme.labels` when a theme leaves it out: the measure tool's look on the web. */
 const DEFAULT_LABELS: LabelTheme = {
   text: '#1f2330',
   background: 'rgba(255,255,255,0.92)',
   border: '#4f8ef7',
-  axis: { x: css(AXIS_COLORS.x), y: css(AXIS_COLORS.y), z: css(AXIS_COLORS.z) },
+  axis: { x: cssHex(AXIS_COLORS.x), y: cssHex(AXIS_COLORS.y), z: cssHex(AXIS_COLORS.z) },
   fontSize: 12,
 }
 
