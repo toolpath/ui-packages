@@ -4,23 +4,17 @@
 
 `@toolpath/viewer` runs under React Native (Expo, `@react-three/fiber/native` on expo-gl). Import it
 the same way: the `react-native` export condition gives Metro a native build of both
-`@toolpath/viewer` and `@toolpath/viewer/engine`. `MeasureTool`, `HoverCard`, `ViewerToolbar` and
-`labelTexture` are web-only and throw when used on React Native. On React Native, `PartMesh` has no
-hover, and picks through a bounding volume hierarchy, so a large part stays smooth to touch. See the
-README's "React Native (Expo)" section for the app setup.
+`@toolpath/viewer` and `@toolpath/viewer/engine`. See the README's "React Native (Expo)" section for
+the app setup.
 
-On the web:
-
-- One-finger touch orbit now works.
-- A pinch now zooms the orthographic camera; it dollies a perspective one, as before.
-- `SceneLabel` (and `SceneLabelProps`) pins a text label to a point in the scene. `ToolMarks` draws
-  its labels with it, with the same markup.
-- `ExtendedCameraControls` gains `orbitBy`, `zoomAt` and `panBy`, and its element argument is now
-  optional.
-- `ViewerTheme.labels` styles labels drawn without a DOM, on React Native.
-- The section handle lights in a lighter shade of its own colour under the pointer or a finger,
-  rather than in the theme's `hover` colour, which turned a red or green handle blue.
+- `MeasureTool`, `HoverCard`, `ViewerToolbar` and `labelTexture` are web-only and throw when used on
+  React Native.
+- `SceneLabel`s are drawn as views over the canvas. `ViewerTheme.labels` styles them; each has the
+  `testID` `scene-label-<kind>`, and a pressable one is announced as a button.
+- `PartMesh` has no hover on React Native, and picks through a bounding volume hierarchy, so a large
+  part stays smooth to touch.
 
 `react-dom` is now an optional peer dependency, alongside the new optional `react-native`,
-`expo-asset` and `expo-gl` peers. `three-mesh-bvh` is a new dependency, used only by the React
-Native build.
+`expo-asset` and `expo-gl` peers; on React Native, `expo-asset` and `expo-gl` are required.
+`three-mesh-bvh` is a new dependency, used only by the React Native build. The package now ships
+`THIRD-PARTY-NOTICES`, for the font outlines the native view cube draws its face names with.
