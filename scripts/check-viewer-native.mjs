@@ -9,8 +9,9 @@
  * the line in the source; this checks what the build actually emitted, the
  * swaps included.
  *
- * It builds the viewer first when there is no native build, so the check is
- * never skipped for want of one.
+ * It builds the viewer first, every time, so it never checks a stale build or
+ * skips for want of one. The web build's assets are checked too: both builds
+ * copy their own, and a rebuild that cleaned them away would ship without.
  */
 
 import { existsSync } from 'node:fs'
@@ -19,21 +20,28 @@ import { join, relative } from 'node:path'
 import { repositoryRoot, run } from './lib.mjs'
 
 const viewer = join(repositoryRoot, 'packages/viewer')
-const native = join(viewer, 'dist/native')
+const dist = join(viewer, 'dist')
+const native = join(dist, 'native')
 
-const REQUIRED = ['index.js', 'engine/index.js', 'assets/banana.glb']
+/** Under `dist/`. */
+const REQUIRED = [
+  'native/index.js',
+  'native/engine/index.js',
+  'native/assets/banana.glb',
+  'index.js',
+  'assets/banana.glb',
+  'toolbar.css',
+]
 
 /** What only a browser has: the DOM, `import.meta` (Metro has none), and the web halves of the renderers. */
 const FORBIDDEN = ['document.', 'window.addEventListener', 'import.meta', 'react-dom', 'drei/web']
 
-if (!existsSync(native)) {
-  await run('pnpm', ['--filter', '@toolpath/viewer', 'build'])
-}
+await run('pnpm', ['--filter', '@toolpath/viewer', 'build'])
 
 const failures = []
 
 for (const file of REQUIRED) {
-  if (!existsSync(join(native, file))) failures.push(`dist/native/${file} is missing`)
+  if (!existsSync(join(dist, file))) failures.push(`dist/${file} is missing`)
 }
 
 const files = existsSync(native)

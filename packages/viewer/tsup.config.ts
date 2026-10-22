@@ -39,6 +39,7 @@ export default defineConfig([
     clean: ['!native', '!native/**'],
     external,
     outDir: 'dist',
+    onSuccess: 'node scripts/copy-assets.mjs web',
   },
   // The React Native build, behind the `react-native` export condition: the
   // same entries, with each `.native.ts(x)` file in place of its sibling.
@@ -50,6 +51,7 @@ export default defineConfig([
     // A RegExp, since tsup reads a string external as a package name.
     external: [...external, 'react-native', 'expo-asset', 'expo-gl', /\.glb$/],
     outDir: 'dist/native',
+    onSuccess: 'node scripts/copy-assets.mjs native',
     loader: { '.json': 'json' },
     esbuildPlugins: [nativeSiblings],
     esbuildOptions(options) {
