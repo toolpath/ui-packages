@@ -45,6 +45,7 @@ import {
   createStencilMaterials,
 } from './render/section-cap.js'
 import { EXCLUDE_FROM_FRAME, type ViewerCamera, screenLength } from './render/camera.js'
+import { endOnRelease } from './render/section-drag.js'
 import type { ViewerTheme } from './render/theme.js'
 
 export type { SectionOptions, SectionState }
@@ -295,17 +296,8 @@ export const SectionView = ({
         constant: plane.constant,
       }
 
-      const element = gl.domElement as Pick<
-        HTMLCanvasElement,
-        'addEventListener' | 'removeEventListener'
-      >
       releaseDrag.current?.()
-      element.addEventListener('lostpointercapture', endDrag)
-      element.addEventListener('pointercancel', endDrag)
-      releaseDrag.current = () => {
-        element.removeEventListener('lostpointercapture', endDrag)
-        element.removeEventListener('pointercancel', endDrag)
-      }
+      releaseDrag.current = endOnRelease(gl.domElement, endDrag)
     },
     onPointerMove: (event: ThreeEvent<PointerEvent>) => {
       const start = dragging.current

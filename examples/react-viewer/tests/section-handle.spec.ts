@@ -1,8 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { findColour, on, openViewer } from './canvas.js'
+import { at, findColour, on, openViewer, readCamera } from './canvas.js'
 
 /** On the part, dead centre — the back face under this page's camera (`viewer.spec.ts`). */
 const CENTRE = { x: 0.5, y: 0.5 }
+
+/** Beside the part, where a press reaches nothing but the camera controls. */
+const EMPTY = { x: 0.12, y: 0.6 }
 
 /**
  * The handle's colour for the cut a click at {@link CENTRE} makes, as drawn:
@@ -62,4 +65,63 @@ test('dragging the section handle moves the cut without changing the selection',
   await expect(slider).not.toHaveValue(before)
   await expect(cut).toContainText('Part surface')
   await expect(selected).toHaveText(selection ?? '')
+})
+
+/**
+ * A drag the system cancels still hands the view back.
+ *
+ * The handle switches the camera controls off while it is dragged, and only
+ * its own release or a cancel turns them on again. A finger's touch is
+ * cancelled mid-drag here, as a phone does for a gesture of its own, so no
+ * release ever reaches the handle, and the drag that follows on empty canvas
+ * has to orbit as usual. Touch goes through the DevTools protocol, so this is
+ * Chromium only.
+ */
+test('a cancelled handle drag leaves the view free to turn', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'touch is dispatched through CDP')
+  const { canvas, box } = await openViewer(page)
+  const session = await page.context().newCDPSession(page)
+  const finger = (type: string, point?: { x: number; y: number }) =>
+    session.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: point ? [{ x: point.x, y: point.y, id: 0 }] : [],
+    })
+
+  await page.getByRole('button', { name: 'Section' }).click()
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(page.locator('p', { hasText: 'Cut:' })).toContainText('Part surface')
+
+  await page.mouse.move(box.x + box.width + 20, box.y + box.height / 2)
+  const handle = await findColour(page, canvas, Z_HANDLE, {
+    mask: [
+      page.locator('[data-viewer-toolbar]'),
+      page.getByRole('group', { name: 'Section and measure options', exact: true }),
+    ],
+  })
+  expect(handle.count, 'the section handle is on screen').toBeGreaterThan(50)
+
+  const along = handle.axis.y < 0 ? -1 : 1
+  const from = { x: box.x + handle.centre.x, y: box.y + handle.centre.y }
+  const cut = page.locator('p', { hasText: 'Cut:' })
+  const depth = await cut.textContent()
+  await finger('touchStart', from)
+  for (let step = 1; step <= 6; step += 1) {
+    await finger('touchMove', {
+      x: from.x + along * handle.axis.x * 8 * step,
+      y: from.y + along * handle.axis.y * 8 * step,
+    })
+  }
+  await expect(cut, 'the finger is dragging the handle').not.toHaveText(depth ?? '')
+  await finger('touchCancel')
+
+  const before = await readCamera(page)
+  const start = at(box, EMPTY)
+  await page.mouse.move(start.x, start.y)
+  await page.mouse.down()
+  await page.mouse.move(start.x + 120, start.y, { steps: 8 })
+  await page.mouse.up()
+
+  await expect
+    .poll(async () => (await readCamera(page)).position, 'the drag turned the view')
+    .not.toEqual(before.position)
 })
