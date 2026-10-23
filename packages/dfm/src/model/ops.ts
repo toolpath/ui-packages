@@ -23,6 +23,9 @@ export const OP_TITLES: Record<DfmOp, string> = {
 /** A range's low end, read from the number toward the measure: `6 < L/D` is above 6. */
 export const LOW_SYMBOLS: Record<RangeLow, string> = { gte: '≤', gt: '<' }
 
+/** A range's low end in words, read the same way as {@link LOW_SYMBOLS}: `6 ≤ L/D` is 6 at most L/D. */
+const LOW_TITLES: Record<RangeLow, string> = { gte: 'at most', gt: 'less than' }
+
 /** The one-sided comparisons, offered from a range to leave it: their values marked apart from its ends'. */
 const ONE_SIDED = 'one:'
 
@@ -46,17 +49,23 @@ export const rangeEnd = (
     : { ...rule, ...hold(chosen) }
 
 /**
- * How a picker words one comparison: from its symbol, `≥`, and the comparison
- * itself. The web's pickers show the symbol alone; a phone's list, with room
- * for words, adds the title.
+ * How a picker words one comparison: from its symbol, `≥`, the comparison
+ * itself, and its title in words, `at least`. The web's pickers show the
+ * symbol alone; a phone's list, with room for words, adds the title.
+ *
+ * The symbol and the title always read the same way. A range's low end reads
+ * from the number toward the measure, so its `gte` is `≤` and `at most`; use
+ * the `title` given rather than `OP_TITLES[op]`, which reads from the measure.
  */
-export type OpLabel = (symbol: string, op: DfmOp) => string
+export type OpLabel = (symbol: string, op: DfmOp, title: string) => string
 
 const symbolOnly: OpLabel = (symbol) => symbol
 
 /** Every comparison, for a one-sided rule. */
 export const comparisonChoices = (label: OpLabel = symbolOnly): Choices => ({
-  groups: [{ choices: OPS.map((op) => ({ value: op, label: label(opSymbol(op), op) })) }],
+  groups: [
+    { choices: OPS.map((op) => ({ value: op, label: label(opSymbol(op), op, OP_TITLES[op]) })) },
+  ],
 })
 
 /** A range's low end, held either way, and the one-sided comparisons to leave the range by. */
@@ -64,7 +73,10 @@ export const rangeLowChoices = (label: OpLabel = symbolOnly): Choices => ({
   groups: [
     {
       heading: 'Range',
-      choices: RANGE_LOWS.map((op) => ({ value: op, label: label(LOW_SYMBOLS[op], op) })),
+      choices: RANGE_LOWS.map((op) => ({
+        value: op,
+        label: label(LOW_SYMBOLS[op], op, LOW_TITLES[op]),
+      })),
     },
     ONE_SIDED_CHOICES,
   ],
@@ -75,7 +87,10 @@ export const rangeHighChoices = (label: OpLabel = symbolOnly): Choices => ({
   groups: [
     {
       heading: 'Range',
-      choices: RANGE_HIGHS.map((op) => ({ value: op, label: label(opSymbol(op), op) })),
+      choices: RANGE_HIGHS.map((op) => ({
+        value: op,
+        label: label(opSymbol(op), op, OP_TITLES[op]),
+      })),
     },
     ONE_SIDED_CHOICES,
   ],
