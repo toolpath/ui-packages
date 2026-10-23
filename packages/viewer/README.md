@@ -399,7 +399,7 @@ or establish that an unpainted face is impossible to machine.
 
 Renders application-defined surface pieces inside `<Viewer>` or an R3F canvas. Import
 `ExplodedPart`, `ExplodedPartProps`, `ExplodeGroup`, `ExplodeInput`, and `ExplodePick` from
-`@toolpath/viewer`. Version 2.3.3 does not contain these exports.
+`@toolpath/viewer`. Version 2.5.0 does not contain these exports.
 
 The application supplies the pieces and their translations. The renderer neither selects
 feature interpretations nor chooses machining directions, setups, or an ownership policy for
@@ -461,6 +461,14 @@ keep it hidden or disable its play control until then. Changing the source or gr
 rebuilds the owned buffers; unmounting releases them without disposing the source geometry.
 Batching uses per-instance colors where Three.js provides them and shared vertex colors on
 earlier supported Three.js releases.
+
+Pass `theme?: Partial<ViewerTheme>` to match the surrounding application. `part` colors
+the source ghost, `partEmissive` sets emissive lighting, and `edge`/`edgeOpacity` control
+the outlines (the ghost outline fades further with the explosion). `highlight` tints the
+selected piece and its source surfaces; `hover` tints the hovered piece. Group colors and
+`explode.colors` remain application-owned. Omit the theme to retain the default explode
+appearance. Theme changes update materials and colors in place without rebuilding geometry,
+changing selection, warming shaders again, or moving the camera.
 
 The source part is drawn as an unpickable ghost during explosion. Selecting a group highlights
 its original surfaces and draws one connector. `onPick` and `onHover` return an `ExplodePick`:

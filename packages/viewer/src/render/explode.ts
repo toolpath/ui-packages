@@ -1,6 +1,6 @@
 import { EXCLUDE_FROM_FRAME } from './camera.js'
 import { regionEdgesGeometry } from './edges.js'
-import { resolveTheme } from './theme.js'
+import { DEFAULT_EXPLODE_THEME, type ExplodeTheme } from './explode-theme.js'
 import type { PartModel } from '../model/types.js'
 import {
   BatchedMesh,
@@ -21,7 +21,6 @@ import { explodeAmount, explodeTriangleCount, extractExplodeGroup } from './expl
 import type { ExplodeGroup } from '../model/explode.js'
 
 const ignoreRay = () => {}
-const THEME = resolveTheme({ edge: 0x182535, edgeOpacity: 0.9 })
 const WHITE = new Color(0xffffff)
 
 /** One surface batch and one outline draw, with feature identities kept outside GPU batching. */
@@ -36,7 +35,7 @@ export const createExplodeBatch = (
   }
   const material = new MeshLambertMaterial({
     color: 0xffffff,
-    emissive: THEME.partEmissive,
+    emissive: DEFAULT_EXPLODE_THEME.emissive,
     side: DoubleSide,
     forceSinglePass: true,
     transparent: true,
@@ -58,7 +57,7 @@ export const createExplodeBatch = (
   let edgeVertices = 0
   const pieces = groups.map((group) => {
     const extracted = extractExplodeGroup(model, geometry, group)
-    const edges = regionEdgesGeometry(extracted.geometry, extracted.model)
+    const edges = regionEdgesGeometry(extracted.geometry, extracted)
     const points = edges.getAttribute('position').array as Float32Array
     const vertexCount = extracted.geometry.getAttribute('position').count
     if (!instanceColors) {
@@ -108,7 +107,7 @@ export const createExplodeBatch = (
   edgeGeometry.boundingBox = new Box3()
   const amountUniform = { value: 0 }
   const edgeMaterial = new LineBasicMaterial({
-    color: THEME.edge,
+    color: DEFAULT_EXPLODE_THEME.edge,
     transparent: true,
     depthWrite: false,
   })
@@ -136,8 +135,8 @@ export const createExplodeBatch = (
   originGeometry.setAttribute('position', mesh.geometry.getAttribute('position'))
   originGeometry.setAttribute('normal', mesh.geometry.getAttribute('normal'))
   const originMaterial = new MeshLambertMaterial({
-    color: new Color(0xffda83).lerp(WHITE, 0.45),
-    emissive: THEME.partEmissive,
+    color: new Color(DEFAULT_EXPLODE_THEME.source).lerp(WHITE, 0.45),
+    emissive: DEFAULT_EXPLODE_THEME.emissive,
     side: DoubleSide,
     transparent: true,
     forceSinglePass: true,
@@ -155,9 +154,9 @@ export const createExplodeBatch = (
   const originEdgesGeometry = new BufferGeometry()
   originEdgesGeometry.setAttribute('position', edgeGeometry.getAttribute('position'))
   const originEdgesMaterial = new LineBasicMaterial({
-    color: THEME.edge,
+    color: DEFAULT_EXPLODE_THEME.edge,
     transparent: true,
-    opacity: 0.9,
+    opacity: DEFAULT_EXPLODE_THEME.edgeOpacity,
   })
   const originEdges = new LineSegments(originEdgesGeometry, originEdgesMaterial)
   originEdges.visible = false
@@ -182,6 +181,8 @@ export const createExplodeBatch = (
   const matrix = new Matrix4()
   const color = new Color()
   const selectedColor = new Color()
+  const highlightColor = new Color()
+  let theme = DEFAULT_EXPLODE_THEME
   let selectedPiece: (typeof pieces)[number] | undefined
   let amount = -1
   let previousColors: ReadonlyMap<string, number> | undefined
@@ -225,19 +226,33 @@ export const createExplodeBatch = (
       colors: ReadonlyMap<string, number> | undefined,
       selected: string | null,
       hovered: string | null,
+      nextTheme: ExplodeTheme = DEFAULT_EXPLODE_THEME,
     ) => {
+      const themeChanged = theme !== nextTheme
       if (
         appearanceSet &&
+        !themeChanged &&
         previousColors === colors &&
         previousSelected === selected &&
         previousHovered === hovered
       ) {
         return
       }
+      if (themeChanged) {
+        theme = nextTheme
+        material.emissive.setHex(theme.emissive)
+        originMaterial.emissive.setHex(theme.emissive)
+        originMaterial.color.setHex(theme.source).lerp(WHITE, 0.45)
+        edgeMaterial.color.setHex(theme.edge)
+        edgeMaterial.opacity = theme.edgeOpacity * Math.min(1, Math.max(0, amount) / 0.1)
+        originEdgesMaterial.color.setHex(theme.edge)
+        originEdgesMaterial.opacity = theme.edgeOpacity
+      }
       for (const piece of pieces) {
         const id = piece.group.id
         if (
           appearanceSet &&
+          !themeChanged &&
           previousColors === colors &&
           id !== selected &&
           id !== previousSelected &&
@@ -247,7 +262,8 @@ export const createExplodeBatch = (
           continue
         }
         color.setHex(colors?.get(id) ?? piece.group.color)
-        color.lerp(WHITE, id === selected ? 0.45 : id === hovered ? 0.25 : 0)
+        highlightColor.setHex(id === selected ? theme.selected : theme.hovered)
+        color.lerp(highlightColor, id === selected ? 0.45 : id === hovered ? 0.25 : 0)
         if (instanceColors) {
           mesh.setColorAt(piece.instanceId, color)
         } else {
@@ -289,7 +305,7 @@ export const createExplodeBatch = (
       material.opacity = fade
       mesh.visible = amount > 0.0001
       edges.visible = mesh.visible
-      edgeMaterial.opacity = 0.9 * fade
+      edgeMaterial.opacity = theme.edgeOpacity * fade
       amountUniform.value = amount
       for (const piece of pieces) {
         const offset = piece.group.offset

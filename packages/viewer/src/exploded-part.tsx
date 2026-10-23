@@ -18,6 +18,8 @@ import {
 import { createExplodeBatch } from './render/explode.js'
 import { explodeAmount } from './render/explode-geometry.js'
 import type { ExplodeInput, ExplodePick } from './model/explode.js'
+import { resolveExplodeTheme, type ExplodeTheme } from './render/explode-theme.js'
+import type { ViewerTheme } from './render/theme.js'
 
 export interface ExplodedPartProps {
   /** Source report geometry. All region indices must refer to this model. */
@@ -28,6 +30,8 @@ export interface ExplodedPartProps {
   /** Application-owned group ID; independent of feature tags and API feature IDs. */
   selected?: string | null
   hovered?: string | null
+  /** Part/edge colors, emissive, edge opacity, and selection/hover tints. */
+  theme?: Partial<ViewerTheme>
   /** False hides rendering, picking, and framing while retaining prepared buffers. Default true. */
   visible?: boolean
   /** Programs and buffers have been warmed for this layout. Optional; no camera change occurs. */
@@ -42,8 +46,11 @@ const Ghost = ({
   model,
   geometry,
   explode,
+  appearance,
   visible = true,
-}: Pick<ExplodedPartProps, 'model' | 'geometry' | 'explode' | 'visible'>) => {
+}: Pick<ExplodedPartProps, 'model' | 'geometry' | 'explode' | 'visible'> & {
+  appearance: ExplodeTheme
+}) => {
   const material = useRef<MeshLambertMaterial>(null)
   const outline = useRef<LineBasicMaterial>(null)
   const edges = useMemo(() => regionEdgesGeometry(geometry, model), [geometry, model])
@@ -58,7 +65,7 @@ const Ghost = ({
       material.current.depthWrite = fade === 0
     }
     if (outline.current) {
-      outline.current.opacity = 0.7 - 0.46 * fade
+      outline.current.opacity = ((0.7 - 0.46 * fade) * appearance.edgeOpacity) / 0.9
     }
   }, -1)
   return (
@@ -66,7 +73,8 @@ const Ghost = ({
       <mesh geometry={geometry} raycast={ignoreRay}>
         <meshLambertMaterial
           ref={material}
-          color={0xb5c7dc}
+          color={appearance.ghost}
+          emissive={appearance.ghostEmissive}
           transparent
           opacity={0.12}
           depthWrite={false}
@@ -77,9 +85,9 @@ const Ghost = ({
       <lineSegments geometry={edges} raycast={ignoreRay}>
         <lineBasicMaterial
           ref={outline}
-          color={0xa5b7d1}
+          color={appearance.ghostEdge}
           transparent
-          opacity={0.24}
+          opacity={(0.24 * appearance.edgeOpacity) / 0.9}
           depthWrite={false}
         />
       </lineSegments>
@@ -94,10 +102,11 @@ const Pieces = ({
   selected = null,
   hovered = null,
   visible = true,
+  appearance,
   onReady,
   onPick,
   onHover,
-}: ExplodedPartProps) => {
+}: ExplodedPartProps & { appearance: ExplodeTheme }) => {
   const { groups, colors } = explode
   const invalidate = useThree((state) => state.invalidate)
   const camera = useThree((state) => state.camera)
@@ -123,10 +132,10 @@ const Pieces = ({
     }
   }, [geometry, groups, invalidate, model])
   useLayoutEffect(() => {
-    resources.current?.setAppearance(colors, selected, hovered)
+    resources.current?.setAppearance(colors, selected, hovered, appearance)
     resources.current?.setAmount(explode.amount)
     invalidate()
-  }, [colors, explode, geometry, groups, hovered, invalidate, model, selected])
+  }, [appearance, colors, explode, geometry, groups, hovered, invalidate, model, selected])
   useEffect(() => {
     const batch = resources.current!
     // Warm programs and upload buffers before the animation clock starts. Unlike
@@ -244,15 +253,23 @@ const Pieces = ({
 }
 
 /** GPU batching preserves each piece's pick map, source highlight, and connector. */
-export const ExplodedPart = (props: ExplodedPartProps) =>
-  props.explode.groups.length === 0 ? null : (
+export const ExplodedPart = (props: ExplodedPartProps) => {
+  const { part, partEmissive, edge, edgeOpacity, highlight, hover } = props.theme ?? {}
+  // Inline theme objects must not repaint the batch when their colors are unchanged.
+  const appearance = useMemo(
+    () => resolveExplodeTheme({ part, partEmissive, edge, edgeOpacity, highlight, hover }),
+    [part, partEmissive, edge, edgeOpacity, highlight, hover],
+  )
+  return props.explode.groups.length === 0 ? null : (
     <>
       <Ghost
         model={props.model}
         geometry={props.geometry}
         explode={props.explode}
+        appearance={appearance}
         visible={props.visible}
       />
-      <Pieces {...props} />
+      <Pieces {...props} appearance={appearance} />
     </>
   )
+}

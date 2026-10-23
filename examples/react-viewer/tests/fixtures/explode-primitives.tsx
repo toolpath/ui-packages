@@ -49,6 +49,7 @@ const App = () => {
   const [selected, setSelected] = useState<ExplodePick | null>(null)
   const [hovered, setHovered] = useState<string | null>(null)
   const [recolored, setRecolored] = useState(false)
+  const [light, setLight] = useState(false)
   const [draws, setDraws] = useState(0)
   const report = useCallback(
     (calls: number) => setDraws((held) => (held === calls ? held : calls)),
@@ -82,6 +83,18 @@ const App = () => {
               model={model}
               geometry={cube.geometry}
               explode={input}
+              theme={
+                light
+                  ? {
+                      part: 0xe2e8f0,
+                      partEmissive: 0x111827,
+                      edge: 0x334155,
+                      edgeOpacity: 0.6,
+                      highlight: 0x0284c7,
+                      hover: 0xd97706,
+                    }
+                  : undefined
+              }
               visible={visible}
               selected={selected?.explodeGroupId}
               hovered={hovered}
@@ -110,6 +123,7 @@ const App = () => {
       </label>
       <button onClick={() => setVisible((held) => !held)}>Toggle visibility</button>
       <button onClick={() => setRecolored((held) => !held)}>Recolor</button>
+      <button onClick={() => setLight((held) => !held)}>Toggle theme</button>
       <button onClick={() => setEmpty((held) => !held)}>Toggle empty</button>
       <output data-testid="ready">{String(ready)}</output>
       <output data-testid="warmups">{warmups}</output>

@@ -1,5 +1,51 @@
 import { expect, test } from '@playwright/test'
 
+test('theme changes repaint the public primitive without allocating buffers or losing selection', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const counts = { buffers: 0, programs: 0 }
+    Object.assign(window, { __explodeThemeCounts: counts })
+    const prototype = WebGL2RenderingContext.prototype
+    const createBuffer = prototype.createBuffer
+    const createProgram = prototype.createProgram
+    prototype.createBuffer = function () {
+      counts.buffers += 1
+      return createBuffer.call(this)
+    }
+    prototype.createProgram = function () {
+      counts.programs += 1
+      return createProgram.call(this)
+    }
+  })
+  await page.goto('/tests/fixtures/explode-primitives.html')
+  await expect(page.getByTestId('ready')).toHaveText('true')
+  const canvas = page.locator('canvas')
+  await canvas.click({ position: { x: 535, y: 279 } })
+  await page.mouse.move(0, 0)
+  const before = await canvas.screenshot()
+  const readCounts = () =>
+    page.evaluate(
+      () =>
+        (window as unknown as { __explodeThemeCounts: { buffers: number; programs: number } })
+          .__explodeThemeCounts,
+    )
+  const counts = await readCounts()
+  await page.getByRole('button', { name: 'Toggle theme', exact: true }).click()
+  await expect.poll(async () => Buffer.compare(before, await canvas.screenshot())).not.toBe(0)
+  await expect(page.getByTestId('warmups')).toHaveText('1')
+  expect(await readCounts()).toEqual(counts)
+  await canvas.click({ position: { x: 535, y: 279 } })
+  const pick = JSON.parse((await page.getByTestId('pick').textContent())!)
+  expect(pick.explodeGroupId).toBe('right-piece')
+  expect(pick.modelPoint[0]).toBeCloseTo(0)
+  await page.getByRole('slider', { name: 'Amount', exact: true }).fill('0.5')
+  await page.getByRole('button', { name: 'Toggle theme', exact: true }).click()
+  await expect(page.getByRole('slider', { name: 'Amount', exact: true })).toHaveValue('0.5')
+  await expect(page.getByTestId('warmups')).toHaveText('1')
+  expect(await readCounts()).toEqual(counts)
+})
+
 test('the public primitive renders caller-defined repeated surfaces, picks source coordinates, and stays within its draw budget', async ({
   page,
 }) => {

@@ -1,4 +1,3 @@
-import { buildRegionIndex } from '../model/region-index.js'
 import type { PartModel } from '../model/types.js'
 import type { ExplodeGroup } from '../model/explode.js'
 import { BufferGeometry, Float32BufferAttribute } from 'three'
@@ -46,7 +45,7 @@ export const explodeAmount = (value: number): number =>
 
 /** Compact geometry for one copy, with an explicit map back to report triangle identities. */
 export const extractExplodeGroup = (
-  source: PartModel,
+  source: Pick<PartModel, 'regions'>,
   geometry: BufferGeometry,
   group: Pick<ExplodeGroup, 'regionIdxs'>,
 ) => {
@@ -86,13 +85,6 @@ export const extractExplodeGroup = (
     }
     return { ...region, triangles: { start, end: cursor } }
   })
-  const included = new Set(group.regionIdxs)
-  const features = source.features
-    .map((feature) => ({
-      ...feature,
-      regionIdxs: feature.regionIdxs.filter((idx) => included.has(idx)),
-    }))
-    .filter((feature) => feature.regionIdxs.length > 0)
   const copy = new BufferGeometry()
   copy.setAttribute('position', new Float32BufferAttribute(positions, 3))
   if (normal) {
@@ -100,12 +92,5 @@ export const extractExplodeGroup = (
   } else {
     copy.computeVertexNormals()
   }
-  const model: PartModel = {
-    ...source,
-    regions: compact,
-    features,
-    mesh: { ...source.mesh, triangleCount: triangles, pointCount: triangles * 3 },
-    regionIndex: buildRegionIndex({ regions: compact, features, triangleCount: triangles }),
-  }
-  return { model, geometry: copy, sourceTriangles }
+  return { regions: compact, geometry: copy, sourceTriangles }
 }

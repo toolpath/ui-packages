@@ -27,7 +27,9 @@ import { visualSurfaces } from '../model/surfaces.js'
  */
 export function regionEdgesGeometry(
   geometry: BufferGeometry,
-  model: Pick<PartModel, 'regions' | 'regionIndex'>,
+  // Keep regionIndex accepted for existing object-literal callers; only regions
+  // participate in outlining, so compact surface copies need no feature index.
+  model: Pick<PartModel, 'regions'> & Partial<Pick<PartModel, 'regionIndex'>>,
 ): BufferGeometry {
   const position = geometry.getAttribute('position')
   const edges = new Buffer()

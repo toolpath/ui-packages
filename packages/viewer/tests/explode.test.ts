@@ -1,4 +1,17 @@
-import { Box3, Color, Group, Matrix4, Raycaster, Vector3 } from 'three'
+import {
+  Box3,
+  BufferGeometry,
+  Color,
+  Float32BufferAttribute,
+  Group,
+  Matrix4,
+  Raycaster,
+  Vector3,
+  type LineBasicMaterial,
+  type LineSegments,
+  type Mesh,
+  type MeshLambertMaterial,
+} from 'three'
 import { describe, expect, it } from 'vitest'
 import type { ExplodeGroup } from '../src/model/explode.js'
 import { parsePartGeometry } from '../src/engine/geometry.js'
@@ -9,6 +22,8 @@ import {
   extractExplodeGroup,
 } from '../src/render/explode-geometry.js'
 import { partBounds } from '../src/render/camera.js'
+import { regionEdgesGeometry } from '../src/render/edges.js'
+import { resolveExplodeTheme } from '../src/render/explode-theme.js'
 import { cubeModel, loadMeshFixture } from './fixtures.js'
 
 const source = async () => {
@@ -31,6 +46,90 @@ const source = async () => {
 }
 
 describe('explode rendering primitives', () => {
+  it('outlines compact regions without feature data and preserves split-surface lineage', () => {
+    const geometry = new BufferGeometry()
+    geometry.setAttribute(
+      'position',
+      new Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0], 3),
+    )
+    const regions = [
+      { idx: 3, splitOrigin: 7, shapeKind: 'Plane', area: 0.5, triangles: { start: 0, end: 1 } },
+      { idx: 9, splitOrigin: 7, shapeKind: 'Plane', area: 0.5, triangles: { start: 1, end: 2 } },
+    ]
+    const copy = extractExplodeGroup({ regions }, geometry, { regionIdxs: [9, 3, 9] })
+    expect(Array.from(copy.sourceTriangles)).toEqual([1, 0])
+    expect(copy.regions.map((region) => region.idx)).toEqual([9, 3])
+    const edges = regionEdgesGeometry(copy.geometry, copy)
+    // The shared diagonal is an analysis split, not an edge of either copy.
+    expect(edges.getAttribute('position').count).toBe(8)
+    expect(copy.geometry.getAttribute('normal').count).toBe(6)
+    expect(regions.map((region) => region.triangles)).toEqual([
+      { start: 0, end: 1 },
+      { start: 1, end: 2 },
+    ])
+    edges.dispose()
+    copy.geometry.dispose()
+    geometry.dispose()
+  })
+
+  it('updates theme colors and opacity without replacing geometry, materials, or pick identities', async () => {
+    const { model, geometry, groups } = await source()
+    const batch = createExplodeBatch(model, geometry, groups)
+    batch.setAppearance(undefined, 'right-piece', 'left-piece')
+    batch.setAmount(0.4)
+    const positions = batch.mesh.geometry.getAttribute('position')
+    const material = batch.mesh.material as MeshLambertMaterial
+    const outline = batch.object.getObjectByName('explode-edges') as LineSegments<
+      BufferGeometry,
+      LineBasicMaterial
+    >
+    const edgePositions = outline.geometry.getAttribute('position')
+    const origin = batch.object.getObjectByName('explode-origin') as Mesh<
+      BufferGeometry,
+      MeshLambertMaterial
+    >
+    const theme = resolveExplodeTheme({
+      part: 0xd5dae2,
+      partEmissive: 0x101820,
+      edge: 0x224466,
+      edgeOpacity: 0.25,
+      highlight: 0x007799,
+      hover: 0xbb3300,
+    })
+    batch.setAppearance(undefined, 'right-piece', 'left-piece', theme)
+    const color = new Color()
+    for (const piece of batch.pieces) {
+      batch.mesh.getColorAt(piece.instanceId, color)
+      const selected = piece.group.id === 'right-piece'
+      const expected = new Color(piece.group.color).lerp(
+        new Color(selected ? theme.selected : theme.hovered),
+        selected ? 0.45 : 0.25,
+      )
+      expect(color.r).toBeCloseTo(expected.r)
+      expect(color.g).toBeCloseTo(expected.g)
+      expect(color.b).toBeCloseTo(expected.b)
+      expect(batch.hit(piece.instanceId, piece.range.start / 3)?.group.id).toBe(piece.group.id)
+    }
+    expect(material.emissive.getHex()).toBe(theme.emissive)
+    expect(outline.material.color.getHex()).toBe(theme.edge)
+    expect(outline.material.opacity).toBe(0.25)
+    expect(
+      origin.material.color.equals(new Color(theme.source).lerp(new Color(0xffffff), 0.45)),
+    ).toBe(true)
+    batch.setAmount(0.05)
+    expect(outline.material.opacity).toBe(0.125)
+    batch.setAppearance(undefined, null, null)
+    batch.mesh.getColorAt(0, color)
+    expect(color.getHex()).toBe(groups[0]!.color)
+    expect(outline.material.color.getHex()).toBe(0x182535)
+    expect(outline.material.opacity).toBe(0.45)
+    expect(batch.mesh.geometry.getAttribute('position')).toBe(positions)
+    expect(outline.geometry.getAttribute('position')).toBe(edgePositions)
+    expect(batch.mesh.material).toBe(material)
+    batch.dispose()
+    geometry.dispose()
+  })
+
   it('keeps caller groups separate, deduplicates membership only within a group, and maps every triangle to its source', async () => {
     const { model, geometry, groups, region } = await source()
     // No feature interpretation is needed to render or pick a supplied surface set.
@@ -151,7 +250,10 @@ describe('explode rendering primitives', () => {
     indexed.dispose()
     expect([-1, 0.3, 2, NaN, Infinity].map(explodeAmount)).toEqual([0, 0.3, 1, 0, 0])
     const copy = extractExplodeGroup(model, geometry, group)
-    expect(copy.model.regionIndex.regionForTriangle(0)).toBe(group.regionIdxs[0])
+    expect(copy.regions[0]!.idx).toBe(group.regionIdxs[0])
+    expect(copy.sourceTriangles[0]).toBe(
+      model.regionIndex.rangeForRegion(group.regionIdxs[0]!)!.start,
+    )
     copy.geometry.dispose()
     geometry.dispose()
   })
