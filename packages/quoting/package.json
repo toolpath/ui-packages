@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/quoting",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "The quote flow: where a part, a quote, a revision and a payment stand, what moving a part means, and the quoting app's plan draft. Logic only; views belong in @toolpath/ui",
   "license": "MIT",
   "engines": {

@@ -1,5 +1,18 @@
 # @toolpath/quoting
 
+## 0.3.0
+
+### Minor Changes
+
+- 52136d5: `PartInputsHeld` holds the part's DFM rule sets (`dfmRuleSetIds`), and `InputField` names them
+  (`'dfmRules'`). `sameIntent` compares them in any order, and `rebaseIntent` keeps rule sets chosen
+  in this session over another tab's.
+
+### Patch Changes
+
+- Updated dependencies [52136d5]
+  - @toolpath/plan@0.2.0
+
 ## 0.2.0
 
 ### Minor Changes
