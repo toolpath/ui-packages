@@ -100,17 +100,16 @@ export type DraftAction =
   | { kind: 'moveFeature'; tag: string; direction: PlanDirection; folderId: string; newId: string }
   /**
    * A pick among the features a click in a folder read (`chooseReading`): `reading` meant instead of
-   * `tag`, which the click pinned (`target: 'pin'`) or took out (`'takeOut'`) in `folderId`. Where
-   * the click's edit no longer stands — Undo, Discard — it is made again first, in the same step.
-   * `readings` are every feature the click read. Needs the plan as applied. A folder gone since
-   * — Undo — changes nothing.
+   * `tag`, which a left click pinned (`target: 'pin'`) or left in the folder (`'add'`), or a right
+   * click took out (`'takeOut'`), in `folderId`. Where the click's edit no longer stands — Undo,
+   * Discard — it is made again first, in the same step. Needs the plan as applied. A folder gone
+   * since — Undo — changes nothing.
    */
   | {
       kind: 'choosePinReading'
       tag: string
-      target: 'pin' | 'takeOut'
+      target: 'pin' | 'add' | 'takeOut'
       reading: string
-      readings: ReadonlyArray<string>
       folderId: string
     }
   /**
@@ -545,7 +544,6 @@ const applyChoosePinReading = <T extends Constraints>(
     saved,
     { tag: action.tag, target: action.target },
     action.reading,
-    action.readings,
     { id: action.folderId, direction: placed.direction },
     rules,
   )
@@ -560,8 +558,9 @@ const withClickStanding = (
   rules: PlanRules,
 ): Constraints => {
   const inFolder = pinnedIn(draft.setups, action.tag) === action.folderId
-  // The click's edit stands where a pin is in the folder, or a feature taken out is not.
-  const standing = inFolder !== (action.target === 'takeOut')
+  // The click's edit stands where a pin is in the folder, or a feature taken out is not; a feature
+  // left in the folder made none.
+  const standing = action.target === 'add' || inFolder !== (action.target === 'takeOut')
   if (standing) {
     return draft
   }

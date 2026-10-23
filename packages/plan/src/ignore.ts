@@ -179,28 +179,33 @@ export const takeBackIgnore = (
 
 /** What a click on the part does while ignoring (`ignoreClick`). */
 type IgnoreClick =
-  /** The region was ignored: the ignored regions among those taken are let go. */
+  /** A right click: the ignored regions among those taken are let go. */
   | { kind: 'unignore'; regions: Array<number> }
-  /** What the click takes is ignored. */
+  /** A left click: what the click takes is ignored. */
   | { kind: 'ignore'; regions: Array<number> }
 
 /**
- * What a click on region `region`, taking `regions` (`ignoreSelection`), does while ignoring:
- * ignored, the ignored regions among those taken are let go; otherwise they are ignored.
+ * What a click taking `regions` (`ignoreSelection`) does while ignoring: a left click ignores
+ * them, a right click (`remove`) lets go of those ignored. Null where it has nothing to do: a left
+ * click on regions every one ignored, a right click on none.
  */
 export const ignoreClick = ({
-  region,
   ignored,
   regions,
+  remove,
 }: {
-  region: number
   /** The regions ignored now. */
   ignored: ReadonlySet<number>
   /** The regions the click takes: the CAD face clicked, or a feature's faces. */
   regions: ReadonlyArray<number>
-}): IgnoreClick => {
-  if (ignored.has(region)) {
-    return { kind: 'unignore', regions: regions.filter((each) => ignored.has(each)) }
+  /** A right click: it takes out, never adds. */
+  remove: boolean
+}): IgnoreClick | null => {
+  if (remove) {
+    const going = regions.filter((each) => ignored.has(each))
+    return going.length > 0 ? { kind: 'unignore', regions: going } : null
   }
-  return { kind: 'ignore', regions: [...regions] }
+  return regions.every((each) => ignored.has(each))
+    ? null
+    : { kind: 'ignore', regions: [...regions] }
 }

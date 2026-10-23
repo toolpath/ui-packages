@@ -120,7 +120,7 @@ const press = (action: DraftAction) => {
 | `addSetup`            | A setup facing a direction nothing faces yet                                                      |
 | `setProcess`          | Hold a setup 3 axis, 3+1 or 3+2                                                                   |
 | `setToolOrientation`  | A folder in an indexed setup tilted to a direction of its own, or not                             |
-| `pinInto`             | A click on the part in an open folder: the feature pinned there, or taken out if it is            |
+| `pinInto`             | In an open folder: a left click pins the feature there, a right click takes out one pinned there  |
 | `pinFrom`             | The feature pinned in the folder facing its direction, or a new setup; let go if pinned that way  |
 | `moveFeature`         | A feature's row dropped on a folder: pinned there                                                 |
 | `unpin`               | The feature let go: Toolpath decides where it is machined                                         |
@@ -134,7 +134,9 @@ Each kind makes the plan Toolpath's own app makes for the same click; the packag
 to the app's own helper. A pin,
 of any kind, does what pinning does there: the person's pins whose every face it covers are let go,
 and its own faces are no longer ignored. Pinning a feature where it is pinned already lets it go, as
-a second click does.
+a right click does. A left click on a feature in the open folder already sends nothing: it stays,
+and a pick among its readings (`choosePinReading`, `target: 'add'`) pins another beside it. With
+Ignore open, `ignoreClick` says what a click does: a left click ignores, a right click lets go.
 
 `facts` say what the action did beyond the draft, for the status line: the pins a pin `replaced`,
 the faces it `unignored`, the pins an ignore `unpinned`, whether a pin `added` a setup, whether it

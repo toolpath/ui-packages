@@ -140,10 +140,14 @@ export const withPin = (
   }
 }
 
-/** What a click does to its feature: pin it in the folder, or take it out — unpinned. */
-type PinTarget = 'pin' | 'takeOut'
+/**
+ * What a click does to its feature: a left click pins it in the folder, or — in it already —
+ * leaves it there (`add`: a pick among its readings adds another); a right click takes it out,
+ * unpinned.
+ */
+type PinTarget = 'pin' | 'add' | 'takeOut'
 
-/** What a click made of a feature since the plan was saved: pinned in the folder, or taken out. */
+/** What a click made of a feature: pinned in the folder, left in it, or taken out. */
 export interface PinChange {
   tag: string
   target: PinTarget
@@ -226,107 +230,60 @@ const pinHere = (
 
 /**
  * A line's choice among the features its click read. On a pin: itself, or another pinned in its
- * place. On a feature taken out: it stays out, and at most one other is pinned instead — choosing
- * again, or choosing to take it out, lets the one before go. A feature that goes leaves the folder as
- * a click takes it out: unpinned, never put back where it was before. Answers the plan, and the
- * lines whose choice is made — a pin swapped away keeps its choice unmade, so undo brings it back
- * to be made.
+ * place. On a feature left in the folder (`add`): itself, or another pinned there too — as any pin,
+ * replacing the pins it covers. On a feature taken out: itself, or another taken out in its place,
+ * the line's pinned back. Answers the plan, and the lines whose choice is made — a pin swapped away
+ * keeps its choice unmade, so undo brings it back to be made.
  */
 export const chooseReading = (
   plan: Constraints,
   saved: Constraints,
   line: PinChange,
   reading: string,
-  /** The features its click read, the line's among them. */
-  read: ReadonlyArray<string>,
   folder: { id: string; direction: PlanDirection },
   context: PinContext,
 ): { intent: Constraints; chosen: Array<string> } => {
-  const choice: ReadingChoice = { plan, saved, line, reading, read, folder, context }
-  return line.target === 'pin' ? chosenForPin(choice) : chosenForTakeOut(choice)
+  if (reading === line.tag) {
+    return { intent: plan, chosen: [reading] }
+  }
+  const choose = CHOSEN_FOR[line.target]
+  return { intent: choose({ plan, saved, line, reading, folder, context }), chosen: [reading] }
 }
 
-/** A line's choice among its click's readings, with all `chooseReading` is given. */
+/** A line's choice among its click's readings, another than its own, with all it is given. */
 interface ReadingChoice {
   plan: Constraints
   saved: Constraints
   line: PinChange
   reading: string
-  read: ReadonlyArray<string>
   folder: { id: string; direction: PlanDirection }
   context: PinContext
 }
 
-/** The plan once a choice is made, and the lines whose choice is made. */
-interface ChosenReading {
-  intent: Constraints
-  chosen: Array<string>
+/** On a pin: what the pin took put back, it leaves, and the one chosen is pinned in its place. */
+const chosenForPin = ({ plan, saved, line, reading, folder, context }: ReadingChoice) => {
+  const left = letGo(takeBack(plan, saved, line.tag, context), line.tag)
+  return pinHere(left, reading, folder.id, context).intent
 }
 
-/** A choice on a pin: itself changes nothing; another is pinned in its place. */
-const chosenForPin = ({
-  plan,
-  saved,
-  line,
-  reading,
-  folder,
-  context,
-}: Omit<ReadingChoice, 'read'>): ChosenReading => {
-  if (reading === line.tag) {
-    return { intent: plan, chosen: [reading] }
-  }
-  const left = leaving(plan, saved, line.tag, context)
-  return { intent: pinHere(left, reading, folder.id, context).intent, chosen: [reading] }
+/** On a feature left in the folder: the one chosen pinned there too. */
+const chosenForAdd = ({ plan, reading, folder, context }: ReadingChoice) =>
+  pinHere(plan, reading, folder.id, context).intent
+
+/** On a feature taken out: it goes back in the folder, and the one chosen is taken out instead. */
+const chosenForTakeOut = ({ plan, line, reading, folder, context }: ReadingChoice) => {
+  const back = pinHere(plan, line.tag, folder.id, context).intent
+  return pinnedIn(back.setups, reading) === folder.id
+    ? { ...back, setups: unpinFeature(back.setups, folder.id, reading) }
+    : back
 }
 
-/**
- * A choice on a feature taken out: it stays out, and the one chosen — unless it is the line's own —
- * is pinned instead, any chosen before it let go.
- */
-const chosenForTakeOut = (choice: ReadingChoice): ChosenReading => {
-  const { plan, saved, line, reading, folder, context } = choice
-  const cleared = chosenBefore(choice).reduce((all, tag) => leaving(all, saved, tag, context), plan)
-  // Putting one back can put back what this line takes out: it stays out.
-  const out =
-    pinnedIn(cleared.setups, line.tag) === pinnedIn(plan.setups, line.tag)
-      ? cleared
-      : letGo(cleared, line.tag)
-  return {
-    intent: reading === line.tag ? out : pinHere(out, reading, folder.id, context).intent,
-    chosen: reading === line.tag ? [line.tag] : [reading, line.tag],
-  }
+/** What a choice does, by what the click did to the line's feature. */
+const CHOSEN_FOR: { readonly [K in PinTarget]: (choice: ReadingChoice) => Constraints } = {
+  pin: chosenForPin,
+  add: chosenForAdd,
+  takeOut: chosenForTakeOut,
 }
-
-/**
- * The plan with a feature gone: what it took — the pins it replaced — put back as `saved` had them
- * first; then it leaves.
- */
-const leaving = (
-  plan: Constraints,
-  saved: Constraints,
-  tag: string,
-  context: PinContext,
-): Constraints => letGo(takeBack(plan, saved, tag, context), tag)
-
-/**
- * The click's other readings pinned in this folder since the plan was saved: earlier choices,
- * which go.
- */
-const chosenBefore = ({
-  plan,
-  saved,
-  line,
-  reading,
-  read,
-  folder,
-}: Omit<ReadingChoice, 'context'>): Array<string> =>
-  read.filter(
-    (each) =>
-      each !== line.tag &&
-      each !== reading &&
-      pinnedIn(plan.setups, each) === folder.id &&
-      pinnedIn(saved.setups, each) !== folder.id,
-  )
 
 /** A plan as a Pin features note reads it: every folder of the tree, and who machines each face. */
 export interface PlanReading {

@@ -16,10 +16,15 @@ export interface PartInputsHeld {
   toolCrib: ToolCrib
   /** The machining stock asked for, and the automatic profile it was copied from, if any. */
   stock: { policy: StockOption | null; profileId: string | null }
+  /**
+   * The DFM rule sets the part is checked against, sorted; none follows the org's default sets.
+   * Held and applied with the rest, but not planned from: it changes no fingerprint.
+   */
+  dfmRuleSetIds: Array<string>
 }
 
 /** Which of the part's inputs an Apply refused is about, so the page can open it. */
-export type InputField = 'material' | 'machine' | 'toolCrib' | 'stock'
+export type InputField = 'material' | 'machine' | 'toolCrib' | 'stock' | 'dfmRules'
 
 export interface PlanDraft extends Constraints {
   /** The kernel whose tags the pins name; null until something is pinned. */

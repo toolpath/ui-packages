@@ -180,101 +180,58 @@ describe('folderClick and chooseReading', () => {
     expect(click(intent, 'r', true)).toEqual({ intent: saved, note: 'R taken out of Top.' })
   })
 
-  it('chooses on a line: a pin swaps; a feature taken out stays out, one other pinned instead', () => {
+  it('chooses on a pin’s line: itself changes nothing; another is pinned in its place', () => {
     const top = { id: 'top', direction: up }
     // q, pinned in Bottom as saved, is clicked here: pinned in Top.
     const { intent } = click(saved, 'q')
     const pinned = { tag: 'q', target: 'pin' as const }
-    expect(chooseReading(intent, saved, pinned, 'q', ['q', 'r'], top, context)).toEqual({
+    expect(chooseReading(intent, saved, pinned, 'q', top, context)).toEqual({
       intent,
       chosen: ['q'],
     })
     // Another chosen in its place: q goes as a click takes it out — unpinned, in no folder.
-    const swapped = chooseReading(intent, saved, pinned, 'r', ['q', 'r'], top, context)
+    const swapped = chooseReading(intent, saved, pinned, 'r', top, context)
     expect(swapped.intent.setups.map((each) => each.features)).toEqual([['p', 'r'], []])
     expect(swapped.chosen).toEqual(['r'])
-
-    const line = { tag: 'p', target: 'takeOut' as const }
-    const read = ['p', 'r', 'q']
-    const out = click(saved, 'p', true).intent
-    const besides = chooseReading(out, saved, line, 'r', read, top, context)
-    expect(besides.intent.setups.map((each) => each.features)).toEqual([['r'], ['q']])
-    expect(besides.chosen).toEqual(['r', 'p'])
-    // Choosing another lets the one before go; so does taking it out. Neither goes back where it was.
-    const other = chooseReading(besides.intent, saved, line, 'q', read, top, context)
-    expect(other.intent.setups.map((each) => each.features)).toEqual([['q'], []])
-    const none = chooseReading(other.intent, saved, line, 'p', read, top, context)
-    expect(none.intent.setups.map((each) => each.features)).toEqual([[], []])
-    expect(none.chosen).toEqual(['p'])
   })
 
-  it('keeps a pin in the folder as saved when another is chosen instead of taking out', () => {
+  it('pins another beside a feature a click left in the folder, as any pin: replacing what it covers', () => {
     const top = { id: 'top', direction: up }
-    // p and q are pinned in Top as saved.
+    // p is in Top; r is inside it, so covers none of p's faces: added beside it.
+    const line = { tag: 'p', target: 'add' as const }
+    const added = chooseReading(saved, saved, line, 'r', top, context)
+    expect(added.intent.setups.map((each) => each.features)).toEqual([['p', 'r'], ['q']])
+    expect(added.chosen).toEqual(['r'])
+    expect(chooseReading(saved, saved, line, 'p', top, context).intent).toBe(saved)
+    // r in Top, p chosen: p covers every face of r's, and replaces it.
+    const inner = { ...saved, setups: [{ ...setups[0]!, features: ['r'] }, setups[1]!] }
+    const covering = chooseReading(inner, inner, { tag: 'r', target: 'add' }, 'p', top, context)
+    expect(covering.intent.setups.map((each) => each.features)).toEqual([['p'], ['q']])
+  })
+
+  it('takes another out in place of a feature taken out, putting that one back; never pins', () => {
+    const top = { id: 'top', direction: up }
+    // p and r are in Top as saved; p is taken out by a right click.
     const both = {
       setups: [
-        { ...setups[0]!, features: ['p', 'q'] },
-        { ...setups[1]!, features: [] },
+        { ...setups[0]!, features: ['p', 'r'] },
+        { ...setups[1]!, features: ['q'] },
       ],
       done: [],
       doneKernel: null,
     }
-    const line = { tag: 'p', target: 'takeOut' as const }
-    const read = ['p', 'r', 'q']
     const out = click(both, 'p', true).intent
-    const kept = (features: Array<string>) => ({
-      setups: [
-        { ...setups[0]!, features },
-        { ...setups[1]!, features: [] },
-      ],
-      done: [],
-      doneKernel: null,
-    })
-    expect(chooseReading(out, both, line, 'r', read, top, context)).toEqual({
-      intent: kept(['q', 'r']),
-      chosen: ['r', 'p'],
-    })
-    // Chosen itself, the saved pin stays pinned: not pinned again, which would take it out.
-    expect(chooseReading(out, both, line, 'q', read, top, context)).toEqual({
-      intent: kept(['q']),
-      chosen: ['q', 'p'],
-    })
-  })
-
-  it('keeps a saved pin taken out out, though a feature chosen over it is let go again', () => {
-    const top = { id: 'top', direction: up }
-    const regions: Record<string, Array<number>> = { floor: [1], pocket: [1, 2], other: [1, 3] }
-    const covering = { ...context, regionsOf: (tag: string) => regions[tag] ?? [] }
-    const floor = {
-      setups: [
-        { ...setups[0]!, features: ['floor'] },
-        { ...setups[1]!, features: [] },
-      ],
-      done: [],
-      doneKernel: null,
-    }
-    const line = { tag: 'floor', target: 'takeOut' as const }
-    const read = ['floor', 'pocket', 'other']
-    const out = folderClick(
-      floor,
-      { tag: 'floor', label: 'Floor', direction: up, inFolder: true },
-      { id: 'top', name: 'Top' },
-      covering,
-    ).intent
-    // Pocket covers floor, so pinning it replaces floor; letting it go would put floor back.
-    const pocket = chooseReading(out, floor, line, 'pocket', read, top, covering)
-    expect(pocket.intent.setups.map((each) => each.features)).toEqual([['pocket'], []])
-    expect(chooseReading(pocket.intent, floor, line, 'floor', read, top, covering)).toEqual({
-      intent: {
-        setups: [
-          { ...setups[0]!, features: [] },
-          { ...setups[1]!, features: [] },
-        ],
-        done: [],
-        doneKernel: null,
-      },
-      chosen: ['floor'],
-    })
+    expect(out.setups[0]?.features).toEqual(['r'])
+    const line = { tag: 'p', target: 'takeOut' as const }
+    const instead = chooseReading(out, both, line, 'r', top, context)
+    expect(instead.intent.setups.map((each) => each.features)).toEqual([['p'], ['q']])
+    expect(instead.chosen).toEqual(['r'])
+    // Itself: as it is. One not in the folder is not pinned; p is pinned back as any pin is,
+    // replacing r, whose every face it covers.
+    expect(chooseReading(out, both, line, 'p', top, context).intent).toBe(out)
+    expect(
+      chooseReading(out, both, line, 'q', top, context).intent.setups.map((each) => each.features),
+    ).toEqual([['p'], ['q']])
   })
 
   it('says a pin’s faces are no longer ignored, and puts them back where another is chosen', () => {
@@ -284,15 +241,7 @@ describe('folderClick and chooseReading', () => {
     expect(intent.done).toEqual([2])
     // q is chosen in r's place: r's face is ignored again as saved, and q's faces are not ignored.
     const here = { id: 'top', direction: up }
-    const swapped = chooseReading(
-      intent,
-      ignoring,
-      { tag: 'r', target: 'pin' },
-      'q',
-      ['r', 'q'],
-      here,
-      context,
-    )
+    const swapped = chooseReading(intent, ignoring, { tag: 'r', target: 'pin' }, 'q', here, context)
     expect(swapped.intent.done).toEqual([1, 2])
     expect(swapped.intent.setups[0]?.features).toEqual(['p', 'q'])
   })
@@ -300,9 +249,10 @@ describe('folderClick and chooseReading', () => {
   it('changes nothing when a pin’s line chooses the pin itself', () => {
     const plan = click(saved, 'r').intent
     const here = { id: 'top', direction: up }
-    expect(
-      chooseReading(plan, saved, { tag: 'r', target: 'pin' }, 'r', ['r', 'p'], here, context),
-    ).toEqual({ intent: plan, chosen: ['r'] })
+    expect(chooseReading(plan, saved, { tag: 'r', target: 'pin' }, 'r', here, context)).toEqual({
+      intent: plan,
+      chosen: ['r'],
+    })
   })
 })
 
