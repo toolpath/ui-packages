@@ -23,5 +23,8 @@ entry), so non-DOM UIs can build the same views:
   reading under a pointer or finger, `readingAt`, `readingText`, `offsetUnder`, `readingLabelX` and
   `ReachReading`.
 
+`fromField` reads a lone decimal comma as a point, so `2,5` is 2.5: in a comma-decimal region a
+phone's decimal keypad offers only the comma.
+
 Both entry points gain a `default` export condition beside `import`, so a resolver that asks for
 `require`, such as Jest under `jest-expo`, finds them. The README says how to test with Jest.
