@@ -18,7 +18,8 @@ the app setup.
 - `PartMesh` works out which faces touch which only when `onAdjacency` is passed, and once per mesh
   however often the callback changes: on a phone the walk over every triangle is felt.
 
-`react-dom` is now an optional peer dependency, alongside the new optional `react-native`,
+`react-dom` is now an optional peer dependency, alongside the new optional `react-native` (0.79 or
+later, whose Metro reads the exports map that `@toolpath/viewer/engine` needs),
 `expo-asset` and `expo-gl` peers; on React Native, `expo-asset` and `expo-gl` are required.
 `three-mesh-bvh` is a new dependency, used only by the React Native build. The package now ships
 `THIRD-PARTY-NOTICES`, for the font outlines the native view cube draws its face names with.

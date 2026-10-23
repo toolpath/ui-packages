@@ -75,6 +75,16 @@ for (const path of files) {
   failures.push(`${relative(viewer, path)}:${line} makes a <${match[1]}>`)
 }
 
+// `./engine` reaches the native build only through the exports map, which
+// Metro reads by default from React Native 0.79; on an older one the subpath
+// does not resolve, so the peer range must not admit it.
+const { peerDependencies } = JSON.parse(await readFile(join(viewer, 'package.json'), 'utf8'))
+const reactNative = peerDependencies?.['react-native'] ?? ''
+const floor = /^>=0\.(\d+)$/.exec(reactNative)
+if (!floor || Number(floor[1]) < 79) {
+  failures.push(`peer react-native "${reactNative}" admits a Metro that ignores the exports map`)
+}
+
 // The web build: everything in `dist/` but the native build.
 const web = (await readdir(join(viewer, 'dist'), { recursive: true }))
   .filter((file) => file.endsWith('.js') && !file.startsWith('native'))

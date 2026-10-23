@@ -33,7 +33,7 @@ Your application must provide compatible peers:
 | `three`              | `>=0.159.0`    | Both                                                 |
 | `@react-three/fiber` | `^9.7.0`       | Both                                                 |
 | `@react-three/drei`  | `^10.7.8`      | Both                                                 |
-| `react-native`       | `>=0.78`       | React Native (optional peer)                         |
+| `react-native`       | `>=0.79`       | React Native (optional peer)                         |
 | `expo-asset`         | `>=8.4`        | React Native, where it is required: imported at load |
 | `expo-gl`            | `>=11.0`       | React Native: the GL context (optional peer)         |
 
