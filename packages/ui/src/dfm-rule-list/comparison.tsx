@@ -1,27 +1,19 @@
 import type { FC, ReactElement } from 'react'
 import {
-  OPS,
-  RANGE_HIGHS,
-  highOf,
-  opSymbol,
-  withOp,
+  comparisonChoices,
   type DfmOp,
   type DfmRule,
+  highOf,
+  OP_TITLES,
+  rangeEnd,
   type RangeHigh,
+  rangeHighChoices,
+  withOp,
 } from '@toolpath/dfm'
-import { ONE_SIDED_CHOICES, OP_TITLES, rangeEnd } from './ops'
-import { Picker, type Choices } from './picker'
+import { Picker } from './picker'
 
-const COMPARISONS: Choices = {
-  groups: [{ choices: OPS.map((op) => ({ value: op, label: opSymbol(op) })) }],
-}
-
-const RANGE_HIGH: Choices = {
-  groups: [
-    { heading: 'Range', choices: RANGE_HIGHS.map((op) => ({ value: op, label: opSymbol(op) })) },
-    ONE_SIDED_CHOICES,
-  ],
-}
+const COMPARISONS = comparisonChoices()
+const RANGE_HIGH = rangeHighChoices()
 
 /**
  * The comparison after the measure. One-sided, every comparison and "range".

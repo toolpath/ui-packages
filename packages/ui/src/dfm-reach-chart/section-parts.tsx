@@ -1,14 +1,17 @@
 import type { FC, ReactElement } from 'react'
-import { lengthValue, type Units } from '@toolpath/dfm'
-import type { SectionGeometry } from './section-geometry'
 import {
   AXIS_LABEL_HALF_PX,
   DEPTH_WORD_PX,
-  FLOOR_STRIP,
-  READ_INSET,
-  SECTION_PAD,
   featureBreak,
-} from './section-layout'
+  FLOOR_STRIP,
+  lengthValue,
+  READ_INSET,
+  SECTION_LABEL,
+  SECTION_PAD,
+  SECTION_TYPE,
+  type SectionGeometry,
+  type Units,
+} from '@toolpath/dfm'
 import {
   ARROW,
   FEATURE_FILL,
@@ -114,9 +117,9 @@ export const SectionHeadings: FC<PartProps> = ({ geometry }): ReactElement => {
     <>
       <text
         x={geometry.featureHeadingX}
-        y={SECTION_PAD.top - 8}
+        y={SECTION_PAD.top - SECTION_LABEL.headingAbove}
         textAnchor="middle"
-        fontSize={9}
+        fontSize={SECTION_TYPE.heading}
         fontWeight={600}
         className={FEATURE_TEXT}
       >
@@ -124,9 +127,9 @@ export const SectionHeadings: FC<PartProps> = ({ geometry }): ReactElement => {
       </text>
       <text
         x={right}
-        y={SECTION_PAD.top - 8}
+        y={SECTION_PAD.top - SECTION_LABEL.headingAbove}
         textAnchor="end"
-        fontSize={9}
+        fontSize={SECTION_TYPE.heading}
         className={TEXT}
         opacity={0.7}
       >
@@ -174,9 +177,9 @@ export const FeatureDepth: FC<DimensionProps> = ({ geometry, units }): ReactElem
       />
       {x(0) - SECTION_PAD.left >= DEPTH_WORD_PX ? (
         <text
-          x={SECTION_PAD.left + 4}
-          y={featureTopY - 4}
-          fontSize={9}
+          x={SECTION_PAD.left + SECTION_LABEL.depthInset}
+          y={featureTopY - SECTION_LABEL.depthAbove}
+          fontSize={SECTION_TYPE.heading}
           fontWeight={600}
           className={FEATURE_TEXT}
         >
@@ -184,9 +187,9 @@ export const FeatureDepth: FC<DimensionProps> = ({ geometry, units }): ReactElem
         </text>
       ) : null}
       <text
-        x={datumX + 4}
-        y={featureTopY + 3.5}
-        fontSize={10}
+        x={datumX + SECTION_LABEL.heightInset}
+        y={featureTopY + SECTION_LABEL.heightBaseline}
+        fontSize={SECTION_TYPE.label}
         fontWeight={600}
         className={FEATURE_TEXT}
       >
@@ -205,8 +208,8 @@ const ReadRun: FC<ArrowedProps> = ({ geometry, units, arrowId }): ReactElement |
       <line
         x1={x(0)}
         x2={x(last)}
-        y1={ordinateY - 8}
-        y2={ordinateY - 8}
+        y1={ordinateY - SECTION_LABEL.runAbove}
+        y2={ordinateY - SECTION_LABEL.runAbove}
         strokeWidth={0.75}
         markerStart={`url(#${arrowId})`}
         markerEnd={`url(#${arrowId})`}
@@ -216,15 +219,15 @@ const ReadRun: FC<ArrowedProps> = ({ geometry, units, arrowId }): ReactElement |
         x1={x(last)}
         x2={x(last)}
         y1={floorY}
-        y2={ordinateY - 4}
+        y2={ordinateY - SECTION_LABEL.runEndAbove}
         strokeWidth={0.5}
         className={LINE}
       />
       <text
         x={(x(0) + x(last)) / 2}
-        y={ordinateY - 11}
+        y={ordinateY - SECTION_LABEL.runTextAbove}
         textAnchor="middle"
-        fontSize={10}
+        fontSize={SECTION_TYPE.label}
         className={TEXT}
       >
         {lengthValue(last, units)} read
@@ -244,9 +247,9 @@ export const OffsetOrdinates: FC<ArrowedProps> = (props): ReactElement => {
           Math.max((x(0) + right) / 2, AXIS_LABEL_HALF_PX + READ_INSET),
           width - AXIS_LABEL_HALF_PX - READ_INSET,
         )}
-        y={ordinateY + 32}
+        y={ordinateY + SECTION_LABEL.axisBelow}
         textAnchor="middle"
-        fontSize={9}
+        fontSize={SECTION_TYPE.heading}
         className={TEXT}
         opacity={0.7}
       >
@@ -256,11 +259,17 @@ export const OffsetOrdinates: FC<ArrowedProps> = (props): ReactElement => {
         x1={x(0)}
         x2={x(0)}
         y1={floorY}
-        y2={ordinateY + 4}
+        y2={ordinateY + SECTION_LABEL.tickBelow}
         strokeWidth={0.75}
         className={LINE}
       />
-      <text x={x(0)} y={ordinateY + 15} textAnchor="middle" fontSize={10} className={TEXT}>
+      <text
+        x={x(0)}
+        y={ordinateY + SECTION_LABEL.offsetBelow}
+        textAnchor="middle"
+        fontSize={SECTION_TYPE.label}
+        className={TEXT}
+      >
         0
       </text>
       {geometry.across.map((riser) => (
@@ -269,16 +278,16 @@ export const OffsetOrdinates: FC<ArrowedProps> = (props): ReactElement => {
             x1={x(riser.at)}
             x2={x(riser.at)}
             y1={y(riser.from) + 2}
-            y2={ordinateY + 4}
+            y2={ordinateY + SECTION_LABEL.tickBelow}
             strokeWidth={0.5}
             strokeDasharray="2 2"
             className={LINE}
           />
           <text
             x={x(riser.at)}
-            y={ordinateY + 15}
+            y={ordinateY + SECTION_LABEL.offsetBelow}
             textAnchor="middle"
-            fontSize={10}
+            fontSize={SECTION_TYPE.label}
             className={TEXT}
           >
             {lengthValue(riser.at, units)}
@@ -295,7 +304,12 @@ export const HeightOrdinates: FC<DimensionProps> = ({ geometry, units }): ReactE
   const { y, right, floorY, datumX } = geometry
   return (
     <>
-      <text x={datumX + 4} y={floorY + 3.5} fontSize={10} className={TEXT}>
+      <text
+        x={datumX + SECTION_LABEL.heightInset}
+        y={floorY + SECTION_LABEL.heightBaseline}
+        fontSize={SECTION_TYPE.label}
+        className={TEXT}
+      >
         0
       </text>
       {geometry.up.map((h) => (
@@ -309,7 +323,12 @@ export const HeightOrdinates: FC<DimensionProps> = ({ geometry, units }): ReactE
             strokeDasharray="2 2"
             className={LINE}
           />
-          <text x={datumX + 4} y={y(h) + 3.5} fontSize={10} className={TEXT}>
+          <text
+            x={datumX + SECTION_LABEL.heightInset}
+            y={y(h) + SECTION_LABEL.heightBaseline}
+            fontSize={SECTION_TYPE.label}
+            className={TEXT}
+          >
             {lengthValue(h, units)}
           </text>
         </g>

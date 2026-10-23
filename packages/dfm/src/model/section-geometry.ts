@@ -4,7 +4,7 @@ import {
   trimmedCurve,
   type FeatureProfile,
   type ReachCurve,
-} from '@toolpath/dfm'
+} from './reach.js'
 import {
   FEATURE_SHARE,
   FEATURE_SHARE_MAX,
@@ -21,7 +21,7 @@ import {
   wallBreak,
   WALL_LABEL_GAP_X,
   type Riser,
-} from './section-layout'
+} from './section-layout.js'
 
 /**
  * Where everything in the section goes, worked out once from the curve, the
@@ -36,7 +36,7 @@ export interface SectionGeometry {
   last: number
   width: number
   height: number
-  /** CSS pixels per millimetre. */
+  /** Drawing pixels per millimetre. */
   scale: number
   /** The offset, mm, at the drawing's left edge: negative, inside the feature. */
   x0: number
@@ -106,7 +106,7 @@ const featureShare = (feature: FeatureProfile, x1: number): { share: number; cut
 }
 
 /**
- * The scale, CSS pixels per mm, that fits the plot's span across the width;
+ * The scale, drawing pixels per mm, that fits the plot's span across the width;
  * smaller where the plot would stand taller than its most, and the plot's
  * height, held to its least.
  */

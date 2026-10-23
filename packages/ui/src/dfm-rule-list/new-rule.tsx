@@ -1,6 +1,5 @@
 import { useState, type FC, type ReactElement } from 'react'
-import { type RuleVocabulary } from '@toolpath/dfm'
-import { subjectChoices } from './options'
+import { type RuleVocabulary, subjectChoices } from '@toolpath/dfm'
 import { Picker } from './picker'
 
 /**

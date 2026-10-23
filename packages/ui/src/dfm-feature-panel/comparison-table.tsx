@@ -1,25 +1,11 @@
 import { useMemo, type FC, type ReactElement, type ReactNode } from 'react'
 import { cn } from '../common'
-import { type BrokenRule, type Measurement, featureTypeLabel, directionLabel } from '@toolpath/dfm'
+import { type ComparedFace, comparisonRows, type FoldStore } from '@toolpath/dfm'
 import { Swatch } from '../dfm-rule-list/swatch'
 import { FaceLetter } from './candidate-list'
 import { FeatureName } from './feature-name'
 import { FoldSection } from './fold-section'
-import type { FoldStore } from './fold-store'
 import { resolveLook, secondaryText, type FeaturePanelLook } from './look'
-import type { FeatureIdentity } from './types'
-
-/** One compared face: the feature it is read as, and what that feature is and measures. */
-export interface ComparedFace {
-  /** Null for a face no feature owns. */
-  readonly feature: FeatureIdentity | null
-  /** Its machining direction's colour, as the part shows it. */
-  readonly directionColor: string
-  /** Whether it is required. Left out on every face, the Required row goes. */
-  readonly required?: boolean
-  readonly rules: readonly BrokenRule[]
-  readonly measurements: readonly Measurement[]
-}
 
 export interface ComparisonTableProps {
   faces: readonly ComparedFace[]
@@ -31,16 +17,6 @@ export interface ComparisonTableProps {
   look?: FeaturePanelLook
   folds?: FoldStore
 }
-
-/** A row of the comparison: what it is, each face's reading, and whether the readings disagree. */
-interface ComparedRow {
-  readonly key: string
-  readonly label: string
-  readonly cells: readonly ReactNode[]
-  readonly differs: boolean
-}
-
-const DASH = '—'
 
 /**
  * What each compared face was read as, side by side: a column per face, its
@@ -58,71 +34,36 @@ export const ComparisonTable: FC<ComparisonTableProps> = ({
   folds,
 }): ReactElement => {
   const look = resolveLook(lookOption)
-  const rows = useMemo((): ComparedRow[] => {
-    const row = (
-      key: string,
-      label: string,
-      read: (face: ComparedFace, feature: FeatureIdentity) => { text: string; node?: ReactNode },
-    ): ComparedRow => {
-      const values = faces.map((face) => (face.feature ? read(face, face.feature) : null))
-      const texts = values.map((value) => value?.text ?? DASH)
-      return {
-        key,
-        label,
-        cells: values.map((value) => value?.node ?? value?.text ?? DASH),
-        differs: new Set(texts).size > 1,
-      }
+  const rows = useMemo(() => comparisonRows(faces), [faces])
+
+  /** A cell as the rows read it, with what only this table draws: swatches and the other unit. */
+  const cell = (key: string, text: string, index: number): ReactNode => {
+    const face = faces[index]
+    if (!face?.feature) return text
+    if (key === 'direction') {
+      return (
+        <span className="inline-flex items-center gap-1">
+          <Swatch color={face.directionColor} className="size-2.5" />
+          {text}
+        </span>
+      )
     }
-    const fixed = [
-      row('type', 'Type', (_, feature) => ({ text: featureTypeLabel(feature.featureType) })),
-      row('direction', 'Machined from', (face, feature) => {
-        const text = directionLabel(feature.machiningDirection)
-        return {
-          text,
-          node: (
-            <span className="inline-flex items-center gap-1">
-              <Swatch color={face.directionColor} className="size-2.5" />
-              {text}
-            </span>
-          ),
-        }
-      }),
-      ...(faces.some((face) => face.required !== undefined)
-        ? [row('required', 'Required', (face) => ({ text: face.required ? 'Yes' : 'No' }))]
-        : []),
-      row('rules', 'Rules broken', (face) => ({
-        text: face.rules.map((rule) => rule.key).join(',') || 'None',
-        node:
-          face.rules.length > 0 ? (
-            <span
-              className="inline-flex items-center gap-0.5"
-              title={face.rules.map((rule) => rule.text).join('\n')}
-            >
-              {face.rules.map((rule) => (
-                <Swatch key={rule.key} color={rule.color} className="size-2.5" />
-              ))}
-              <span className="ml-0.5">{face.rules.length}</span>
-            </span>
-          ) : (
-            'None'
-          ),
-      })),
-    ]
-    // Every measurement any face has, in the order the faces first give them.
-    const labels = new Map<string, string>()
-    for (const face of faces)
-      for (const each of face.measurements) labels.set(each.key, labels.get(each.key) ?? each.label)
-    const measured = [...labels].map(([key, label]): ComparedRow => {
-      const values = faces.map((face) => face.measurements.find((each) => each.key === key))
-      return {
-        key,
-        label,
-        cells: values.map((value) => (value ? <span title={value.alt}>{value.value}</span> : DASH)),
-        differs: new Set(values.map((value) => value?.value ?? DASH)).size > 1,
-      }
-    })
-    return [...fixed, ...measured]
-  }, [faces])
+    if (key === 'rules' && face.rules.length > 0) {
+      return (
+        <span
+          className="inline-flex items-center gap-0.5"
+          title={face.rules.map((rule) => rule.text).join('\n')}
+        >
+          {face.rules.map((rule) => (
+            <Swatch key={rule.key} color={rule.color} className="size-2.5" />
+          ))}
+          <span className="ml-0.5">{text}</span>
+        </span>
+      )
+    }
+    const measured = face.measurements.find((each) => each.key === key)
+    return measured ? <span title={measured.alt}>{text}</span> : text
+  }
 
   return (
     <div className="border-b border-gray-100 p-4 dark:border-zinc-800">
@@ -168,7 +109,7 @@ export const ComparisonTable: FC<ComparisonTableProps> = ({
                   >
                     {row.label}
                   </th>
-                  {row.cells.map((cell, index) => (
+                  {row.texts.map((text, index) => (
                     <td
                       key={index}
                       className={cn(
@@ -178,7 +119,7 @@ export const ComparisonTable: FC<ComparisonTableProps> = ({
                           : 'text-gray-400 dark:text-zinc-500',
                       )}
                     >
-                      {cell}
+                      {cell(row.key, text, index)}
                     </td>
                   ))}
                 </tr>

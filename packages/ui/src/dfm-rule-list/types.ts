@@ -1,31 +1,15 @@
 import type { ReactNode } from 'react'
 import {
   type DfmCheck,
+  type DfmRules,
+  type Hovered,
   type RuleVocabulary,
-  type DfmRule,
   type FeatureSheets,
   type DfmFeature,
   type Units,
 } from '@toolpath/dfm'
 
-/**
- * The rules the list shows, and how to change them. The app owns them —
- * where they are kept, and what they start as — so the list works on any
- * store and ships no rules of its own.
- */
-export interface DfmRules {
-  rules: readonly DfmRule[]
-  /** Adds a rule at the end of the list. */
-  add: (rule: DfmRule) => void
-  /** Replaces the rule with the same id. */
-  update: (rule: DfmRule) => void
-  remove: (id: string) => void
-  /** Puts an imported set in place of the list. */
-  replace: (rules: readonly DfmRule[]) => void
-}
-
-/** The feature, or group of holes, the pointer is over in a list; null for none. */
-export type Hovered = string | readonly string[] | null
+export type { DfmRules, Hovered } from '@toolpath/dfm'
 
 export interface RuleListProps {
   rules: DfmRules

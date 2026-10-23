@@ -903,6 +903,23 @@ an `axis` takes that axis's colour.
 Each label view has the `testID` `scene-label-<kind>`, from its `kind`, for an
 app's tests to find it by. A pressable label is announced as a button.
 
+### Testing with Jest
+
+`jest-expo` resolves the package through its `react-native` condition, to the
+native build: ES modules that import three.js, React Three Fiber and drei, which
+ship as ES modules too, and the banana model. Let Jest transform all of them,
+and map the model to a stub module of your own (`module.exports = 1` will do):
+
+```js
+module.exports = {
+  preset: 'jest-expo',
+  transformIgnorePatterns: [
+    'node_modules/(?!((jest-)?react-native|@react-native|expo|@toolpath|@react-three|three)/)',
+  ],
+  moduleNameMapper: { '\\.glb$': '<rootDir>/tests/asset-stub.cjs' },
+}
+```
+
 ## Working with the Toolpath API
 
 Keep analysis/job orchestration outside the viewer. A server-side

@@ -1,7 +1,7 @@
 import { useState, type FC, type ReactElement, type ReactNode } from 'react'
+import type { FoldStore } from '@toolpath/dfm'
 import { CaretRightIcon } from '@phosphor-icons/react'
 import { cn } from '../common'
-import type { FoldStore } from './fold-store'
 
 interface FoldSectionProps {
   /** Which section this is, for the fold store: see {@link FoldStore}. */
