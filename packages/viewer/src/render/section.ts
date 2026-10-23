@@ -146,20 +146,40 @@ export function sectionHandleColor(themeColor: number | undefined, directionColo
   return themeColor ?? directionColor
 }
 
-/** How far toward white a handle goes under the pointer or a finger. */
+/** How far toward white (or, for a light handle, black) a handle goes under the pointer or a finger. */
 const HANDLE_LIT = 0.45
+
+/**
+ * The least a lit handle's brightness must change, out of 1, to be seen. A
+ * handle already near white barely changes when lightened, so it darkens
+ * instead.
+ */
+export const HANDLE_LIT_MIN_CHANGE = 0.08
+
+/** Perceived brightness of a `0xRRGGBB` colour, from 0 to 1. */
+export function colorLuminance(color: number): number {
+  const channel = (shift: number) => ((color >> shift) & 0xff) / 0xff
+  return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
+}
+
+const mix = (color: number, toward: number, share: number): number => {
+  const channel = (shift: number) => {
+    const from = (color >> shift) & 0xff
+    return Math.round(from + (toward - from) * share)
+  }
+  return (channel(16) << 16) | (channel(8) << 8) | channel(0)
+}
 
 /**
  * A handle under the pointer, or pressed: its own colour, lighter, so it reads
  * as that handle lit rather than as a different one. The theme's `hover`, one
- * colour for every handle, turned a red or green handle blue.
+ * colour for every handle, turned a red or green handle blue. A handle too
+ * light to lighten visibly is darkened instead.
  */
 export function sectionHandleHoverColor(color: number): number {
-  const lit = (shift: number) => {
-    const channel = (color >> shift) & 0xff
-    return Math.round(channel + (0xff - channel) * HANDLE_LIT)
-  }
-  return (lit(16) << 16) | (lit(8) << 8) | lit(0)
+  const lighter = mix(color, 0xff, HANDLE_LIT)
+  if (colorLuminance(lighter) - colorLuminance(color) >= HANDLE_LIT_MIN_CHANGE) return lighter
+  return mix(color, 0, HANDLE_LIT)
 }
 
 /**
