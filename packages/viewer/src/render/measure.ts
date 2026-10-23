@@ -8,6 +8,18 @@ import { type ViewerCamera, type ViewportSize, screenLength } from './camera.js'
  * React surface over this.
  */
 
+/**
+ * The class every label carries, for a stylesheet to find.
+ *
+ * The labels ship with no styling at all. Each one is a `<div>` with this
+ * class, `data-measure-label` naming what it is — `distance`, `angle`, `delta`
+ * for one leg of a distance's breakdown, or `live` for the readout that
+ * follows the pointer — `data-axis` on a leg, and `data-measurement-id` on
+ * anything belonging to a finished measurement. The README shows a stylesheet
+ * to start from.
+ */
+export const MEASURE_LABEL_CLASS = 'toolpath-measure-label'
+
 /** Draws over the part and the section cap, under nothing. */
 export const MEASURE_RENDER_ORDER = 7
 

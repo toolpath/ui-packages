@@ -1,10 +1,4 @@
-import {
-  BufferGeometry,
-  CanvasTexture,
-  Float32BufferAttribute,
-  SRGBColorSpace,
-  Vector3,
-} from 'three'
+import { BufferGeometry, Float32BufferAttribute, Vector3 } from 'three'
 import type { Vec3 } from '../model/types.js'
 
 /**
@@ -167,6 +161,14 @@ export function squaredUp(direction: Vec3, currentUp: Vec3): Vec3 {
 
   return vec(nearest)
 }
+
+/**
+ * The view cube's half-extent on screen, in CSS pixels: its unit geometry is
+ * drawn at this scale in the gizmo's orthographic view. An app that judges
+ * whether a tap landed on the cube reaches this far from the gizmo's centre,
+ * `VIEW_CUBE_HALF_PX × √3` to cover a corner.
+ */
+export const VIEW_CUBE_HALF_PX = 38
 
 /**
  * Half-width of a face panel, where the cube's half-extent is 1 — so the
@@ -367,37 +369,4 @@ export function labelGeometry(zone: CubeZone): BufferGeometry {
   geometry.setAttribute('uv', new Float32BufferAttribute(uvs, 2))
 
   return geometry
-}
-
-/** A face name, drawn on a transparent canvas and sized to fit. */
-export function labelTexture(label: string, color: number): CanvasTexture {
-  const size = 128
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-
-  const context = canvas.getContext('2d')
-  if (context) {
-    const text = label.toUpperCase()
-    const hex = `#${color.toString(16).padStart(6, '0')}`
-
-    context.font = `600 ${size / 4}px system-ui, sans-serif`
-    // `BOTTOM` is half again as wide as `TOP`, and a cube whose labels are set
-    // in six different sizes looks like a mistake — so measure the widest at a
-    // reference size and let the rest of them use it.
-    const width = context.measureText('BOTTOM').width || 1
-    const scale = Math.min(1, (size * 0.78) / width)
-
-    context.font = `600 ${(size / 4) * scale}px system-ui, sans-serif`
-    context.textAlign = 'center'
-    context.textBaseline = 'middle'
-    context.fillStyle = hex
-    context.fillText(text, size / 2, size / 2)
-  }
-
-  const texture = new CanvasTexture(canvas)
-  texture.colorSpace = SRGBColorSpace
-  texture.needsUpdate = true
-
-  return texture
 }

@@ -41,8 +41,9 @@ export interface ViewerTheme {
   readonly sectionOutline: number
   /**
    * The arrow that drags the cut when overridden. When omitted from a theme
-   * override, the handle uses the cutting plane's direction colour. Hovered it
-   * takes {@link ViewerTheme.hover}, like every other control here.
+   * override, the handle uses the cutting plane's direction colour. Hovered or
+   * pressed it shows a lighter version of its own colour (a darker one when it
+   * is too light to lighten); {@link ViewerTheme.hover} does not affect it.
    */
   readonly sectionHandle: number
   readonly sectionHandleOutline: number
@@ -62,6 +63,20 @@ export interface ViewerTheme {
   readonly cube: number
   readonly cubeEdge: number
   readonly cubeLabel: number
+  /**
+   * Scene labels drawn over a React Native canvas, which has no DOM for an
+   * application stylesheet to reach: their text, fill, border and size. A
+   * label's own `color` replaces `border`, and an axis label takes its axis's
+   * colour. CSS colour strings, since React Native styles them. Ignored on
+   * the web, where labels are DOM elements styled by the application.
+   */
+  readonly labels?: {
+    readonly text: string
+    readonly background: string
+    readonly border: string
+    readonly axis: { readonly x: string; readonly y: string; readonly z: string }
+    readonly fontSize: number
+  }
 }
 
 /**
@@ -201,7 +216,22 @@ export function themesEqual(a: ViewerTheme, b: ViewerTheme): boolean {
     a.measureSnap === b.measureSnap &&
     a.cube === b.cube &&
     a.cubeEdge === b.cubeEdge &&
-    a.cubeLabel === b.cubeLabel
+    a.cubeLabel === b.cubeLabel &&
+    labelsEqual(a.labels, b.labels)
+  )
+}
+
+function labelsEqual(a: ViewerTheme['labels'], b: ViewerTheme['labels']): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return (
+    a.text === b.text &&
+    a.background === b.background &&
+    a.border === b.border &&
+    a.axis.x === b.axis.x &&
+    a.axis.y === b.axis.y &&
+    a.axis.z === b.axis.z &&
+    a.fontSize === b.fontSize
   )
 }
 

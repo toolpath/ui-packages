@@ -1,4 +1,4 @@
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import {
   createContext,
   forwardRef,
@@ -8,14 +8,14 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
-  useSyncExternalStore,
 } from 'react'
 import type { CSSProperties, PropsWithChildren, ReactNode } from 'react'
 import { Box3, Group, Vector3 } from 'three'
 import { CadCameraControls } from './camera.js'
+import { readPointer } from './render/pointer.js'
 import { retargetPose } from './render/retarget.js'
 import { type SectionStore, createSectionStore } from './render/section-store.js'
-import { type TapTracker, trackDoubleTaps, trackTaps } from './render/tap.js'
+import { trackDoubleTaps } from './render/tap.js'
 import { ViewerTapProvider, useTapGuard } from './tap.js'
 import {
   CAD_CAMERA_UP,
@@ -37,9 +37,8 @@ import {
 } from './render/camera.js'
 import type { ControlScheme, ExtendedCameraControls } from './render/controls.js'
 import { type ViewerTheme, resolveTheme } from './render/theme.js'
-import { webGLAvailableSnapshot } from './render/webgl.js'
 import { TargetMarker } from './target-marker.js'
-import { WebGLUnavailable } from './webgl-unavailable.js'
+import { type CanvasSettings, ViewerFrame } from './viewer-frame.js'
 import { squaredUp } from './render/view-cube.js'
 import type { VectorLike, ViewerControls, ViewerHandle, ViewerView } from './types.js'
 
@@ -405,7 +404,7 @@ const ViewerScene = ({
 
     const doubles = trackDoubleTaps()
     const recentre = (event: MouseEvent) => {
-      if (event.button !== 1) return
+      if (readPointer(event).button !== 1) return
 
       // The end of a pan is not a request to re-frame. The middle button is
       // TRUCK, so *every* pan ends in an `auxclick` here — and two quick pans
@@ -620,9 +619,6 @@ export interface ViewerProps {
   webglUnavailable?: ReactNode
 }
 
-// Support does not change while the page is open, so there is nothing to subscribe to.
-const subscribeNever = () => () => {}
-
 export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
   {
     children,
@@ -641,9 +637,6 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
   },
   ref,
 ) {
-  // The server assumes WebGL, so its markup hydrates as the canvas; a blocked
-  // browser then re-renders into the alert.
-  const webglAvailable = useSyncExternalStore(subscribeNever, webGLAvailableSnapshot, () => true)
   const actionsRef = useRef<ViewerControls | null>(null)
   const resolved = useMemo(() => resolveTheme(theme), [theme])
   const sectionStore = useMemo(() => createSectionStore(), [])
@@ -665,94 +658,49 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     actionsRef.current = next
   }, [])
 
-  // Watched on the wrapper rather than the canvas: `onPointerMissed` is the
-  // Canvas's own prop, and this side of it has no hooks into the scene.
-  const tracker = useRef<TapTracker | null>(null)
-  const hold = useCallback((element: HTMLDivElement | null) => {
-    tracker.current?.dispose()
-    tracker.current = element ? trackTaps(element) : null
-  }, [])
-
   return (
     <ViewerControlsContext.Provider value={proxy}>
       <SectionStoreContext.Provider value={sectionStore}>
-        {/*
-        Orbiting the part does not take focus off whatever had it.
-
-        Pressing on a canvas moves focus to the document body, and the lists
-        beside the part are walked with the arrow keys from a focused row — so
-        one orbit to look at what a row was pointing at ended the walk, and the
-        arrows quietly did nothing afterwards.
-
-        `mousedown` rather than `pointerdown`: the default action of a mousedown
-        *is* the focus change, and the controls listen on pointer events, so
-        this takes the focus behaviour without touching the gesture. Nothing
-        here needs the canvas focused — every control is a real element beside
-        it.
-      */}
-        <div
-          className={['viewer-root', className].filter(Boolean).join(' ')}
-          data-viewer-root="true"
-          ref={hold}
-          onMouseDown={(event) => {
-            if (event.target instanceof HTMLCanvasElement) event.preventDefault()
-          }}
-          style={{ height: '100%', width: '100%', ...style }}
+        <ViewerFrame
+          className={className}
+          style={style}
+          canvas={canvasSettings(projection)}
+          labels={resolved.labels}
+          onPointerMissed={onPointerMissed}
+          webglUnavailable={webglUnavailable}
         >
-          {webglAvailable ? (
-            <Canvas
-              className="viewer-canvas-container"
-              data-viewer-canvas-container="true"
-              key={projection}
-              orthographic={projection === 'orthographic'}
-              camera={{ fov: PERSPECTIVE_FOV, up: [0, 0, 1], position: [1, -1, 1] }}
-              dpr={[1, 2]}
-              frameloop="demand"
-              // `stencil` is off by default in three, and the section cap is a
-              // stencil trick — without it the cut still happens and the part just
-              // looks hollow. `localClippingEnabled` is what lets a material carry
-              // its own clipping plane rather than the whole scene sharing one.
-              gl={{ antialias: true, alpha: true, stencil: true, localClippingEnabled: true }}
-              onCreated={({ gl }) => {
-                const canvas = gl.domElement
-                canvas.classList.add('viewer-canvas')
-                canvas.dataset.viewerCanvas = 'true'
-                canvas.parentElement?.classList.add('viewer-canvas-frame')
-                canvas.parentElement?.setAttribute('data-viewer-canvas-frame', 'true')
-              }}
-              // Two guards, and both are about gestures that are not a click.
-              //
-              // Only the primary button puts a selection down. R3F treats
-              // `contextmenu` as a click, and the browser sends that the instant a
-              // right button goes down — before any movement — so a pan cleared
-              // the selection at the moment it started, whatever it did next.
-              //
-              // And an orbit that ends over empty space is not somebody letting go
-              // of what they were orbiting to look at.
-              onPointerMissed={(event) => {
-                if (event.button !== 0) return
-                if (tracker.current?.isTap(event) ?? true) onPointerMissed?.()
-              }}
-            >
-              <ViewerScene
-                setControls={setControls}
-                projection={projection}
-                scheme={controls}
-                freeOrbit={freeOrbit}
-                zoomTo={zoomTo}
-                recentreOnDoubleClick={recentreOnDoubleClick}
-                retargetOnDoubleClick={retargetOnDoubleClick}
-                showOrbitTarget={showOrbitTarget}
-                theme={resolved}
-              >
-                {children}
-              </ViewerScene>
-            </Canvas>
-          ) : (
-            <WebGLUnavailable>{webglUnavailable}</WebGLUnavailable>
-          )}
-        </div>
+          <ViewerScene
+            setControls={setControls}
+            projection={projection}
+            scheme={controls}
+            freeOrbit={freeOrbit}
+            zoomTo={zoomTo}
+            recentreOnDoubleClick={recentreOnDoubleClick}
+            retargetOnDoubleClick={retargetOnDoubleClick}
+            showOrbitTarget={showOrbitTarget}
+            theme={resolved}
+          >
+            {children}
+          </ViewerScene>
+        </ViewerFrame>
       </SectionStoreContext.Provider>
     </ViewerControlsContext.Provider>
   )
+})
+
+/**
+ * What every `<Viewer>` asks of its canvas, for whichever frame draws it.
+ *
+ * `stencil` is off by default in three, and the section cap is a stencil
+ * trick — without it the cut still happens and the part just looks hollow.
+ * WebGL and expo-gl contexts both have a stencil buffer, so the cap is drawn
+ * on every platform.
+ * `localClippingEnabled` is what lets a material carry its own clipping plane
+ * rather than the whole scene sharing one.
+ */
+const canvasSettings = (projection: Projection): CanvasSettings => ({
+  projection,
+  camera: { fov: PERSPECTIVE_FOV, up: [0, 0, 1], position: [1, -1, 1] },
+  gl: { antialias: true, alpha: true, stencil: true, localClippingEnabled: true },
+  frameloop: 'demand',
 })
