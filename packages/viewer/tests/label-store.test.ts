@@ -123,6 +123,21 @@ describe('label notification', () => {
     expect(listener).toHaveBeenCalledTimes(5)
   })
 
+  it('notifies a change of accessibility hint', () => {
+    const store = createLabelStore()
+    const listener = vi.fn()
+    store.subscribe(listener)
+    const view = camera()
+    store.set('a', { ...label, position: [0, 0, 0] })
+    store.project(view, SIZE)
+
+    store.set('a', { ...label, accessibilityHint: 'Copies it', position: [0, 0, 0] })
+    store.project(view, SIZE)
+
+    expect(listener).toHaveBeenCalledTimes(2)
+    expect(store.getSnapshot()[0]!.accessibilityHint).toBe('Copies it')
+  })
+
   it('stops notifying a listener that unsubscribed', () => {
     const store = createLabelStore()
     const listener = vi.fn()
