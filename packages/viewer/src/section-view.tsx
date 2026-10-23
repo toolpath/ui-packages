@@ -302,7 +302,7 @@ export const SectionView = ({
       }
 
       releaseDrag.current?.()
-      releaseDrag.current = endOnRelease(gl.domElement, endDrag)
+      releaseDrag.current = endOnRelease(gl.domElement, event.pointerId, endDrag)
     },
     onPointerMove: (event: ThreeEvent<PointerEvent>) => {
       const start = dragging.current
