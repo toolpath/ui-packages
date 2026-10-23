@@ -225,6 +225,16 @@ const nativeImports = (path: string): string[] =>
     .filter((each) => NATIVE_MODULE.test(each.from))
     .map((each) => `${each.line}: imports ${each.from}`)
 
+/**
+ * Every import of drei's root. On React Native the root loads every module
+ * drei has as the app starts (hls.js, troika's text, all of it), so a file the
+ * native build ships takes drei's modules one by one.
+ */
+const dreiRootImports = (path: string): string[] =>
+  importsOf(path)
+    .filter((each) => !each.typeOnly && each.from === '@react-three/drei')
+    .map((each) => `${each.line}: imports @react-three/drei`)
+
 describe('the DOM stays in the web-only files', () => {
   it('has source to check', () => {
     // A tree that moved would leave the rules below iterating nothing.
@@ -248,6 +258,16 @@ describe('the DOM stays in the web-only files', () => {
     expect(offenders).toEqual([])
   })
 
+  it("imports drei's root only from files React Native does not ship", () => {
+    const shipped = SOURCES.filter(
+      (path) => !(WEB_FILES.has(name(path)) && hasNativeSibling(name(path))),
+    )
+    const offenders = shipped.flatMap((path) =>
+      dreiRootImports(path).map((use) => `${name(path)}:${use}`),
+    )
+    expect(offenders).toEqual([])
+  })
+
   it('imports the native modules only from .native files', () => {
     const offenders = SOURCES.filter((path) => !isNative(name(path))).flatMap((path) =>
       nativeImports(path).map((use) => `${name(path)}:${use}`),
@@ -262,6 +282,9 @@ describe('the DOM stays in the web-only files', () => {
     )
     expect(nativeImports(join(SRC, 'viewer-frame.native.tsx'))).toContainEqual(
       expect.stringMatching(/imports react-native$/),
+    )
+    expect(dreiRootImports(join(SRC, 'measure-tool.tsx'))).toContainEqual(
+      expect.stringMatching(/imports @react-three\/drei$/),
     )
   })
 

@@ -15,6 +15,8 @@ the app setup.
   tall.
 - `PartMesh` has no hover on React Native, and picks through a bounding volume hierarchy, so a large
   part stays smooth to touch.
+- The components React Native runs import drei's modules one by one (`@react-three/drei/core/…`)
+  rather than its root, which on React Native loads every drei module as the app starts.
 - `PartMesh` works out which faces touch which only when `onAdjacency` is passed, and once per mesh
   however often the callback changes: on a phone the walk over every triangle is felt.
 
