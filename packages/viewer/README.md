@@ -812,6 +812,12 @@ React `CSSProperties`: pass one plain style object with values a `View` takes
 does nothing there. There's no WebGL check on React Native, where expo-gl always
 creates a context, so `webglUnavailable` is never shown.
 
+The canvas has nothing a screen reader can read, so pass `Viewer` an
+`accessibilityLabel` (and an `accessibilityHint`, such as where the view's
+controls are) for VoiceOver and TalkBack to announce the view as an image. The
+scene's pressable labels stay reachable on their own. Both are ignored on the
+web.
+
 A finger doesn't hover, so on React Native `PartMesh` lights no face under a
 moving finger, and `onHover` isn't called. Its picks go through a bounding volume
 hierarchy ([`three-mesh-bvh`](https://github.com/gkjohnson/three-mesh-bvh)),
