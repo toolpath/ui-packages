@@ -37,6 +37,18 @@ npm install @toolpath/dfm
 | `@toolpath/dfm`       | The rules and both vocabularies (`MILLING_RULES`, `TURNING_RULES`), `checkPart` and `checkTurnedPart`, the rule-set file and `llmRulePrompt`, the feature panel's rows, pinch points |
 | `@toolpath/dfm/model` | The same entry, under its name from before the views moved                                                                                                                           |
 
+Both are ES modules. A resolver that asks for `require` rather than `import`
+gets the same files through the `default` condition.
+
+### Testing with Jest
+
+Jest runs CommonJS, so an app's Jest (`jest-expo`, say) must transform the
+package: add `@toolpath` to the packages `transformIgnorePatterns` lets through.
+
+```js
+transformIgnorePatterns: ['node_modules/(?!((jest-)?react-native|@react-native|expo|@toolpath)/)']
+```
+
 ## The rules are an input
 
 The package ships no default rules and stores nothing. The app keeps the rules

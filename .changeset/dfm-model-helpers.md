@@ -15,3 +15,6 @@ same views:
   `≤ at most`).
 - The rule list: `ruleListOrder`, and `importNote` and `importError` for what an import says.
 - `storageFolds` takes `{ shutAtFirst }`, for sections that start shut until someone opens them.
+
+Both entry points gain a `default` export condition beside `import`, so a resolver that asks for
+`require`, such as Jest under `jest-expo`, finds them. The README says how to test with Jest.
