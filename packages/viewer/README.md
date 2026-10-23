@@ -806,7 +806,10 @@ are swapped for native ones.
 On React Native, one finger orbits, two fingers pinch to zoom and pan, and a tap
 picks, as on the web; double tap re-targets. A tap on a face with `SectionTool`
 up cuts, and the handle drags the cut. `Viewer`'s `style` goes to the `View` that
-holds the canvas. There's no WebGL check on React Native, where expo-gl always
+holds the canvas. The package's types are the web's, so `style` is typed as a
+React `CSSProperties`: pass one plain style object with values a `View` takes
+(`{ flex: 1 }`, not `'50vh'` or a style array), and leave out `className`, which
+does nothing there. There's no WebGL check on React Native, where expo-gl always
 creates a context, so `webglUnavailable` is never shown.
 
 A finger doesn't hover, so on React Native `PartMesh` lights no face under a
@@ -828,7 +831,10 @@ under Hermes.
 2. In `metro.config.js`, give the app one copy of three.js and let Metro bundle
    GLB models. Fiber's native build `require`s three, which would otherwise
    resolve to `three.cjs` beside the `three.module.js` that ESM imports get, and
-   `instanceof` checks between the two copies fail:
+   `instanceof` checks between the two copies fail. The GLB step is needed even
+   by an app that never shows `Banana`: Metro bundles everything a package can
+   reach, so `BANANA_MODEL_URL`'s model (about 760 KB) always ships with the
+   app:
 
    ```js
    const path = require('node:path')
@@ -846,7 +852,11 @@ under Hermes.
    module.exports = config
    ```
 
-3. In `package.json`, let Expo autolink the three.js packages:
+3. In `package.json`, name the three.js packages for Expo's autolinking. It
+   feeds `expo-doctor`'s duplicate check and, in a monorepo or with
+   `experiments.autolinkingModuleResolution`, resolves each to one copy. In a
+   plain app it only feeds the check: step 2's `resolveRequest` is what keeps
+   three.js to one copy, so don't skip it.
 
    ```json
    {
