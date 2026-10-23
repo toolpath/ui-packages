@@ -72,6 +72,11 @@ export const openViewer = async (
   const canvas = page.locator('canvas')
   await expect(canvas).toBeVisible()
   await page.waitForTimeout(700)
+  // The opening fit waits for the part to load, which on a cold start can take
+  // seconds rather than the 700 ms above. A gesture made before it lands is
+  // undone by it — a Frame detail snaps back to zoom 1 — and a pose read before
+  // it is not the opening pose.
+  await restedCamera(page, 0)
   const box = await canvas.boundingBox()
   if (!box) throw new Error('Viewer canvas has no bounding box')
 
@@ -86,6 +91,8 @@ export interface CameraPose {
   distance: number
   target: readonly [number, number, number]
   position: readonly [number, number, number]
+  /** How many times the camera has come to rest; see {@link restedCamera}. */
+  rests: number
 }
 
 /**
@@ -102,7 +109,14 @@ export const readCamera = async (page: Page): Promise<CameraPose> => {
   const distance = await readout.getAttribute('data-distance')
   const target = await readout.getAttribute('data-target')
   const position = await readout.getAttribute('data-position')
-  if (zoom === null || distance === null || target === null || position === null) {
+  const rests = await readout.getAttribute('data-rests')
+  if (
+    zoom === null ||
+    distance === null ||
+    target === null ||
+    position === null ||
+    rests === null
+  ) {
     throw new Error('The example is not reporting its camera')
   }
   const [x, y, z] = target.split(' ').map(Number)
@@ -112,7 +126,23 @@ export const readCamera = async (page: Page): Promise<CameraPose> => {
     distance: Number(distance),
     target: [x, y, z],
     position: [positionX, positionY, positionZ],
+    rests: Number(rests),
   }
+}
+
+/**
+ * The camera once a move has finished: after it has come to rest more than
+ * `after` times.
+ *
+ * A framing glides over several frames, and the readout reports every one of
+ * them, so a pose read as soon as it passes some threshold can still be on its
+ * way — a framed distance of 8.046 that went on to settle at 8.031 is the
+ * difference between a resize that moved nothing and one that did. Read
+ * `rests` before the gesture and pass it here.
+ */
+export const restedCamera = async (page: Page, after: number): Promise<CameraPose> => {
+  await expect.poll(async () => (await readCamera(page)).rests).toBeGreaterThan(after)
+  return readCamera(page)
 }
 
 /**
