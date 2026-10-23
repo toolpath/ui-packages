@@ -13,6 +13,7 @@ import {
   AppState,
   type GestureResponderEvent,
   type StyleProp,
+  StyleSheet,
   View,
   type ViewStyle,
 } from 'react-native'
@@ -74,6 +75,8 @@ export const ViewerFrame = ({
   canvas,
   labels,
   onPointerMissed,
+  accessibilityLabel,
+  accessibilityHint,
   children,
 }: ViewerFrameProps) => {
   const store = useMemo(() => createLabelStore(), [])
@@ -147,6 +150,19 @@ export const ViewerFrame = ({
           </Canvas>
         </TouchOrbitContext.Provider>
       </SceneLabelStoreContext.Provider>
+      {accessibilityLabel ? (
+        // A leaf of its own: made accessible, the frame would hide the labels'
+        // buttons inside it from a screen reader. Under the labels, and takes
+        // no touches.
+        <View
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel={accessibilityLabel}
+          accessibilityHint={accessibilityHint}
+        />
+      ) : null}
       <LabelOverlay store={store} theme={labels} />
     </View>
   )

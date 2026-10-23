@@ -13,6 +13,8 @@ the app setup.
   `testID` `scene-label-<kind>`, and a pressable one is announced as a button, with the new
   `accessibilityHint` saying what pressing it does. A pressable label's touch target is at least 44
   tall.
+- `Viewer` takes `accessibilityLabel` and `accessibilityHint`, which a screen reader announces for
+  the view, as an image, on React Native.
 - `PartMesh` has no hover on React Native, and picks through a bounding volume hierarchy, so a large
   part stays smooth to touch.
 - The components React Native runs import drei's modules one by one (`@react-three/drei/core/…`)
