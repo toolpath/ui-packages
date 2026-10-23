@@ -105,7 +105,6 @@ export { directionLabel } from './direction-label.js'
 export { featureRows, sameDepth, type FeatureRow } from './hole-groups.js'
 export {
   LOW_SYMBOLS,
-  ONE_SIDED_CHOICES,
   OP_TITLES,
   comparisonChoices,
   rangeEnd,
