@@ -57,18 +57,26 @@ describe('acceleratePicking (React Native)', () => {
     expect(Array.from(geometry.index?.array ?? [])).toEqual(before)
   })
 
-  it('shares one tree between parts on a geometry, and takes it off with the last', () => {
+  it('builds one tree per geometry, kept across parts and their release', () => {
     const geometry = sphere()
-    const releaseFirst = acceleratePicking(new Mesh(geometry, new MeshBasicMaterial()))
+    const release = acceleratePicking(new Mesh(geometry, new MeshBasicMaterial()))
     const tree = geometry.boundsTree
-    const releaseSecond = acceleratePicking(new Mesh(geometry, new MeshBasicMaterial()))
+    release()
     expect(geometry.boundsTree).toBe(tree)
 
-    releaseFirst()
-    releaseFirst()
+    acceleratePicking(new Mesh(geometry, new MeshBasicMaterial()))
     expect(geometry.boundsTree).toBe(tree)
+  })
 
-    releaseSecond()
-    expect(geometry.boundsTree).toBeUndefined()
+  it('builds the tree again once the positions change', () => {
+    const geometry = sphere()
+    acceleratePicking(new Mesh(geometry, new MeshBasicMaterial()))
+    const tree = geometry.boundsTree
+
+    geometry.getAttribute('position').needsUpdate = true
+    acceleratePicking(new Mesh(geometry, new MeshBasicMaterial()))
+
+    expect(geometry.boundsTree).toBeDefined()
+    expect(geometry.boundsTree).not.toBe(tree)
   })
 })
