@@ -119,6 +119,13 @@ describe('typing and reading values', () => {
     expect(fromField(metricInfo('zMin')!, '-12.5', 'mm')).toBe(-12.5)
   })
 
+  it('reads a lone decimal comma as a point', () => {
+    expect(fromField(metricInfo('ld')!, '2,5', 'mm')).toBe(2.5)
+    expect(fromField(metricInfo('zMin')!, '-2,5', 'mm')).toBe(-2.5)
+    expect(fromField(metricInfo('ld')!, '1,2,5', 'mm')).toBeNull()
+    expect(fromField(metricInfo('ld')!, '1.2,5', 'mm')).toBeNull()
+  })
+
   it('takes a count in whole numbers only', () => {
     expect(fromField(metricInfo('faceCount')!, '2.5', 'mm')).toBeNull()
     expect(fromField(metricInfo('faceCount')!, '3', 'inch')).toBe(3)
