@@ -9,14 +9,20 @@
 type Listening = Pick<EventTarget, 'addEventListener' | 'removeEventListener'>
 
 /**
- * Calls `onEnd` when `element` loses the pointer's capture or the pointer is
- * cancelled, and returns the function that stops listening.
+ * Calls `onEnd` when `element` loses the capture of pointer `pointerId` or that
+ * pointer is cancelled, and returns the function that stops listening.
+ *
+ * Only the dragging pointer counts: on touch every finger is captured to the
+ * canvas, so a second finger or a resting palm lifting mid-drag must not end it.
  */
-export function endOnRelease(element: Listening, onEnd: () => void): () => void {
-  element.addEventListener('lostpointercapture', onEnd)
-  element.addEventListener('pointercancel', onEnd)
+export function endOnRelease(element: Listening, pointerId: number, onEnd: () => void): () => void {
+  const onRelease = (event: Event) => {
+    if ((event as PointerEvent).pointerId === pointerId) onEnd()
+  }
+  element.addEventListener('lostpointercapture', onRelease)
+  element.addEventListener('pointercancel', onRelease)
   return () => {
-    element.removeEventListener('lostpointercapture', onEnd)
-    element.removeEventListener('pointercancel', onEnd)
+    element.removeEventListener('lostpointercapture', onRelease)
+    element.removeEventListener('pointercancel', onRelease)
   }
 }
