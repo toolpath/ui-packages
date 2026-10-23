@@ -15,7 +15,7 @@ export interface CanvasSettings {
   frameloop: NonNullable<CanvasProps['frameloop']>
 }
 
-interface ViewerFrameProps {
+export interface ViewerFrameProps {
   className?: string
   style?: CSSProperties
   canvas: CanvasSettings
@@ -24,6 +24,9 @@ interface ViewerFrameProps {
   onPointerMissed?: () => void
   /** `<Viewer>`'s `webglUnavailable`: shown in place of the canvas without WebGL. */
   webglUnavailable?: ReactNode
+  /** `<Viewer>`'s, for a screen reader: React Native only. */
+  accessibilityLabel?: string
+  accessibilityHint?: string
   children: ReactNode
 }
 

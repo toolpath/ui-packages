@@ -7,7 +7,7 @@ export interface SceneLabelProps {
   position: Vector3 | [number, number, number]
   text: string
   note?: string
-  /** `data-measure-label` */
+  /** Web: `data-measure-label`. Native: the label's `testID`, `scene-label-<kind>`. */
   kind: string
   /** `data-axis` */
   axis?: 'x' | 'y' | 'z'
@@ -19,6 +19,12 @@ export interface SceneLabelProps {
   layer?: number
   /** Native only. Web consumers handle label clicks in the DOM, as they do today. */
   onPress?: () => void
+  /**
+   * Native only: what pressing the label does, for a screen reader, such as
+   * "Copies the measurement". A pressable label is otherwise announced as its
+   * text and "button" alone.
+   */
+  accessibilityHint?: string
 }
 
 /**

@@ -49,6 +49,23 @@ describe('Engine geometry cache', () => {
     expect(dispose).toHaveBeenCalledOnce()
   })
 
+  it('disposes a closed part at capacity as soon as the next part opens', async () => {
+    const loader = vi.fn(async () => new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader, 1)
+    const closed = cache.get(part('closed'))
+    await closed.promise
+    const dispose = vi.fn()
+    closed.geometry!.addEventListener('dispose', dispose)
+    cache.retain(closed)
+    cache.release(closed)
+
+    const open = cache.get(part('open'))
+    await open.promise
+    cache.retain(open)
+
+    expect(dispose).toHaveBeenCalledOnce()
+  })
+
   it('keys on the artifact path, so a re-presigned URL is still a hit', async () => {
     const loader = vi.fn(async () => new THREE.BufferGeometry())
     const cache = createEngineGeometryCache(loader)

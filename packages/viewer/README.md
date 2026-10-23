@@ -1,7 +1,8 @@
 # Toolpath Viewer
 
-Display CAD meshes in a React application with feature picking, camera controls,
-stock, section cuts, and measurements. Use `EnginePart` for an analyzed Toolpath
+Display CAD meshes in a React application — on the web, or in a React Native app
+through Expo — with feature picking, camera controls, stock, section cuts, and
+measurements. Use `EnginePart` for an analyzed Toolpath
 report, or `PartMesh` for geometry and region/feature data you supply yourself.
 The viewer does not read STEP files, run analysis, or require an API key to render
 local geometry.
@@ -12,6 +13,7 @@ local geometry.
 - [Selection and hover](#selection-and-hover)
 - [Components and camera controls](#components)
 - [Toolbar, stock, section, and measurement recipes](#recipes)
+- [React Native (Expo)](#react-native-expo)
 - [Engine loading, caching, and errors](#working-with-the-toolpath-api)
 - [Reference](#reference)
 - [Work on the package](#working-on-this-package)
@@ -24,12 +26,22 @@ npm install @toolpath/viewer
 
 Your application must provide compatible peers:
 
-| Dependency           | Declared range |
-| -------------------- | -------------- |
-| `react`, `react-dom` | `^19.0.0`      |
-| `three`              | `>=0.159.0`    |
-| `@react-three/fiber` | `^9.7.0`       |
-| `@react-three/drei`  | `^10.7.8`      |
+| Dependency           | Declared range | Needed for                                           |
+| -------------------- | -------------- | ---------------------------------------------------- |
+| `react`              | `^19.0.0`      | Both                                                 |
+| `react-dom`          | `^19.0.0`      | The web (optional peer)                              |
+| `three`              | `>=0.159.0`    | Both                                                 |
+| `@react-three/fiber` | `^9.7.0`       | Both                                                 |
+| `@react-three/drei`  | `^10.7.8`      | Both                                                 |
+| `react-native`       | `>=0.79`       | React Native (optional peer)                         |
+| `expo-asset`         | `>=8.4`        | React Native, where it is required: imported at load |
+| `expo-gl`            | `>=11.0`       | React Native: the GL context (optional peer)         |
+
+A web application installs `react-dom` itself; it is optional only so a React
+Native app does not need it. The React Native peers are optional only so a web
+application does not need them: `dist/native` imports `expo-asset` and
+`expo-gl` as it loads. For React Native, see
+[React Native (Expo)](#react-native-expo).
 
 For a new application, this is the combination used by the repository's example:
 
@@ -361,8 +373,16 @@ WebGL is available; the check runs on the client after hydration.
 | `onshape`            | Right-drag                                      | Middle-drag                     | Wheel                       |
 
 `CONTROL_SCHEME_OPTIONS` supplies labels/values for a settings UI. Preferences are
-application-owned. Default touch controls use one-finger rotation, two-finger
-pinch/pan, and three-finger pan; Fusion/Inventor use their CAD scroll behavior.
+application-owned.
+
+On a touch screen, one finger orbits, two fingers pinch to zoom and move together
+to pan, and three fingers pan. The pinch zooms an orthographic camera and dollies
+a perspective one, as the wheel does. Fusion/Inventor use their CAD scroll
+behavior for two fingers. `ExtendedCameraControls` exposes the same moves as
+`orbitBy(dx, dy, viewportMin)`, `zoomAt(scale, at, viewport)` and
+`panBy(dx, dy, viewport)`, in canvas pixels, for an application driving the camera
+itself; constructed without an element, the controls listen to nothing and move
+only through these.
 
 ### `<EnginePart>`
 
@@ -727,6 +747,19 @@ rotational `profile` of `{ r, z }` points. `visible` toggles display;
 `data-measure-label="tool"`, optional value/note spans, take no pointer events,
 and are excluded from camera framing. They do not read datasheets themselves.
 
+### Labels in the scene
+
+`SceneLabel` pins a text label to a point in the scene. On the web it is an
+unstyled DOM element over the canvas with the `MEASURE_LABEL_CLASS` class plus
+`className`, `data-measure-label={kind}`, and optional `data-axis` and
+`data-measurement-id`; its `text` is in a `data-measure-value` span and its `note`
+in a `data-measure-note` one. `color` sets `--measure-color`, `layer` its z-index
+layer, and it takes no pointer events. `ToolMarks` draws its labels with it.
+
+```tsx
+<SceneLabel kind="note" position={[0, 0, 25]} text="Datum A" className="part-note" />
+```
+
 ### Theming
 
 Colors in `ViewerTheme` are numeric hex values. Set lighting on `Viewer`, part
@@ -740,6 +773,8 @@ Part keys include `part`, `partEmissive`, `hover`, `highlight`, `picked`, `edge`
 `sectionOutline`, `sectionHandle`, and `sectionHandleOutline`. Measurement tools
 use `measure`/`measureSnap`; cube keys are `cube`, `cubeEdge`, and `cubeLabel`.
 The canvas background comes from the wrapper/parent, independently of those colors.
+`labels` (optional, CSS colour strings) styles scene labels on React Native, where
+there is no DOM to style; see [React Native (Expo)](#react-native-expo).
 
 Stable DOM classes include `viewer-root`, `viewer-webgl-unavailable`,
 `viewer-canvas-container`, `viewer-canvas-frame`, `viewer-canvas`, `viewer-hover-card`,
@@ -752,6 +787,121 @@ Style the hover card yourself; it is a pointer-events-free fixed-position shell.
 Custom R3F objects can go inside `Viewer` and participate in framing. Set
 `userData={{ [EXCLUDE_FROM_FRAME]: true }}` to exclude an object. Use the exported
 `EXCLUDE_FROM_FRAME` constant, not a guessed string.
+
+## React Native (Expo)
+
+The package runs under React Native through Metro: React Three Fiber's native
+build (`@react-three/fiber/native`) on expo-gl. Import it exactly as on the web.
+Its `react-native` export condition gives Metro a native build of both
+`@toolpath/viewer` and `@toolpath/viewer/engine`, in which a few web-only files
+are swapped for native ones.
+
+| Export                                                                                                                                                        | Web | React Native                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | --------------------------------------------------------------------------------------------------- |
+| `Viewer`, `PartMesh`, `EnginePart`, `Stock`, `DirectionArrows`, `SectionView`, `SectionTool`, `ToolMarks`, `Axes`, `Grid`, `ViewCube`, `Banana`, `SceneLabel` | yes | yes                                                                                                 |
+| Every pure function, constant and type from the models, rendering helpers and Engine adapter                                                                  | yes | yes                                                                                                 |
+| `MeasureTool`, `HoverCard`, `ViewerToolbar`, `labelTexture`                                                                                                   | yes | throw `Error('@toolpath/viewer: <Name> is not available on React Native.')` when called or rendered |
+| `ViewerToolbarProvider`, `useViewerToolbar`                                                                                                                   | yes | yes (the context has no DOM)                                                                        |
+
+On React Native, one finger orbits, two fingers pinch to zoom and pan, and a tap
+picks, as on the web; double tap re-targets. A tap on a face with `SectionTool`
+up cuts, and the handle drags the cut. `Viewer`'s `style` goes to the `View` that
+holds the canvas. The package's types are the web's, so `style` is typed as a
+React `CSSProperties`: pass one plain style object with values a `View` takes
+(`{ flex: 1 }`, not `'50vh'` or a style array), and leave out `className`, which
+does nothing there. There's no WebGL check on React Native, where expo-gl always
+creates a context, so `webglUnavailable` is never shown.
+
+The canvas has nothing a screen reader can read, so pass `Viewer` an
+`accessibilityLabel` (and an `accessibilityHint`, such as where the view's
+controls are) for VoiceOver and TalkBack to announce the view as an image. The
+scene's pressable labels stay reachable on their own. Both are ignored on the
+web.
+
+A finger doesn't hover, so on React Native `PartMesh` lights no face under a
+moving finger, and `onHover` isn't called. Its picks go through a bounding volume
+hierarchy ([`three-mesh-bvh`](https://github.com/gkjohnson/three-mesh-bvh)),
+built once per geometry and kept with it, so a large part stays smooth to touch
+under Hermes.
+
+### App setup
+
+1. Install the native modules with Expo, and three.js, React Three Fiber 9.7 or
+   later, and drei:
+
+   ```sh
+   npx expo install expo-gl expo-asset expo-file-system
+   npm install @toolpath/viewer three @react-three/fiber @react-three/drei
+   ```
+
+2. In `metro.config.js`, give the app one copy of three.js and let Metro bundle
+   GLB models. Fiber's native build `require`s three, which would otherwise
+   resolve to `three.cjs` beside the `three.module.js` that ESM imports get, and
+   `instanceof` checks between the two copies fail. The GLB step is needed even
+   by an app that never shows `Banana`: Metro bundles everything a package can
+   reach, so `BANANA_MODEL_URL`'s model (about 760 KB) always ships with the
+   app:
+
+   ```js
+   const path = require('node:path')
+   const { getDefaultConfig } = require('expo/metro-config')
+
+   const config = getDefaultConfig(__dirname)
+   config.resolver.assetExts.push('glb')
+
+   const threeModule = path.join(path.dirname(require.resolve('three')), 'three.module.js')
+   config.resolver.resolveRequest = (context, moduleName, platform) => {
+     if (moduleName === 'three') return { type: 'sourceFile', filePath: threeModule }
+     return context.resolveRequest(context, moduleName, platform)
+   }
+
+   module.exports = config
+   ```
+
+3. In `package.json`, name the three.js packages for Expo's autolinking. It
+   feeds `expo-doctor`'s duplicate check and, in a monorepo or with
+   `experiments.autolinkingModuleResolution`, resolves each to one copy. In a
+   plain app it only feeds the check: step 2's `resolveRequest` is what keeps
+   three.js to one copy, so don't skip it.
+
+   ```json
+   {
+     "expo": { "autolinking": { "include": ["three", "@react-three/fiber", "@react-three/drei"] } }
+   }
+   ```
+
+**Don't pass `gl={{ context }}`** to a canvas of your own on expo-gl
+([expo#51543](https://github.com/expo/expo/issues/51543)). `Viewer` creates its
+context itself.
+
+### Labels on React Native
+
+`SceneLabel` has no DOM to draw into, so a `Viewer` draws its labels as views over
+the canvas, centred on their points, and hides one behind the camera or well
+outside the view. `className` and `layer` do nothing there; `onPress` makes a
+label pressable, and `accessibilityHint` tells a screen reader what pressing it
+does. Style them with the theme's `labels` key, which takes CSS colour
+strings:
+
+```tsx
+<Viewer
+  theme={{
+    labels: {
+      text: '#1f2330',
+      background: 'rgba(255,255,255,0.92)',
+      border: '#4f8ef7',
+      axis: { x: '#ff6b6b', y: '#6fe08a', z: '#6f9bff' },
+      fontSize: 12,
+    },
+  }}
+>
+```
+
+Those are the defaults. A label's own `color` replaces `border`, and a label with
+an `axis` takes that axis's colour.
+
+Each label view has the `testID` `scene-label-<kind>`, from its `kind`, for an
+app's tests to find it by. A pressable label is announced as a button.
 
 ## Working with the Toolpath API
 
@@ -901,6 +1051,9 @@ Do not disable validation to render an unrelated mesh against a report's regions
 | `@toolpath/viewer`             | Components, hooks, models, geometry/camera/selection helpers, and types. Also re-exports `EnginePart`, `normalizePartReport`, and `smoothRegionNormals`. |
 | `@toolpath/viewer/engine`      | Engine loading/normalization, geometry cache, `PartMeshError`, and adapter types.                                                                        |
 | `@toolpath/viewer/toolbar.css` | Optional toolbar stylesheet.                                                                                                                             |
+
+Both JavaScript entries carry a `react-native` condition, which Metro picks; see
+[React Native (Expo)](#react-native-expo).
 
 Other source/dist subpaths are not public imports. The complete signatures for an
 installed version are in its `dist/index.d.ts`, `dist/engine/index.d.ts`, and

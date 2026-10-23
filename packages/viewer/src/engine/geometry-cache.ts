@@ -36,7 +36,8 @@ export function engineGeometryResourceKey(mesh: PartMeshRefs): string {
 /**
  * A small reference-aware LRU cache for Engine mesh artifacts. Rendered parts
  * retain their source geometry; released entries are evicted and disposed once
- * the cache exceeds its capacity.
+ * the cache exceeds its capacity, as soon as a part is retained or released.
+ * A memory-tight host (a phone) passes a `maximumEntries` of 1.
  */
 export function createEngineGeometryCache(
   loadGeometry: (part: CacheablePart) => Promise<BufferGeometry> = async (part) => {
@@ -138,6 +139,10 @@ export function createEngineGeometryCache(
     retain(resource) {
       resource.references += 1
       touch(resource)
+      // A part opening is when a closed one's geometry is no longer worth
+      // keeping: at a capacity of one, waiting for the next release would hold
+      // a closed part's geometry for as long as the open one is on screen.
+      evictReleasedResources()
     },
     release(resource) {
       resource.references = Math.max(0, resource.references - 1)

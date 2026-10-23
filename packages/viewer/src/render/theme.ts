@@ -242,3 +242,8 @@ export function directionColor(index: number): number {
   // non-negative integer index, which a caller could still get wrong.
   return DIRECTION_COLORS[wrapped] ?? HIGHLIGHT_COLORS.default
 }
+
+/** A colour as a CSS hex string, `#rrggbb`, for what takes CSS rather than a number. */
+export function cssHex(color: number): string {
+  return `#${color.toString(16).padStart(6, '0')}`
+}

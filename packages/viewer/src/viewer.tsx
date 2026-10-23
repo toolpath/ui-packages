@@ -617,6 +617,16 @@ export interface ViewerProps {
    * the default message asking the user to turn acceleration on.
    */
   webglUnavailable?: ReactNode
+  /**
+   * React Native only: what a screen reader says the view is, such as
+   * "3D view of bracket.step". The canvas has nothing a screen reader can
+   * read, so without it VoiceOver and TalkBack skip the view entirely. It is
+   * announced as an image, and the scene's pressable labels stay reachable on
+   * their own.
+   */
+  accessibilityLabel?: string
+  /** React Native only: what a screen reader adds after {@link accessibilityLabel}, such as where to find the view's controls. */
+  accessibilityHint?: string
 }
 
 export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
@@ -634,6 +644,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     theme,
     onPointerMissed,
     webglUnavailable,
+    accessibilityLabel,
+    accessibilityHint,
   },
   ref,
 ) {
@@ -668,6 +680,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
           labels={resolved.labels}
           onPointerMissed={onPointerMissed}
           webglUnavailable={webglUnavailable}
+          accessibilityLabel={accessibilityLabel}
+          accessibilityHint={accessibilityHint}
         >
           <ViewerScene
             setControls={setControls}

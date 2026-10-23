@@ -1,4 +1,5 @@
-import { GizmoHelper } from '@react-three/drei'
+// drei's modules one by one, not its root: on React Native the root loads every module drei has.
+import { GizmoHelper } from '@react-three/drei/core/GizmoHelper.js'
 import { useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Group } from 'three'
