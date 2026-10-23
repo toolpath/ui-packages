@@ -19,7 +19,7 @@ import {
 import { SceneLabelStoreContext } from './label-context.js'
 import { LabelOverlay } from './label-overlay.js'
 import { type LabelStore, createLabelStore } from './render/label-store.js'
-import { createPresenter, createRelease, disposeTree } from './render/native-gl.js'
+import { createPresenter, createRelease, createSceneRelease } from './render/native-gl.js'
 import { pauseWhileInactive } from './render/pause-inactive.js'
 import {
   type FingerTracker,
@@ -233,15 +233,20 @@ const RELEASE_FALLBACK_MS = 2000
  * or a geometry a cache keeps for the next mount, still has its buffers on the
  * GPU, and a context's destruction is not guaranteed to free them. A layout
  * effect's cleanup on the canvas's first child runs before anything after it
- * leaves the scene. Disposing only frees GPU memory: a geometry kept for
- * reuse uploads again the next time it is drawn.
+ * leaves the scene, so it reads what to free there, and the passive cleanup
+ * frees it (see `createSceneRelease`). Disposing only frees GPU memory: a
+ * geometry kept for reuse uploads again the next time it is drawn.
  */
 const ReleaseOnUnmount = () => {
   const gl = useThree((state) => state.gl)
   const scene = useThree((state) => state.scene)
+  const release = useMemo(() => createSceneRelease(scene), [scene])
   const pending = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useLayoutEffect(() => () => disposeTree(scene), [scene])
+  useLayoutEffect(() => {
+    release.shown()
+    return release.hidden
+  }, [release])
 
   useEffect(() => {
     // An effect run again without an unmount between — React's StrictMode
@@ -249,8 +254,9 @@ const ReleaseOnUnmount = () => {
     if (pending.current) clearTimeout(pending.current)
     pending.current = null
     return () => {
+      release.gone()
       pending.current = setTimeout(() => gl.forceContextLoss(), RELEASE_FALLBACK_MS)
     }
-  }, [gl])
+  }, [gl, release])
   return null
 }

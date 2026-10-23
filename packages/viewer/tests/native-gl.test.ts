@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { BoxGeometry, DataTexture, Mesh, MeshBasicMaterial, Scene, ShaderMaterial } from 'three'
-import { createPresenter, createRelease, disposeTree } from '../src/render/native-gl.js'
+import {
+  createPresenter,
+  createRelease,
+  createSceneRelease,
+  disposeTree,
+} from '../src/render/native-gl.js'
 
 /** Fiber's `addAfterEffect`, run by hand: `frame()` is the end of a frame. */
 const afterEffects = () => {
@@ -105,5 +110,40 @@ describe('disposeTree', () => {
 
     disposeTree(scene)
     for (const spy of spies) expect(spy).toHaveBeenCalledOnce()
+  })
+})
+
+describe('createSceneRelease', () => {
+  const scene = () => {
+    const geometry = new BoxGeometry()
+    const material = new MeshBasicMaterial()
+    const disposed = vi.fn()
+    geometry.addEventListener('dispose', disposed)
+    material.addEventListener('dispose', disposed)
+    return { scene: new Scene().add(new Mesh(geometry, material)), disposed }
+  }
+
+  it('disposes nothing when the scene is hidden and shown again', () => {
+    const { scene: live, disposed } = scene()
+    const release = createSceneRelease(live)
+    release.shown()
+
+    release.hidden()
+    release.shown()
+    release.gone()
+
+    expect(disposed).not.toHaveBeenCalled()
+  })
+
+  it('disposes what the scene held when it went, though it has emptied since', () => {
+    const { scene: live, disposed } = scene()
+    const release = createSceneRelease(live)
+    release.shown()
+
+    release.hidden()
+    live.clear()
+    release.gone()
+
+    expect(disposed).toHaveBeenCalledTimes(2)
   })
 })
