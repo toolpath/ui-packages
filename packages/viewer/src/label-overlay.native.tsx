@@ -1,7 +1,7 @@
 import { useState, useSyncExternalStore } from 'react'
 import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native'
 import { AXIS_COLORS } from './render/measure.js'
-import type { ProjectedLabel } from './render/label-store.js'
+import { type ProjectedLabel, labelHitSlop } from './render/label-store.js'
 import { type ViewerTheme, cssHex } from './render/theme.js'
 import type { LabelOverlayProps } from './label-overlay.js'
 
@@ -70,6 +70,7 @@ const Label = ({ label, theme }: { label: ProjectedLabel; theme: LabelTheme }) =
     <Pressable
       onPress={label.onPress}
       onLayout={onLayout}
+      hitSlop={labelHitSlop(size)}
       style={style}
       testID={testID}
       accessibilityRole="button"

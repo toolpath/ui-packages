@@ -39,6 +39,30 @@ export interface LabelStore {
   getSnapshot(): readonly ProjectedLabel[]
 }
 
+/**
+ * The least a pressable label's touch target spans, in layout pixels: Apple's
+ * 44 pt, near enough Android's 48 dp. A 12 pt label is about 17 tall.
+ */
+const TOUCH_TARGET = 44
+
+/** The least a pressable label's touch target reaches past either side of it. */
+const TOUCH_SIDE_SLOP = 8
+
+/**
+ * How far past a pressable label of `size` a touch still presses it, so the
+ * target is at least {@link TOUCH_TARGET} each way while the label stays the
+ * size it is drawn. A touch that misses a label lands on the canvas, where it
+ * picks or places a measure point instead.
+ */
+export const labelHitSlop = (size: {
+  width: number
+  height: number
+}): { top: number; bottom: number; left: number; right: number } => {
+  const vertical = Math.max(0, (TOUCH_TARGET - size.height) / 2)
+  const horizontal = Math.max(TOUCH_SIDE_SLOP, (TOUCH_TARGET - size.width) / 2)
+  return { top: vertical, bottom: vertical, left: horizontal, right: horizontal }
+}
+
 /** A label moving less than this, in layout pixels, is not worth a render. */
 const MOVE_THRESHOLD = 0.5
 
