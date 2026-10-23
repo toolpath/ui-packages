@@ -3,6 +3,7 @@ import {
   type RootState,
   addAfterEffect,
   useFrame,
+  useStore,
   useThree,
 } from '@react-three/fiber/native'
 import { GLView } from 'expo-gl'
@@ -19,6 +20,7 @@ import { SceneLabelStoreContext } from './label-context.js'
 import { LabelOverlay } from './label-overlay.js'
 import { type LabelStore, createLabelStore } from './render/label-store.js'
 import { createPresenter, createRelease, disposeTree } from './render/native-gl.js'
+import { pauseWhileInactive } from './render/pause-inactive.js'
 import {
   type FingerTracker,
   type TouchOps,
@@ -191,28 +193,10 @@ const LabelProjector = ({ store }: { store: LabelStore }) => {
   return null
 }
 
-/**
- * No frames while the app is not active.
- *
- * Behind Notification Centre an iOS app is inactive but not suspended:
- * fiber's loop keeps running, iOS refuses the GPU work, and the GL view never
- * shows a new frame again, though touches still move the camera. Stopping the
- * loop while inactive and asking for a frame on the way back avoids it.
- */
+/** No frames while the app is not active: see `pauseWhileInactive`. */
 const PauseWhenInactive = ({ frameloop }: { frameloop: CanvasSettings['frameloop'] }) => {
-  const setFrameloop = useThree((state) => state.setFrameloop)
-  const invalidate = useThree((state) => state.invalidate)
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        setFrameloop(frameloop)
-        invalidate()
-      } else {
-        setFrameloop('never')
-      }
-    })
-    return () => subscription.remove()
-  }, [frameloop, invalidate, setFrameloop])
+  const store = useStore()
+  useEffect(() => pauseWhileInactive(AppState, store, frameloop), [frameloop, store])
   return null
 }
 
