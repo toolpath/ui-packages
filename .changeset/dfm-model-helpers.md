@@ -10,6 +10,8 @@ same views:
   `SECTION_LABEL`.
 - The feature panel's comparison: `comparisonRows` and `faceLetter`.
 - The rule editor's pickers: `comparisonChoices`, `rangeLowChoices` and `rangeHighChoices`, and
-  `takesNumber` for a measure with no number to compare.
+  `takesNumber` for a measure with no number to compare. An `OpLabel` words each choice from its
+  symbol, comparison and title, the title reading the same way as the symbol (a range's low end is
+  `≤ at most`).
 - The rule list: `ruleListOrder`, and `importNote` and `importError` for what an import says.
 - `storageFolds` takes `{ shutAtFirst }`, for sections that start shut until someone opens them.
