@@ -11,7 +11,8 @@ let warned = false
  * React Native's `<SceneLabel>`: there is no DOM to put a label in, so it
  * registers itself with the store the native frame provides, and the frame
  * draws it as a view over the canvas. `className` and `layer` are web-only and
- * ignored here; `onPress` makes the label pressable.
+ * ignored here; `onPress` makes the label pressable, and `accessibilityHint`
+ * says what pressing it does.
  */
 export const SceneLabel = ({
   position,
@@ -21,6 +22,7 @@ export const SceneLabel = ({
   axis,
   color,
   onPress,
+  accessibilityHint,
 }: SceneLabelProps) => {
   const store = useContext(SceneLabelStoreContext)
   const invalidate = useThree((state) => state.invalidate)
@@ -28,11 +30,11 @@ export const SceneLabel = ({
 
   useLayoutEffect(() => {
     if (!store) return
-    store.set(id, { position, text, note, kind, axis, color, onPress })
+    store.set(id, { position, text, note, kind, axis, color, onPress, accessibilityHint })
     // The overlay updates when the frame next projects, and on a canvas drawn
     // on demand that frame has to be asked for.
     invalidate()
-  }, [axis, color, id, invalidate, kind, note, onPress, position, store, text])
+  }, [accessibilityHint, axis, color, id, invalidate, kind, note, onPress, position, store, text])
 
   useLayoutEffect(() => {
     if (!store) return undefined

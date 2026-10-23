@@ -17,6 +17,14 @@ export interface SceneLabelProps {
   className?: string
   /** Web: drei's `zIndexRange` is `[layer, 0]`. Default 0. */
   layer?: number
+  /** Native only. Web consumers handle label clicks in the DOM, as they do today. */
+  onPress?: () => void
+  /**
+   * Native only: what pressing the label does, for a screen reader, such as
+   * "Copies the measurement". A pressable label is otherwise announced as its
+   * text and "button" alone.
+   */
+  accessibilityHint?: string
 }
 
 /**

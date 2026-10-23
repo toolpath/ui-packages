@@ -20,6 +20,7 @@ interface LabelSpec {
   axis?: 'x' | 'y' | 'z'
   color?: string
   onPress?: () => void
+  accessibilityHint?: string
 }
 
 export interface ProjectedLabel extends Omit<LabelSpec, 'position'> {
@@ -75,7 +76,8 @@ const sameContent = (a: ProjectedLabel, b: LabelSpec): boolean =>
   a.kind === b.kind &&
   a.axis === b.axis &&
   a.color === b.color &&
-  a.onPress === b.onPress
+  a.onPress === b.onPress &&
+  a.accessibilityHint === b.accessibilityHint
 
 export const createLabelStore = (): LabelStore => {
   const labels = new Map<string, LabelSpec>()

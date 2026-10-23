@@ -29,6 +29,7 @@ type Slop = { top: number; bottom: number; left: number; right: number }
 
 /** A store holding one label, already projected, as the frame leaves it. */
 const storeWith = (label: { onPress?: () => void; accessibilityHint?: string }) => {
+  rendered.clear()
   const store = createLabelStore()
   store.set('a', { position: [0, 0, 0], text: '12.4 mm', kind: 'distance', ...label })
   return store
@@ -58,5 +59,13 @@ describe('LabelOverlay (React Native)', () => {
     const slop = label().hitSlop as Slop
     expect(17 + slop.top + slop.bottom).toBeGreaterThanOrEqual(44)
     expect(60 + slop.left + slop.right).toBeGreaterThanOrEqual(60 + 16)
+  })
+
+  it('tells a screen reader what pressing a label does', () => {
+    const store = storeWith({ onPress: () => {}, accessibilityHint: 'Copies the measurement' })
+    render(<LabelOverlay store={store} />)
+    project(store)
+
+    expect(rendered.get('scene-label-distance')?.accessibilityHint).toBe('Copies the measurement')
   })
 })
