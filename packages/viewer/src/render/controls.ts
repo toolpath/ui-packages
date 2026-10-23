@@ -530,13 +530,13 @@ export class ExtendedCameraControls extends CameraControls {
       return
     }
 
-    // Recomputed per move rather than cached in the constructor: the element
-    // is usually still unlaid-out at construction, so a cached scale is wrong
-    // exactly once, permanently.
-    const viewportMin = Math.min(element.clientWidth, element.clientHeight)
+    // Read per move rather than cached in the constructor, since the element is
+    // usually still unlaid-out then; and only while turning, because this
+    // listener hears every move on the page and the read can force a layout.
+    const viewportMin = () => Math.min(element.clientWidth, element.clientHeight)
 
     if (this.currentAction === CameraControls.ACTION.ROTATE) {
-      this.orbitBy(event.movementX, event.movementY, viewportMin)
+      this.orbitBy(event.movementX, event.movementY, viewportMin())
       return
     }
 
@@ -550,7 +550,11 @@ export class ExtendedCameraControls extends CameraControls {
     last.clientY = event.clientY
 
     if (this.currentAction === CameraControls.ACTION.TOUCH_ROTATE) {
-      this.orbitBy(dx, dy, viewportMin)
+      // Several fingers turn the view by their centroid's travel: each finger's
+      // move shifts it by that move over the finger count. Turning by every
+      // finger's own move would orbit twice as fast with two fingers together.
+      const fingers = this.#touches.size
+      this.orbitBy(dx / fingers, dy / fingers, viewportMin())
     }
   }
 
