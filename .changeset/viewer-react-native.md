@@ -13,6 +13,8 @@ the app setup.
   `testID` `scene-label-<kind>`, and a pressable one is announced as a button.
 - `PartMesh` has no hover on React Native, and picks through a bounding volume hierarchy, so a large
   part stays smooth to touch.
+- `PartMesh` works out which faces touch which only when `onAdjacency` is passed, and once per mesh
+  however often the callback changes: on a phone the walk over every triangle is felt.
 
 `react-dom` is now an optional peer dependency, alongside the new optional `react-native`,
 `expo-asset` and `expo-gl` peers; on React Native, `expo-asset` and `expo-gl` are required.
