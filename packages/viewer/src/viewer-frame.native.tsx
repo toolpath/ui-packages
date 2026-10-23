@@ -31,6 +31,7 @@ import {
   createFingerTracker,
   createTouchOps,
   createTouchOrbit,
+  holdInvalidate,
   localPoint,
 } from './render/touch-orbit.js'
 import type { CanvasSettings, ViewerFrameProps } from './viewer-frame.js'
@@ -166,10 +167,7 @@ const TouchBridge = () => {
 
   useEffect(() => {
     if (!touch) return undefined
-    touch.invalidate = () => invalidate()
-    return () => {
-      touch.invalidate = null
-    }
+    return holdInvalidate(touch, () => invalidate())
   }, [invalidate, touch])
 
   useFrame(() => {
