@@ -374,6 +374,9 @@ importers:
       '@react-three/fiber':
         specifier: 9.7.0
         version: 9.7.0(@types/react@19.2.18)(expo-asset@58.0.17(expo@58.0.16)(react-native@0.88.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(expo-file-system@58.0.10(expo@58.0.16)(react-native@0.88.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0)))(expo-gl@58.0.3(expo@58.0.16)(react-dom@19.2.0(react@19.2.0))(react-native@0.88.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0))(expo@58.0.16)(react-dom@19.2.0(react@19.2.0))(react-native@0.88.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)(three@0.185.1)
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@types/node':
         specifier: 24.10.1
         version: 24.10.1
@@ -392,6 +395,9 @@ importers:
       expo-gl:
         specifier: 58.0.3
         version: 58.0.3(expo@58.0.16)(react-dom@19.2.0(react@19.2.0))(react-native@0.88.0(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)
+      jsdom:
+        specifier: ^30.0.1
+        version: 30.0.1
       react:
         specifier: 19.2.0
         version: 19.2.0

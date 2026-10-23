@@ -113,7 +113,8 @@ export interface PartMeshProps {
    */
   onSectionChange?: (state: SectionState) => void
   /**
-   * Which faces touch which, once the mesh is in.
+   * Which faces touch which, once the mesh is in. Worked out only when this is
+   * passed: it walks every triangle.
    *
    * The consumer cannot work this out: it has a region table with areas and
    * shape kinds, and the topology only exists in the geometry. Handed over
@@ -279,12 +280,7 @@ export const PartMesh = ({
 
   useEffect(() => () => part.dispose(), [part])
 
-  // Once per mesh: the topology is a property of the geometry, and a report
-  // gaining a feature does not move a single triangle.
-  const adjacency = useMemo(() => regionAdjacency(model, geometry), [model, geometry])
-  useEffect(() => {
-    onAdjacency?.(adjacency)
-  }, [adjacency, onAdjacency])
+  useAdjacencyReport(model, geometry, onAdjacency)
 
   const framed = useRef<FeatureTag | null>(null)
   useEffect(() => {
@@ -629,4 +625,26 @@ function useStableTheme(theme: Partial<ViewerTheme> | undefined): ViewerTheme {
   const next = resolveTheme(theme)
   if (held.current === null || !themesEqual(held.current, next)) held.current = next
   return held.current
+}
+
+/**
+ * Hands `onAdjacency` the mesh's face adjacency, once per mesh, and works it
+ * out only when there is an `onAdjacency` to hand it to: it walks every
+ * triangle, which blocks a phone's JS thread for long enough to notice.
+ *
+ * Once per mesh because the topology is a property of the geometry, and a
+ * report gaining a feature does not move a single triangle. The callback is
+ * read through a ref, so a new one each render does not work it out again.
+ */
+export const useAdjacencyReport = (
+  model: PartModel,
+  geometry: BufferGeometry,
+  onAdjacency: PartMeshProps['onAdjacency'],
+): void => {
+  const onAdjacencyRef = useRef(onAdjacency)
+  onAdjacencyRef.current = onAdjacency
+  const wantsAdjacency = onAdjacency !== undefined
+  useEffect(() => {
+    if (wantsAdjacency) onAdjacencyRef.current?.(regionAdjacency(model, geometry))
+  }, [model, geometry, wantsAdjacency])
 }
