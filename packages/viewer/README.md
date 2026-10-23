@@ -812,7 +812,8 @@ creates a context, so `webglUnavailable` is never shown.
 A finger doesn't hover, so on React Native `PartMesh` lights no face under a
 moving finger, and `onHover` isn't called. Its picks go through a bounding volume
 hierarchy ([`three-mesh-bvh`](https://github.com/gkjohnson/three-mesh-bvh)),
-built once per geometry, so a large part stays smooth to touch under Hermes.
+built once per geometry and kept with it, so a large part stays smooth to touch
+under Hermes.
 
 ### App setup
 
