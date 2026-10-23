@@ -315,6 +315,42 @@ describe('ExtendedCameraControls.orbitBy', () => {
     expect(before - controls.azimuthAngle).toBeCloseTo(Math.PI / 10, 6)
     controls.dispose()
   })
+
+  it('turns the camera with two fingers by their centroid, as far as one finger', () => {
+    const { controls, element } = createControls()
+    controls.touches.two = CameraControls.ACTION.TOUCH_ROTATE
+    const before = controls.azimuthAngle
+    const fingers = [
+      { pointerId: 1, pointerType: 'touch', buttons: 1 },
+      { pointerId: 2, pointerType: 'touch', buttons: 1 },
+    ]
+
+    for (const finger of fingers) {
+      element.dispatchEvent(pointerEvent('pointerdown', { ...finger, clientX: 300, clientY: 200 }))
+    }
+    expect(controls.currentAction).toBe(CameraControls.ACTION.TOUCH_ROTATE)
+    for (const finger of fingers) {
+      element.ownerDocument.dispatchEvent(
+        pointerEvent('pointermove', { ...finger, clientX: 340, clientY: 200 }),
+      )
+    }
+
+    expect(before - controls.azimuthAngle).toBeCloseTo(Math.PI / 10, 6)
+    controls.dispose()
+  })
+
+  it('reads no layout for a move while nothing is turning', () => {
+    const { controls, element } = createControls()
+    const width = vi.fn(() => 600)
+    Object.defineProperty(element, 'clientWidth', { get: width })
+
+    element.ownerDocument.dispatchEvent(
+      pointerEvent('pointermove', { pointerId: 1, pointerType: 'mouse', clientX: 10, clientY: 10 }),
+    )
+
+    expect(width).not.toHaveBeenCalled()
+    controls.dispose()
+  })
 })
 
 describe('ExtendedCameraControls.zoomAt', () => {
