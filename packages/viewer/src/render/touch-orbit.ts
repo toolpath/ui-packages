@@ -228,3 +228,20 @@ export const applyTouchOps = (
   }
   return true
 }
+
+/** Where the frame's touch handlers find the canvas's `invalidate`, while there is one. */
+export interface InvalidateSlot {
+  invalidate: (() => void) | null
+}
+
+/**
+ * Puts `invalidate` in `slot`, and returns what takes it out again, unless a
+ * newer canvas has put its own there since: when Android rebuilds the GL
+ * context, the new root's bridge can mount before the old one's cleanup runs.
+ */
+export const holdInvalidate = (slot: InvalidateSlot, invalidate: () => void): (() => void) => {
+  slot.invalidate = invalidate
+  return () => {
+    if (slot.invalidate === invalidate) slot.invalidate = null
+  }
+}

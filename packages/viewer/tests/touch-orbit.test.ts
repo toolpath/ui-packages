@@ -5,6 +5,7 @@ import {
   createFingerTracker,
   createTouchOps,
   createTouchOrbit,
+  holdInvalidate,
   localPoint,
   type TouchPoint,
 } from '../src/render/touch-orbit.js'
@@ -209,5 +210,25 @@ describe('localPoint', () => {
     expect(localPoint({ identifier: '3', pageX: 130, pageY: 260 }, { x: 30, y: 60 })).toEqual(
       finger(3, 100, 200),
     )
+  })
+})
+
+describe('holdInvalidate', () => {
+  it('clears the slot it filled', () => {
+    const slot = { invalidate: null as (() => void) | null }
+    const release = holdInvalidate(slot, () => {})
+    release()
+    expect(slot.invalidate).toBeNull()
+  })
+
+  it("leaves a newer canvas's invalidate in place", () => {
+    const slot = { invalidate: null as (() => void) | null }
+    const releaseOld = holdInvalidate(slot, () => {})
+    const newer = () => {}
+    holdInvalidate(slot, newer)
+
+    releaseOld()
+
+    expect(slot.invalidate).toBe(newer)
   })
 })
