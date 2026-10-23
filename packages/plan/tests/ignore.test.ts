@@ -160,20 +160,23 @@ describe('takeBackIgnore', () => {
 })
 
 describe('ignoreClick', () => {
-  const base = { ignored: new Set<number>(), regions: [6, 7] }
+  const base = { ignored: new Set<number>(), regions: [6, 7], remove: false }
 
-  it('ignores the regions given, whatever features read them', () => {
-    expect(ignoreClick({ ...base, region: 7 })).toEqual({ kind: 'ignore', regions: [6, 7] })
-    expect(ignoreClick({ ...base, region: 4, regions: [4] })).toEqual({
+  it('ignores the regions given on a left click, whatever features read them', () => {
+    expect(ignoreClick(base)).toEqual({ kind: 'ignore', regions: [6, 7] })
+    // Some ignored already: the rest are added, never let go.
+    expect(ignoreClick({ ...base, ignored: new Set([7]) })).toEqual({
       kind: 'ignore',
-      regions: [4],
+      regions: [6, 7],
     })
+    expect(ignoreClick({ ...base, ignored: new Set([6, 7]) })).toBeNull()
   })
 
-  it('lets go of a region ignored before: those given that are ignored', () => {
-    expect(ignoreClick({ ...base, region: 7, ignored: new Set([7, 9]) })).toEqual({
+  it('lets go of the regions given that are ignored on a right click, adding none', () => {
+    expect(ignoreClick({ ...base, remove: true, ignored: new Set([7, 9]) })).toEqual({
       kind: 'unignore',
       regions: [7],
     })
+    expect(ignoreClick({ ...base, remove: true })).toBeNull()
   })
 })

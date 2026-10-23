@@ -164,15 +164,14 @@ const markOf = (
   return notMachined.has(key) ? 'notMachined' : false
 }
 
+/** Whether a setup machines a feature, by tag in any case: lists it, as more than not machined. */
+export const machines = (setup: ResultsSetupView, tag: string): boolean => {
+  const key = tag.toLowerCase()
+  return setup.rows.some((row) => row.tag.toLowerCase() === key && row.mark !== 'notMachined')
+}
+
 /** The setup a feature is machined in, by tag in any case: the first listing it, or null. */
 export const setupOf = (
   setups: ReadonlyArray<ResultsSetupView>,
   tag: string,
-): ResultsSetupView | null => {
-  const key = tag.toLowerCase()
-  return (
-    setups.find((setup) =>
-      setup.rows.some((row) => row.tag.toLowerCase() === key && row.mark !== 'notMachined'),
-    ) ?? null
-  )
-}
+): ResultsSetupView | null => setups.find((setup) => machines(setup, tag)) ?? null

@@ -20,6 +20,7 @@ const saved: PlanDraft = {
     machineProfileId: 'vf2',
     toolCrib: [],
     stock: { policy: null, profileId: null },
+    dfmRuleSetIds: [],
   },
 }
 

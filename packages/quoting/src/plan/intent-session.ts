@@ -14,11 +14,22 @@ export const intentOf = (draft: Intent): Intent => ({
   inputs: draft.inputs,
 })
 
-/** Whether two sets of inputs are the same: the stock compared as a policy, whatever its key order. */
+/** Whether two lists of DFM rule set ids name the same sets, in any order. */
+const sameRuleSetIds = (a: ReadonlyArray<string>, b: ReadonlyArray<string>): boolean => {
+  const left = new Set(a)
+  const right = new Set(b)
+  return left.size === right.size && [...left].every((id) => right.has(id))
+}
+
+/**
+ * Whether two sets of inputs are the same: the stock compared as a policy, whatever its key order,
+ * and the rule sets whatever their order.
+ */
 const sameInputs = (a: PartInputsHeld, b: PartInputsHeld): boolean =>
   a === b ||
   (a.materialId === b.materialId &&
     a.machineProfileId === b.machineProfileId &&
+    sameRuleSetIds(a.dfmRuleSetIds, b.dfmRuleSetIds) &&
     a.stock.profileId === b.stock.profileId &&
     sameStock(a.stock.policy, b.stock.policy) &&
     sameJson(a.toolCrib, b.toolCrib))
@@ -48,6 +59,7 @@ export const rebaseIntent = (held: Intent, was: Intent, now: Intent): Intent => 
       machineProfileId: keep('machineProfileId'),
       toolCrib: keep('toolCrib'),
       stock: keep('stock'),
+      dfmRuleSetIds: keep('dfmRuleSetIds'),
     },
   }
 }

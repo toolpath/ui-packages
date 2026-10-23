@@ -468,15 +468,14 @@ describe('the app’s clicks, as actions', () => {
     plan: Constraints,
     saved: Constraints,
     tag: string,
-    target: 'pin' | 'takeOut',
+    target: 'pin' | 'add' | 'takeOut',
     reading: string,
-    readings: Array<string>,
     folderId: string,
   ) => {
     const placed = findPlaced(plan.setups, folderId)!
     const pinned = pinnedIn(plan.setups, tag) === folderId
     const made =
-      pinned === (target === 'takeOut')
+      target !== 'add' && pinned === (target === 'takeOut')
         ? folderClick(
             plan,
             { tag, label: 'L', direction: placed.direction, inFolder: pinned },
@@ -489,7 +488,6 @@ describe('the app’s clicks, as actions', () => {
       saved,
       { tag, target },
       reading,
-      readings,
       { id: folderId, direction: placedDirection(plan, folderId) },
       rules,
     ).intent
@@ -504,13 +502,12 @@ describe('the app’s clicks, as actions', () => {
       tag: 'x',
       target: 'pin',
       reading: 'p',
-      readings: ['x', 'p'],
       folderId: 'holes',
     } as const
     for (const plan of [clicked, draft]) {
       expect(made(apply(pick, plan))).toEqual({
         ...plan,
-        ...appChoosePin(plan, draft, 'x', 'pin', 'p', ['x', 'p'], 'holes'),
+        ...appChoosePin(plan, draft, 'x', 'pin', 'p', 'holes'),
       })
     }
   })
@@ -521,7 +518,6 @@ describe('the app’s clicks, as actions', () => {
       tag: 'x',
       target: 'pin',
       reading: 'p',
-      readings: ['x', 'p'],
       folderId: 'gone',
     } as const
     expect(apply(pick)).toEqual({ draft, facts: NO_FACTS })
@@ -537,15 +533,33 @@ describe('the app’s clicks, as actions', () => {
         tag: 'h',
         target: 'takeOut',
         reading,
-        readings: ['h', 'x'],
         folderId: 'holes',
       } as const
       for (const plan of [out, draft]) {
         expect(made(apply(pick, plan))).toEqual({
           ...plan,
-          ...appChoosePin(plan, draft, 'h', 'takeOut', reading, ['h', 'x'], 'holes'),
+          ...appChoosePin(plan, draft, 'h', 'takeOut', reading, 'holes'),
         })
       }
+    }
+  })
+
+  it('means another reading beside a feature a left click left in its folder', () => {
+    const pinnedH = made(
+      apply({ kind: 'pinInto', tag: 'x', direction: up, folderId: 'holes', newId: 'n' }),
+    )
+    for (const reading of ['x', 'h']) {
+      const pick = {
+        kind: 'choosePinReading',
+        tag: 'x',
+        target: 'add',
+        reading,
+        folderId: 'holes',
+      } as const
+      expect(made(apply(pick, pinnedH))).toEqual({
+        ...pinnedH,
+        ...appChoosePin(pinnedH, draft, 'x', 'add', reading, 'holes'),
+      })
     }
   })
 
@@ -683,7 +697,6 @@ describe('the app’s clicks, as actions', () => {
         tag: 'h',
         target: 'takeOut',
         reading: 'x',
-        readings: ['h', 'x'],
         folderId: 'holes',
       },
     ]

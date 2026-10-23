@@ -14,6 +14,7 @@ const applied: Intent = {
     machineProfileId: null,
     toolCrib: [],
     stock: { policy: null, profileId: null },
+    dfmRuleSetIds: [],
   },
 }
 
@@ -49,6 +50,22 @@ describe('the quoting app’s session rules', () => {
     }
     expect(sameIntent(a, b)).toBe(true)
     expect(sameIntent(a, applied)).toBe(false)
+  })
+
+  it('reads the same DFM rule sets in another order as the same', () => {
+    const sets = (dfmRuleSetIds: Array<string>) => ({
+      ...applied,
+      inputs: { ...applied.inputs, dfmRuleSetIds },
+    })
+    expect(sameIntent(sets(['a', 'b']), sets(['b', 'a']))).toBe(true)
+    expect(sameIntent(sets(['a']), sets(['a', 'b']))).toBe(false)
+  })
+
+  it('keeps DFM rule sets chosen here over another tab’s, and takes its others', () => {
+    const held = { ...applied, inputs: { ...applied.inputs, dfmRuleSetIds: ['mine'] } }
+    const now = { ...applied, inputs: { ...applied.inputs, dfmRuleSetIds: ['theirs'] } }
+    expect(rebaseIntent(held, applied, now).inputs.dfmRuleSetIds).toEqual(['mine'])
+    expect(rebaseIntent(applied, applied, now).inputs.dfmRuleSetIds).toEqual(['theirs'])
   })
 
   it('takes another tab’s inputs under held edits that did not change them', () => {
