@@ -74,6 +74,7 @@ const Label = ({ label, theme }: { label: ProjectedLabel; theme: LabelTheme }) =
       style={style}
       testID={testID}
       accessibilityRole="button"
+      accessibilityHint={label.accessibilityHint}
     >
       {text}
     </Pressable>

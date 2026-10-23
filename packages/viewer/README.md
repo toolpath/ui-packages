@@ -863,7 +863,8 @@ context itself.
 `SceneLabel` has no DOM to draw into, so a `Viewer` draws its labels as views over
 the canvas, centred on their points, and hides one behind the camera or well
 outside the view. `className` and `layer` do nothing there; `onPress` makes a
-label pressable. Style them with the theme's `labels` key, which takes CSS colour
+label pressable, and `accessibilityHint` tells a screen reader what pressing it
+does. Style them with the theme's `labels` key, which takes CSS colour
 strings:
 
 ```tsx

@@ -10,7 +10,9 @@ the app setup.
 - `MeasureTool`, `HoverCard`, `ViewerToolbar` and `labelTexture` are web-only and throw when used on
   React Native.
 - `SceneLabel`s are drawn as views over the canvas. `ViewerTheme.labels` styles them; each has the
-  `testID` `scene-label-<kind>`, and a pressable one is announced as a button.
+  `testID` `scene-label-<kind>`, and a pressable one is announced as a button, with the new
+  `accessibilityHint` saying what pressing it does. A pressable label's touch target is at least 44
+  tall.
 - `PartMesh` has no hover on React Native, and picks through a bounding volume hierarchy, so a large
   part stays smooth to touch.
 - `PartMesh` works out which faces touch which only when `onAdjacency` is passed, and once per mesh
