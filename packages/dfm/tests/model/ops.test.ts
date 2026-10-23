@@ -25,6 +25,12 @@ describe('the comparison pickers', () => {
     expect(titled.groups[0]?.choices[0]).toEqual({ value: 'gte', label: '≥ at least' })
   })
 
+  it('words a range’s ends the same way their symbols read', () => {
+    const wordy = (symbol: string, _op: string, title: string) => `${symbol} ${title}`
+    expect(labels(rangeLowChoices(wordy))[0]).toEqual(['Range', ['≤ at most', '< less than']])
+    expect(labels(rangeHighChoices(wordy))[0]).toEqual(['Range', ['< less than', '≤ at most']])
+  })
+
   it('offers a range’s ends held either way, then the one-sided comparisons', () => {
     const low = labels(rangeLowChoices())
     const high = labels(rangeHighChoices())
