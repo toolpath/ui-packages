@@ -22,6 +22,10 @@ the app setup.
 - `PartMesh` works out which faces touch which only when `onAdjacency` is passed, and once per mesh
   however often the callback changes: on a phone the walk over every triangle is felt.
 
+`createEngineGeometryCache` now evicts released geometry past its capacity when a part is retained
+as well as when one is released, so at a capacity of 1 (a phone's) a closed part's geometry goes as
+soon as the next part opens.
+
 `react-dom` is now an optional peer dependency, alongside the new optional `react-native` (0.79 or
 later, whose Metro reads the exports map that `@toolpath/viewer/engine` needs),
 `expo-asset` and `expo-gl` peers; on React Native, `expo-asset` and `expo-gl` are required.
