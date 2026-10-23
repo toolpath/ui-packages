@@ -41,8 +41,9 @@ export interface ViewerTheme {
   readonly sectionOutline: number
   /**
    * The arrow that drags the cut when overridden. When omitted from a theme
-   * override, the handle uses the cutting plane's direction colour. Hovered it
-   * takes {@link ViewerTheme.hover}, like every other control here.
+   * override, the handle uses the cutting plane's direction colour. Hovered or
+   * pressed it shows a lighter version of its own colour (a darker one when it
+   * is too light to lighten); {@link ViewerTheme.hover} does not affect it.
    */
   readonly sectionHandle: number
   readonly sectionHandleOutline: number
