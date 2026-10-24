@@ -46,7 +46,6 @@ import {
   PartVisibility,
   useExampleExplode,
 } from './explode/example-mode'
-import { MotionFrames } from './explode/motion-react'
 import type { FeatureSheet } from '@toolpath/dfm/model'
 import { partFromFiles } from './local-part'
 import { type ExampleModel, MODELS, modelFromQuery } from './models'
@@ -897,7 +896,6 @@ const App = () => {
             }}
           >
             <CameraReadout onChange={onCamera} />
-            <MotionFrames motion={explode.motion} />
             <PartVisibility visible={!explode.visible} onVisible={explode.onAssembled}>
               <PartMesh
                 model={part.model}

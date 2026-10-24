@@ -1,3 +1,4 @@
+import type { ExplodeAmount } from './explode-amount.js'
 import type { PartPick } from '../render/picking.js'
 import type { Vec3 } from './types.js'
 
@@ -14,11 +15,15 @@ export interface ExplodeGroup {
 
 export interface ExplodeInput {
   /** Fraction of each group's offset, clamped to [0, 1]. Read each rendered frame. */
-  readonly amount: number
+  readonly amount: number | ExplodeAmount
   /** Stable layout; changing colors does not replace this array. */
   readonly groups: readonly ExplodeGroup[]
   /** Optional color overrides by group ID; preserves layout buffers when recoloring. */
   readonly colors?: ReadonlyMap<string, number>
+  /** Per-group source-region colors, overriding the group color without splitting its identity.
+   * Replace maps to update paint. Unknown groups/regions are ignored.
+   */
+  readonly regionColors?: ReadonlyMap<string, ReadonlyMap<number, number>>
 }
 
 /** World coordinates describe the displayed hit; modelPoint names its original location. */

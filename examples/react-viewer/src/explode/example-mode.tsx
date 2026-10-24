@@ -13,7 +13,7 @@ import type { Group, Object3D } from 'three'
 import type { ExampleModel } from '../models'
 import { explodeStats } from './geometry'
 import { colorGroups, makeGroups, type ColorBy } from './groups'
-import { useExplosionMotion } from './motion-react'
+import { useExplosionMotion, useMotionAmount } from './motion-react'
 import type { ExplodeInput } from '@toolpath/viewer'
 
 /** Example app policy: stable feature pieces with application-owned selection and color. */
@@ -23,6 +23,7 @@ export const useExampleExplode = (
   ready: boolean,
 ) => {
   const { motion, active } = useExplosionMotion(0)
+  const amount = useMotionAmount(motion)
   const [preparedFor, setPreparedFor] = useState<ExampleModel | null>(null)
   const onPrepared = useCallback(() => setPreparedFor(part), [part])
   const [enabled, setEnabled] = useState(false)
@@ -37,13 +38,11 @@ export const useExampleExplode = (
   const visible = renderable && active
   const input: ExplodeInput = useMemo(
     () => ({
-      get amount() {
-        return renderable ? motion.amount : 0
-      },
+      amount: renderable ? amount : 0,
       groups,
       colors: new Map(colorGroups(groups, colorBy).map((group) => [group.id, group.color])),
     }),
-    [colorBy, groups, motion, renderable],
+    [amount, colorBy, groups, renderable],
   )
   const resetAfterClose = useRef(false)
   const clear = () => {

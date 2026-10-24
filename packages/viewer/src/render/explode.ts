@@ -16,12 +16,15 @@ import {
   Mesh,
   MeshLambertMaterial,
   Vector3,
+  Uint32BufferAttribute,
 } from 'three'
 import { explodeAmount, explodeTriangleCount, extractExplodeGroup } from './explode-geometry.js'
 import type { ExplodeGroup } from '../model/explode.js'
 
 const ignoreRay = () => {}
 const WHITE = new Color(0xffffff)
+const idsOf = (value: string | ReadonlyArray<string> | null) =>
+  value === null ? [] : typeof value === 'string' ? [value] : value
 
 /** One surface batch and one outline draw, with feature identities kept outside GPU batching. */
 export const createExplodeBatch = (
@@ -51,7 +54,7 @@ export const createExplodeBatch = (
   // and per-instance colors. Keep the published peer floor: only the color storage
   // changes there, using the same shared geometry and matrix/raycast APIs.
   const instanceColors = typeof mesh.setColorAt === 'function'
-  material.vertexColors = !instanceColors
+  material.vertexColors = true
   let vertexStart = 0
   const edgeArrays: Array<Float32Array> = []
   let edgeVertices = 0
@@ -60,17 +63,20 @@ export const createExplodeBatch = (
     const edges = regionEdgesGeometry(extracted.geometry, extracted)
     const points = edges.getAttribute('position').array as Float32Array
     const vertexCount = extracted.geometry.getAttribute('position').count
-    if (!instanceColors) {
-      extracted.geometry.setAttribute(
-        'color',
-        new Float32BufferAttribute(new Float32Array(vertexCount * 3), 3),
-      )
-    }
+    extracted.geometry.setAttribute(
+      'color',
+      new Float32BufferAttribute(new Float32Array(vertexCount * 3).fill(1), 3),
+    )
     const geometryId = mesh.addGeometry(extracted.geometry)
     const instanceId =
       typeof mesh.addInstance === 'function' ? mesh.addInstance(geometryId) : geometryId
     // Exact-sized, non-indexed geometries are appended without gaps on both APIs.
     const range = { start: vertexStart, count: vertexCount }
+    const regions = extracted.regions.map((region) => ({
+      idx: region.idx,
+      start: vertexStart + region.triangles.start * 3,
+      count: (region.triangles.end - region.triangles.start) * 3,
+    }))
     vertexStart += vertexCount
     const edgeStart = edgeVertices
     edgeVertices += points.length / 3
@@ -80,8 +86,10 @@ export const createExplodeBatch = (
       group,
       instanceId,
       range,
+      regions,
       sourceTriangles: extracted.sourceTriangles,
       centre: extracted.geometry.boundingBox!.getCenter(new Vector3()),
+      bounds: extracted.geometry.boundingBox!.clone(),
       edgeStart,
       edgeCount: points.length / 3,
     }
@@ -134,6 +142,8 @@ export const createExplodeBatch = (
   const originGeometry = new BufferGeometry()
   originGeometry.setAttribute('position', mesh.geometry.getAttribute('position'))
   originGeometry.setAttribute('normal', mesh.geometry.getAttribute('normal'))
+  originGeometry.setIndex(new Uint32BufferAttribute(new Uint32Array(triangles * 3), 1))
+  originGeometry.setDrawRange(0, 0)
   const originMaterial = new MeshLambertMaterial({
     color: new Color(DEFAULT_EXPLODE_THEME.source).lerp(WHITE, 0.45),
     emissive: DEFAULT_EXPLODE_THEME.emissive,
@@ -153,6 +163,8 @@ export const createExplodeBatch = (
   origin.userData[EXCLUDE_FROM_FRAME] = true
   const originEdgesGeometry = new BufferGeometry()
   originEdgesGeometry.setAttribute('position', edgeGeometry.getAttribute('position'))
+  originEdgesGeometry.setIndex(new Uint32BufferAttribute(new Uint32Array(edgeVertices), 1))
+  originEdgesGeometry.setDrawRange(0, 0)
   const originEdgesMaterial = new LineBasicMaterial({
     color: DEFAULT_EXPLODE_THEME.edge,
     transparent: true,
@@ -183,29 +195,38 @@ export const createExplodeBatch = (
   const selectedColor = new Color()
   const highlightColor = new Color()
   let theme = DEFAULT_EXPLODE_THEME
-  let selectedPiece: (typeof pieces)[number] | undefined
+  let selectedPieces: typeof pieces = []
+  const sourceBounds = new Box3()
+  const placedBounds = new Box3()
+  const movedBounds = new Box3()
+  const point = new Vector3()
   let amount = -1
   let previousColors: ReadonlyMap<string, number> | undefined
-  let previousSelected: string | null | undefined
-  let previousHovered: string | null | undefined
+  let previousRegionColors: ReadonlyMap<string, ReadonlyMap<number, number>> | undefined
+  let previousSelected: string | ReadonlyArray<string> | null | undefined
+  let previousHovered: string | ReadonlyArray<string> | null | undefined
+  let previousSelectedIds = new Set<string>()
+  let previousHoveredIds = new Set<string>()
   let appearanceSet = false
   const syncConnector = () => {
-    const visible = selectedPiece !== undefined && amount > 0.0001
+    const visible = selectedPieces.length > 0 && amount > 0.0001
     origin.visible = visible
     originEdges.visible = visible
     connector.visible = visible
-    if (!selectedPiece) {
+    if (selectedPieces.length === 0) {
       return
     }
-    const { centre, group } = selectedPiece
     const points = connectorGeometry.getAttribute('position')
-    points.setXYZ(0, centre.x, centre.y, centre.z)
-    points.setXYZ(
-      1,
-      centre.x + group.offset.x * amount,
-      centre.y + group.offset.y * amount,
-      centre.z + group.offset.z * amount,
-    )
+    sourceBounds.getCenter(point)
+    points.setXYZ(0, point.x, point.y, point.z)
+    placedBounds.makeEmpty()
+    for (const piece of selectedPieces) {
+      const offset = piece.group.offset
+      point.set(offset.x * amount, offset.y * amount, offset.z * amount)
+      placedBounds.union(movedBounds.copy(piece.bounds).translate(point))
+    }
+    placedBounds.getCenter(point)
+    points.setXYZ(1, point.x, point.y, point.z)
     points.needsUpdate = true
   }
   return {
@@ -224,15 +245,17 @@ export const createExplodeBatch = (
     },
     setAppearance: (
       colors: ReadonlyMap<string, number> | undefined,
-      selected: string | null,
-      hovered: string | null,
+      selected: string | ReadonlyArray<string> | null,
+      hovered: string | ReadonlyArray<string> | null,
       nextTheme: ExplodeTheme = DEFAULT_EXPLODE_THEME,
+      regionColors?: ReadonlyMap<string, ReadonlyMap<number, number>>,
     ) => {
       const themeChanged = theme !== nextTheme
       if (
         appearanceSet &&
         !themeChanged &&
         previousColors === colors &&
+        previousRegionColors === regionColors &&
         previousSelected === selected &&
         previousHovered === hovered
       ) {
@@ -248,46 +271,82 @@ export const createExplodeBatch = (
         originEdgesMaterial.color.setHex(theme.edge)
         originEdgesMaterial.opacity = theme.edgeOpacity
       }
+      const selectedIds = new Set(idsOf(selected))
+      const hoveredIds = new Set(idsOf(hovered))
       for (const piece of pieces) {
         const id = piece.group.id
         if (
           appearanceSet &&
           !themeChanged &&
           previousColors === colors &&
-          id !== selected &&
-          id !== previousSelected &&
-          id !== hovered &&
-          id !== previousHovered
+          previousRegionColors === regionColors &&
+          !selectedIds.has(id) &&
+          !previousSelectedIds.has(id) &&
+          !hoveredIds.has(id) &&
+          !previousHoveredIds.has(id)
         ) {
           continue
         }
-        color.setHex(colors?.get(id) ?? piece.group.color)
-        highlightColor.setHex(id === selected ? theme.selected : theme.hovered)
-        color.lerp(highlightColor, id === selected ? 0.45 : id === hovered ? 0.25 : 0)
-        if (instanceColors) {
-          mesh.setColorAt(piece.instanceId, color)
-        } else {
-          const colors = mesh.geometry.getAttribute('color')
-          for (
-            let vertex = piece.range.start;
-            vertex < piece.range.start + piece.range.count;
-            vertex += 1
-          ) {
-            colors.setXYZ(vertex, color.r, color.g, color.b)
+        const base = colors?.get(id) ?? piece.group.color
+        const regions = regionColors?.get(id)
+        const perVertex = !instanceColors || Boolean(regions?.size)
+        highlightColor.setHex(selectedIds.has(id) ? theme.selected : theme.hovered)
+        const tint = selectedIds.has(id) ? 0.45 : hoveredIds.has(id) ? 0.25 : 0
+        const vertices = mesh.geometry.getAttribute('color')
+        if (perVertex || previousRegionColors?.get(id)?.size) {
+          for (const region of piece.regions) {
+            color.setHex(regions?.get(region.idx) ?? base).lerp(highlightColor, tint)
+            for (let vertex = region.start; vertex < region.start + region.count; vertex += 1) {
+              vertices.setXYZ(
+                vertex,
+                perVertex ? color.r : 1,
+                perVertex ? color.g : 1,
+                perVertex ? color.b : 1,
+              )
+            }
           }
-          colors.needsUpdate = true
+          vertices.needsUpdate = true
+        }
+        if (instanceColors) {
+          color.setHex(base).lerp(highlightColor, tint)
+          mesh.setColorAt(piece.instanceId, perVertex ? WHITE : color)
         }
       }
       previousColors = colors
+      previousRegionColors = regionColors
+      const selectionChanged = previousSelected !== selected || !appearanceSet
       previousSelected = selected
       previousHovered = hovered
       appearanceSet = true
-      selectedPiece = selected === null ? undefined : byId.get(selected)
-      if (selectedPiece) {
-        const { range, edgeStart, edgeCount, group } = selectedPiece
-        originGeometry.setDrawRange(range.start, range.count)
-        originEdgesGeometry.setDrawRange(edgeStart, edgeCount)
-        selectedColor.setHex(colors?.get(group.id) ?? group.color)
+      previousSelectedIds = selectedIds
+      previousHoveredIds = hoveredIds
+      if (selectionChanged) {
+        selectedPieces = [...selectedIds].flatMap((id) => {
+          const piece = byId.get(id)
+          return piece ? [piece] : []
+        })
+        sourceBounds.makeEmpty()
+        let vertices = 0
+        let edgeVertices = 0
+        const indices = originGeometry.index!
+        const edgeIndices = originEdgesGeometry.index!
+        for (const piece of selectedPieces) {
+          sourceBounds.union(piece.bounds)
+          for (let i = 0; i < piece.range.count; i += 1) {
+            indices.setX(vertices++, piece.range.start + i)
+          }
+          for (let i = 0; i < piece.edgeCount; i += 1) {
+            edgeIndices.setX(edgeVertices++, piece.edgeStart + i)
+          }
+        }
+        indices.needsUpdate = true
+        edgeIndices.needsUpdate = true
+        originGeometry.setDrawRange(0, vertices)
+        originEdgesGeometry.setDrawRange(0, edgeVertices)
+      }
+      const first = selectedPieces[0]
+      if (first) {
+        selectedColor.setHex(colors?.get(first.group.id) ?? first.group.color)
         connectorMaterial.color.copy(selectedColor)
       }
       syncConnector()

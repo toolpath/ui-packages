@@ -27,9 +27,9 @@ export interface ExplodedPartProps {
   geometry: BufferGeometry
   /** Controlled layout and appearance; application metadata stays outside the renderer. */
   explode: ExplodeInput
-  /** Application-owned group ID; independent of feature tags and API feature IDs. */
-  selected?: string | null
-  hovered?: string | null
+  /** Application-owned group IDs; independent of feature tags and API feature IDs. */
+  selected?: string | ReadonlyArray<string> | null
+  hovered?: string | ReadonlyArray<string> | null
   /** Part/edge colors, emissive, edge opacity, and selection/hover tints. */
   theme?: Partial<ViewerTheme>
   /** False hides rendering, picking, and framing while retaining prepared buffers. Default true. */
@@ -107,7 +107,7 @@ const Pieces = ({
   onPick,
   onHover,
 }: ExplodedPartProps & { appearance: ExplodeTheme }) => {
-  const { groups, colors } = explode
+  const { groups, colors, regionColors } = explode
   const invalidate = useThree((state) => state.invalidate)
   const camera = useThree((state) => state.camera)
   const gl = useThree((state) => state.gl)
@@ -132,10 +132,21 @@ const Pieces = ({
     }
   }, [geometry, groups, invalidate, model])
   useLayoutEffect(() => {
-    resources.current?.setAppearance(colors, selected, hovered, appearance)
-    resources.current?.setAmount(explode.amount)
+    resources.current?.setAppearance(colors, selected, hovered, appearance, regionColors)
+    resources.current?.setAmount(explodeAmount(explode.amount))
     invalidate()
-  }, [appearance, colors, explode, geometry, groups, hovered, invalidate, model, selected])
+  }, [
+    appearance,
+    colors,
+    explode,
+    geometry,
+    groups,
+    hovered,
+    invalidate,
+    model,
+    regionColors,
+    selected,
+  ])
   useEffect(() => {
     const batch = resources.current!
     // Warm programs and upload buffers before the animation clock starts. Unlike
@@ -165,14 +176,17 @@ const Pieces = ({
         for (const [object, visible] of visibility) {
           object.visible = visible
         }
+        // Preparation may run after the demand canvas's last frame. Always draw
+        // the restored scene, even when onReady leaves application state unchanged.
+        invalidate()
       }
       ready.current?.()
     }, 0)
     return () => clearTimeout(scheduled)
-  }, [camera, geometry, gl, groups, model, scene])
+  }, [camera, geometry, gl, groups, invalidate, model, scene])
   useFrame(() => {
     if (visible) {
-      resources.current?.setAmount(explode.amount)
+      resources.current?.setAmount(explodeAmount(explode.amount))
     }
   }, -1)
 
@@ -260,6 +274,15 @@ export const ExplodedPart = (props: ExplodedPartProps) => {
     () => resolveExplodeTheme({ part, partEmissive, edge, edgeOpacity, highlight, hover }),
     [part, partEmissive, edge, edgeOpacity, highlight, hover],
   )
+  const invalidate = useThree((state) => state.invalidate)
+  const amount = props.explode.amount
+  useLayoutEffect(() => {
+    if (typeof amount !== 'number') {
+      const unsubscribe = amount.subscribe(invalidate)
+      invalidate()
+      return unsubscribe
+    }
+  }, [amount, invalidate])
   return props.explode.groups.length === 0 ? null : (
     <>
       <Ghost

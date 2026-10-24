@@ -398,7 +398,8 @@ or establish that an unpainted face is impossible to machine.
 ### `<ExplodedPart>`
 
 Renders application-defined surface pieces inside `<Viewer>` or an R3F canvas. Import
-`ExplodedPart`, `ExplodedPartProps`, `ExplodeGroup`, `ExplodeInput`, and `ExplodePick` from
+`ExplodedPart`, `ExplodedPartProps`, `ExplodeGroup`, `ExplodeInput`, `ExplodePick`,
+`createExplodeAmount`, and `ExplodeAmount` from
 `@toolpath/viewer`. Version 2.5.0 does not contain these exports.
 
 The application supplies the pieces and their translations. The renderer neither selects
@@ -449,13 +450,33 @@ An empty `groups` array draws nothing. Invalid IDs, regions, or offsets throw be
 
 `explode.amount` interpolates all supplied offsets from zero to their full translations;
 values outside `[0, 1]` are clamped and nonfinite amounts use zero. The caller owns animation,
-timing, and reduced-motion preferences. For an imperative animation, a stable input object's
-`amount` getter can read a clock or ref each frame; keep the demand-driven canvas invalidated
-while that clock changes. The renderer never moves the camera. Fit and Reset remain explicit.
+timing, and reduced-motion preferences. Pass a number for ordinary controlled React updates.
+For frame-by-frame animation, create a stable controller with `createExplodeAmount(initial)`
+and pass it as `explode.amount`:
+
+```tsx
+const [amount] = useState(() => createExplodeAmount(0))
+const explode = useMemo(() => ({ groups, amount }), [groups, amount])
+// From the application's animation loop, slider, or animation library:
+amount.set(0.5)
+```
+
+The controller clamps its value to `[0, 1]`, exposes it as `amount.value`, and notifies
+subscribers only when it changes. `ExplodedPart` subscribes and requests a frame automatically,
+including on a demand-driven canvas, without React updates on every frame. Subscriptions are
+removed on unmount or when the controller changes; one controller can drive multiple viewers.
+The application owns scheduling and cancelling its animation loop. The renderer never moves
+the camera. Fit and Reset remain explicit.
 
 Keep the `groups` array stable across amount, selection, and color changes. An optional
 `explode.colors: ReadonlyMap<string, number>` changes colors by group ID without rebuilding
-the layout. `visible={false}` retains its buffers while excluding it from rendering, picking,
+the layout. Optional `explode.regionColors: ReadonlyMap<string, ReadonlyMap<number, number>>`
+sets colors by group ID and source region index, overriding that group's color. The same
+source region may have different colors in different groups. Regions without an override use
+`explode.colors` or the group's own color; selection and hover tint all of a group's surfaces.
+Replace color maps when changing paint. Unknown group/region keys are ignored. Color changes
+retain geometry buffers, pick identities, and shader programs; they do not require one group
+per region. `visible={false}` retains its buffers while excluding it from rendering, picking,
 and framing. Optional `onReady` runs after warming shaders and buffers for a layout; an app can
 keep it hidden or disable its play control until then. Changing the source or group array
 rebuilds the owned buffers; unmounting releases them without disposing the source geometry.
@@ -471,7 +492,10 @@ appearance. Theme changes update materials and colors in place without rebuildin
 changing selection, warming shaders again, or moving the camera.
 
 The source part is drawn as an unpickable ghost during explosion. Selecting a group highlights
-its original surfaces and draws one connector. `onPick` and `onHover` return an `ExplodePick`:
+its original surfaces and draws one connector. `selected` and `hovered` also accept arrays of
+group IDs, so an application can interact with several render chunks as one logical piece.
+Selection highlights all their source surfaces; one connector joins their combined source and
+translated bounds. `onPick` and `onHover` return an `ExplodePick`:
 the usual source `region` and `triangleIndex`, the application's `explodeGroupId`, the displayed
 world-space `point`/`normal`, and `modelPoint` in the original geometry's frame. Region owners
 and the default ranked feature remain available as `PartPick` fields; applications can use

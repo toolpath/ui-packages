@@ -1,5 +1,18 @@
 import { expect, test } from '@playwright/test'
 
+test('replacing a prepared layout redraws a demand canvas without camera input or app invalidation', async ({
+  page,
+}) => {
+  await page.goto('/tests/fixtures/explode-primitives.html')
+  await expect(page.getByTestId('ready')).toHaveText('true')
+  const canvas = page.locator('canvas')
+  await page.mouse.move(0, 0)
+  const before = await canvas.screenshot()
+  await page.getByRole('button', { name: 'Replace layout', exact: true }).click()
+  await expect(page.locator('#warm-phase')).toHaveText('prepared')
+  await expect.poll(async () => Buffer.compare(before, await canvas.screenshot())).toBe(0)
+})
+
 test('theme changes repaint the public primitive without allocating buffers or losing selection', async ({
   page,
 }) => {
@@ -107,4 +120,59 @@ test('the public primitive renders caller-defined repeated surfaces, picks sourc
   await expect(page.getByTestId('warmups')).toHaveText('2')
   await expect(page.getByTestId('source-disposals')).toHaveText('0')
   expect(errors).toEqual([])
+})
+
+test('controller updates and region paint redraw an idle demand canvas without replacing buffers or warming shaders', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const counts = { buffers: 0, programs: 0 }
+    Object.assign(window, { __explodeCounts: counts })
+    const prototype = WebGL2RenderingContext.prototype
+    const buffer = prototype.createBuffer
+    const program = prototype.createProgram
+    prototype.createBuffer = function () {
+      counts.buffers += 1
+      return buffer.call(this)
+    }
+    prototype.createProgram = function () {
+      counts.programs += 1
+      return program.call(this)
+    }
+  })
+  await page.goto('/tests/fixtures/explode-primitives.html')
+  await expect(page.getByTestId('ready')).toHaveText('true')
+  const canvas = page.locator('canvas')
+  const readCounts = () =>
+    page.evaluate(
+      () =>
+        (window as unknown as { __explodeCounts: { buffers: number; programs: number } })
+          .__explodeCounts,
+    )
+  await page.getByRole('button', { name: 'Toggle controller', exact: true }).click()
+  await page.mouse.move(0, 0)
+  const before = await canvas.screenshot()
+  const counts = await readCounts()
+  await page.getByRole('button', { name: 'Controller half', exact: true }).click()
+  await expect.poll(async () => Buffer.compare(before, await canvas.screenshot())).not.toBe(0)
+  await canvas.click({ position: { x: 475, y: 279 } })
+  let pick = JSON.parse((await page.getByTestId('pick').textContent())!)
+  expect(pick.explodeGroupId).toBe('right-piece')
+  expect(pick.modelPoint[0]).toBeCloseTo(0)
+  await page.mouse.move(0, 0)
+  const half = await canvas.screenshot()
+  await page.getByRole('button', { name: 'Region paint', exact: true }).click()
+  await expect.poll(async () => Buffer.compare(half, await canvas.screenshot())).not.toBe(0)
+  await page.getByRole('button', { name: 'Controller full', exact: true }).click()
+  await canvas.click({ position: { x: 535, y: 279 } })
+  pick = JSON.parse((await page.getByTestId('pick').textContent())!)
+  expect(pick.explodeGroupId).toBe('right-piece')
+  expect(pick.point[0]).toBeCloseTo(45)
+  await expect(page.getByTestId('warmups')).toHaveText('1')
+  // Selection uploads its preallocated source indices on first use; no new GPU buffers/programs.
+  expect(await readCounts()).toEqual(counts)
+  await page.getByRole('button', { name: 'Toggle controller', exact: true }).click()
+  const numeric = await canvas.screenshot()
+  await page.getByRole('button', { name: 'Controller half', exact: true }).click()
+  await expect.poll(async () => Buffer.compare(numeric, await canvas.screenshot())).toBe(0)
 })

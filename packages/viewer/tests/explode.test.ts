@@ -46,6 +46,130 @@ const source = async () => {
 }
 
 describe('explode rendering primitives', () => {
+  it('paints regions within whole pieces, keeping repeated surfaces independent and buffers stable', async () => {
+    const { model, geometry, groups, region } = await source()
+    const other = model.regions.find((r) => r.idx !== region)!.idx
+    const layout = groups.map((g) => ({ ...g, regionIdxs: [region, other] }))
+    const batch = createExplodeBatch(model, geometry, layout)
+    const buffers = { ...batch.mesh.geometry.attributes }
+    const colors = new Map([
+      [
+        'left-piece',
+        new Map([
+          [region, 0xff0000],
+          [other, 0x0000ff],
+        ]),
+      ],
+      ['right-piece', new Map([[region, 0x00ff00]])],
+    ])
+    const vertexColor = (id: string, idx: number) => {
+      const piece = batch.pieces.find((p) => p.group.id === id)!
+      const start = piece.regions.find((r) => r.idx === idx)!.start
+      const attribute = batch.mesh.geometry.getAttribute('color')
+      return new Color().fromBufferAttribute(attribute, start)
+    }
+    batch.setAppearance(undefined, null, null, undefined, colors)
+    expect(vertexColor('left-piece', region).getHex()).toBe(0xff0000)
+    expect(vertexColor('right-piece', region).getHex()).toBe(0x00ff00)
+    expect(vertexColor('left-piece', other).getHex()).toBe(0x0000ff)
+    expect(vertexColor('right-piece', other).getHex()).toBe(layout[1]!.color)
+    for (const kind of ['hover', 'select'] as const) {
+      batch.setAppearance(
+        undefined,
+        kind === 'select' ? 'left-piece' : null,
+        kind === 'hover' ? 'left-piece' : null,
+        undefined,
+        colors,
+      )
+      const tint = kind === 'select' ? 0.45 : 0.25
+      for (const [idx, base] of [
+        [region, 0xff0000],
+        [other, 0x0000ff],
+      ]) {
+        expect(vertexColor('left-piece', idx!).getHex()).toBe(
+          new Color(base).lerp(new Color(0xffffff), tint).getHex(),
+        )
+      }
+      expect(vertexColor('right-piece', region).getHex()).toBe(0x00ff00)
+    }
+    batch.setAppearance(new Map([['left-piece', 0xffff00]]), null, null)
+    expect(vertexColor('left-piece', region).getHex()).toBe(0xffffff)
+    const instance = new Color()
+    batch.mesh.getColorAt(0, instance)
+    expect(instance.getHex()).toBe(0xffff00)
+    batch.setAppearance(undefined, 'left-piece', null, undefined, colors)
+    const origin = batch.object.getObjectByName('explode-origin') as Mesh
+    expect(origin.geometry.drawRange.count).toBe(batch.pieces[0]!.range.count)
+    batch.setAmount(0.5)
+    batch.setAmount(1)
+    expect(batch.mesh.geometry.attributes).toEqual(buffers)
+    for (const piece of batch.pieces) {
+      for (let local = 0; local < piece.sourceTriangles.length; local += 1) {
+        expect(batch.hit(piece.instanceId, piece.range.start / 3 + local)?.group.id).toBe(
+          piece.group.id,
+        )
+      }
+    }
+    batch.dispose()
+    geometry.dispose()
+  })
+
+  it('selects and hovers multiple chunks with the complete source overlay, retaining buffers', async () => {
+    const { model, geometry, groups } = await source()
+    const batch = createExplodeBatch(model, geometry, [
+      groups[0]!,
+      { ...groups[0]!, id: 'other', offset: { x: 0, y: 40, z: 0 } },
+      groups[1]!,
+    ])
+    const origin = batch.object.getObjectByName('explode-origin') as Mesh
+    const positions = batch.mesh.geometry.getAttribute('position')
+    const indices = origin.geometry.index!
+    const ids = ['left-piece', 'right-piece']
+    const theme = resolveExplodeTheme({ highlight: 0xffa31a, hover: 0xffb066 })
+    batch.setAppearance(undefined, null, ids, theme)
+    for (const piece of batch.pieces) {
+      const actual = new Color()
+      batch.mesh.getColorAt(piece.instanceId, actual)
+      const expected = new Color(piece.group.color)
+      if (ids.includes(piece.group.id)) {
+        expected.lerp(new Color(theme.hovered), 0.25)
+      }
+      expect(actual.r).toBeCloseTo(expected.r)
+      expect(actual.g).toBeCloseTo(expected.g)
+      expect(actual.b).toBeCloseTo(expected.b)
+    }
+    batch.setAppearance(undefined, ids, null, theme)
+    batch.setAmount(1)
+    const selected = batch.pieces.filter((piece) => ids.includes(piece.group.id))
+    const count = selected.reduce((sum, piece) => sum + piece.range.count, 0)
+    expect(origin.visible).toBe(true)
+    expect(origin.geometry.drawRange).toEqual({ start: 0, count })
+    expect(Array.from(indices.array.slice(0, count))).toEqual(
+      selected.flatMap((piece) =>
+        Array.from({ length: piece.range.count }, (_, i) => piece.range.start + i),
+      ),
+    )
+    for (const piece of batch.pieces) {
+      const actual = new Color()
+      batch.mesh.getColorAt(piece.instanceId, actual)
+      const expected = new Color(piece.group.color)
+      if (ids.includes(piece.group.id)) {
+        expected.lerp(new Color(theme.selected), 0.45)
+      }
+      expect(actual.r).toBeCloseTo(expected.r)
+      expect(actual.g).toBeCloseTo(expected.g)
+      expect(actual.b).toBeCloseTo(expected.b)
+    }
+    batch.setAppearance(undefined, ['right-piece'], null, theme)
+    expect(origin.geometry.index).toBe(indices)
+    expect(batch.mesh.geometry.getAttribute('position')).toBe(positions)
+    expect(origin.geometry.drawRange.count).toBe(selected[1]!.range.count)
+    batch.setAppearance(undefined, [], null, theme)
+    expect(origin.visible).toBe(false)
+    expect(origin.geometry.drawRange.count).toBe(0)
+    batch.dispose()
+    geometry.dispose()
+  })
   it('outlines compact regions without feature data and preserves split-surface lineage', () => {
     const geometry = new BufferGeometry()
     geometry.setAttribute(

@@ -40,8 +40,7 @@ export const explodeTriangleCount = (
 }
 
 /** Amount is a fraction of the supplied translations, never inferred from the model. */
-export const explodeAmount = (value: number): number =>
-  Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0
+export { readExplodeAmount as explodeAmount } from '../model/explode-amount.js'
 
 /** Compact geometry for one copy, with an explicit map back to report triangle identities. */
 export const extractExplodeGroup = (
