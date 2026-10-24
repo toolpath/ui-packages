@@ -76,7 +76,11 @@
       "project": ["src/**/*.ts"]
     },
     "examples/react-viewer": {
-      "entry": ["tests/**/*.spec.ts"],
+      "entry": [
+        "tests/fixtures/explode-policy.ts",
+        "tests/fixtures/explode-primitives.tsx",
+        "tests/**/*.spec.ts"
+      ],
       "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts"]
     }
   }
