@@ -61,3 +61,37 @@ test('eases transitions, reverses without a jump, and stops at the scrubbed amou
   expect(motion.amount).toBe(1)
   expect(motion.getSnapshot().mode).toBe('idle')
 })
+
+test('finishes in elapsed time even when frames are hundreds of milliseconds apart', () => {
+  const motion = createExplosionMotion(0)
+  motion.moveTo(1)
+  motion.advance(0)
+  motion.advance(300)
+  motion.advance(900)
+  expect(motion.amount).toBeCloseTo(0.5)
+  expect(motion.advance(1800)).toBe(false)
+  expect(motion.amount).toBe(1)
+  expect(motion.getSnapshot().mode).toBe('idle')
+
+  motion.moveTo(0)
+  motion.advance(2000)
+  motion.advance(2900)
+  expect(motion.amount).toBeCloseTo(0.5)
+  expect(motion.advance(3800)).toBe(false)
+  expect(motion.amount).toBe(0)
+})
+
+test('resumes a suspended clock without counting time spent in the background', () => {
+  const motion = createExplosionMotion(0)
+  motion.moveTo(1)
+  motion.advance(0)
+  motion.advance(100)
+  const before = motion.amount
+  motion.resetClock()
+  expect(motion.advance(10_000)).toBe(true)
+  expect(motion.amount).toBe(before)
+  motion.advance(10_100)
+  expect(motion.amount).toBeGreaterThan(before)
+  expect(motion.advance(11_700)).toBe(false)
+  expect(motion.amount).toBe(1)
+})

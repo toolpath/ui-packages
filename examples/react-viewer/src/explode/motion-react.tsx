@@ -26,17 +26,29 @@ export const useMotionAmount = (motion: ExplosionMotion): ExplodeAmount => {
     }
     const sync = () => {
       amount.set(motion.amount)
-      if (motion.getSnapshot().mode !== 'idle' && frame === null) {
+      if (!document.hidden && motion.getSnapshot().mode !== 'idle' && frame === null) {
         frame = requestAnimationFrame(tick)
       }
     }
+    const suspend = () => {
+      motion.resetClock()
+      if (frame !== null) {
+        cancelAnimationFrame(frame)
+        frame = null
+      }
+    }
+    const visibilityChanged = () => {
+      suspend()
+      sync()
+    }
     const unsubscribe = motion.subscribe(sync)
+    document.addEventListener('visibilitychange', visibilityChanged)
+    motion.resetClock()
     sync()
     return () => {
       unsubscribe()
-      if (frame !== null) {
-        cancelAnimationFrame(frame)
-      }
+      document.removeEventListener('visibilitychange', visibilityChanged)
+      suspend()
     }
   }, [amount, motion])
   return amount

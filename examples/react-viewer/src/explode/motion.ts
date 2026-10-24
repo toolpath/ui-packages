@@ -11,6 +11,8 @@ export interface ExplosionMotion {
   subscribe: (listener: () => void) => () => void
   getSnapshot: () => MotionSnapshot
   advance: (timestamp: number) => boolean
+  /** Exclude time while the app's animation driver is suspended. Keeps current progress. */
+  resetClock: () => void
   seek: (amount: number) => void
   moveTo: (amount: number, immediate?: boolean) => void
 }
@@ -63,6 +65,9 @@ export const createExplosionMotion = (initial: number): ExplosionMotion => {
       }
     },
     seek,
+    resetClock: () => {
+      lastFrame = null
+    },
     moveTo: (next, immediate = false) => {
       if (immediate) {
         seek(next)
@@ -74,8 +79,9 @@ export const createExplosionMotion = (initial: number): ExplosionMotion => {
       if (mode === 'idle') {
         return false
       }
-      // Resuming a backgrounded tab must not turn idle time into a jump in the animation.
-      elapsed += lastFrame === null ? 0 : Math.min(50, Math.max(0, timestamp - lastFrame))
+      // Slow rendering changes the number of frames, not the transition's duration.
+      // The driver resets the clock when suspending for a hidden tab.
+      elapsed += lastFrame === null ? 0 : Math.max(0, timestamp - lastFrame)
       lastFrame = timestamp
       const duration = Math.max(1, Math.abs(to - from) * DURATION_MS)
       const progress = clamp(elapsed / duration)

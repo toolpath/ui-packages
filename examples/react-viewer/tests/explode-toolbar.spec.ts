@@ -280,3 +280,40 @@ test('Reset closes explode and restores the opening camera orientation and frami
     .toBeCloseTo(opening.position[0], 1)
   await expect.poll(async () => (await readCamera(page)).distance).toBeCloseTo(opening.distance, 1)
 })
+
+test('defers hidden playback and resumes pending explode and collapse when visible', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    let hidden = false
+    Object.defineProperty(document, 'hidden', { get: () => hidden })
+    Object.assign(window, {
+      setExplosionHidden: (next: boolean) => {
+        hidden = next
+        document.dispatchEvent(new Event('visibilitychange'))
+      },
+    })
+  })
+  await openViewer(page, 'model=brick')
+  const setHidden = (hidden: boolean) =>
+    page.evaluate((next) => {
+      ;(window as unknown as { setExplosionHidden: (hidden: boolean) => void }).setExplosionHidden(
+        next,
+      )
+    }, hidden)
+  await setHidden(true)
+  await page.getByRole('button', { name: 'Explode', exact: true }).click()
+  const amount = page.getByRole('slider', { name: 'Explosion amount' })
+  await page.waitForTimeout(300)
+  await expect(amount).toHaveValue('0')
+  await setHidden(false)
+  await expect(amount).toHaveValue('1')
+
+  await amount.fill('0.6')
+  await setHidden(true)
+  await page.getByRole('button', { name: 'Collapse features', exact: true }).click()
+  await page.waitForTimeout(300)
+  await expect(amount).toHaveValue('0.6')
+  await setHidden(false)
+  await expect(page.getByRole('group', { name: 'Explode options' })).toHaveCount(0)
+})
