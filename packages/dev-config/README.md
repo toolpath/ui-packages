@@ -35,8 +35,8 @@ Run it as `eslint . --max-warnings=0`. Every rule is an error or off; none warns
     discarded results (a thrown-away `.map()`), HTML sinks and URL protocol comparisons.
   - `eslint-plugin-regexp`: invalid and misleading regular expressions and super-linear
     backtracking (ReDoS).
-  - `eslint-plugin-import-x`: `no-extraneous-dependencies` (devDependencies only in tests,
-    stories, scripts and `*.config.*`), `no-relative-packages`, `no-duplicates`, `no-self-import`,
+  - `eslint-plugin-import-x`: `no-extraneous-dependencies` (devDependencies only in tests and
+    test setup files, stories, scripts and `*.config.*`), `no-relative-packages`, `no-duplicates`, `no-self-import`,
     `no-useless-path-segments` and `no-cycle`.
 - **TypeScript files:** typescript-eslint's `strictTypeChecked` preset, plus:
   - `strict-boolean-expressions`: a condition is a boolean, a nullable boolean or a nullable
@@ -53,7 +53,7 @@ Run it as `eslint . --max-warnings=0`. Every rule is an error or off; none warns
     `no-import-type-side-effects`.
   - `@ts-ignore` is banned. `@ts-expect-error` is allowed only in tests, with a 10-character
     reason; shipped code fixes the type.
-- **Tests** (`*.test.*`, `*.spec.*`, `tests/` and similar): `@vitest/eslint-plugin` recommended,
+- **Tests** (`*.test.*`, `*.spec.*`, `*.test-d.*`, `tests/` and similar): `@vitest/eslint-plugin` recommended,
   plus no `.only`, `.skip` or `.todo`, awaited async expectations, `toThrow` with a message, and
   `vi.mock` hoisting and `import()` paths. Tests may use `!`, type assertions and `async`
   callbacks without `await`, because a wrong one fails the test; the async and `no-unsafe-*`
@@ -66,7 +66,8 @@ Run it as `eslint . --max-warnings=0`. Every rule is an error or off; none warns
     leaked listeners and timers) and its naming and duplicate-of-hooks rules off.
   - `eslint-plugin-jsx-a11y-x` `recommended` for JSX, and buttons need a `type` outside tests and
     stories.
-- Build output (`dist`, `build`, `coverage`) is ignored. Pass more globs as `ignores`.
+- Build output and generated files are ignored: `dist`, `build`, `coverage`, `.react-router`,
+  `playwright-report`, `test-results` and `storybook-static`. Pass more globs as `ignores`.
 
 The typed rules need `strictNullChecks`; extend one of the tsconfig bases below.
 
@@ -259,7 +260,9 @@ export default defineConfig({
   plugins: [
     reactRouter(),
     babel({
-      filter: /\.[jt]sx?$/,
+      // vite-plugin-babel 1.7 and later include only `.js`/`.jsx` unless told otherwise.
+      include: /\.[jt]sx?(?:$|\?)/,
+      exclude: /node_modules/,
       babelConfig: {
         presets: ['@babel/preset-typescript'],
         plugins: [['babel-plugin-react-compiler', reactCompilerOptions()]],

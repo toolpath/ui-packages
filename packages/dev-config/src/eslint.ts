@@ -22,24 +22,35 @@ export interface EslintOptions {
   ignores?: Array<string>
 }
 
-const BUILD_OUTPUT = ['**/dist/**', '**/build/**', '**/coverage/**']
+/** Build output and generated files; flat config reads neither `.gitignore` nor dot-directories' intent. */
+const BUILD_OUTPUT = [
+  '**/dist/**',
+  '**/build/**',
+  '**/coverage/**',
+  '**/.react-router/**',
+  '**/playwright-report/**',
+  '**/test-results/**',
+  '**/storybook-static/**',
+]
 const TYPESCRIPT = ['**/*.{ts,tsx,mts,cts}']
 const JAVASCRIPT = ['**/*.{js,jsx,mjs,cjs}']
 const SCRIPTS = [...TYPESCRIPT, ...JAVASCRIPT]
 const JSX = ['**/*.{jsx,tsx}']
 const TESTS = [
-  '**/*.{test,spec,test-d}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}',
+  '**/*.{test,spec,test-d,spec-d}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}',
   '**/{test,tests,__tests__,e2e,jest}/**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}',
 ]
 const TYPESCRIPT_TESTS = [
-  '**/*.{test,spec,test-d}.{ts,tsx,mts,cts}',
+  '**/*.{test,spec,test-d,spec-d}.{ts,tsx,mts,cts}',
   '**/{test,tests,__tests__,e2e,jest}/**/*.{ts,tsx,mts,cts}',
 ]
 
-/** Files that may import devDependencies: tests, stories, configuration and scripts. */
+/** Files that may import devDependencies: tests and their setup, stories, configuration and scripts. */
 const DEVELOPMENT_FILES = [
-  '**/*.{test,spec,stories}.*',
-  '**/{test,tests,__tests__,e2e,scripts,.storybook}/**',
+  ...TESTS,
+  '**/*.{setup,stories}.*',
+  '**/setupTests.*',
+  '**/{scripts,.storybook}/**',
   '**/*.config.*',
 ]
 
@@ -448,6 +459,8 @@ export const createEslintConfig = ({
   defineConfig(
     { ignores: [...BUILD_OUTPUT, ...ignores] },
     { linterOptions: { reportUnusedDisableDirectives: 'error' } },
+    // `.jsx` holds JSX with or without the React rules; TypeScript parses `.tsx` by extension.
+    { files: ['**/*.jsx'], languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } } },
     {
       files: SCRIPTS,
       extends: [js.configs.recommended, comments.recommended],

@@ -133,6 +133,49 @@ describe('createEslintConfig', () => {
     expect(reported[file]).toContain(rule)
   })
 
+  it('ignores build output and generated files', async () => {
+    const root = fixture({})
+    const eslint = new ESLint({
+      cwd: root,
+      overrideConfigFile: true,
+      overrideConfig: createEslintConfig({ tsconfigRootDir: root }),
+    })
+    for (const path of [
+      'dist/index.js',
+      '.react-router/types/app/+types/root.ts',
+      'playwright-report/trace/index.js',
+      'test-results/run/data.js',
+      'storybook-static/main.js',
+    ]) {
+      expect(await eslint.isPathIgnored(path)).toBe(true)
+    }
+    expect(await eslint.isPathIgnored('src/index.ts')).toBe(false)
+  })
+
+  it('allows devDependencies in tests and test setup files only', async () => {
+    const importPad = "import leftPad from 'left-pad'\n\nexport const pad: unknown = leftPad\n"
+    const reported = await lint({
+      'package.json': JSON.stringify({
+        name: 'fixture',
+        type: 'module',
+        devDependencies: { 'left-pad': '1.0.0' },
+      }),
+      'src/types.test-d.ts': importPad,
+      'src/types.spec-d.ts': importPad,
+      'test.setup.ts': importPad,
+      'src/index.ts': importPad,
+    })
+    for (const file of ['src/types.test-d.ts', 'src/types.spec-d.ts', 'test.setup.ts']) {
+      expect(reported[file]).not.toContain('import-x/no-extraneous-dependencies')
+    }
+    expect(reported['src/index.ts']).toContain('import-x/no-extraneous-dependencies')
+  })
+
+  it('parses .jsx without the React rules', async () => {
+    const reported = await lint({ 'widget.jsx': 'export const Widget = () => <p>hi</p>\n' })
+    expect(reported['widget.jsx']).toEqual([])
+  })
+
   it('applies the correctness rules to JavaScript files', async () => {
     const reported = await lint({ 'script.mjs': 'export const value = missing + 1\n' })
     expect(reported['script.mjs']).toContain('no-undef')

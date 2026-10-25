@@ -47,8 +47,9 @@ const guard = (
   }
   plugin.buildStart()
   for (const module of modules) {
+    // Babel receives the module id as the bundler has it, query included.
     for (const event of module.logged ?? []) {
-      logger.logEvent(module.id.split('?')[0] ?? module.id, event)
+      logger.logEvent(module.id, event)
     }
     plugin.transform(module.code, module.id, { ssr: module.ssr ?? false })
   }

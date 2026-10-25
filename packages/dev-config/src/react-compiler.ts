@@ -122,22 +122,23 @@ const recordSkip = (
   filename: string | null,
   event: ReactCompilerLogEvent,
 ): void => {
-  if (
-    filename === null ||
-    (event.kind !== 'CompileError' && event.kind !== 'PipelineError') ||
-    isOptedOut(filename, event)
-  ) {
+  if (filename === null || (event.kind !== 'CompileError' && event.kind !== 'PipelineError')) {
+    return
+  }
+  // Babel receives the bundler's module id, query included (`route.tsx?route-chunk=main`).
+  const file = filename.split('?')[0] ?? filename
+  if (isOptedOut(file, event)) {
     return
   }
   const line = event.fnLoc?.start.line ?? 1
-  const key = `${filename}:${String(line)}`
+  const key = `${file}:${String(line)}`
   // A function that fails several checks is reported once, with the first reason.
   if (!skips.has(key)) {
     const reason =
       event.detail === undefined
         ? (event.data ?? 'compiler pipeline error')
         : `[${event.detail.category}] ${event.detail.reason}`
-    skips.set(key, { file: filename, line, reason })
+    skips.set(key, { file, line, reason })
   }
 }
 
@@ -189,7 +190,7 @@ export interface ReactCompilerGuardPlugin {
   apply: 'build'
   enforce: 'post'
   buildStart: () => void
-  transform: (code: string, id: string, options?: { ssr?: boolean }) => null
+  transform: (code: string, id: string, options?: { ssr?: boolean | undefined }) => null
   buildEnd: (
     this: { error: (message: string) => never; warn: (message: string) => void },
     error?: Error,
