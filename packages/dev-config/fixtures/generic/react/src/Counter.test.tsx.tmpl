@@ -1,0 +1,12 @@
+import { render, screen } from '@testing-library/react'
+import { userEvent } from '@testing-library/user-event'
+import { describe, expect, it } from 'vitest'
+import { Counter } from './Counter.js'
+
+describe('Counter', () => {
+  it('counts presses', async () => {
+    render(<Counter label="Presses" />)
+    await userEvent.click(screen.getByRole('button', { name: 'Presses: 0' }))
+    expect(screen.getByRole('button').textContent).toBe('Presses: 1')
+  })
+})

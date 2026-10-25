@@ -81,6 +81,12 @@ export interface ProjectConfig {
   runtime: ProjectRuntime
   /** Relative to the project root. */
   tsconfig: string
+  /**
+   * A separate program for the project's test files, so test-only types (runner
+   * APIs, Node timers in a universal library) never reach the source program.
+   * Relative to the project root.
+   */
+  testTsconfig?: string
   dependsOn?: Array<string>
   react?: ReactSettings
   suites?: Record<string, Suite>

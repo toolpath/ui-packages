@@ -18,6 +18,13 @@ export const TEST_SUPPORT_PATTERNS = [
   `**/*.test-utils.${EXTENSIONS}`,
 ]
 
+/** Every file a test program owns when a project separates one (`testTsconfig`). */
+export const TEST_PROGRAM_PATTERNS = [
+  ...UNIT_TEST_PATTERNS,
+  ...BROWSER_TEST_PATTERNS,
+  ...TEST_SUPPORT_PATTERNS,
+]
+
 export const SCRIPT_GLOB = `**/*.${EXTENSIONS}`
 
 /** Every Node builtin by both its bare and `node:` names, for runtime import boundaries. */

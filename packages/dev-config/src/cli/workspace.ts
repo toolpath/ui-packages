@@ -5,7 +5,7 @@ import {
   type ResolvedConfig,
   type ResolvedProject,
 } from '../config/resolve.js'
-import { classifyFiles, filesOf, toolingFiles, type Scope } from '../config/scope.js'
+import { classifyFiles, filesOf, isTestPath, toolingFiles, type Scope } from '../config/scope.js'
 import { ConfigError, type Issue } from '../errors.js'
 import type { Program } from './typescript.js'
 
@@ -69,11 +69,24 @@ export const selectedFiles = (workspace: Workspace): Array<string> => {
 
 export const selectedPrograms = (workspace: Workspace): Array<Program> => {
   const scope = workspace.scope()
-  const programs: Array<Program> = workspace.selected.map((project) => ({
-    label: project.name,
-    tsconfig: project.tsconfig,
-    files: filesOf(scope, project),
-  }))
+  const programs: Array<Program> = workspace.selected.flatMap((project) => {
+    const files = filesOf(scope, project)
+    if (project.testTsconfig === undefined) {
+      return [{ label: project.name, tsconfig: project.tsconfig, files }]
+    }
+    return [
+      {
+        label: project.name,
+        tsconfig: project.tsconfig,
+        files: files.filter((file) => !isTestPath(file)),
+      },
+      {
+        label: `${project.name} tests`,
+        tsconfig: project.testTsconfig,
+        files: files.filter((file) => isTestPath(file)),
+      },
+    ]
+  })
   if (workspace.whole && workspace.resolved.tooling) {
     programs.push({
       label: 'tooling',

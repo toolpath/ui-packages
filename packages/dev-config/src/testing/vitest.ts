@@ -3,7 +3,9 @@ import { fileURLToPath } from 'node:url'
 import type { ViteUserConfig } from 'vitest/config'
 import { BUILT_IN_EXCLUSIONS } from '../config/files.js'
 import type { DevConfig } from '../config/types.js'
-import { ConfigError } from '../errors.js'
+import { findInstalledPackage } from '../config/packages.js'
+import { ConfigError, MissingPeerError } from '../errors.js'
+import { toolchain } from '../policy/toolchain.js'
 import {
   BROWSER_TEST_PATTERNS,
   DEFAULT_HOOK_TIMEOUT_MS,
@@ -50,6 +52,14 @@ export const createVitestConfig = (config: DevConfig, options: VitestOptions): V
   }
   const extend = options.extend ?? {}
   const dom = project.runtime === 'dom'
+  const required = ['vitest', ...(dom ? ['jsdom'] : [])]
+  const missing = required.filter((name) => !findInstalledPackage(project.directory, name))
+  if (missing.length > 0) {
+    throw new MissingPeerError(dom ? 'Vitest DOM' : 'Vitest', missing, {
+      ...toolchain.profiles.vitest,
+      ...toolchain.profiles.dom,
+    } as Record<string, string>)
+  }
   const testTimeout = Math.max(
     DEFAULT_UNIT_TIMEOUT_MS,
     extend.timeouts?.test ?? DEFAULT_UNIT_TIMEOUT_MS,

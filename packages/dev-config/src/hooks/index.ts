@@ -1,5 +1,5 @@
 import { isAbsolute, relative } from 'node:path'
-import { toPosix } from '../config/files.js'
+import { isExcludedByDefault, toPosix } from '../config/files.js'
 import { resolveConfig, type ResolvedConfig } from '../config/resolve.js'
 import { classifyFiles } from '../config/scope.js'
 import type { DevConfig } from '../config/types.js'
@@ -23,7 +23,7 @@ export interface StagedFilesResult {
 const toRelative = (resolved: ResolvedConfig, files: ReadonlyArray<string>): Array<string> =>
   files
     .map((file) => toPosix(isAbsolute(file) ? relative(resolved.root, file) : file))
-    .filter((file) => file !== '' && !file.startsWith('../'))
+    .filter((file) => file !== '' && !file.startsWith('../') && !isExcludedByDefault(file))
 
 /**
  * The pre-commit worker for one batch of staged files: safe ESLint fixes for the
@@ -76,7 +76,13 @@ export interface StagedTask {
 export const createStagedTask = (config: DevConfig): StagedTask => ({
   title: 'toolpath-dev: safe lint fixes, then formatting',
   task: async (files) => {
-    await processStagedFiles(config, files)
+    try {
+      await processStagedFiles(config, files)
+    } catch (error) {
+      // lint-staged reports only that the task failed; the diagnostic is ours to print.
+      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)
+      throw error
+    }
   },
 })
 

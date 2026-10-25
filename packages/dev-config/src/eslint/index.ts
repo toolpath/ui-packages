@@ -352,6 +352,16 @@ export const createEslintConfig = async (
       ),
     )
     const testPatterns = [...UNIT_TEST_PATTERNS, ...BROWSER_TEST_PATTERNS, ...TEST_SUPPORT_PATTERNS]
+    if (project.testTsconfig !== undefined) {
+      configs.push({
+        name: `toolpath/project/${project.name}/test-program`,
+        files: within(project, testPatterns),
+        ignores,
+        languageOptions: {
+          parserOptions: { project: [project.testTsconfig], tsconfigRootDir: project.directory },
+        },
+      })
+    }
     configs.push({
       name: `toolpath/project/${project.name}/tests`,
       files: within(project, testPatterns),

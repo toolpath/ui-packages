@@ -62,6 +62,8 @@ export interface ResolvedProject {
   kind: ProjectKind
   runtime: ProjectRuntime
   tsconfig: string
+  /** The test files' program, when the project separates it. */
+  testTsconfig?: string
   dependsOn: Array<string>
   react?: { adapter: ReactAdapter; minimumVersion: ReactMinimumVersion }
   suites: Array<ResolvedSuite>
@@ -97,7 +99,9 @@ export const readManifest = (directory: string): PackageManifest | undefined => 
   }
 }
 
-const isFile = (path: string): boolean => existsSync(path) && statSync(path).isFile()
+let plannedFiles: ReadonlySet<string> = new Set()
+const isFile = (path: string): boolean =>
+  plannedFiles.has(path) || (existsSync(path) && statSync(path).isFile())
 const isDirectory = (path: string): boolean => existsSync(path) && statSync(path).isDirectory()
 
 const manifestDependencies = (manifest: PackageManifest): Set<string> =>
@@ -208,7 +212,16 @@ const topologicalOrder = (
  * inside it, project roots are distinct, the dependency graph is acyclic, and
  * declared dependencies agree with the workspace manifests.
  */
-export const resolveConfig = (config: DevConfig): ResolvedConfig => {
+export interface ResolveOptions {
+  /** Absolute paths treated as existing files: what `init` plans to write before it writes anything. */
+  planned?: ReadonlySet<string>
+}
+
+export const resolveConfig = (
+  config: DevConfig,
+  { planned = new Set() }: ResolveOptions = {},
+): ResolvedConfig => {
+  plannedFiles = planned
   const issues: Array<Issue> = []
   const root = realpathSync(config.directory)
 
@@ -238,6 +251,16 @@ export const resolveConfig = (config: DevConfig): ResolvedConfig => {
         message: `${relativePosix(root, tsconfig)} does not exist`,
       })
     }
+    let testTsconfig: string | undefined
+    if (project.testTsconfig !== undefined) {
+      testTsconfig = join(directory, project.testTsconfig)
+      if (!isFile(testTsconfig)) {
+        issues.push({
+          path: `${at}.testTsconfig`,
+          message: `${relativePosix(root, testTsconfig)} does not exist`,
+        })
+      }
+    }
     const manifest = isDirectory(directory) ? readManifest(directory) : undefined
     return {
       name: project.name,
@@ -246,6 +269,7 @@ export const resolveConfig = (config: DevConfig): ResolvedConfig => {
       kind: project.kind,
       runtime: project.runtime,
       tsconfig,
+      ...(testTsconfig === undefined ? {} : { testTsconfig }),
       dependsOn: [...(project.dependsOn ?? [])],
       ...(project.react === undefined
         ? {}

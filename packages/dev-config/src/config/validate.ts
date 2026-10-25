@@ -319,7 +319,7 @@ class Validator {
       value,
       path,
       ['name', 'root', 'kind', 'runtime', 'tsconfig'],
-      ['dependsOn', 'react', 'suites', 'noUnitTests', 'build'],
+      ['testTsconfig', 'dependsOn', 'react', 'suites', 'noUnitTests', 'build'],
     )
     if (!shape) {
       return
@@ -331,6 +331,9 @@ class Validator {
     this.oneOf(shape.kind, `${path}.kind`, PROJECT_KINDS)
     this.oneOf(shape.runtime, `${path}.runtime`, RUNTIMES)
     this.relativePath(shape.tsconfig, `${path}.tsconfig`)
+    if (shape.testTsconfig !== undefined) {
+      this.relativePath(shape.testTsconfig, `${path}.testTsconfig`)
+    }
     if (shape.dependsOn !== undefined && this.array(shape.dependsOn, `${path}.dependsOn`)) {
       shape.dependsOn.forEach((name, index) => {
         this.string(name, `${path}.dependsOn[${index}]`)

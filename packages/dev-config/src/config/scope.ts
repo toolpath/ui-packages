@@ -1,3 +1,4 @@
+import { TEST_PROGRAM_PATTERNS } from '../policy/conventions.js'
 import { createMatcher, isScriptFile, isWithin, listFiles } from './files.js'
 import type { ResolvedConfig, ResolvedProject } from './resolve.js'
 
@@ -69,6 +70,9 @@ export const filesOf = (scope: Scope, project: ResolvedProject): Array<string> =
   [...scope.owned]
     .filter(([, owner]) => owner.kind === 'project' && owner.project === project)
     .map(([path]) => path)
+
+/** Whether a path is a test file or test helper (by the shared naming conventions). */
+export const isTestPath = createMatcher(TEST_PROGRAM_PATTERNS)
 
 export const toolingFiles = (scope: Scope): Array<string> =>
   [...scope.owned].filter(([, owner]) => owner.kind === 'tooling').map(([path]) => path)
