@@ -125,7 +125,7 @@
         "apiVersion": "1.32.0",
         "sha256": "b21fe6b647ad5f4274f7650b838b0482d03010b9b89844e485ceb974adeb8c68",
         "sdk": "0.10.0-staging.20261024220030.gb8be413",
-        "sdkRange": ">=0.10.0-0 <0.11.0-0"
+        "sdkRange": ">=0.10.0-0 <0.10.0"
       }
     },
     "defaultContract": "api-1.29.1",

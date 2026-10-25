@@ -50,7 +50,10 @@ const needsTestProgram = (project: ProjectConfig): boolean =>
  * its own global types. Universal and native projects check tests in
  * `tsconfig.test.json`, so runner and Node types never reach the source program.
  */
-export const projectTsconfig = (project: ProjectConfig): string => {
+export const projectTsconfig = (
+  project: ProjectConfig,
+  { engine = false }: { engine?: boolean } = {},
+): string => {
   const preset =
     project.kind === 'library' && project.runtime === 'universal'
       ? 'library'
@@ -59,7 +62,8 @@ export const projectTsconfig = (project: ProjectConfig): string => {
     project.runtime === 'native'
       ? { lib: ['ES2023'], types: [] }
       : project.runtime === 'node'
-        ? { types: ['node'] }
+        ? // The Engine SDK's generated fetch runtime declares its types with the DOM library's.
+          { types: ['node'], ...(engine ? { lib: ['ES2023', 'DOM', 'DOM.Iterable'] } : {}) }
         : {}
   const separate = needsTestProgram(project)
   return `${JSON.stringify(

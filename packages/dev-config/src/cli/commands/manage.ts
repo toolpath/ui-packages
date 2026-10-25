@@ -481,7 +481,10 @@ export const runInit = async (flags: InitFlags, output: Output): Promise<void> =
   const conflicts: Array<{ path: string; message: string }> = []
   for (const project of input.projects) {
     const prefix = project.root === '.' ? '' : `${project.root}/`
-    createIfMissing(`${prefix}tsconfig.json`, projectTsconfig(project))
+    createIfMissing(
+      `${prefix}tsconfig.json`,
+      projectTsconfig(project, { engine: input.engine !== undefined }),
+    )
     if (project.testTsconfig !== undefined) {
       createIfMissing(`${prefix}${project.testTsconfig}`, projectTestTsconfig())
     }

@@ -11,6 +11,8 @@ Select it with the `engine` profile in `dev.config.mjs` (see [configuration](con
 | `@toolpath/dev-config/engine/testing/msw`  | `createEngineHandlers`: the same scenario as MSW handlers (MSW is an optional peer).            |
 | `@toolpath/dev-config/engine/eslint`       | The optional `toolpath-engine/no-direct-engine-http` rule, applied by `createEslintConfig`.     |
 
+A Node project that uses the SDK checks its declarations with the DOM library (`"lib": ["ES2023", "DOM", "DOM.Iterable"]`): the SDK's generated fetch runtime, and MSW's interceptors, name DOM types such as `RequestCredentials` that Node's own types do not declare. `init` writes that for Node projects when the `engine` profile is selected.
+
 The test kit runs in Node, including Vitest's jsdom environment. It reads its contract snapshots from disk, so it does not run in a real browser.
 
 ## Contracts and SDK artifacts
