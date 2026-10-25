@@ -1,6 +1,7 @@
 import { availableParallelism } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { BUILT_IN_EXCLUDED_DIRECTORIES } from '../config/files.js'
 import type { DevConfig } from '../config/types.js'
 import { ConfigError } from '../errors.js'
 import {
@@ -95,10 +96,10 @@ export const createJestExpoConfig = (
     displayName: suite.id,
     preset: 'jest-expo',
     testMatch: UNIT_TEST_PATTERNS.map((pattern) => `<rootDir>/${pattern}`),
+    // Anchored at <rootDir>: Jest matches absolute paths, and an ancestor named
+    // `build` or `dist` must not hide every test.
     testPathIgnorePatterns: [
-      '/node_modules/',
-      '/dist/',
-      '/build/',
+      `<rootDir>/(?:.*/)?(?:${BUILT_IN_EXCLUDED_DIRECTORIES.map(escapeRegExp).join('|')})/`,
       '\\.spec\\.[cm]?[jt]sx?$',
       ...nested,
     ],

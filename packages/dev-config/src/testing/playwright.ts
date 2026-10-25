@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import type { PlaywrightTestConfig } from '@playwright/test'
-import { BUILT_IN_EXCLUSIONS } from '../config/files.js'
+import { BUILT_IN_EXCLUSIONS, toPosix } from '../config/files.js'
 import type { DevConfig } from '../config/types.js'
 import { ConfigError } from '../errors.js'
 import {
@@ -80,9 +80,11 @@ export const createPlaywrightConfig = (
   return {
     testDir: project.directory,
     testMatch: [...BROWSER_TEST_PATTERNS],
+    // Playwright matches these against absolute paths, so each is rooted at the
+    // project: an ancestor directory named `build` must not hide every test.
     testIgnore: [
-      ...BUILT_IN_EXCLUSIONS,
-      ...nestedRoots(resolved, project).map((root) => `${root}/**`),
+      ...BUILT_IN_EXCLUSIONS.map((pattern) => `${toPosix(project.directory)}/${pattern}`),
+      ...nestedRoots(resolved, project).map((root) => `${toPosix(project.directory)}/${root}/**`),
     ],
     outputDir,
     forbidOnly: true,

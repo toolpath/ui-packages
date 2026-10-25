@@ -29,6 +29,11 @@ export const BUILT_IN_EXCLUSIONS = [
   '**/.tmp/**',
 ] as const
 
+/** The directory names the built-in exclusions cover, for runners that match with regular expressions. */
+export const BUILT_IN_EXCLUDED_DIRECTORIES: ReadonlyArray<string> = BUILT_IN_EXCLUSIONS.map(
+  (pattern) => pattern.replace(/^\*\*\//, '').replace(/\/\*\*$/, ''),
+)
+
 export const toPosix = (path: string): string => path.split(sep).join('/')
 
 /** `path` relative to `root`, with forward slashes; `''` for the root itself. */
