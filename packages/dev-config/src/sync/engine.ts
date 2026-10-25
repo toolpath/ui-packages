@@ -72,14 +72,14 @@ export const planSync = (input: PlanInput): Plan => {
   const conflicts: Array<Conflict> = []
   const files: Receipt['files'] = {}
 
+  // The caller lists what is present; a file entry shows its removal as the patch.
   for (const forbidden of input.forbidden ?? []) {
-    if (existsSync(join(root, forbidden.path))) {
-      conflicts.push({
-        path: forbidden.path,
-        reason: forbidden.reason,
-        patch: unifiedDiff(forbidden.path, read(root, forbidden.path), undefined),
-      })
-    }
+    const isFile = existsSync(join(root, forbidden.path))
+    conflicts.push({
+      path: forbidden.path,
+      reason: forbidden.reason,
+      patch: isFile ? unifiedDiff(forbidden.path, read(root, forbidden.path), undefined) : '',
+    })
   }
 
   const pending = new Map<string, string | undefined>()

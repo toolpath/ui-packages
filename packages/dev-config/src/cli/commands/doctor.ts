@@ -285,7 +285,16 @@ export const runDoctor = async (flags: DoctorFlags, output: Output): Promise<voi
         },
       )
   await add('package manager', () => {
-    detectPackageManager(resolved.root)
+    const manager = detectPackageManager(resolved.root)
+    const tested = manager?.name === 'pnpm' ? toolchain.runtime.pnpm : toolchain.runtime.npm
+    if (manager?.version !== undefined && manager.version.split('.')[0] !== tested.split('.')[0]) {
+      return [
+        {
+          path: 'package.json packageManager',
+          message: `${manager.name}@${manager.version} is outside the tested ${manager.name} ${tested.split('.')[0] ?? ''} line (${tested})`,
+        },
+      ]
+    }
     return []
   })
   const scope = classifyFiles(resolved)

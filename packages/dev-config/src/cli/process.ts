@@ -1,4 +1,5 @@
 import { spawn, type SpawnOptions } from 'node:child_process'
+import { appendFileSync } from 'node:fs'
 import { availableParallelism } from 'node:os'
 
 export interface RunResult {
@@ -52,6 +53,11 @@ export const run = (
       env: options.env ?? process.env,
       stdio: options.inherit ? 'inherit' : ['ignore', 'pipe', 'pipe'],
       shell: false,
+    }
+    // The benchmark counts the processes a command starts.
+    const spawnLog = process.env.TOOLPATH_DEV_SPAWN_LOG
+    if (spawnLog) {
+      appendFileSync(spawnLog, `${JSON.stringify([command, ...args.slice(0, 2)])}\n`)
     }
     const child = spawn(command, [...args], spawnOptions)
     running.add(child)

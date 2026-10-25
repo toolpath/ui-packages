@@ -123,6 +123,22 @@ const competingConfigs = (root: string): typeof COMPETING_CONFIGS => {
       })
     }
   }
+  // A hook that already formats or runs lint-staged would format staged files a second time.
+  const top = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: root, encoding: 'utf8' })
+  const hook = top.status === 0 ? join(top.stdout.trim(), '.husky/pre-commit') : undefined
+  if (hook && existsSync(hook)) {
+    const outside = readFileSync(hook, 'utf8').replace(
+      /# toolpath-dev:begin pre-commit[\s\S]*?# toolpath-dev:end pre-commit\n?/,
+      '',
+    )
+    if (/\b(lint-staged|prettier|eslint)\b/.test(outside)) {
+      extra.push({
+        path: '.husky/pre-commit',
+        reason:
+          'already runs lint-staged, Prettier or ESLint; the managed hook does staged fixes and formatting. Remove those commands and keep any others',
+      })
+    }
+  }
   return [...COMPETING_CONFIGS.filter((entry) => existsSync(join(root, entry.path))), ...extra]
 }
 

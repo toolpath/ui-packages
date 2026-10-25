@@ -202,7 +202,10 @@ const single = join(work, 'npm-single')
 scenario('npm single project: init, idempotent sync, doctor, check', () => {
   must('mkdir', ['-p', single], { cwd: work })
   gitInit(single)
-  writeFiles(single, { '.gitignore': 'node_modules/\n' })
+  writeFiles(single, {
+    '.gitignore': 'node_modules/\n',
+    'AGENTS.md': '# Repository guidance\n\nOur own rule: keep the changelog current.\n',
+  })
   writeManifest(single, { packageManager: `npm@${toolchain.runtime.npm}` })
   materialize('node', single)
   must('npm', ['install', '--save-dev', '--save-exact', tarball], { cwd: single })
@@ -222,13 +225,103 @@ scenario('npm single project: init, idempotent sync, doctor, check', () => {
   const again = must(bin(single), ['sync', '--dry-run'], { cwd: single })
   assert.match(again.stdout, /no changes/, `a second sync would change files:\n${again.stdout}`)
   must(bin(single), ['doctor'], { cwd: single })
-  const check = must(bin(single), ['check'], { cwd: single })
+  const agents = readFileSync(join(single, 'AGENTS.md'), 'utf8')
+  assert.match(
+    agents,
+    /^# Repository guidance\n\nOur own rule: keep the changelog current\.\n\n<!-- toolpath-dev:begin /,
+  )
+  // Every process `check` starts records the modules it loads; none may be a formatter,
+  // browser installer, MSW, Expo, or the Engine SDK.
+  const loads = join(work, 'check-loads.log')
+  const tracer = `data:text/javascript,${encodeURIComponent(`
+import { registerHooks } from 'node:module'
+import { appendFileSync } from 'node:fs'
+registerHooks({ resolve: (specifier, context, next) => { const result = next(specifier, context); if (/node_modules\\/(prettier|msw|expo|jest-expo|playwright|@playwright|@toolpath\\/api)\\//.test(result.url)) appendFileSync(${JSON.stringify(loads)}, result.url + '\\n'); return result } })
+`)}`
+  const check = must(bin(single), ['check'], {
+    cwd: single,
+    env: childEnv({ NODE_OPTIONS: `--import=${tracer}` }),
+  })
   assert.ok(
     Buffer.byteLength(check.stdout) < 2048,
     `a passing check printed ${Buffer.byteLength(check.stdout)} bytes`,
   )
-  assert.ok(!/prettier/i.test(check.output), 'check invoked formatting')
+  assert.ok(
+    !existsSync(loads),
+    `check loaded:\n${existsSync(loads) ? readFileSync(loads, 'utf8') : ''}`,
+  )
 })
+
+scenario('npm single project: doctor diagnoses a stale receipt and a missing managed file', () => {
+  const receiptFile = join(single, '.toolpath/dev-config.json')
+  const original = readFileSync(receiptFile, 'utf8')
+  writeFiles(single, {
+    '.toolpath/dev-config.json': original.replace(
+      /"sourceSha": "[0-9a-f]+"/,
+      `"sourceSha": "${'f'.repeat(40)}"`,
+    ),
+  })
+  const stale = exec(bin(single), ['doctor'], { cwd: single })
+  assert.equal(stale.code, 2)
+  assert.match(stale.stderr, /records workflow revision f{40}/)
+  writeFiles(single, { '.toolpath/dev-config.json': original })
+  rmSync(join(single, '.claude/skills/commit/SKILL.md'))
+  const missing = exec(bin(single), ['doctor'], { cwd: single })
+  assert.equal(missing.code, 2)
+  assert.match(
+    missing.stderr,
+    /\.claude\/skills\/commit\/SKILL\.md: is a managed file that is missing/,
+  )
+  must(bin(single), ['sync'], { cwd: single })
+  must(bin(single), ['doctor'], { cwd: single })
+})
+
+scenario(
+  'init refuses a competing native config without writing, and recovers from a failed install',
+  () => {
+    const competing = join(work, 'npm-competing')
+    must('mkdir', ['-p', competing], { cwd: work })
+    gitInit(competing)
+    writeManifest(competing, {
+      packageManager: `npm@${toolchain.runtime.npm}`,
+      prettier: { semi: true },
+    })
+    writeFiles(competing, { '.prettierrc': '{ "semi": true }\n', '.gitignore': 'node_modules/\n' })
+    must('npm', ['install', '--save-dev', '--save-exact', tarball], { cwd: competing })
+    useFixtureRelease(competing)
+    const refused = exec(bin(competing), ['init', '--name', 'app', '--runtime', 'node'], {
+      cwd: competing,
+    })
+    assert.equal(refused.code, 2)
+    assert.match(refused.stderr, /\.prettierrc: is another Prettier configuration/)
+    assert.match(refused.stderr, /package\.json#prettier/)
+    assert.ok(!existsSync(join(competing, 'dev.config.mjs')), 'a refused init wrote files')
+
+    rmSync(join(competing, '.prettierrc'))
+    writeManifest(competing, {
+      packageManager: `npm@${toolchain.runtime.npm}`,
+      devDependencies: { '@toolpath/dev-config': `file:${tarball}` },
+    })
+    const offline = exec(bin(competing), ['init', '--name', 'app', '--runtime', 'node'], {
+      cwd: competing,
+      env: childEnv({
+        npm_config_registry: 'http://127.0.0.1:9/',
+        npm_config_fetch_retries: '0',
+        CI: '',
+      }),
+    })
+    assert.equal(offline.code, 2, offline.output)
+    assert.match(offline.stderr, /had already written: .*dev\.config\.mjs/)
+    assert.ok(
+      existsSync(join(competing, '.toolpath/dev-config-recovery.patch')),
+      'no recovery patch was saved',
+    )
+    assert.ok(
+      !existsSync(join(competing, '.toolpath/dev-config.json')),
+      'a failed install wrote the receipt',
+    )
+  },
+)
 
 scenario('npm single project: real defects fail each scope', () => {
   /** @type {Array<[string, string]>} */
@@ -295,6 +388,77 @@ scenario('npm single project: the pre-commit hook fixes and formats staged files
   assert.ok(existsSync(join(single, 'src/bad-commit.ts')), 'the refused file was lost')
   must('git', ['reset', '--quiet', 'HEAD', 'src/bad-commit.ts'], { cwd: single })
   rmSync(join(single, 'src/bad-commit.ts'))
+})
+
+scenario('npm single project: hook edge cases', () => {
+  const show = (/** @type {string} */ path) =>
+    must('git', ['show', `HEAD:${path}`], { cwd: single }).stdout
+  const commit = (/** @type {string} */ message) =>
+    exec('git', ['commit', '--quiet', '-m', message], { cwd: single })
+
+  // A byte-retained asset, declared as a project fact.
+  const configFile = join(single, 'dev.config.mjs')
+  writeFiles(single, {
+    'dev.config.mjs': readFileSync(configFile, 'utf8').replace(
+      '  ci: {',
+      "  formatIgnore: [{ files: ['retained/**'], reason: 'Recorded bytes whose hash a test checks' }],\n  ci: {",
+    ),
+  })
+  must('git', ['add', 'dev.config.mjs'], { cwd: single })
+  assert.equal(commit('retain').code, 0)
+
+  writeFiles(single, {
+    'src/with space/odd (1).ts': 'export const   spaced = 1\n',
+    'retained/snapshot.json': '{"keep":   "these bytes"}\n',
+    'image.png': '\u0089PNG\r\n\u001a\n\u0000binary',
+  })
+  must('git', ['add', 'src/with space/odd (1).ts', 'retained/snapshot.json', 'image.png'], {
+    cwd: single,
+  })
+  assert.equal(commit('edge').code, 0)
+  assert.equal(show('src/with space/odd (1).ts'), 'export const spaced = 1\n')
+  assert.equal(
+    show('retained/snapshot.json'),
+    '{"keep":   "these bytes"}\n',
+    'a retained file was reformatted',
+  )
+
+  must('git', ['mv', 'src/with space/odd (1).ts', 'src/renamed.ts'], { cwd: single })
+  assert.equal(commit('rename').code, 0, 'a rename-only commit failed')
+  must('git', ['rm', '--quiet', 'src/renamed.ts'], { cwd: single })
+  assert.equal(commit('delete').code, 0, 'a deletion-only commit failed')
+
+  writeFiles(single, { 'broken.json': '{ "unterminated": \n' })
+  must('git', ['add', 'broken.json'], { cwd: single })
+  const parse = commit('broken')
+  assert.notEqual(parse.code, 0, 'a formatter parse failure passed the hook')
+  assert.match(parse.output, /broken\.json: Prettier could not parse this file/)
+  assert.equal(
+    readFileSync(join(single, 'broken.json'), 'utf8'),
+    '{ "unterminated": \n',
+    'the file that failed to parse changed',
+  )
+  must('git', ['rm', '--quiet', '--cached', 'broken.json'], { cwd: single })
+  rmSync(join(single, 'broken.json'))
+
+  // The unstaged edit touches the line the formatter rewrites, so it cannot be reapplied cleanly.
+  writeFiles(single, { 'src/conflict.ts': 'export const value={a:1}\n' })
+  must('git', ['add', 'src/conflict.ts'], { cwd: single })
+  writeFiles(single, { 'src/conflict.ts': 'export const value={a:2}\n' })
+  const conflicted = commit('conflict')
+  // lint-staged fails the commit, says so, and returns the index and work tree to how they were.
+  assert.notEqual(conflicted.code, 0, 'a commit whose unstaged edit could not be restored passed')
+  assert.match(conflicted.output, /Failed to restore unstaged changes/)
+  assert.equal(
+    must('git', ['show', ':src/conflict.ts'], { cwd: single }).stdout,
+    'export const value={a:1}\n',
+    'the staged version was lost',
+  )
+  assert.equal(
+    readFileSync(join(single, 'src/conflict.ts'), 'utf8'),
+    'export const value={a:2}\n',
+    'the unstaged edit was lost',
+  )
 })
 
 const workspace = join(work, 'pnpm-workspace')
