@@ -39,7 +39,15 @@
         "eslint.config.mjs",
         "vitest.config.ts"
       ],
-      "project": ["src/**/*.{ts,mjs}", "scripts/**/*.mjs", "tests/**/*.{ts,tsx}"]
+      "project": ["src/**/*.{ts,mjs}", "scripts/**/*.mjs", "tests/**/*.{ts,tsx}"],
+      "ignoreDependencies": [
+        "@babel/core",
+        "@playwright/test",
+        "@testing-library/jest-dom",
+        "@types/babel__core",
+        "babel-plugin-react-compiler",
+        "esbuild"
+      ]
     },
     "packages/dfm": {
       "entry": ["src/index.ts", "src/model/index.ts", "tests/**/*.test.ts"],

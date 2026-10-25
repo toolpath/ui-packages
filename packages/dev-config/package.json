@@ -25,23 +25,28 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./eslint": {
       "types": "./dist/eslint/index.d.ts",
-      "import": "./dist/eslint/index.js"
+      "import": "./dist/eslint/index.js",
+      "default": "./dist/eslint/index.js"
     },
     "./eslint/plugin": {
       "types": "./dist/eslint/plugin/index.d.ts",
-      "import": "./dist/eslint/plugin/index.js"
+      "import": "./dist/eslint/plugin/index.js",
+      "default": "./dist/eslint/plugin/index.js"
     },
     "./prettier": {
       "types": "./dist/prettier/index.d.ts",
-      "import": "./dist/prettier/index.js"
+      "import": "./dist/prettier/index.js",
+      "default": "./dist/prettier/index.js"
     },
     "./hooks": {
       "types": "./dist/hooks/index.d.ts",
-      "import": "./dist/hooks/index.js"
+      "import": "./dist/hooks/index.js",
+      "default": "./dist/hooks/index.js"
     },
     "./typescript/base.json": "./assets/typescript/base.json",
     "./typescript/node.json": "./assets/typescript/node.json",
@@ -49,47 +54,58 @@
     "./typescript/library.json": "./assets/typescript/library.json",
     "./vitest": {
       "types": "./dist/testing/vitest.d.ts",
-      "import": "./dist/testing/vitest.js"
+      "import": "./dist/testing/vitest.js",
+      "default": "./dist/testing/vitest.js"
     },
     "./playwright": {
       "types": "./dist/testing/playwright.d.ts",
-      "import": "./dist/testing/playwright.js"
+      "import": "./dist/testing/playwright.js",
+      "default": "./dist/testing/playwright.js"
     },
     "./jest-expo": {
       "types": "./dist/testing/jest-expo.d.ts",
-      "import": "./dist/testing/jest-expo.js"
+      "import": "./dist/testing/jest-expo.js",
+      "default": "./dist/testing/jest-expo.js"
     },
     "./react/vite": {
       "types": "./dist/react/vite.d.ts",
-      "import": "./dist/react/vite.js"
+      "import": "./dist/react/vite.js",
+      "default": "./dist/react/vite.js"
     },
     "./react/babel": {
       "types": "./dist/react/babel.d.ts",
-      "import": "./dist/react/babel.js"
+      "import": "./dist/react/babel.js",
+      "default": "./dist/react/babel.js"
     },
     "./react/expo": {
       "types": "./dist/react/expo.d.ts",
-      "import": "./dist/react/expo.js"
+      "import": "./dist/react/expo.js",
+      "default": "./dist/react/expo.js"
     },
     "./react/library": {
       "types": "./dist/react/library.d.ts",
-      "import": "./dist/react/library.js"
+      "import": "./dist/react/library.js",
+      "default": "./dist/react/library.js"
     },
     "./engine/testing": {
       "types": "./dist/engine/testing/index.d.ts",
-      "import": "./dist/engine/testing/index.js"
+      "import": "./dist/engine/testing/index.js",
+      "default": "./dist/engine/testing/index.js"
     },
     "./engine/testing/node": {
       "types": "./dist/engine/testing/node.d.ts",
-      "import": "./dist/engine/testing/node.js"
+      "import": "./dist/engine/testing/node.js",
+      "default": "./dist/engine/testing/node.js"
     },
     "./engine/testing/msw": {
       "types": "./dist/engine/testing/msw.d.ts",
-      "import": "./dist/engine/testing/msw.js"
+      "import": "./dist/engine/testing/msw.js",
+      "default": "./dist/engine/testing/msw.js"
     },
     "./engine/eslint": {
       "types": "./dist/engine/eslint/index.d.ts",
-      "import": "./dist/engine/eslint/index.js"
+      "import": "./dist/engine/eslint/index.js",
+      "default": "./dist/engine/eslint/index.js"
     },
     "./package.json": "./package.json",
     "./release.json": "./dist/release.json"

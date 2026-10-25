@@ -203,7 +203,7 @@ export const assertCompiledOutput = (
   return evidence
 }
 
-export interface CompilerEvent {
+interface CompilerEvent {
   kind: string
   fnName?: string | null
   reason?: string
@@ -225,7 +225,7 @@ interface BabelCore {
 }
 
 /** Parser plugins for a file's syntax; `.ts` excludes JSX so `<T>value` casts still parse. */
-export const parserPluginsFor = (filename: string): Array<'jsx' | 'typescript'> => {
+const parserPluginsFor = (filename: string): Array<'jsx' | 'typescript'> => {
   if (/\.[cm]?tsx$/.test(filename)) {
     return ['jsx', 'typescript']
   }

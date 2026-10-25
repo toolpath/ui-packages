@@ -157,6 +157,19 @@ console.log(JSON.stringify([...loaded]))
   )
 })
 
+scenario('CommonJS configuration files can require the entry points', () => {
+  // babel.config.js, jest.config.js and metro.config.js are often CommonJS.
+  const script = `
+const { defineConfig } = require('@toolpath/dev-config')
+const prettier = require('@toolpath/dev-config/prettier')
+const { createEslintConfig } = require('@toolpath/dev-config/eslint')
+if (typeof defineConfig !== 'function' || prettier.default.printWidth !== 100 || typeof createEslintConfig !== 'function') {
+  throw new Error('a CommonJS require returned the wrong module')
+}
+`
+  must('node', ['-e', script], { cwd: minimal })
+})
+
 scenario('optional entry points name the missing profile', () => {
   writeFiles(minimal, {
     'dev.config.mjs': `import { defineConfig } from '@toolpath/dev-config'
