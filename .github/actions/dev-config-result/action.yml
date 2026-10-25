@@ -1,0 +1,29 @@
+name: dev-config result
+description: >-
+  Fail unless every required @toolpath/dev-config job succeeded and recorded complete,
+  passing receipts. Dependency-free, so it runs even when an install failed.
+
+inputs:
+  needs:
+    description: The predecessor jobs, as `toJSON(needs)`.
+    required: true
+  required:
+    description: Caller aggregate only. The generated inventory of required jobs, as JSON.
+    required: false
+    default: ''
+  plan:
+    description: Central workflow only. The execution plan the run must satisfy, as JSON.
+    required: false
+    default: ''
+  receipts:
+    description: Central workflow only. The directory holding the downloaded receipts.
+    required: false
+    default: ''
+
+outputs:
+  receipt:
+    description: Central workflow only. The verified summary a caller's quality job requires.
+
+runs:
+  using: node24
+  main: index.mjs

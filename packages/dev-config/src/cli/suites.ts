@@ -294,7 +294,7 @@ export const runSuite = async (
   return { ...base, status, tests }
 }
 
-const describeOutcome = (outcome: SuiteOutcome): string => {
+export const describeOutcome = (outcome: SuiteOutcome): string => {
   const counts = `${plural(outcome.tests.passed, 'test')} passed${outcome.tests.skipped > 0 ? `, ${outcome.tests.skipped} skipped` : ''}`
   switch (outcome.status) {
     case 'passed':

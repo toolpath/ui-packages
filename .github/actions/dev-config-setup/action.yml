@@ -1,0 +1,108 @@
+name: dev-config setup
+description: >-
+  Set up the Node and package manager versions @toolpath/dev-config pins, restore the
+  dependency-store cache, install with the frozen lockfile, install the browsers a suite
+  declares, then run the core diagnosis and publish the CI execution plan.
+
+inputs:
+  working-directory:
+    description: The directory holding dev.config.mjs and package.json, relative to the workspace.
+    required: false
+    default: '.'
+  config:
+    description: A dev.config.mjs path relative to working-directory, when it is not the default.
+    required: false
+    default: ''
+  browsers:
+    description: Playwright browsers the suite in this job declares (chromium, firefox, webkit).
+    required: false
+    default: ''
+
+outputs:
+  plan:
+    description: The execution plan from `toolpath-dev ci --plan`, as JSON.
+    value: ${{ steps.diagnose.outputs.plan }}
+  suites:
+    description: The central suite matrix, as JSON.
+    value: ${{ steps.diagnose.outputs.suites }}
+  has-suites:
+    description: Whether the plan has suites the central workflow runs in their own jobs.
+    value: ${{ steps.diagnose.outputs.has-suites }}
+  call:
+    description: An identifier for this working directory and config, unique within a run.
+    value: ${{ steps.resolve.outputs.call }}
+  package-manager:
+    description: npm or pnpm.
+    value: ${{ steps.resolve.outputs.package-manager }}
+
+runs:
+  using: composite
+  steps:
+    # Inputs reach the scripts as environment variables, never as shell source.
+    - id: resolve
+      shell: bash
+      env:
+        TOOLPATH_DEV_INPUT_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        TOOLPATH_DEV_INPUT_CONFIG: ${{ inputs.config }}
+        TOOLPATH_DEV_INPUT_BROWSERS: ${{ inputs.browsers }}
+      run: node "$GITHUB_ACTION_PATH/index.mjs" resolve
+
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: ${{ steps.resolve.outputs.node-version }}
+        package-manager-cache: false
+
+    - if: steps.resolve.outputs.package-manager == 'pnpm'
+      uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      with:
+        version: ${{ steps.resolve.outputs.pnpm-version }}
+        package_json_file: ${{ steps.resolve.outputs.package-json }}
+
+    - id: store
+      shell: bash
+      env:
+        TOOLPATH_DEV_INPUT_DIRECTORY: ${{ steps.resolve.outputs.directory }}
+        TOOLPATH_DEV_INPUT_PACKAGE_MANAGER: ${{ steps.resolve.outputs.package-manager }}
+      run: node "$GITHUB_ACTION_PATH/index.mjs" store
+
+    # The package manager's store, keyed by OS, Node, package manager and lockfile.
+    # The install below still runs frozen; a cache only saves downloads.
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.store.outputs.path }}
+        key: ${{ steps.resolve.outputs.cache-key }}
+        restore-keys: ${{ steps.resolve.outputs.cache-prefix }}
+
+    - shell: bash
+      env:
+        TOOLPATH_DEV_INPUT_DIRECTORY: ${{ steps.resolve.outputs.directory }}
+        TOOLPATH_DEV_INPUT_PACKAGE_MANAGER: ${{ steps.resolve.outputs.package-manager }}
+      run: node "$GITHUB_ACTION_PATH/index.mjs" install
+
+    - id: browser-identity
+      if: steps.resolve.outputs.browsers != ''
+      shell: bash
+      env:
+        TOOLPATH_DEV_INPUT_DIRECTORY: ${{ steps.resolve.outputs.directory }}
+      run: node "$GITHUB_ACTION_PATH/index.mjs" browser-identity
+
+    # Browser binaries by exact Playwright identity; installation below still runs.
+    - if: steps.resolve.outputs.browsers != ''
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.browser-identity.outputs.playwright }}-${{ steps.resolve.outputs.browsers }}
+
+    - if: steps.resolve.outputs.browsers != ''
+      shell: bash
+      env:
+        TOOLPATH_DEV_INPUT_DIRECTORY: ${{ steps.resolve.outputs.directory }}
+        TOOLPATH_DEV_INPUT_BROWSERS: ${{ steps.resolve.outputs.browsers }}
+      run: node "$GITHUB_ACTION_PATH/index.mjs" browsers
+
+    - id: diagnose
+      shell: bash
+      env:
+        TOOLPATH_DEV_INPUT_DIRECTORY: ${{ steps.resolve.outputs.directory }}
+        TOOLPATH_DEV_INPUT_CONFIG: ${{ steps.resolve.outputs.config }}
+      run: node "$GITHUB_ACTION_PATH/index.mjs" diagnose

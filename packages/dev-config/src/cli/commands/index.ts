@@ -1,5 +1,6 @@
 import type { ParseArgsConfig } from 'node:util'
 import type { Output } from '../output.js'
+import { ci } from './ci.js'
 import type { PackageManagerName } from '../../config/packages.js'
 import { UsageError } from '../../errors.js'
 import { runDoctor } from './doctor.js'
@@ -178,6 +179,36 @@ export const COMMANDS: Record<string, Command> = {
       'toolpath-dev check [--project <name>]...\nDoctor essentials, prerequisite builds, lint, type checks and ordinary tests. Never formats.',
     options: {},
     run: (context) => check(qualityFlags(context), context.output),
+  },
+  ci: {
+    usage:
+      'toolpath-dev ci [--stage <standards|format|lint|types|unit> | --suite <project>:<suite>] [--receipt-dir <dir>] [--report-dir <dir>]\n' +
+      'toolpath-dev ci --plan\n' +
+      'The CI quality contract: the read-only format backstop, lint, types, unit suites, and each required suite the central\n' +
+      'workflow runs. --receipt-dir records the receipts the CI result policy verifies; --plan prints the execution plan.',
+    options: {
+      stage: { type: 'string' },
+      suite: { type: 'string' },
+      plan: { type: 'boolean' },
+      'receipt-dir': { type: 'string' },
+      'report-dir': { type: 'string' },
+    },
+    run: (context) =>
+      ci(
+        {
+          ...context.common,
+          ...(typeof context.values.stage === 'string' ? { stage: context.values.stage } : {}),
+          ...(typeof context.values.suite === 'string' ? { suite: context.values.suite } : {}),
+          plan: context.values.plan === true,
+          ...(typeof context.values['receipt-dir'] === 'string'
+            ? { receiptDir: context.values['receipt-dir'] }
+            : {}),
+          ...(typeof context.values['report-dir'] === 'string'
+            ? { reportDir: context.values['report-dir'] }
+            : {}),
+        },
+        context.output,
+      ),
   },
   'hooks files': {
     usage:

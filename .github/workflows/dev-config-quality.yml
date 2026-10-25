@@ -1,0 +1,135 @@
+# The shared @toolpath/dev-config quality gate. Consumers call it from a small
+# generated caller (`toolpath-dev init`/`sync`) pinned to a release's full source
+# SHA. Its inputs are repository facts only: no rule maps, skip flags, or shell.
+name: dev-config quality
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: The directory holding dev.config.mjs, relative to the repository root.
+        type: string
+        default: '.'
+      config:
+        description: A dev.config.mjs path relative to working-directory, when not the default.
+        type: string
+        default: ''
+    outputs:
+      receipt:
+        description: The verified summary the caller's aggregate quality job requires.
+        value: ${{ jobs.verify.outputs.receipt }}
+
+permissions:
+  contents: read
+
+jobs:
+  # Diagnosis, the execution plan, and the standards stages: the read-only format
+  # backstop, lint, types, and unit suites, with prerequisite builds once.
+  standards:
+    name: standards
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      plan: ${{ steps.setup.outputs.plan }}
+      suites: ${{ steps.setup.outputs.suites }}
+      has-suites: ${{ steps.setup.outputs.has-suites }}
+      call: ${{ steps.setup.outputs.call }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # This workflow's own source, not the caller's: local actions resolve from it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .toolpath/ci-source
+          persist-credentials: false
+      - id: setup
+        uses: ./.toolpath/ci-source/.github/actions/dev-config-setup
+        with:
+          working-directory: ${{ inputs.working-directory }}
+          config: ${{ inputs.config }}
+      - uses: ./.toolpath/ci-source/.github/actions/dev-config-check
+        with:
+          working-directory: ${{ inputs.working-directory }}
+          config: ${{ inputs.config }}
+          stage: standards
+          receipt-dir: ${{ runner.temp }}/toolpath-dev/receipts/standards
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: toolpath-dev-receipts-${{ steps.setup.outputs.call }}-standards
+          path: ${{ runner.temp }}/toolpath-dev/receipts/standards
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Required browser and command suites, one bounded job each. Delegated suites
+  # run in the caller's own jobs; manual suites are excluded by the plan.
+  suites:
+    name: suite ${{ matrix.suite }}
+    needs: standards
+    if: ${{ !cancelled() && needs.standards.outputs.has-suites == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include: ${{ fromJSON(needs.standards.outputs.suites) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .toolpath/ci-source
+          persist-credentials: false
+      - uses: ./.toolpath/ci-source/.github/actions/dev-config-setup
+        with:
+          working-directory: ${{ inputs.working-directory }}
+          config: ${{ inputs.config }}
+          browsers: ${{ matrix.browsers }}
+      - uses: ./.toolpath/ci-source/.github/actions/dev-config-check
+        with:
+          working-directory: ${{ inputs.working-directory }}
+          config: ${{ inputs.config }}
+          suite: ${{ matrix.suite }}
+          receipt-dir: ${{ runner.temp }}/toolpath-dev/receipts/${{ matrix.key }}
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: toolpath-dev-receipts-${{ needs.standards.outputs.call }}-${{ matrix.key }}
+          path: ${{ runner.temp }}/toolpath-dev/receipts/${{ matrix.key }}
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Every job finished as the plan requires and every required receipt passed.
+  # Its summary is this workflow's output, which the caller's quality job checks.
+  verify:
+    name: verify
+    needs: [standards, suites]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      receipt: ${{ steps.result.outputs.receipt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .toolpath/ci-source
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: toolpath-dev-receipts-${{ needs.standards.outputs.call }}-*
+          path: ${{ runner.temp }}/toolpath-dev/receipts
+      - id: result
+        uses: ./.toolpath/ci-source/.github/actions/dev-config-result
+        with:
+          needs: ${{ toJSON(needs) }}
+          plan: ${{ needs.standards.outputs.plan }}
+          receipts: ${{ runner.temp }}/toolpath-dev/receipts

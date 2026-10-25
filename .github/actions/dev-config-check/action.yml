@@ -1,0 +1,64 @@
+name: dev-config check
+description: >-
+  Run one declared @toolpath/dev-config stage or suite with the repository's installed
+  toolpath-dev, and succeed only when its receipt proves it ran and passed.
+
+inputs:
+  working-directory:
+    description: The directory holding dev.config.mjs, relative to the workspace.
+    required: false
+    default: '.'
+  config:
+    description: A dev.config.mjs path relative to working-directory, when it is not the default.
+    required: false
+    default: ''
+  stage:
+    description: standards (format, lint, types and unit), or one of format, lint, types, unit.
+    required: false
+    default: ''
+  suite:
+    description: A declared <project>:<suite> from dev.config.mjs.
+    required: false
+    default: ''
+  receipt-dir:
+    description: Where receipts are written. Default is a directory under the runner's temp.
+    required: false
+    default: ''
+
+outputs:
+  receipt:
+    description: The verified summary a caller's aggregate quality job requires.
+    value: ${{ steps.check.outputs.receipt }}
+  receipt-dir:
+    description: The directory the receipts were written to.
+    value: ${{ steps.check.outputs.receipt-dir }}
+
+runs:
+  using: composite
+  steps:
+    # Inputs reach the script as environment variables, never as shell source.
+    - id: check
+      shell: bash
+      env:
+        TOOLPATH_DEV_INPUT_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        TOOLPATH_DEV_INPUT_CONFIG: ${{ inputs.config }}
+        TOOLPATH_DEV_INPUT_STAGE: ${{ inputs.stage }}
+        TOOLPATH_DEV_INPUT_SUITE: ${{ inputs.suite }}
+        TOOLPATH_DEV_INPUT_RECEIPT_DIR: ${{ inputs.receipt-dir }}
+      run: node "$GITHUB_ACTION_PATH/index.mjs"
+
+    # Runner reports, browser traces and screenshots, and the receipts, after the
+    # result is already recorded. Hidden files (.env and the like) are never included.
+    - if: failure()
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: toolpath-dev-failure-${{ steps.check.outputs.artifact-key }}
+        path: |
+          ${{ steps.check.outputs.report-dir }}
+          ${{ steps.check.outputs.receipt-dir }}
+          ${{ steps.check.outputs.directory }}/test-results
+          ${{ steps.check.outputs.directory }}/playwright-report
+          !**/.env*
+        if-no-files-found: ignore
+        include-hidden-files: false
+        retention-days: 7
