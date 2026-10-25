@@ -1,6 +1,7 @@
 import { CheckFailure, ConfigError, UsageError } from '../../errors.js'
 import { prerequisiteBuilds, runBuilds } from '../build.js'
 import { lintFiles, reportLint } from '../lint.js'
+import { verifyReactProjects } from '../react-gate.js'
 import type { Output } from '../output.js'
 import { interruption } from '../process.js'
 import { reportOutcomes, runSuite, type SuiteOutcome } from '../suites.js'
@@ -183,6 +184,7 @@ export const check = async (flags: QualityFlags, output: Output): Promise<void> 
   await stage('check-types', () =>
     checkTypes(workspace.resolved, selectedPrograms(workspace), output),
   )
+  await stage('react', () => verifyReactProjects(workspace.resolved, workspace.selected, output))
   await stage('test', () => test({ ...flags, suites: [], filters: [] }, output, workspace, built))
   const signal = interruption()
   if (signal) {

@@ -17,6 +17,7 @@ import {
   type SuiteOutcome,
   type TestCounts,
 } from '../suites.js'
+import { verifyReactProjects } from '../react-gate.js'
 import { checkTypes, inspectPrograms } from '../typescript.js'
 import {
   assertOwnership,
@@ -194,6 +195,12 @@ const unitStage = async (context: StageContext): Promise<StageResult> => {
     projectsNamed(context, context.plan.standards.builds),
     context.output,
     context.built,
+  )
+  // React Compiler wiring is part of a React project's ordinary verification.
+  await verifyReactProjects(
+    context.workspace.resolved,
+    context.workspace.resolved.projects,
+    context.output,
   )
   const selected = suitesOf(context, context.plan.standards.unitSuites)
   if (selected.length === 0) {
