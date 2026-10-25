@@ -149,6 +149,73 @@ import { createPlaywrightConfig } from '@toolpath/dev-config/playwright'
 export default createPlaywrightConfig(config, { project: '${project.name}', suite: '${suite}' })
 `
 
+/**
+ * The native build config `init` writes for a React project that has none, so
+ * the compiler runs in the real build from the first commit. Libraries choose
+ * their own entries and formats, so `library-esbuild` gets no template; `doctor`
+ * and `react verify` name the plugin to add.
+ */
+export const reactBuildConfig = (
+  project: ProjectConfig,
+): { path: string; content: string } | undefined => {
+  const configImport = relativeConfigImport(project.root)
+  switch (project.react?.adapter) {
+    case 'vite-legacy':
+    case 'vite-modern':
+      return {
+        path: 'vite.config.ts',
+        content: `import { defineConfig } from 'vite'
+import config from '${configImport}'
+import { createReactPlugins } from '@toolpath/dev-config/react/vite'
+
+export default defineConfig({
+  plugins: [...(await createReactPlugins(config, { project: '${project.name}' }))],
+})
+`,
+      }
+    case 'react-router':
+      return {
+        path: 'vite.config.ts',
+        content: `import { reactRouter } from '@react-router/dev/vite'
+import { defineConfig } from 'vite'
+import config from '${configImport}'
+import { createReactRouterCompilerPlugin } from '@toolpath/dev-config/react/babel'
+
+export default defineConfig({
+  plugins: [reactRouter(), await createReactRouterCompilerPlugin(config, { project: '${project.name}' })],
+})
+`,
+      }
+    case 'babel':
+      return {
+        path: 'babel.config.mjs',
+        content: `import config from '${configImport}'
+import { createBabelConfig } from '@toolpath/dev-config/react/babel'
+
+export default createBabelConfig(config, {
+  project: '${project.name}',
+  presets: ['@babel/preset-typescript', ['@babel/preset-react', { runtime: 'automatic' }]],
+})
+`,
+      }
+    case 'expo':
+      return {
+        path: 'babel.config.js',
+        content: `const { createExpoBabelConfig } = require('@toolpath/dev-config/react/expo')
+const { default: config } = require('${configImport}')
+
+module.exports = (api) => {
+  api.cache(true)
+  return createExpoBabelConfig(config, { project: '${project.name}' })
+}
+`,
+      }
+    case 'library-esbuild':
+    case undefined:
+      return undefined
+  }
+}
+
 const literal = (value: unknown, indent: string): string => {
   if (Array.isArray(value)) {
     if (value.length === 0) {

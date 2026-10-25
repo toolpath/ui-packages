@@ -21,6 +21,7 @@ import type {
 import { validateConfigShape } from '../../config/validate.js'
 import { ConfigError, PrerequisiteError, UsageError } from '../../errors.js'
 import { toolchain } from '../../policy/toolchain.js'
+import { ADAPTER_WIRING } from '../../react/requirements.js'
 import { assertInstallableIdentity, type ReleaseIdentity } from '../../release/metadata.js'
 import { desiredState, type DesiredScope } from '../../sync/desired.js'
 import {
@@ -39,6 +40,7 @@ import {
   jestExpoConfig,
   playwrightConfig,
   projectTestTsconfig,
+  reactBuildConfig,
   projectTsconfig,
   TOOLING_FILES,
   toolingTsconfig,
@@ -531,10 +533,65 @@ export const runInit = async (flags: InitFlags, output: Output): Promise<void> =
             : playwrightConfig(project, suite)
       creates.push({ path, before: undefined, after: content })
     }
+    if (project.react) {
+      const wiring = ADAPTER_WIRING[project.react.adapter]
+      const existing = wiring.configFiles.filter((file) => existsSync(join(root, prefix, file)))
+      const template = reactBuildConfig(project)
+      if (existing.length === 0 && template) {
+        creates.push({
+          path: `${prefix}${template.path}`,
+          before: undefined,
+          after: template.content,
+        })
+      }
+      for (const file of existing) {
+        if (!readFileSync(join(root, prefix, file), 'utf8').includes(wiring.specifier)) {
+          conflicts.push({
+            path: `${prefix}${file}`,
+            message: `does not import ${wiring.specifier}, so React Compiler would not run in this build; ${wiring.remedy} (docs/react.md), then rerun`,
+          })
+        }
+      }
+      if (project.react.adapter === 'expo') {
+        const appJson = `${prefix}app.json`
+        const dynamic = ['app.config.js', 'app.config.ts'].find((file) =>
+          existsSync(join(root, prefix, file)),
+        )
+        if (dynamic) {
+          if (!readFileSync(join(root, prefix, dynamic), 'utf8').includes('withReactCompiler')) {
+            conflicts.push({
+              path: `${prefix}${dynamic}`,
+              message:
+                'must wrap its config with withReactCompiler from @toolpath/dev-config/react/expo',
+            })
+          }
+        } else if (existsSync(join(root, appJson))) {
+          const text = readFileSync(join(root, appJson), 'utf8')
+          const app = JSON.parse(text) as { expo?: { experiments?: Record<string, unknown> } }
+          if (app.expo?.experiments?.reactCompiler !== true) {
+            const next = {
+              ...app,
+              expo: { ...app.expo, experiments: { ...app.expo?.experiments, reactCompiler: true } },
+            }
+            creates.push({
+              path: appJson,
+              before: text,
+              after: `${JSON.stringify(next, null, 2)}\n`,
+            })
+          }
+        } else {
+          conflicts.push({
+            path: appJson,
+            message:
+              'is missing; an Expo project needs its app config to enable experiments.reactCompiler',
+          })
+        }
+      }
+    }
   }
   if (conflicts.length > 0) {
     throw new ConfigError(
-      'init: nothing was changed; these runner configs need merging first:',
+      'init: nothing was changed; these native configs need merging first:',
       conflicts,
     )
   }

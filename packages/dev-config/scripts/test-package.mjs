@@ -461,6 +461,62 @@ scenario('npm single project: hook edge cases', () => {
   )
 })
 
+scenario('npm React app: init wires the compiler into Vite and check proves it compiles', () => {
+  const app = join(work, 'npm-react')
+  must('mkdir', ['-p', app], { cwd: work })
+  gitInit(app)
+  writeFiles(app, { '.gitignore': 'node_modules/\n' })
+  writeManifest(app, { packageManager: `npm@${toolchain.runtime.npm}` })
+  materialize('react', app)
+  must('npm', ['install', '--save-exact', 'react@19.3.0', 'react-dom@19.3.0'], { cwd: app })
+  must(
+    'npm',
+    [
+      'install',
+      '--save-dev',
+      '--save-exact',
+      tarball,
+      '@types/react@19.3.0',
+      '@types/react-dom@19.3.0',
+    ],
+    { cwd: app },
+  )
+  useFixtureRelease(app)
+  must(
+    bin(app),
+    [
+      'init',
+      '--name',
+      'web',
+      '--kind',
+      'application',
+      '--runtime',
+      'dom',
+      '--react',
+      'vite-modern',
+    ],
+    {
+      cwd: app,
+      env: childEnv({ CI: '' }),
+    },
+  )
+  useFixtureRelease(app)
+  assert.match(
+    readFileSync(join(app, 'vite.config.ts'), 'utf8'),
+    /createReactPlugins\(config, \{ project: 'web' \}\)/,
+  )
+  must(bin(app), ['doctor'], { cwd: app })
+  const check = must(bin(app), ['check'], { cwd: app })
+  assert.match(check.stdout, /react web \(vite-modern\): compiled/)
+  assert.match(check.stdout, /web:unit: 1 test passed/)
+  writeFiles(app, {
+    'vite.config.ts': "import { defineConfig } from 'vite'\n\nexport default defineConfig({})\n",
+  })
+  const unwired = exec(bin(app), ['check'], { cwd: app })
+  assert.equal(unwired.code, 2, 'check passed with the compiler removed from the build')
+  assert.match(unwired.stderr, /does not import @toolpath\/dev-config\/react\/vite|not wired/)
+})
+
 const workspace = join(work, 'pnpm-workspace')
 scenario('pnpm workspace: init, focused check, idempotent sync', () => {
   must('mkdir', ['-p', join(workspace, 'packages/core'), join(workspace, 'packages/util')], {
