@@ -9,6 +9,9 @@ export default [
     ignores: [
       '**/dist/**',
       '**/node_modules/**',
+      // Linted by its own ESLint 10 policy: `pnpm --filter @toolpath/dev-config lint`,
+      // which `pnpm lint:js` runs after this. Its tests hold deliberately invalid inputs.
+      'packages/dev-config/**',
       'packages/sdk-python/**',
       'packages/sdk-typescript/src/generated/**',
       'packages/viewer/fixtures/**',

@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "policyVersion": 1,
+  "runtime": {
+    "node": "24.18.0",
+    "nodeRange": ">=24.18.0 <25",
+    "pnpm": "10.6.5",
+    "npm": "11.16.0"
+  },
+  "ci": {
+    "runner": "ubuntu-24.04",
+    "timeouts": {
+      "quality": 20,
+      "browser": 30,
+      "integration": 30
+    },
+    "artifactRetentionDays": 7
+  },
+  "core": {
+    "eslint": "10.9.1",
+    "typescript": ["5.9.3", "6.0.3"],
+    "defaultTypescript": "5.9.3"
+  },
+  "bundled": {
+    "@eslint-react/eslint-plugin": "5.18.2",
+    "@eslint/js": "10.0.1",
+    "@typescript-eslint/utils": "8.68.0",
+    "@vitest/eslint-plugin": "1.6.27",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "eslint-plugin-jest": "29.17.0",
+    "eslint-plugin-jsx-a11y-x": "0.2.0",
+    "eslint-plugin-playwright": "2.12.1",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-testing-library": "7.16.2",
+    "globals": "17.13.0",
+    "husky": "9.1.7",
+    "lint-staged": "17.3.0",
+    "picomatch": "4.0.7",
+    "prettier": "3.9.10",
+    "typescript-eslint": "8.68.0",
+    "yaml": "2.9.0"
+  },
+  "profiles": {
+    "vitest": {
+      "vitest": "4.1.10"
+    },
+    "dom": {
+      "jsdom": "30.0.1",
+      "@testing-library/dom": "10.4.1",
+      "@testing-library/react": "16.3.3",
+      "@testing-library/user-event": "14.6.8",
+      "@testing-library/jest-dom": "7.0.1"
+    },
+    "playwright": {
+      "@playwright/test": "1.64.1"
+    },
+    "jest-expo": {
+      "jest": "30.5.2",
+      "jest-expo": "58.0.11",
+      "@testing-library/react-native": "14.1.0"
+    },
+    "react": {
+      "babel-plugin-react-compiler": "1.0.0"
+    },
+    "react-vite-legacy": {
+      "vite": "7.3.6",
+      "@vitejs/plugin-react": "5.2.0",
+      "@babel/core": "7.29.7"
+    },
+    "react-vite-modern": {
+      "vite": "8.3.5",
+      "@vitejs/plugin-react": "6.1.2",
+      "@rolldown/plugin-babel": "0.2.4",
+      "@babel/core": "7.29.7"
+    },
+    "react-react-router": {
+      "vite-plugin-babel": "1.7.3",
+      "@babel/core": "7.29.7",
+      "@babel/preset-typescript": "7.29.7"
+    },
+    "react-expo": {},
+    "react-library-esbuild": {
+      "@babel/core": "7.29.7"
+    },
+    "react-babel": {
+      "@babel/core": "7.29.7"
+    },
+    "engine": {
+      "@toolpath/api": ["0.9.0", "0.10.0-staging.20261024220030.gb8be413"]
+    },
+    "engine-msw": {
+      "msw": "2.15.0"
+    }
+  },
+  "react": {
+    "compilerRuntime": "1.0.0",
+    "minimumVersions": ["17", "18", "19"],
+    "defaultMinimumVersion": "19"
+  },
+  "tested": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.0",
+    "expo": "58.0.19",
+    "babel-preset-expo": "58.0.20",
+    "react-router": "7.18.4",
+    "@react-router/dev": "7.18.4",
+    "esbuild": "0.28.2",
+    "tsup": "8.5.1"
+  },
+  "engine": {
+    "contracts": {
+      "api-1.29.1": {
+        "channel": "stable",
+        "apiVersion": "1.29.1",
+        "sha256": "123854eecdb1ee00468d573654e9a307e1d4764f183f4b3047a693c8fafb4a3c",
+        "sdk": "0.9.0",
+        "sdkRange": ">=0.9.0 <0.10.0-0"
+      },
+      "api-1.32.0": {
+        "channel": "staging",
+        "apiVersion": "1.32.0",
+        "sha256": "b21fe6b647ad5f4274f7650b838b0482d03010b9b89844e485ceb974adeb8c68",
+        "sdk": "0.10.0-staging.20261024220030.gb8be413",
+        "sdkRange": ">=0.10.0-0 <0.11.0-0"
+      }
+    },
+    "defaultContract": "api-1.29.1",
+    "origins": {
+      "production": "https://api.toolpath.com",
+      "staging": "https://api.staging.toolpath.com"
+    }
+  }
+}

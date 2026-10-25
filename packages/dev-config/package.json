@@ -1,0 +1,216 @@
+{
+  "name": "@toolpath/dev-config",
+  "version": "0.0.0",
+  "description": "Shared TypeScript lint, type, test, React Compiler, hook, CI and agent standards for Toolpath repositories",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.18.0 <25"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toolpath/ui-packages.git",
+    "directory": "packages/dev-config"
+  },
+  "homepage": "https://github.com/toolpath/ui-packages/tree/main/packages/dev-config#readme",
+  "bugs": {
+    "url": "https://github.com/toolpath/ui-packages/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./eslint": {
+      "types": "./dist/eslint/index.d.ts",
+      "import": "./dist/eslint/index.js"
+    },
+    "./eslint/plugin": {
+      "types": "./dist/eslint/plugin/index.d.ts",
+      "import": "./dist/eslint/plugin/index.js"
+    },
+    "./prettier": {
+      "types": "./dist/prettier/index.d.ts",
+      "import": "./dist/prettier/index.js"
+    },
+    "./hooks": {
+      "types": "./dist/hooks/index.d.ts",
+      "import": "./dist/hooks/index.js"
+    },
+    "./typescript/base.json": "./assets/typescript/base.json",
+    "./typescript/node.json": "./assets/typescript/node.json",
+    "./typescript/browser.json": "./assets/typescript/browser.json",
+    "./typescript/library.json": "./assets/typescript/library.json",
+    "./vitest": {
+      "types": "./dist/testing/vitest.d.ts",
+      "import": "./dist/testing/vitest.js"
+    },
+    "./playwright": {
+      "types": "./dist/testing/playwright.d.ts",
+      "import": "./dist/testing/playwright.js"
+    },
+    "./jest-expo": {
+      "types": "./dist/testing/jest-expo.d.ts",
+      "import": "./dist/testing/jest-expo.js"
+    },
+    "./react/vite": {
+      "types": "./dist/react/vite.d.ts",
+      "import": "./dist/react/vite.js"
+    },
+    "./react/babel": {
+      "types": "./dist/react/babel.d.ts",
+      "import": "./dist/react/babel.js"
+    },
+    "./react/expo": {
+      "types": "./dist/react/expo.d.ts",
+      "import": "./dist/react/expo.js"
+    },
+    "./react/library": {
+      "types": "./dist/react/library.d.ts",
+      "import": "./dist/react/library.js"
+    },
+    "./engine/testing": {
+      "types": "./dist/engine/testing/index.d.ts",
+      "import": "./dist/engine/testing/index.js"
+    },
+    "./engine/testing/node": {
+      "types": "./dist/engine/testing/node.d.ts",
+      "import": "./dist/engine/testing/node.js"
+    },
+    "./engine/testing/msw": {
+      "types": "./dist/engine/testing/msw.d.ts",
+      "import": "./dist/engine/testing/msw.js"
+    },
+    "./engine/eslint": {
+      "types": "./dist/engine/eslint/index.d.ts",
+      "import": "./dist/engine/eslint/index.js"
+    },
+    "./package.json": "./package.json",
+    "./release.json": "./dist/release.json"
+  },
+  "bin": {
+    "toolpath-dev": "./dist/cli/main.js"
+  },
+  "files": [
+    "dist",
+    "assets",
+    "contracts",
+    "docs",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check-types": "node scripts/ensure-build.mjs && node dist/cli/main.js check-types",
+    "lint": "node scripts/ensure-build.mjs && node dist/cli/main.js lint",
+    "test": "node scripts/ensure-build.mjs && node dist/cli/main.js test",
+    "test:package": "node scripts/ensure-build.mjs && node scripts/test-package.mjs",
+    "test:compatibility": "node scripts/ensure-build.mjs && node scripts/test-compatibility.mjs",
+    "benchmark": "node scripts/ensure-build.mjs && node scripts/benchmark.mjs",
+    "check": "node scripts/build.mjs && node dist/cli/main.js check && node scripts/test-package.mjs && node scripts/test-compatibility.mjs",
+    "prepublishOnly": "node scripts/build.mjs --release"
+  },
+  "dependencies": {
+    "@eslint-react/eslint-plugin": "5.18.2",
+    "@eslint/js": "10.0.1",
+    "@typescript-eslint/utils": "8.68.0",
+    "@vitest/eslint-plugin": "1.6.27",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "eslint-plugin-jest": "29.17.0",
+    "eslint-plugin-jsx-a11y-x": "0.2.0",
+    "eslint-plugin-playwright": "2.12.1",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-testing-library": "7.16.2",
+    "globals": "17.13.0",
+    "husky": "9.1.7",
+    "lint-staged": "17.3.0",
+    "picomatch": "4.0.7",
+    "prettier": "3.9.10",
+    "typescript-eslint": "8.68.0",
+    "yaml": "2.9.0"
+  },
+  "peerDependencies": {
+    "@babel/core": "7.29.7",
+    "@playwright/test": "1.64.1",
+    "@rolldown/plugin-babel": "0.2.4",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@toolpath/api": "0.9.0 || 0.10.0-staging.20261024220030.gb8be413",
+    "@vitejs/plugin-react": "5.2.0 || 6.1.2",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "10.9.1",
+    "msw": "2.15.0",
+    "react": "^17.0.0 || ^18.0.0 || ^19.0.0",
+    "typescript": "5.9.3 || 6.0.3",
+    "vite-plugin-babel": "1.7.3",
+    "vitest": "4.1.10"
+  },
+  "peerDependenciesMeta": {
+    "@babel/core": {
+      "optional": true
+    },
+    "@playwright/test": {
+      "optional": true
+    },
+    "@rolldown/plugin-babel": {
+      "optional": true
+    },
+    "@testing-library/jest-dom": {
+      "optional": true
+    },
+    "@testing-library/react": {
+      "optional": true
+    },
+    "@toolpath/api": {
+      "optional": true
+    },
+    "@vitejs/plugin-react": {
+      "optional": true
+    },
+    "babel-plugin-react-compiler": {
+      "optional": true
+    },
+    "msw": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "vite-plugin-babel": {
+      "optional": true
+    },
+    "vitest": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@babel/core": "7.29.7",
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.8",
+    "@toolpath/api": "npm:@toolpath/api@0.9.0",
+    "@toolpath/api-staging": "npm:@toolpath/api@0.10.0-staging.20261024220030.gb8be413",
+    "@types/babel__core": "7.20.5",
+    "@types/node": "24.10.1",
+    "@types/picomatch": "4.0.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "babel-plugin-react-compiler": "1.0.0",
+    "esbuild": "0.28.2",
+    "eslint": "10.9.1",
+    "jsdom": "30.0.1",
+    "msw": "2.15.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

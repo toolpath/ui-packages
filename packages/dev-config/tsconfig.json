@@ -1,0 +1,13 @@
+{
+  "extends": "./assets/typescript/node.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "checkJs": true,
+    "rootDir": "."
+  },
+  "include": ["src", "tests", "scripts", "*.mjs", "*.ts"],
+  "exclude": ["dist", ".tmp"]
+}

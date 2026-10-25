@@ -37,3 +37,7 @@ packages/tool-scraper/scrape-out/
 !**/.env.example
 
 *.DS_Store
+
+# @toolpath/dev-config build output and disposable test consumers.
+packages/dev-config/dist/
+packages/dev-config/.tmp/
