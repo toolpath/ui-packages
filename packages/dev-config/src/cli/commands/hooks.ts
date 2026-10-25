@@ -3,6 +3,7 @@ import { resolveConfig } from '../../config/resolve.js'
 import { CheckFailure } from '../../errors.js'
 import { createLintStagedConfig, processStagedFiles } from '../../hooks/index.js'
 import type { Output } from '../output.js'
+import { deferInterruptExit } from '../process.js'
 
 /** `hooks files -- <files>`: one batch from an outer lint-staged invocation. Index management stays with it. */
 export const hookFiles = async (
@@ -25,6 +26,8 @@ export const hookFiles = async (
 export const preCommit = async (flags: { config?: string }, output: Output): Promise<void> => {
   const config = await loadConfig(findConfigFile(process.cwd(), flags.config))
   const resolved = resolveConfig(config)
+  // An interruption must reach lint-staged, which restores hidden unstaged edits.
+  deferInterruptExit()
   const { default: lintStaged } = await import('lint-staged')
   const passed = await lintStaged({
     config: createLintStagedConfig(config),

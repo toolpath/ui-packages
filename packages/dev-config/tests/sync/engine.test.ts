@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { lstatSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -6,6 +6,7 @@ import { toolchain } from '../../src/policy/toolchain.js'
 import type { ReleaseIdentity } from '../../src/release/metadata.js'
 import type { DesiredState } from '../../src/sync/desired.js'
 import { applyWrites, planSync, type PlanInput } from '../../src/sync/engine.js'
+import { serializeReceipt } from '../../src/sync/receipt.js'
 import type { Receipt } from '../../src/sync/receipt.js'
 
 const identity: ReleaseIdentity = {
@@ -75,6 +76,62 @@ const apply = (root: string, state: DesiredState, receipt?: Receipt): Receipt =>
 }
 
 describe('planSync', () => {
+  it('writes a symlinked managed file through its link', () => {
+    const root = repository({ 'GUIDE.md': '# Guide\n' })
+    symlinkSync('GUIDE.md', join(root, 'AGENTS.md'))
+    apply(root, desired())
+    expect(lstatSync(join(root, 'AGENTS.md')).isSymbolicLink()).toBe(true)
+    expect(readFileSync(join(root, 'GUIDE.md'), 'utf8')).toContain('standard v1')
+  })
+
+  it('records the same receipt on a second run, even after adding packageManager', () => {
+    const root = repository({})
+    const receipt = apply(root, desired())
+    const again = plan(root, desired(), receipt)
+    expect(again.writes).toEqual([])
+    expect(serializeReceipt(again.receipt)).toBe(serializeReceipt(receipt))
+  })
+
+  it('keeps a composed prepare step on every later sync', () => {
+    const root = repository({ 'package.json': '{ "scripts": { "prepare": "npm run build" } }\n' })
+    const receipt = apply(root, desired())
+    const manifest = () =>
+      JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
+        scripts: Record<string, string>
+      }
+    expect(manifest().scripts.prepare).toBe('npm run build && toolpath-dev hooks install')
+    const second = plan(root, desired(), receipt)
+    expect(second.writes).toEqual([])
+    // Without a receipt (a restored checkout), the composition is still not doubled.
+    expect(plan(root, desired()).writes.filter((write) => write.path === 'package.json')).toEqual(
+      [],
+    )
+  })
+
+  it('installs the Engine SDK as a runtime dependency, never moving it to devDependencies', () => {
+    const root = repository({
+      'package.json': '{ "dependencies": { "@toolpath/api": "^0.9.0" } }\n',
+    })
+    const result = plan(
+      root,
+      desired({ devDependencies: { '@toolpath/api': '0.9.0', eslint: '10.9.1' } }),
+    )
+    expect(result.conflicts).toEqual([])
+    expect(result.runtimeInstalls).toEqual({ '@toolpath/api': '0.9.0' })
+    expect(result.installs).toEqual({ eslint: '10.9.1' })
+    const written = plan(
+      root,
+      desired({ devDependencies: { '@toolpath/api': '0.9.0' } }),
+      undefined,
+      { writeDependencies: true },
+    )
+    const after = JSON.parse(
+      written.writes.find((write) => write.path === 'package.json')?.after ?? '{}',
+    ) as Record<string, unknown>
+    expect(after.dependencies).toEqual({ '@toolpath/api': '0.9.0' })
+    expect(after.devDependencies).toBeUndefined()
+  })
+
   it('initializes, then plans nothing on a second run', () => {
     const root = repository({ 'AGENTS.md': '# Our repository\n\nLocal guidance.\n' })
     const receipt = apply(root, desired())

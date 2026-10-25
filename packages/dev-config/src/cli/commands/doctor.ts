@@ -5,6 +5,7 @@ import { callerWorkflowIssues, CALLER_WORKFLOW_PATH } from '../../ci/render.js'
 import { findConfigFile, loadConfig } from '../../config/load.js'
 import { detectPackageManager, findInstalledPackage } from '../../config/packages.js'
 import { readManifest, resolveConfig, type ResolvedConfig } from '../../config/resolve.js'
+import { moduleTypeIssues } from '../../config/module-type.js'
 import { classifyFiles } from '../../config/scope.js'
 import { contractForSdkVersion } from '../../engine/contracts.js'
 import { ConfigError, type Issue } from '../../errors.js'
@@ -17,7 +18,7 @@ import { ESLINT_CONFIG_FILE } from '../lint.js'
 import { plural, type Output } from '../output.js'
 import { inspectPrograms } from '../typescript.js'
 import { ownershipIssues, selectedPrograms, type Workspace } from '../workspace.js'
-import { installedIdentity } from './manage.js'
+import { foreignHooks, installedIdentity } from './manage.js'
 
 const satisfiesNode = (version: string): boolean => {
   const [major = 0, minor = 0] = version.replace(/^v/, '').split('.').map(Number)
@@ -158,7 +159,13 @@ const hookIssues = (resolved: ResolvedConfig): Array<Issue> => {
       cwd: root,
       encoding: 'utf8',
     }).stdout.trim()
-    if (hooksPath !== '.husky/_') {
+    const owner = foreignHooks(resolved.root)
+    if (owner) {
+      issues.push({
+        path: 'git hooks',
+        message: `${owner}, so the managed pre-commit hook does not run. Move those hooks into .husky/, unset core.hooksPath, then run \`toolpath-dev hooks install\``,
+      })
+    } else if (hooksPath !== '.husky/_') {
       issues.push({
         path: 'git config core.hooksPath',
         message: `is "${hooksPath || 'unset'}"; run \`toolpath-dev hooks install\` (the prepare script does this on install)`,
@@ -304,6 +311,7 @@ export const runDoctor = async (flags: DoctorFlags, output: Output): Promise<voi
     whole: true,
     scope: () => scope,
   }
+  await add('module type', () => moduleTypeIssues(resolved.root, resolved.config.projects))
   await add('ownership', () => ownershipIssues(scope))
   await add('typescript programs', () => inspectPrograms(resolved, selectedPrograms(workspace)))
   await add('tool versions', () => versionIssues(resolved))

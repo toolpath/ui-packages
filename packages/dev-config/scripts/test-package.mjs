@@ -310,7 +310,24 @@ scenario(
     assert.match(refused.stderr, /package\.json#prettier/)
     assert.ok(!existsSync(join(competing, 'dev.config.mjs')), 'a refused init wrote files')
 
+    // Hooks another tool owns are a conflict too: init never redirects Git away from them.
     rmSync(join(competing, '.prettierrc'))
+    writeManifest(competing, {
+      packageManager: `npm@${toolchain.runtime.npm}`,
+      devDependencies: { '@toolpath/dev-config': `file:${tarball}` },
+    })
+    must('git', ['config', 'core.hooksPath', '.githooks'], { cwd: competing })
+    const hooks = exec(bin(competing), ['init', '--name', 'app', '--runtime', 'node'], {
+      cwd: competing,
+      env: childEnv({ CI: '' }),
+    })
+    assert.equal(hooks.code, 2)
+    assert.match(hooks.stderr, /git hooks: Git runs hooks from \.githooks/)
+    assert.ok(
+      !existsSync(join(competing, 'dev.config.mjs')),
+      'init wrote files over a foreign hook setup',
+    )
+    must('git', ['config', '--unset', 'core.hooksPath'], { cwd: competing })
     writeManifest(competing, {
       packageManager: `npm@${toolchain.runtime.npm}`,
       devDependencies: { '@toolpath/dev-config': `file:${tarball}` },
@@ -369,7 +386,7 @@ scenario('npm single project: the pre-commit hook fixes and formats staged files
   must('git', ['commit', '--quiet', '-m', 'init'], { cwd: single })
   writeFiles(single, {
     'src/format-me.ts':
-      'export function twice(value:number){ if (value > 0) return value*2\n  return 0 }\n',
+      'function twice(value:number){ if (value > 0) return value*2\n  return 0 }\nexport const doubled = twice(2)\n',
     'notes.md': '#   Notes\n',
   })
   must('git', ['add', 'src/format-me.ts', 'notes.md'], { cwd: single })
@@ -378,7 +395,7 @@ scenario('npm single project: the pre-commit hook fixes and formats staged files
   const committed = must('git', ['show', 'HEAD:src/format-me.ts'], { cwd: single }).stdout
   assert.match(
     committed,
-    /export const twice = \(value: number\) => \{/,
+    /^const twice = \(value: number\) => \{/,
     `the hook did not apply the safe fix:\n${committed}`,
   )
   assert.match(
@@ -401,6 +418,49 @@ scenario('npm single project: the pre-commit hook fixes and formats staged files
   assert.ok(existsSync(join(single, 'src/bad-commit.ts')), 'the refused file was lost')
   must('git', ['reset', '--quiet', 'HEAD', 'src/bad-commit.ts'], { cwd: single })
   rmSync(join(single, 'src/bad-commit.ts'))
+})
+
+scenario('npm single project: an interrupted hook restores the unstaged edits it hid', () => {
+  writeFiles(single, { 'src/interrupt.ts': 'export const first = 1\n' })
+  must('git', ['add', 'src/interrupt.ts'], { cwd: single })
+  must('git', ['commit', '--quiet', '-m', 'interrupt base'], { cwd: single })
+  writeFiles(single, { 'src/interrupt.ts': 'export const first =  1\n' })
+  must('git', ['add', 'src/interrupt.ts'], { cwd: single })
+  writeFiles(single, { 'src/interrupt.ts': 'export const first =  1\nexport const second = 2\n' })
+  // Signal while lint-staged has the unstaged hunk hidden: the work tree then holds only the staged text.
+  const file = join(single, 'src/interrupt.ts')
+  const script = `
+import { spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+const child = spawn(${JSON.stringify(bin(single))}, ['hooks', 'pre-commit'], { cwd: ${JSON.stringify(single)}, stdio: 'ignore' })
+const started = Date.now()
+const poll = setInterval(() => {
+  let text = ''
+  try { text = readFileSync(${JSON.stringify(file)}, 'utf8') } catch {}
+  if (!text.includes('second') || Date.now() - started > 20000) {
+    clearInterval(poll)
+    child.kill('SIGINT')
+  }
+}, 2)
+child.on('close', (code, signal) => { console.log(JSON.stringify({ code, signal })) })
+`
+  const result = must('node', ['--input-type=module', '-e', script], { cwd: single })
+  /** @type {unknown} */
+  const parsed = JSON.parse(result.stdout.trim())
+  const outcome = /** @type {{ code: number | null, signal: string | null }} */ (parsed)
+  assert.notEqual(outcome.code, 0, 'an interrupted hook reported success')
+  assert.equal(
+    readFileSync(join(single, 'src/interrupt.ts'), 'utf8'),
+    'export const first =  1\nexport const second = 2\n',
+    'the unstaged edit was not restored after the interruption',
+  )
+  assert.equal(
+    must('git', ['show', ':src/interrupt.ts'], { cwd: single }).stdout,
+    'export const first =  1\n',
+    'the index changed',
+  )
+  must('git', ['reset', '--quiet', 'HEAD', 'src/interrupt.ts'], { cwd: single })
+  must('git', ['checkout', '--', 'src/interrupt.ts'], { cwd: single })
 })
 
 scenario('npm single project: hook edge cases', () => {

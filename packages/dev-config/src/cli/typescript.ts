@@ -18,6 +18,19 @@ const REQUIRED_COMPILER_OPTIONS: Readonly<Record<string, boolean>> = {
   isolatedModules: true,
 }
 
+/** The checks `strict: true` enables, each of which a config can disable individually. */
+const STRICT_FAMILY = [
+  'noImplicitAny',
+  'noImplicitThis',
+  'strictNullChecks',
+  'strictFunctionTypes',
+  'strictBindCallApply',
+  'strictPropertyInitialization',
+  'strictBuiltinIteratorReturn',
+  'useUnknownInCatchVariables',
+  'alwaysStrict',
+]
+
 export interface Program {
   /** `project name` or `tooling`. */
   label: string
@@ -91,6 +104,15 @@ export const inspectPrograms = async (
         issues.push({
           path: where,
           message: `${option} must be ${String(value)} (extend @toolpath/dev-config/typescript/*.json)`,
+        })
+      }
+    }
+    // `strict` only sets defaults: each of these can still be turned off on its own.
+    for (const option of STRICT_FAMILY) {
+      if ((parsed.options[option] ?? parsed.options.strict) !== true) {
+        issues.push({
+          path: where,
+          message: `${option} must not be turned off; it is part of strict checking`,
         })
       }
     }

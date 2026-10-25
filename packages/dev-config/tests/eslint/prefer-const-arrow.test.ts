@@ -34,10 +34,41 @@ runRule('prefer-const-arrow (ts)', preferConstArrow, {
       errors: [{ messageId: 'preferConstArrow' }],
     },
     {
-      code: 'export async function load<T>(value: T): Promise<T> {\n  // keeps this comment\n  return value\n}',
+      code: 'async function load<T>(value: T): Promise<T> {\n  // keeps this comment\n  return value\n}\nexport const loaded = load(1)',
       output:
-        'export const load = async <T>(value: T): Promise<T> => {\n  // keeps this comment\n  return value\n}',
+        'const load = async <T>(value: T): Promise<T> => {\n  // keeps this comment\n  return value\n}\nexport const loaded = load(1)',
       errors: [{ messageId: 'preferConstArrow' }],
+    },
+    {
+      // An exported function is ready before a circular importer runs; a const is not.
+      code: "export function label(): string {\n  return 'a'\n}",
+      output: null,
+      errors: [
+        {
+          messageId: 'preferConstArrow',
+          suggestions: [
+            {
+              messageId: 'convert',
+              output: "export const label = (): string => {\n  return 'a'\n}",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      code: 'function helper() {\n  return 1\n}\nexport { helper }',
+      output: null,
+      errors: [
+        {
+          messageId: 'preferConstArrow',
+          suggestions: [
+            {
+              messageId: 'convert',
+              output: 'const helper = () => {\n  return 1\n}\nexport { helper }',
+            },
+          ],
+        },
+      ],
     },
     {
       code: 'const handler = function (event: Event) {\n  return event.type\n}',

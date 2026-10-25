@@ -124,7 +124,8 @@ export const toolingTsconfig = (): string =>
   )}\n`
 
 const relativeConfigImport = (root: string): string => {
-  const depth = root === '.' ? 0 : root.split('/').length
+  // `./packages/core/` and `packages/core` are the same directory.
+  const depth = root.split('/').filter((segment) => segment !== '' && segment !== '.').length
   return depth === 0 ? './dev.config.mjs' : `${'../'.repeat(depth)}dev.config.mjs`
 }
 

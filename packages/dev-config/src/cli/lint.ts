@@ -146,6 +146,17 @@ export const lintFiles = async (
         message: `${ESLINT_CONFIG_FILE} changes baseline rule ${change.rule} from ${change.baseline} to ${change.effective}. Baseline rules are fixed; declare a narrow exception in dev.config.mjs instead`,
       })
     }
+    // Unused-suppression reporting is policy too; inline configuration may only be made stricter.
+    for (const option of ['reportUnusedDisableDirectives', 'reportUnusedInlineConfigs'] as const) {
+      const want = severity(expected?.linterOptions?.[option] as Linter.RuleEntry | undefined)
+      const have = severity(actual.linterOptions?.[option] as Linter.RuleEntry | undefined)
+      if (have < want) {
+        issues.push({
+          path: file,
+          message: `${ESLINT_CONFIG_FILE} lowers linterOptions.${option}; it is part of the shared policy`,
+        })
+      }
+    }
     if (issues.length >= 20) {
       break
     }

@@ -25,14 +25,26 @@ let interrupted: NodeJS.Signals | undefined
 /** The signal that interrupted this CLI, if any; commands must not report success after one. */
 export const interruption = (): NodeJS.Signals | undefined => interrupted
 
+let deferExit = false
+
+/**
+ * For in-process work that must clean up after an interruption itself: the
+ * pre-commit hook lets lint-staged abort and restore the index and work tree
+ * instead of exiting under it. A second signal still exits at once.
+ */
+export const deferInterruptExit = (): void => {
+  deferExit = true
+}
+
 /** Forwards SIGINT/SIGTERM to children and remembers the interruption. */
 export const installSignalHandlers = (): void => {
   const forward = (signal: NodeJS.Signals): void => {
+    const repeated = interrupted !== undefined
     interrupted = signal
     for (const child of running) {
       child.kill(signal)
     }
-    if (running.size === 0) {
+    if (repeated || (running.size === 0 && !deferExit)) {
       process.exit(signal === 'SIGINT' ? 130 : 143)
     }
   }
@@ -102,15 +114,16 @@ export const mapLimit = async <T, R>(
   limit: number,
   task: (item: T) => Promise<R>,
 ): Promise<Array<R>> => {
-  const results = new Array<R>(items.length)
+  const results: Array<{ index: number; value: R }> = []
   let next = 0
   const worker = async (): Promise<void> => {
-    while (next < items.length) {
+    // After an interruption, nothing new starts; what finished is returned.
+    while (next < items.length && interrupted === undefined) {
       const index = next
       next += 1
-      results[index] = await task(items[index] as T)
+      results.push({ index, value: await task(items[index] as T) })
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
-  return results
+  return results.sort((a, b) => a.index - b.index).map((entry) => entry.value)
 }

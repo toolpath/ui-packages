@@ -72,10 +72,12 @@ Declare functions as `const` arrow functions where an arrow has the same semanti
 syntax stays where behaviour needs it: generators, `this`, `arguments`, `new.target`,
 construction (`new` or `.prototype`), overloads, ambient declarations, and a default-exported
 named function (framework module shapes such as route components). The fix keeps generics
-(`<T,>` in TSX), `async`, comments and exports. It does not rewrite a function that is used before
-its declaration (a suggestion is offered instead, since hoisting may matter), that is reassigned,
-or whose comment would be lost. When code relies on hoisting, keep the function and suppress the
-line with the reason.
+(`<T,>` in TSX), `async` and comments. It never rewrites an exported function (inline or through
+`export { name }`): an exported function is initialized before a circular importer runs and a
+`const` is not, so exports get a suggestion to apply by hand. It also offers only a suggestion for
+a function used before its declaration, and nothing for one that is reassigned or whose comment
+would be lost. When code relies on hoisting, keep the function and suppress the line with the
+reason.
 
 ### toolpath/no-blanket-quality-disable
 

@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
@@ -173,6 +174,17 @@ describe('the CLI against a real project', { timeout: 120_000 }, () => {
     expect(result.stderr).toMatch(/changes baseline rule @typescript-eslint\/no-explicit-any/)
   })
 
+  it('refuses a native config that stops reporting unused suppressions', () => {
+    const quiet = singleProject({
+      'eslint.config.mjs': eslintConfig(
+        ", { linterOptions: { reportUnusedDisableDirectives: 'off' } }",
+      ),
+    })
+    const result = quiet.run(['lint'])
+    expect(result.code).toBe(2)
+    expect(result.stderr).toMatch(/lowers linterOptions\.reportUnusedDisableDirectives/)
+  })
+
   it('reports unused and blanket suppressions', () => {
     const suppressions = singleProject({
       'src/unused.ts':
@@ -236,13 +248,13 @@ describe('the CLI against a real project', { timeout: 120_000 }, () => {
     // CI=true makes typescript-eslint assume a single run, which a fix pass must not use.
     const fixable = singleProject({
       'src/twice.ts':
-        'export function twice(value: number) {\n  if (value > 0) return value * 2\n  return 0\n}\n',
+        'function twice(value: number) {\n  if (value > 0) return value * 2\n  return 0\n}\nexport const doubled = twice(2)\n',
     })
     const result = fixable.run(['lint:fix'], { env: { CI: 'true' } })
     expect(result.stderr).toBe('')
     expect(result.code).toBe(0)
     expect(readFileSync(join(fixable.root, 'src/twice.ts'), 'utf8')).toMatch(
-      /^export const twice = \(value: number\) => \{/,
+      /^const twice = \(value: number\) => \{/,
     )
   })
 
@@ -283,5 +295,80 @@ describe('the CLI against a real project', { timeout: 120_000 }, () => {
       })
     })
     expect(code).not.toBe(0)
+  })
+})
+
+describe('hooks install', { timeout: 60_000 }, () => {
+  it('skips without failing an install in CI, with HUSKY=0, or with no configuration', () => {
+    const bare = createProject({})
+    projects.push(bare)
+    expect(bare.run(['hooks', 'install'], { env: { CI: 'true' } })).toMatchObject({
+      code: 0,
+      stdout: 'hooks install: skipped in CI\n',
+    })
+    expect(bare.run(['hooks', 'install'], { env: { HUSKY: '0' } })).toMatchObject({ code: 0 })
+    // The package's own dev.config.mjs is above .tmp/, so look from outside any configured tree.
+    const outside = bare.run(['hooks', 'install'], { cwd: '/' })
+    expect(outside).toMatchObject({
+      code: 0,
+      stdout: 'hooks install: skipped; no dev.config.mjs here\n',
+    })
+  })
+
+  it('never takes over hooks another tool owns', () => {
+    const owned = singleProject()
+    spawnSync('git', ['config', 'core.hooksPath', '.githooks'], { cwd: owned.root })
+    const install = owned.run(['hooks', 'install'])
+    expect(install.code).toBe(0)
+    expect(install.stdout).toMatch(/skipped; Git runs hooks from \.githooks/)
+    expect(
+      spawnSync('git', ['config', '--get', 'core.hooksPath'], {
+        cwd: owned.root,
+        encoding: 'utf8',
+      }).stdout.trim(),
+    ).toBe('.githooks')
+  })
+})
+
+describe('TypeScript programs', { timeout: 60_000 }, () => {
+  it('refuse a strict-family check turned off on its own', () => {
+    const loose = singleProject({
+      'tsconfig.json': JSON.stringify({
+        extends: '@toolpath/dev-config/typescript/node.json',
+        compilerOptions: {
+          types: ['node'],
+          allowJs: true,
+          checkJs: true,
+          noImplicitAny: false,
+          useUnknownInCatchVariables: false,
+        },
+        include: ['src', '*.mjs'],
+      }),
+    })
+    const result = loose.run(['check-types'])
+    expect(result.code).toBe(2)
+    expect(result.stderr).toMatch(/noImplicitAny must not be turned off/)
+    expect(result.stderr).toMatch(/useUnknownInCatchVariables must not be turned off/)
+  })
+})
+
+describe('init', { timeout: 60_000 }, () => {
+  it('refuses a CommonJS package before writing anything, with the remedy', () => {
+    const commonjs = createProject({ 'package.json': '{ "name": "legacy", "private": true }\n' })
+    projects.push(commonjs)
+    const result = commonjs.run([
+      'init',
+      '--name',
+      'core',
+      '--runtime',
+      'node',
+      '--package-manager',
+      'npm',
+    ])
+    expect(result.code).toBe(2)
+    expect(result.stderr).toMatch(
+      /package\.json "type": is unset \(CommonJS\)[\s\S]*npm pkg set type=module/,
+    )
+    expect(existsSync(join(commonjs.root, 'dev.config.mjs'))).toBe(false)
   })
 })

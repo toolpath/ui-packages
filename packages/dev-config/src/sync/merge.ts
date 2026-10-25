@@ -6,15 +6,17 @@
 
 type Edit = { kind: 'keep' | 'delete' | 'insert'; line: string }
 
+/** Lines with their newlines; a final line without one stays without one. */
 const splitLines = (text: string): Array<string> => {
   if (text === '') {
     return []
   }
   const lines = text.split('\n')
-  if (lines.at(-1) === '') {
+  const terminated = lines.at(-1) === ''
+  if (terminated) {
     lines.pop()
   }
-  return lines.map((line) => `${line}\n`)
+  return lines.map((line, index) => (index < lines.length - 1 || terminated ? `${line}\n` : line))
 }
 
 /** The edit script turning `a` into `b`, from a longest common subsequence. */

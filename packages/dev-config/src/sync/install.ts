@@ -13,21 +13,23 @@ export const installExact = async (
   root: string,
   packageManager: PackageManagerName,
   specs: Readonly<Record<string, string>>,
+  { runtime = false }: { runtime?: boolean } = {},
 ): Promise<void> => {
   const list = Object.entries(specs).map(([name, version]) => `${name}@${version}`)
   if (list.length === 0) {
     return
   }
+  const kind = runtime ? '--save-prod' : '--save-dev'
   const args =
     packageManager === 'pnpm'
       ? [
           'add',
-          '--save-dev',
+          kind,
           '--save-exact',
           ...(existsSync(join(root, 'pnpm-workspace.yaml')) ? ['--workspace-root'] : []),
           ...list,
         ]
-      : ['install', '--save-dev', '--save-exact', '--no-audit', '--no-fund', ...list]
+      : ['install', kind, '--save-exact', '--no-audit', '--no-fund', ...list]
   let result
   try {
     result = await run(packageManager, args, { cwd: root })

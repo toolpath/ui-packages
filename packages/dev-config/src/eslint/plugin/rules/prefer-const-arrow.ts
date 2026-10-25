@@ -196,6 +196,15 @@ export const preferConstArrow = createRule<[], MessageIds>({
         // Declarations directly in a `case`, `if` or label (legal in sloppy scripts) change scope as `const`.
         const container: string = node.parent.type
         const unsafeContainer = !SAFE_CONTAINERS.has(container)
+        // An exported function is initialized before any module that imports it runs, which a
+        // circular import can depend on; a `const` is not. Exports get a suggestion, never a fix.
+        const exported =
+          node.parent.type === AST_NODE_TYPES.ExportNamedDeclaration ||
+          references.some(
+            (reference) =>
+              reference.identifier.parent.type === AST_NODE_TYPES.ExportSpecifier ||
+              reference.identifier.parent.type === AST_NODE_TYPES.ExportDefaultDeclaration,
+          )
         const name = node.id.name
         const arrow = arrowText(node)
         const fix =
@@ -204,12 +213,14 @@ export const preferConstArrow = createRule<[], MessageIds>({
             : (fixer: TSESLint.RuleFixer): TSESLint.RuleFix =>
                 fixer.replaceText(node, `const ${name} = ${arrow}`)
 
-        if (reassigned || usedBeforeDeclaration || unsafeContainer) {
+        if (reassigned || usedBeforeDeclaration || unsafeContainer || exported) {
           const detail = reassigned
             ? ' It is reassigned, so convert it by hand.'
             : usedBeforeDeclaration
               ? ' It is used before its declaration; if that relies on hoisting, keep it and suppress this line with the reason.'
-              : ''
+              : exported
+                ? ' It is exported: check that no circular import calls it before this module runs, then apply the suggestion.'
+                : ''
           context.report({
             node: node.id,
             messageId: 'preferConstArrow',

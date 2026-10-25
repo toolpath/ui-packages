@@ -1,4 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join } from 'node:path'
 import { ConfigError, type Issue } from '../errors.js'
 import type { ReleaseIdentity } from '../release/metadata.js'
@@ -6,6 +15,12 @@ import { BlockError, commentStyleFor, findBlock, upsertBlock } from './blocks.js
 import type { DesiredState } from './desired.js'
 import { mergeThreeWay, unifiedDiff } from './merge.js'
 import { RECEIPT_PATH, serializeReceipt, type Receipt } from './receipt.js'
+
+/**
+ * Managed packages an application imports at runtime. They are installed as
+ * production dependencies unless the repository already keeps them as dev ones.
+ */
+const RUNTIME_PACKAGES = new Set(['@toolpath/api'])
 
 export interface Write {
   path: string
@@ -24,8 +39,10 @@ interface Conflict {
 export interface Plan {
   writes: Array<Write>
   conflicts: Array<Conflict>
-  /** Exact `name@version` specs to install with the repository's package manager. */
+  /** Exact `name@version` specs to install as dev dependencies with the repository's package manager. */
   installs: Record<string, string>
+  /** Exact specs the application runs with (the Engine SDK), installed as production dependencies. */
+  runtimeInstalls: Record<string, string>
   receipt: Receipt
 }
 
@@ -180,12 +197,13 @@ export const planSync = (input: PlanInput): Plan => {
   }
 
   let installs: Record<string, string> = {}
+  let runtimeInstalls: Record<string, string> = {}
   const manifestReceipt: Receipt['manifest'] = { scripts: {}, devDependencies: {} }
   if (input.manifest !== false) {
     const manifestText = current('package.json')
     if (manifestText === undefined) {
       throw new ConfigError(
-        `No package.json in ${root}. Create the package first (npm init / pnpm init).`,
+        `No package.json in ${root}. Create it first: \`npm init -y && npm pkg set type=module\`.`,
       )
     }
     const manifest = JSON.parse(manifestText) as ManifestShape
@@ -194,9 +212,12 @@ export const planSync = (input: PlanInput): Plan => {
       const existing = scripts[name]
       const base = receipt?.manifest.scripts[name]
       let next: string
-      if (existing === undefined || existing === value || existing === base) {
+      if (name === 'prepare' && existing !== undefined && existing.includes(value)) {
+        // Already composed (by init, or by hand): the repository's own steps stay.
+        next = existing
+      } else if (existing === undefined || existing === value || existing === base) {
         next = value
-      } else if (name === 'prepare' && base === undefined) {
+      } else if (name === 'prepare') {
         // Compose with an existing prepare step; plain Husky is what `hooks install` runs itself.
         next = /^husky( install)?$/.test(existing.trim()) ? value : `${existing} && ${value}`
       } else {
@@ -213,10 +234,11 @@ export const planSync = (input: PlanInput): Plan => {
     const declared = { ...(manifest.dependencies ?? {}), ...(manifest.devDependencies ?? {}) }
     for (const [name, version] of Object.entries(desired.devDependencies)) {
       manifestReceipt.devDependencies[name] = version
+      const runtime = RUNTIME_PACKAGES.has(name) && manifest.devDependencies?.[name] === undefined
       if (
         manifest.dependencies?.[name] !== undefined &&
         manifest.devDependencies?.[name] === undefined &&
-        name !== '@toolpath/api'
+        !runtime
       ) {
         conflicts.push({
           path: 'package.json',
@@ -232,31 +254,36 @@ export const planSync = (input: PlanInput): Plan => {
         version === input.installedSelfVersion &&
         /^(file:|link:|\.|\/)/.test(spec)
       if (spec !== version && !isSelfFromLocalSpec) {
-        installs[name] = version
+        if (runtime) {
+          runtimeInstalls[name] = version
+        } else {
+          installs[name] = version
+        }
       }
     }
-    let packageManager = manifest.packageManager
-    if (packageManager === undefined) {
-      packageManager = input.packageManager
-      manifestReceipt.packageManager = packageManager
-    }
+    const packageManager = manifest.packageManager ?? input.packageManager
+    // Recorded on every run, so a second sync after init plans no receipt change.
+    manifestReceipt.packageManager = packageManager
+    const sorted = (entries: Record<string, string>): Record<string, string> =>
+      Object.fromEntries(Object.entries(entries).sort(([a], [b]) => a.localeCompare(b)))
     const devDependencies = { ...(manifest.devDependencies ?? {}) }
+    const dependencies = { ...(manifest.dependencies ?? {}) }
     if (input.writeDependencies) {
-      for (const [name, version] of Object.entries(installs)) {
-        devDependencies[name] = version
-      }
+      Object.assign(devDependencies, installs)
+      Object.assign(dependencies, runtimeInstalls)
+    }
+    const writesDev = input.writeDependencies === true && Object.keys(installs).length > 0
+    const writesRuntime =
+      input.writeDependencies === true && Object.keys(runtimeInstalls).length > 0
+    if (input.writeDependencies) {
       installs = {}
+      runtimeInstalls = {}
     }
     const next: ManifestShape = {
       ...manifest,
       scripts,
-      ...(input.writeDependencies && Object.keys(devDependencies).length > 0
-        ? {
-            devDependencies: Object.fromEntries(
-              Object.entries(devDependencies).sort(([a], [b]) => a.localeCompare(b)),
-            ),
-          }
-        : {}),
+      ...(writesRuntime ? { dependencies: sorted(dependencies) } : {}),
+      ...(writesDev ? { devDependencies: sorted(devDependencies) } : {}),
       ...(manifest.packageManager === undefined ? { packageManager } : {}),
     }
     const nextText = `${JSON.stringify(next, null, indentOf(manifestText))}\n`
@@ -274,7 +301,7 @@ export const planSync = (input: PlanInput): Plan => {
     files: input.manifest === false && receipt ? { ...receipt.files, ...files } : files,
     manifest: input.manifest === false && receipt ? receipt.manifest : manifestReceipt,
   }
-  return { writes, conflicts, installs, receipt: receiptValue }
+  return { writes, conflicts, installs, runtimeInstalls, receipt: receiptValue }
 }
 
 /** A complete reviewable diff of a plan, including the receipt and installs. */
@@ -290,6 +317,12 @@ export const describePlan = (plan: Plan, receiptBefore: string | undefined): str
       `# install exact dev dependencies:\n${installs.map(([name, version]) => `#   ${name}@${version}`).join('\n')}\n`,
     )
   }
+  const runtime = Object.entries(plan.runtimeInstalls)
+  if (runtime.length > 0) {
+    parts.push(
+      `# install exact runtime dependencies:\n${runtime.map(([name, version]) => `#   ${name}@${version}`).join('\n')}\n`,
+    )
+  }
   return parts.filter((part) => part !== '').join('\n')
 }
 
@@ -298,11 +331,14 @@ export const conflictIssues = (plan: Plan): Array<Issue> =>
 
 /** Replaces a file through a temporary sibling and a rename, keeping an existing file's mode. */
 export const writeAtomically = (path: string, content: string, mode?: number): void => {
-  mkdirSync(dirname(path), { recursive: true })
-  const temporary = `${path}.toolpath-dev-${process.pid}.tmp`
-  const existingMode = existsSync(path) ? statSync(path).mode & 0o777 : undefined
+  // A symlinked file (an AGENTS.md shared with CLAUDE.md) is updated where it points, so the
+  // link and every other name for the file keep seeing the same content.
+  const target = existsSync(path) && lstatSync(path).isSymbolicLink() ? realpathSync(path) : path
+  mkdirSync(dirname(target), { recursive: true })
+  const temporary = `${target}.toolpath-dev-${process.pid}.tmp`
+  const existingMode = existsSync(target) ? statSync(target).mode & 0o777 : undefined
   writeFileSync(temporary, content, { mode: mode ?? existingMode ?? 0o644 })
-  renameSync(temporary, path)
+  renameSync(temporary, target)
 }
 
 export const applyWrites = (root: string, writes: ReadonlyArray<Write>): void => {

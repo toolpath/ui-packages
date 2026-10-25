@@ -1,3 +1,7 @@
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { BlockError, findBlock, upsertBlock } from '../../src/sync/blocks.js'
 import { mergeThreeWay, unifiedDiff } from '../../src/sync/merge.js'
@@ -66,5 +70,34 @@ describe('managed blocks', () => {
       '# toolpath-dev:begin hook\none\n# toolpath-dev:begin hook\n# toolpath-dev:end hook\n'
     expect(() => findBlock(broken, 'hash', 'hook')).toThrow(BlockError)
     expect(() => findBlock('# toolpath-dev:end hook\n', 'hash', 'hook')).toThrow(BlockError)
+  })
+})
+
+describe('unifiedDiff patches', () => {
+  it('apply with git, with or without a final newline on either side', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'toolpath-dev-patch-'))
+    try {
+      spawnSync('git', ['init', '--quiet'], { cwd: directory })
+      const cases: Array<[string, string]> = [
+        ['a\nb\nc\n', 'a\nB\nc\n'],
+        ['a\nb\nc', 'a\nB\nc'],
+        ['a\nb\nc', 'a\nb\nc\n'],
+        ['a\nb\nc\n', 'a\nb\nc'],
+        ['only', 'only\nmore\n'],
+      ]
+      cases.forEach(([before, after], index) => {
+        const name = `file-${String(index)}.txt`
+        writeFileSync(join(directory, name), before)
+        writeFileSync(join(directory, `${name}.patch`), unifiedDiff(name, before, after))
+        const applied = spawnSync('git', ['apply', '--check', `${name}.patch`], {
+          cwd: directory,
+          encoding: 'utf8',
+        })
+        expect(applied.stderr, `${JSON.stringify(before)} -> ${JSON.stringify(after)}`).toBe('')
+        expect(applied.status).toBe(0)
+      })
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
   })
 })

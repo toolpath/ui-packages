@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { dirname, join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { defineConfig } from '../../config/define.js'
 import { CONFIG_FILE, findConfigFile, loadConfig } from '../../config/load.js'
@@ -18,6 +18,7 @@ import type {
   ReactAdapter,
   ReactMinimumVersion,
 } from '../../config/types.js'
+import { moduleTypeIssues } from '../../config/module-type.js'
 import { validateConfigShape } from '../../config/validate.js'
 import { ConfigError, PrerequisiteError, UsageError } from '../../errors.js'
 import { toolchain } from '../../policy/toolchain.js'
@@ -103,6 +104,34 @@ const COMPETING_CONFIGS = [
   })),
 ]
 
+/**
+ * Git hooks another tool already owns: a custom `core.hooksPath`, or executable
+ * hooks in `.git/hooks`. Pointing Git at `.husky/_` would silently stop them.
+ */
+export const foreignHooks = (root: string): string | undefined => {
+  const git = (args: Array<string>): string => {
+    const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' })
+    return result.status === 0 ? result.stdout.trim() : ''
+  }
+  const hooksPath = git(['config', '--get', 'core.hooksPath'])
+  if (hooksPath !== '' && hooksPath !== '.husky/_') {
+    return `Git runs hooks from ${hooksPath} (core.hooksPath), which another tool or the repository owns`
+  }
+  if (hooksPath === '') {
+    const directory = git(['rev-parse', '--path-format=absolute', '--git-path', 'hooks'])
+    const active =
+      directory !== '' && existsSync(directory)
+        ? readdirSync(directory).filter(
+            (name) => !name.endsWith('.sample') && !name.startsWith('.'),
+          )
+        : []
+    if (active.length > 0) {
+      return `.git/hooks has active hooks (${active.join(', ')}) that would stop running`
+    }
+  }
+  return undefined
+}
+
 const gitPrefix = (root: string): string => {
   const result = spawnSync('git', ['rev-parse', '--show-prefix'], { cwd: root, encoding: 'utf8' })
   return result.status === 0 ? result.stdout.trim().replace(/\/$/, '') : ''
@@ -141,6 +170,13 @@ const competingConfigs = (root: string): typeof COMPETING_CONFIGS => {
       })
     }
   }
+  const owner = top.status === 0 ? foreignHooks(root) : undefined
+  if (owner) {
+    extra.push({
+      path: 'git hooks',
+      reason: `${owner}. Move those hooks into .husky/ (the managed pre-commit block runs beside them), unset core.hooksPath, then rerun`,
+    })
+  }
   return [...COMPETING_CONFIGS.filter((entry) => existsSync(join(root, entry.path))), ...extra]
 }
 
@@ -173,6 +209,7 @@ const applyPlan = async ({
   output.record('plan', {
     writes: combined.writes.map((write) => write.path),
     installs: combined.installs,
+    runtimeInstalls: combined.runtimeInstalls,
     conflicts: combined.conflicts,
   })
   if (plan.conflicts.length > 0) {
@@ -199,9 +236,11 @@ const applyPlan = async ({
     return
   }
   applyWrites(root, combined.writes)
-  if (install && Object.keys(plan.installs).length > 0) {
+  const installCount = Object.keys(plan.installs).length + Object.keys(plan.runtimeInstalls).length
+  if (install && installCount > 0) {
     try {
       await installExact(root, packageManager, plan.installs)
+      await installExact(root, packageManager, plan.runtimeInstalls, { runtime: true })
     } catch (error) {
       const recovery = join(root, '.toolpath/dev-config-recovery.patch')
       writeAtomically(recovery, `${diff}\n`)
@@ -213,7 +252,7 @@ const applyPlan = async ({
   }
   writeAtomically(receiptPath, serializeReceipt(plan.receipt))
   output.line(
-    `${label}: ${plural(combined.writes.length, 'file')} written${Object.keys(plan.installs).length > 0 ? `, ${plural(Object.keys(plan.installs).length, 'tool')} installed` : ''}; receipt ${RECEIPT_PATH}`,
+    `${label}: ${plural(combined.writes.length, 'file')} written${installCount > 0 ? `, ${plural(installCount, 'package')} installed` : ''}; receipt ${RECEIPT_PATH}`,
   )
 }
 
@@ -291,6 +330,11 @@ const activateHooks = async (root: string): Promise<string> => {
   if (top.status !== 0) {
     return 'skipped; not a Git work tree'
   }
+  const owner = foreignHooks(root)
+  if (owner) {
+    // Never take over another tool's hooks during an install; doctor reports this.
+    return `skipped; ${owner}. Move them into .husky/ and unset core.hooksPath, then run toolpath-dev hooks install`
+  }
   const { default: husky } = await import('husky')
   const previous = process.cwd()
   process.chdir(top.stdout.trim())
@@ -311,12 +355,31 @@ const activateHooks = async (root: string): Promise<string> => {
   return 'pre-commit hook active'
 }
 
+/**
+ * `hooks install`, which `prepare` runs on every install. It decides to skip
+ * before reading the configuration, and needs only the configuration's
+ * directory, so an install never fails over a configuration problem (a Docker
+ * layer with only package.json, an expired exception); `check` reports those.
+ */
 export const runHooksInstall = async (
   flags: { config?: string },
   output: Output,
 ): Promise<void> => {
-  const config = await loadConfig(findConfigFile(process.cwd(), flags.config))
-  output.line(`hooks install: ${await activateHooks(resolveConfig(config).root)}`)
+  if (process.env.CI || process.env.HUSKY === '0') {
+    output.line('hooks install: skipped in CI')
+    return
+  }
+  let file: string
+  try {
+    file = findConfigFile(process.cwd(), flags.config)
+  } catch (error) {
+    if (flags.config === undefined && error instanceof ConfigError) {
+      output.line(`hooks install: skipped; no ${CONFIG_FILE} here`)
+      return
+    }
+    throw error
+  }
+  output.line(`hooks install: ${await activateHooks(dirname(file))}`)
 }
 
 export interface SyncFlags {
@@ -459,7 +522,7 @@ export const runInit = async (flags: InitFlags, output: Output): Promise<void> =
   const manifest = readManifest(root)
   if (!manifest) {
     throw new ConfigError(
-      `No package.json in ${root}. Create the package first (npm init / pnpm init).`,
+      `No package.json in ${root}. Create it first: \`npm init -y && npm pkg set type=module\`.`,
     )
   }
   const packageManager = detectPackageManager(root, flags.packageManager)
@@ -482,7 +545,7 @@ export const runInit = async (flags: InitFlags, output: Output): Promise<void> =
     ...(flags.engine ? { engine: flags.engine } : {}),
     ...(flags.skillsDir === undefined ? {} : { agents: { skillsDir: flags.skillsDir } }),
   }
-  const issues = validateConfigShape(input)
+  const issues = [...validateConfigShape(input), ...moduleTypeIssues(root, input.projects)]
   if (issues.length > 0) {
     throw new UsageError('The project description is invalid:', issues)
   }

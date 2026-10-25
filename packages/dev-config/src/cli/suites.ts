@@ -163,9 +163,25 @@ export const runSuite = async (
   suite: ResolvedSuite,
   options: SuiteRunOptions = {},
 ): Promise<SuiteOutcome> => {
+  if (options.reportDir !== undefined) {
+    return runSuiteWithReports(project, suite, { ...options, reportDir: options.reportDir })
+  }
+  // A local run keeps its report only as long as it takes to read it.
+  const temporary = mkdtempSync(join(tmpdir(), 'toolpath-dev-'))
+  try {
+    return await runSuiteWithReports(project, suite, { ...options, reportDir: temporary })
+  } finally {
+    rmSync(temporary, { recursive: true, force: true })
+  }
+}
+
+const runSuiteWithReports = async (
+  project: ResolvedProject,
+  suite: ResolvedSuite,
+  options: SuiteRunOptions & { reportDir: string },
+): Promise<SuiteOutcome> => {
   const filters = options.filters ?? []
-  const temporary = options.reportDir ? undefined : mkdtempSync(join(tmpdir(), 'toolpath-dev-'))
-  const reportDirectory = options.reportDir ?? temporary ?? tmpdir()
+  const reportDirectory = options.reportDir
   const extension = reportFormat(suite) === 'junit' ? 'xml' : 'json'
   const report =
     suite.runner === 'command' && suite.report
@@ -251,9 +267,6 @@ export const runSuite = async (
   }
 
   const base = { id: suite.id, runner: suite.runner, durationMs: result.durationMs, log, report }
-  if (temporary && options.watch) {
-    rmSync(temporary, { recursive: true, force: true })
-  }
   if (options.watch) {
     return {
       ...base,
