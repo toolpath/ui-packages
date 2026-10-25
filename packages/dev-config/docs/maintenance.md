@@ -63,6 +63,12 @@ which rebuilds with `--release` and refuses a dirty tree under the release paths
 does not record the version being packed. Consumers' generated workflows reference that exact SHA,
 so a package version and its CI policy upgrade together.
 
+Until a release is published, nothing outside this repository can adopt the package: `init` and
+`sync` refuse development metadata, so the tests give their disposable consumers a fixture
+release identity, and the CI selftest's rewrite of `release.json` to the run's own commit is
+confined to `scripts/ci-selftest.mjs`. Cross-repository use of a published release is first
+exercised after the first publish.
+
 ## Versions and Changesets
 
 Every consumer-visible change needs a `@toolpath/dev-config` Changeset, including changes to the
