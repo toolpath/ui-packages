@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
-import { realpathSync } from 'node:fs'
-import { basename, dirname } from 'node:path'
+import { existsSync, realpathSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
 import { parseDocument } from 'yaml'
 import { relativePosix } from '../config/files.js'
 import type { ResolvedConfig } from '../config/resolve.js'
@@ -68,7 +68,10 @@ export const workingDirectoryOf = (resolved: ResolvedConfig): string => {
 
 /** The `config` input, when the configuration is not `<working-directory>/dev.config.mjs`. */
 const configInput = (resolved: ResolvedConfig): string | undefined => {
-  const file = realpathSync(resolved.config.file)
+  // `init` renders the caller before it writes the configuration file itself.
+  const file = existsSync(resolved.config.file)
+    ? realpathSync(resolved.config.file)
+    : join(realpathSync(dirname(resolved.config.file)), basename(resolved.config.file))
   if (dirname(file) === resolved.root && basename(file) === 'dev.config.mjs') {
     return undefined
   }

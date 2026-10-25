@@ -19,7 +19,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
@@ -60,12 +60,6 @@ const parseJson = (text) => JSON.parse(text)
  * @returns {unknown}
  */
 const readJson = (file) => parseJson(readFileSync(file, 'utf8'))
-
-/**
- * @param {string} file
- * @returns {Promise<unknown>}
- */
-const importFile = async (file) => import(pathToFileURL(file).href)
 
 /**
  * @typedef {{
@@ -142,8 +136,8 @@ const packWithIdentity = (sha, workDirectory) => {
 }
 
 /**
- * The generic fixture: one small Node library with a unit suite, a required
- * command suite that writes a JUnit report, and a manual suite.
+ * The generic fixture before `init`: one small Node library, a stand-in
+ * integration script that writes a JUnit report, and the tarball to install.
  * @param {{ packageManager: 'npm' | 'pnpm', tarball: string, identity: Identity }} options
  * @returns {Record<string, string>}
  */
@@ -158,71 +152,12 @@ const fixtureFiles = ({ packageManager, tarball, identity }) => {
         private: true,
         type: 'module',
         packageManager: manager,
-        devDependencies: {
-          '@toolpath/dev-config': `file:${tarball}`,
-          '@types/node': '24.10.1',
-          eslint: toolchain.core.eslint,
-          typescript: toolchain.core.defaultTypescript,
-          vitest: toolchain.profiles.vitest.vitest,
-        },
+        devDependencies: { '@toolpath/dev-config': `file:${tarball}` },
       },
       null,
       2,
     )}\n`,
     '.gitignore': 'node_modules/\nreports/\n',
-    'dev.config.mjs': `import { defineConfig } from '@toolpath/dev-config'
-
-export default defineConfig({
-  schemaVersion: 1,
-  root: import.meta.url,
-  projects: [
-    {
-      name: 'fixture',
-      root: '.',
-      kind: 'library',
-      runtime: 'node',
-      tsconfig: 'tsconfig.json',
-      suites: {
-        unit: { runner: 'vitest', config: 'vitest.config.ts' },
-        smoke: {
-          runner: 'command',
-          argv: ['node', 'scripts/smoke.mjs'],
-          report: { format: 'junit', path: 'reports/smoke.xml' },
-        },
-        device: {
-          runner: 'command',
-          argv: ['node', 'scripts/smoke.mjs'],
-          report: { format: 'junit', path: 'reports/device.xml' },
-          ci: 'manual',
-          reason: 'Stands in for a suite that needs hardware CI does not have',
-        },
-      },
-    },
-  ],
-  ci: { node: '24.18.0' },
-})
-`,
-    'eslint.config.mjs': `import config from './dev.config.mjs'
-import { createEslintConfig } from '@toolpath/dev-config/eslint'
-
-export default await createEslintConfig(config)
-`,
-    'prettier.config.mjs': `export { default } from '@toolpath/dev-config/prettier'
-`,
-    'tsconfig.json': `${JSON.stringify(
-      {
-        extends: '@toolpath/dev-config/typescript/node.json',
-        compilerOptions: { allowJs: true, checkJs: true },
-        include: ['src', 'scripts', '*.mjs', '*.ts'],
-      },
-      null,
-      2,
-    )}\n`,
-    'vitest.config.ts': `import { createVitestConfig } from '@toolpath/dev-config/vitest'
-import config from './dev.config.mjs'
-
-export default createVitestConfig(config, { project: 'fixture', suite: 'unit' })
-`,
     'src/sum.ts': `export const sum = (left: number, right: number): number => left + right
 `,
     'src/sum.test.ts': `import { describe, expect, it } from 'vitest'
@@ -249,6 +184,21 @@ process.exitCode = passed ? 0 : 1
   }
 }
 
+/** The project facts `init` cannot know: a required command suite and a manual one. */
+const SPECIALIZED_SUITES = `        smoke: {
+          runner: 'command',
+          argv: ['node', 'scripts/smoke.mjs'],
+          report: { format: 'junit', path: 'reports/smoke.xml' },
+        },
+        device: {
+          runner: 'command',
+          argv: ['node', 'scripts/smoke.mjs'],
+          report: { format: 'junit', path: 'reports/device.xml' },
+          ci: 'manual',
+          reason: 'Stands in for a suite that needs hardware CI does not have',
+        },
+`
+
 /**
  * @param {string} directory
  * @param {Record<string, string>} files
@@ -262,10 +212,14 @@ const writeFiles = (directory, files) => {
 }
 
 /** @param {string} directory */
-const commitAll = (directory) => {
+const gitInit = (directory) => {
   run('git', ['init', '--quiet', '--initial-branch=main'], directory)
   run('git', ['config', 'user.name', 'dev-config selftest'], directory)
   run('git', ['config', 'user.email', 'selftest@example.invalid'], directory)
+}
+
+/** @param {string} directory */
+const commitAll = (directory) => {
   run('git', ['add', '--all'], directory)
   run('git', ['commit', '--quiet', '--message', 'fixture'], directory)
 }
@@ -273,46 +227,50 @@ const commitAll = (directory) => {
 /**
  * @param {{ packageManager: 'npm' | 'pnpm', sha: string, out: string }} options
  */
-export const createConsumer = async ({ packageManager, sha, out }) => {
+export const createConsumer = ({ packageManager, sha, out }) => {
   const consumer = resolve(out)
   rmSync(consumer, { recursive: true, force: true })
   mkdirSync(consumer, { recursive: true })
   const work = mkdtempSync(join(tmpdir(), 'dev-config-selftest-'))
   const { tarball, identity } = packWithIdentity(sha, work)
   writeFiles(consumer, fixtureFiles({ packageManager, tarball, identity }))
+  gitInit(consumer)
   if (packageManager === 'pnpm') {
     run('pnpm', ['install', '--no-frozen-lockfile'], consumer)
   } else {
     run('npm', ['install', '--no-audit', '--no-fund'], consumer)
   }
 
-  // The caller workflow, rendered by the installed package from its own
-  // (selftest) identity, as `init` would write it.
-  const installed = join(consumer, 'node_modules', '@toolpath', 'dev-config', 'dist')
-  const { loadConfig } = /** @type {{ loadConfig: (file: string) => Promise<unknown> }} */ (
-    await importFile(join(installed, 'config', 'load.js'))
-  )
-  const { resolveConfig } = /** @type {{ resolveConfig: (config: unknown) => unknown }} */ (
-    await importFile(join(installed, 'config', 'resolve.js'))
-  )
-  const { renderCallerWorkflow } =
-    /** @type {{ renderCallerWorkflow: (resolved: unknown, identity: unknown, options: { defaultBranch: string }) => string }} */ (
-      await importFile(join(installed, 'ci', 'render.js'))
-    )
-  const resolved = resolveConfig(await loadConfig(join(consumer, 'dev.config.mjs')))
-  const workflow = renderCallerWorkflow(resolved, readJson(join(installed, 'release.json')), {
-    defaultBranch: 'main',
-  })
-  writeFiles(consumer, { '.github/workflows/quality.yml': workflow })
-  // What a commit through the installed pre-commit hook would contain: the
-  // package's own staged-file worker applies safe lint fixes, then formatting.
-  const files = [
-    ...Object.keys(fixtureFiles({ packageManager, tarball, identity })),
-    '.github/workflows/quality.yml',
-  ]
+  // The consumer adopts the standard the way any repository does: \`init\` writes
+  // dev.config.mjs, the native files, scripts, hook, caller workflow and receipt,
+  // and installs the exact tools. The specialized suites are then added as
+  // project facts and \`sync\` brings the managed files in line with them.
+  const cli = join(consumer, 'node_modules', '@toolpath', 'dev-config', 'dist', 'cli', 'main.js')
   run(
     process.execPath,
-    [join(installed, 'cli', 'main.js'), 'hooks', 'files', '--', ...files],
+    [cli, 'init', '--name', 'fixture', '--kind', 'library', '--runtime', 'node'],
+    consumer,
+  )
+  const configFile = join(consumer, 'dev.config.mjs')
+  const config = readFileSync(configFile, 'utf8')
+  const suites = config.indexOf('      suites: {\n')
+  if (suites === -1) {
+    throw new Error('init wrote no suites to extend')
+  }
+  const lineEnd = config.indexOf('\n', suites) + 1
+  writeFileSync(
+    configFile,
+    `${config.slice(0, lineEnd)}${SPECIALIZED_SUITES}${config.slice(lineEnd)}`,
+  )
+  run(process.execPath, [cli, 'sync'], consumer)
+  // What a commit through the installed pre-commit hook would contain: the
+  // package's own staged-file worker applies safe lint fixes, then formatting.
+  const listed = run('git', ['ls-files', '--others', '--exclude-standard'], consumer, {
+    capture: true,
+  })
+  run(
+    process.execPath,
+    [cli, 'hooks', 'files', '--', ...listed.split('\n').filter(Boolean)],
     consumer,
   )
   commitAll(consumer)
@@ -356,7 +314,7 @@ export const checkFormatBackstop = ({ consumer }) => {
   )
 }
 
-const main = async () => {
+const main = () => {
   const [command, ...rest] = process.argv.slice(2)
   const { values } = parseArgs({
     args: rest,
@@ -375,7 +333,7 @@ const main = async () => {
         'usage: ci-selftest.mjs consumer --package-manager npm|pnpm --sha <full sha> --out <directory>',
       )
     }
-    await createConsumer({ packageManager, sha: values.sha, out: values.out })
+    createConsumer({ packageManager, sha: values.sha, out: values.out })
     return
   }
   if (command === 'format-backstop') {
@@ -390,7 +348,7 @@ const main = async () => {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    await main()
+    main()
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)
     process.exitCode = 1

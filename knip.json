@@ -31,6 +31,7 @@
         "src/engine/eslint/index.ts",
         "src/cli/main.ts",
         "src/ci/result-policy.mjs",
+        "src/ci/actions/*.mjs",
         "scripts/*.mjs",
         "scripts/compatibility/*.mjs",
         "tests/**/*.test.{ts,tsx}",
