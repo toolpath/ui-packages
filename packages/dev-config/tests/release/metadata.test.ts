@@ -104,7 +104,10 @@ describe('release identity', () => {
     ) as {
       scripts: Record<string, string>
     }
-    expect(manifest.scripts.prepublishOnly).toBe('node scripts/build.mjs --release')
+    // The packed-artifact checks run as this package's own gate, only when it is published.
+    expect(manifest.scripts.prepublishOnly).toBe(
+      'node scripts/build.mjs --release && node scripts/test-package.mjs',
+    )
   })
 
   it('reads the GitHub repository from any common URL form', () => {

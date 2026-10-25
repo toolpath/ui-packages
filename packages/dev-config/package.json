@@ -131,7 +131,7 @@
     "test:compatibility": "node scripts/ensure-build.mjs && node scripts/test-compatibility.mjs",
     "benchmark": "node scripts/ensure-build.mjs && node scripts/benchmark.mjs",
     "check": "node scripts/build.mjs && node dist/cli/main.js check && node scripts/test-package.mjs && node scripts/test-compatibility.mjs",
-    "prepublishOnly": "node scripts/build.mjs --release"
+    "prepublishOnly": "node scripts/build.mjs --release && node scripts/test-package.mjs"
   },
   "dependencies": {
     "@eslint-react/eslint-plugin": "5.18.2",

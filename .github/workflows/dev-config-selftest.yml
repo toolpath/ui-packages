@@ -3,8 +3,6 @@
 name: dev-config selftest
 
 on:
-  # The release workflow calls this as @toolpath/dev-config's own release gate.
-  workflow_call:
   pull_request:
     paths:
       - packages/dev-config/**

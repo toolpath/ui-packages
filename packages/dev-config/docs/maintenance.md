@@ -59,9 +59,11 @@ official repository's; the rendering tests reject any mutable reference.
 `dist/release.json` binds the package to the commit it was built from: version, policy version,
 toolchain, repository, full source SHA, and the workflow and action references. A normal build
 writes `development` metadata, which `init` and `sync` refuse. Publishing runs `prepublishOnly`,
-which rebuilds with `--release` and refuses a dirty tree under the release paths or a commit that
-does not record the version being packed. Consumers' generated workflows reference that exact SHA,
-so a package version and its CI policy upgrade together.
+which rebuilds with `--release`, refusing a dirty tree under the release paths or a commit that does
+not record the version being packed, and then runs `test:package` against that release build. The
+package's packed-artifact gate therefore holds its own publish without holding any other package's
+release. Consumers' generated workflows reference that exact SHA, so a package version and its CI
+policy upgrade together.
 
 Until a release is published, nothing outside this repository can adopt the package: `init` and
 `sync` refuse development metadata, so the tests give their disposable consumers a fixture
