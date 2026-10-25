@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -94,6 +94,17 @@ describe('release identity', () => {
     expect(() => {
       assertInstallableIdentity(identity)
     }).toThrow(/development release metadata/)
+  })
+
+  it('rebuilds with release metadata whenever the package is published', () => {
+    // `changeset publish` and the first-publish bootstrap both run `pnpm publish`,
+    // which runs prepublishOnly before packing.
+    const manifest = JSON.parse(
+      readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+    ) as {
+      scripts: Record<string, string>
+    }
+    expect(manifest.scripts.prepublishOnly).toBe('node scripts/build.mjs --release')
   })
 
   it('reads the GitHub repository from any common URL form', () => {
