@@ -64,7 +64,9 @@ const compile = (base: string): Record<string, Array<string>> => {
 }
 
 describe.each(['base.json', 'browser.json', 'node.json', 'library.json'])('%s', (base) => {
-  it('compiles correct code and reports each safety flag', () => {
+  // Each case runs tsc over the full DOM or Node type libraries (`skipLibCheck: false`), which
+  // takes around ten seconds on a CI runner.
+  it('compiles correct code and reports each safety flag', { timeout: 60_000 }, () => {
     expect(compile(base)).toEqual(
       Object.fromEntries(Object.entries(FIXTURES).map(([file, { expected }]) => [file, expected])),
     )
