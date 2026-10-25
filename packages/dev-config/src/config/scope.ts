@@ -18,9 +18,7 @@ export interface Scope {
  * own `vite.config.ts` can be checked by the tooling program; otherwise the most
  * specific project root claims the file and its parent does not reprocess it.
  */
-export const createOwnerLookup = (
-  resolved: ResolvedConfig,
-): ((path: string) => Owner | undefined) => {
+const createOwnerLookup = (resolved: ResolvedConfig): ((path: string) => Owner | undefined) => {
   const isTooling = createMatcher(resolved.tooling?.files ?? [])
   const bySpecificity = [...resolved.projects].sort((a, b) =>
     a.path === '.' ? 1 : b.path === '.' ? -1 : b.path.length - a.path.length,
@@ -34,7 +32,7 @@ export const createOwnerLookup = (
   }
 }
 
-export const createGeneratedMatcher = (resolved: ResolvedConfig): ((path: string) => boolean) =>
+const createGeneratedMatcher = (resolved: ResolvedConfig): ((path: string) => boolean) =>
   createMatcher(resolved.generated.flatMap((entry) => entry.files))
 
 export const createFormatIgnoreMatcher = (resolved: ResolvedConfig): ((path: string) => boolean) =>

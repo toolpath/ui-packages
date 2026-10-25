@@ -1,15 +1,11 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
-import { dirname, join, relative } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export const packageRoot = fileURLToPath(new URL('../..', import.meta.url))
+const packageRoot = fileURLToPath(new URL('../..', import.meta.url))
 const temporaryRoot = join(packageRoot, '.tmp')
 const cli = join(packageRoot, 'dist/cli/main.js')
-
-/** A path relative to the project root, for messages. */
-export const inProject = (root: string, path: string): string =>
-  relative(root, path).split('\\').join('/')
 
 export interface TestProject {
   root: string

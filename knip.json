@@ -10,6 +10,36 @@
       "entry": ["src/index.ts", "src/react/index.ts", "tests/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
     },
+    "packages/dev-config": {
+      "entry": [
+        "src/index.ts",
+        "src/eslint/index.ts",
+        "src/eslint/plugin/index.ts",
+        "src/prettier/index.ts",
+        "src/hooks/index.ts",
+        "src/testing/vitest.ts",
+        "src/testing/playwright.ts",
+        "src/testing/jest-expo.ts",
+        "src/testing/setup/*.ts",
+        "src/react/vite.ts",
+        "src/react/babel.ts",
+        "src/react/expo.ts",
+        "src/react/library.ts",
+        "src/engine/testing/index.ts",
+        "src/engine/testing/node.ts",
+        "src/engine/testing/msw.ts",
+        "src/engine/eslint/index.ts",
+        "src/cli/main.ts",
+        "src/ci/result-policy.mjs",
+        "scripts/*.mjs",
+        "scripts/compatibility/*.mjs",
+        "tests/**/*.test.{ts,tsx}",
+        "dev.config.mjs",
+        "eslint.config.mjs",
+        "vitest.config.ts"
+      ],
+      "project": ["src/**/*.{ts,mjs}", "scripts/**/*.mjs", "tests/**/*.{ts,tsx}"]
+    },
     "packages/dfm": {
       "entry": ["src/index.ts", "src/model/index.ts", "tests/**/*.test.ts"],
       "project": ["src/**/*.ts", "tests/**/*.ts"]

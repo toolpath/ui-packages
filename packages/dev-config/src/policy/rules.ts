@@ -424,7 +424,8 @@ export const vitestRules: RuleMap = {
   'vitest/no-unneeded-async-expect-function': 'error',
   'vitest/require-local-test-context-for-concurrent-snapshots': 'error',
   'vitest/valid-describe-callback': 'error',
-  'vitest/valid-expect': ['error', { alwaysAwait: true }],
+  // Vitest takes an assertion message as a second argument.
+  'vitest/valid-expect': ['error', { alwaysAwait: true, maxArgs: 2 }],
   'vitest/valid-expect-in-promise': 'error',
   'vitest/valid-title': 'error',
   'vitest/require-awaited-expect-poll': 'error',

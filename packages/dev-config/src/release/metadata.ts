@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { UsageError } from '../errors.js'
 import { toolchain, type Toolchain } from '../policy/toolchain.js'
@@ -20,7 +20,7 @@ export const ACTION_PATHS = {
   result: '.github/actions/dev-config-result',
 } as const
 
-export type ReleaseChannel = 'release' | 'development'
+type ReleaseChannel = 'release' | 'development'
 
 /**
  * Binds an installed package to the exact workflow and action source it was
@@ -71,9 +71,11 @@ export interface ReleaseIdentityOptions {
  * published metadata must name a commit whose workflow is the one shipped.
  */
 export const createReleaseIdentity = ({
-  packageRoot,
+  packageRoot: givenRoot,
   channel,
 }: ReleaseIdentityOptions): ReleaseIdentity => {
+  // Git reports real paths; a symlinked checkout must compare like with like.
+  const packageRoot = realpathSync(givenRoot)
   const manifest = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8')) as {
     name: string
     version: string

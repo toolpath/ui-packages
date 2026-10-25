@@ -2,14 +2,14 @@ import { agentFileAssets, agentsBlock, AGENTS_BLOCK_ID, AGENTS_FILE } from '../a
 import { CALLER_WORKFLOW_PATH, renderCallerWorkflow } from '../ci/render.js'
 import type { PackageManagerName } from '../config/packages.js'
 import type { ResolvedConfig } from '../config/resolve.js'
-import { preferredVersion, toolchain } from '../policy/toolchain.js'
+import { toolchain } from '../policy/toolchain.js'
 import type { ReleaseIdentity } from '../release/metadata.js'
 import { ESLINT_CONFIG, MANAGED_SCRIPTS, PRETTIER_CONFIG, preCommitBlock } from './templates.js'
 
 export const HUSKY_PRE_COMMIT = '.husky/pre-commit'
 export const PRE_COMMIT_BLOCK_ID = 'pre-commit'
 
-export type ManagedItem =
+type ManagedItem =
   | { kind: 'file'; path: string; content: string; mode?: number }
   | { kind: 'block'; path: string; id: string; content: string }
 
@@ -151,7 +151,3 @@ export const desiredState = ({
     devDependencies: profileDependencies(resolved, declared, identity.version),
   }
 }
-
-/** The version `init` would install for a tool, for messages. */
-export const describeTool = (name: string): string =>
-  `${name}@${preferredVersion(name) ?? 'unknown'}`

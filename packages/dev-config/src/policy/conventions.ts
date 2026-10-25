@@ -25,8 +25,6 @@ export const TEST_PROGRAM_PATTERNS = [
   ...TEST_SUPPORT_PATTERNS,
 ]
 
-export const SCRIPT_GLOB = `**/*.${EXTENSIONS}`
-
 /** Every Node builtin by both its bare and `node:` names, for runtime import boundaries. */
 export const NODE_BUILTINS = [
   ...new Set(

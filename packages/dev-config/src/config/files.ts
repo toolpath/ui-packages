@@ -4,16 +4,7 @@ import { join, relative, sep } from 'node:path'
 import picomatch from 'picomatch'
 
 /** Every TS/JS extension the standard owns. */
-export const SCRIPT_EXTENSIONS = [
-  '.ts',
-  '.tsx',
-  '.mts',
-  '.cts',
-  '.js',
-  '.jsx',
-  '.mjs',
-  '.cjs',
-] as const
+const SCRIPT_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'] as const
 
 /**
  * Output and dependency directories that are never maintained source. The

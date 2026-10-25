@@ -36,35 +36,3 @@ export interface Toolchain {
 export const toolchain: Toolchain = JSON.parse(
   readFileSync(new URL('./toolchain.json', import.meta.url), 'utf8'),
 ) as Toolchain
-
-/** The exact version (or tested versions) of a managed package, if the release manages it. */
-export const managedVersions = (name: string): Array<string> => {
-  if (name === 'eslint') {
-    return [toolchain.core.eslint]
-  }
-  if (name === 'typescript') {
-    return [...toolchain.core.typescript]
-  }
-  const bundled = toolchain.bundled[name]
-  if (bundled !== undefined) {
-    return [bundled]
-  }
-  const found = new Set<string>()
-  for (const profile of Object.values(toolchain.profiles)) {
-    const version = profile[name]
-    if (version !== undefined) {
-      for (const entry of [version].flat()) {
-        found.add(entry)
-      }
-    }
-  }
-  return [...found]
-}
-
-/** The first tested version of a managed package; what `init` installs. */
-export const preferredVersion = (name: string): string | undefined => {
-  if (name === 'typescript') {
-    return toolchain.core.defaultTypescript
-  }
-  return managedVersions(name)[0]
-}

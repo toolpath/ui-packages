@@ -13,7 +13,7 @@ export interface TestCounts {
   skipped: number
 }
 
-export type SuiteStatus = 'passed' | 'failed' | 'empty' | 'no-report' | 'interrupted'
+type SuiteStatus = 'passed' | 'failed' | 'empty' | 'no-report' | 'interrupted'
 
 export interface SuiteOutcome {
   id: string
@@ -294,7 +294,7 @@ export const runSuite = async (
   return { ...base, status, tests }
 }
 
-export const describeOutcome = (outcome: SuiteOutcome): string => {
+const describeOutcome = (outcome: SuiteOutcome): string => {
   const counts = `${plural(outcome.tests.passed, 'test')} passed${outcome.tests.skipped > 0 ? `, ${outcome.tests.skipped} skipped` : ''}`
   switch (outcome.status) {
     case 'passed':

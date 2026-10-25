@@ -4,11 +4,19 @@ on:
   push:
     branches:
       - main
+    # dev-config's shared workflow and actions are part of what a dev-config release means.
     paths:
       - .changeset/**
       - .github/workflows/release.yml
       - packages/app-support/src/**
       - packages/app-support/package.json
+      - packages/dev-config/src/**
+      - packages/dev-config/assets/**
+      - packages/dev-config/contracts/**
+      - packages/dev-config/docs/**
+      - packages/dev-config/package.json
+      - .github/workflows/dev-config-quality.yml
+      - .github/actions/dev-config-*/**
       - packages/dfm/src/**
       - packages/dfm/package.json
       - packages/plan/src/**

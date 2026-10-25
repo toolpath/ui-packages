@@ -36,6 +36,10 @@ Each package's README is its full documentation, and the npm packages ship it. T
 - [React viewer example](https://github.com/toolpath/ui-packages/blob/main/examples/react-viewer/README.md): show an analyzed part with `@toolpath/viewer`
 - [Part Viewer template](https://github.com/toolpath/toolpath-template): a starting point for a customer application
 
+## Develop an application repository
+
+- [@toolpath/dev-config](https://github.com/toolpath/ui-packages/blob/main/packages/dev-config/README.md): one versioned development standard for TypeScript repositories: strict lint and TypeScript presets, Vitest/Playwright/Jest Expo factories, React Compiler adapters, automatic pre-commit formatting, shared CI, Engine API test fixtures, and agent instructions. A dev dependency only.
+
 ## Optional
 
 - [Contributor guide](https://github.com/toolpath/ui-packages/blob/main/AGENTS.md): for work on these packages, not for building an application with them

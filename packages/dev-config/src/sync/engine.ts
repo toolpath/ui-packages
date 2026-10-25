@@ -14,7 +14,7 @@ export interface Write {
   mode?: number
 }
 
-export interface Conflict {
+interface Conflict {
   path: string
   reason: string
   /** The change the standard proposes, against the repository's current text. */

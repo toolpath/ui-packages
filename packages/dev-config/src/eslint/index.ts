@@ -233,7 +233,7 @@ export const createEslintConfig = async (
 ): Promise<Array<Config>> => {
   const resolved = resolveConfig(config)
   const { default: tseslint } = await import('typescript-eslint')
-  const { plugin: toolpath } = await import('./plugin/index.js')
+  const { default: toolpath } = await import('./plugin/index.js')
 
   const reactProjects = resolved.projects.filter((project) => project.react)
   const hasRunner = (runner: string): boolean =>
@@ -282,7 +282,7 @@ export const createEslintConfig = async (
   let engineOrigins: Array<string> = []
   if (resolved.engine) {
     const engine = await import('../engine/eslint/index.js')
-    plugins['toolpath-engine'] = engine.plugin as unknown as Plugin
+    plugins['toolpath-engine'] = engine.default as unknown as Plugin
     engineOrigins = [...(resolved.engine.origins ?? engine.DEFAULT_ENGINE_ORIGINS)]
     enabled.push(engineRules)
   }

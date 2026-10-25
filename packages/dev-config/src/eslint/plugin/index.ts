@@ -16,7 +16,7 @@ export const rules = {
   'require-compiler-optout-reason': requireCompilerOptoutReason,
 } satisfies Record<string, TSESLint.RuleModule<string, Array<unknown>>>
 
-export const plugin = {
+const plugin = {
   meta: { name: '@toolpath/dev-config/eslint/plugin', namespace: 'toolpath' },
   rules,
 }

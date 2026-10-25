@@ -7,7 +7,7 @@ import { mapLimit, processConcurrency, run } from './process.js'
 import { plural, seconds, type Output } from './output.js'
 
 /** Compiler options every check program must have, and their required values. */
-export const REQUIRED_COMPILER_OPTIONS: Readonly<Record<string, boolean>> = {
+const REQUIRED_COMPILER_OPTIONS: Readonly<Record<string, boolean>> = {
   strict: true,
   noUncheckedIndexedAccess: true,
   exactOptionalPropertyTypes: true,

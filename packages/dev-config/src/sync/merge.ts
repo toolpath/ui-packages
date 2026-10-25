@@ -4,9 +4,9 @@
  * cheap and keeps the result predictable.
  */
 
-export type Edit = { kind: 'keep' | 'delete' | 'insert'; line: string }
+type Edit = { kind: 'keep' | 'delete' | 'insert'; line: string }
 
-export const splitLines = (text: string): Array<string> => {
+const splitLines = (text: string): Array<string> => {
   if (text === '') {
     return []
   }
@@ -18,7 +18,7 @@ export const splitLines = (text: string): Array<string> => {
 }
 
 /** The edit script turning `a` into `b`, from a longest common subsequence. */
-export const diffLines = (a: ReadonlyArray<string>, b: ReadonlyArray<string>): Array<Edit> => {
+const diffLines = (a: ReadonlyArray<string>, b: ReadonlyArray<string>): Array<Edit> => {
   const rows = a.length + 1
   const columns = b.length + 1
   const lengths = new Uint32Array(rows * columns)

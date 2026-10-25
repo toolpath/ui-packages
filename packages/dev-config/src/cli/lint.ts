@@ -29,7 +29,7 @@ const options = (entry: Linter.RuleEntry | undefined): string =>
  * turns off is allowed; anything else that differs (lower severity, different
  * options) is a weakening the standard gate refuses.
  */
-export const weakenedRules = (
+const weakenedRules = (
   baseline: Partial<Linter.RulesRecord>,
   effective: Partial<Linter.RulesRecord>,
 ): Array<{ rule: string; baseline: string; effective: string }> => {

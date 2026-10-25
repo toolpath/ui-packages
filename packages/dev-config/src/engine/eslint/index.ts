@@ -10,7 +10,7 @@ export const rules = {
   'no-direct-engine-http': noDirectEngineHttp,
 }
 
-export const plugin = {
+const plugin = {
   meta: { name: '@toolpath/dev-config/engine/eslint', namespace: 'toolpath-engine' },
   rules,
 }

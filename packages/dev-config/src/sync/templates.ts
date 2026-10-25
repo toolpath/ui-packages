@@ -1,9 +1,4 @@
-import type {
-  DevConfigInput,
-  ProjectConfig,
-  ProjectRuntime,
-  ReactAdapter,
-} from '../config/types.js'
+import type { DevConfigInput, ProjectConfig, ProjectRuntime } from '../config/types.js'
 import type { PackageManagerName } from '../config/packages.js'
 
 /** Native files stay small: they import the shared factories and add nothing that weakens them. */
@@ -46,7 +41,7 @@ const TEST_EXCLUDES = ['test', 'spec', 'test-utils'].flatMap((kind) =>
 )
 
 /** Runtimes whose source program has no timers or test-runner types, so tests get their own. */
-export const needsTestProgram = (project: ProjectConfig): boolean =>
+const needsTestProgram = (project: ProjectConfig): boolean =>
   project.runtime === 'universal' || project.runtime === 'native'
 
 /**
@@ -101,7 +96,7 @@ export const TOOLING_FILES = [
 ]
 
 /** TypeScript's `include` has no brace expansion, so `a.{js,ts}` becomes `a.js`, `a.ts`. */
-export const expandBraces = (pattern: string): Array<string> => {
+const expandBraces = (pattern: string): Array<string> => {
   const match = /\{([^{}]*)\}/.exec(pattern)
   if (!match) {
     return [pattern]
@@ -149,10 +144,6 @@ import { createPlaywrightConfig } from '@toolpath/dev-config/playwright'
 
 export default createPlaywrightConfig(config, { project: '${project.name}', suite: '${suite}' })
 `
-
-/** The `react.adapter` a Vite consumer starts from, by installed `@vitejs/plugin-react` major. */
-export const viteAdapterFor = (pluginMajor: number): ReactAdapter =>
-  pluginMajor >= 6 ? 'vite-modern' : 'vite-legacy'
 
 const literal = (value: unknown, indent: string): string => {
   if (Array.isArray(value)) {

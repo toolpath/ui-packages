@@ -20,6 +20,19 @@ const releaseSensitivePaths = [
     paths: ['packages/app-support/src/'],
   },
   {
+    packageName: '@toolpath/dev-config',
+    paths: [
+      'packages/dev-config/src/',
+      'packages/dev-config/assets/',
+      'packages/dev-config/contracts/',
+      'packages/dev-config/docs/',
+      // Consumers call the shared workflow and actions at the release's commit, so a change to
+      // them changes what a dev-config release means.
+      '.github/workflows/dev-config-quality.yml',
+      '.github/actions/dev-config-',
+    ],
+  },
+  {
     packageName: '@toolpath/dfm',
     paths: ['packages/dfm/src/'],
   },

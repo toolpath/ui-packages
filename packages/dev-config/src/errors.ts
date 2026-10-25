@@ -69,5 +69,5 @@ export class CheckFailure extends Error {
   }
 }
 
-export const formatIssues = (issues: ReadonlyArray<Issue>): string =>
+const formatIssues = (issues: ReadonlyArray<Issue>): string =>
   issues.map((issue) => `  - ${issue.path}: ${issue.message}`).join('\n')

@@ -21,6 +21,7 @@ machined, and what it may cost.
 | Share quote flow rules         | `@toolpath/quoting`             | [Quoting](packages/quoting)                                        |
 | Share the cutting-tool domain  | `@toolpath/tool-support`        | [Tool support](packages/tool-support)                              |
 | Share application logic        | `@toolpath/app-support`         | [App support](packages/app-support)                                |
+| Share lint, test and CI rules  | `@toolpath/dev-config`          | [Dev config](packages/dev-config)                                  |
 | See usage examples             | TypeScript, Python, or React    | [Examples](#examples)                                              |
 | Start a customer application   | Part Viewer template            | [toolpath-template](https://github.com/toolpath/toolpath-template) |
 | Call the API without an SDK    | HTTP, cURL, or another language | [API documentation](https://developers.toolpath.com)               |
@@ -162,6 +163,10 @@ input (`dry_run` defaults to on). It commits nothing and never moves `latest`; t
 `release.yml` because npm's trusted publisher is bound to that file name. Inspect with
 `npm view @toolpath/api dist-tags` and `npm view @toolpath/api@staging toolpath`; should
 `latest` ever move, `npm dist-tag add @toolpath/api@<stable> latest` restores it.
+
+**`@toolpath/dev-config` checks itself.** It carries its own pinned ESLint 10, TypeScript and
+Prettier policy and its own gate, `pnpm check:dev-config`; the root `pnpm lint` runs its lint too.
+The other packages here have not adopted that shared baseline yet.
 
 ## Publishing a new npm package
 

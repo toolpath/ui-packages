@@ -1,7 +1,7 @@
 import { ESLint } from 'eslint'
 import { describe, expect, it } from 'vitest'
-import { plugin as enginePlugin } from '../../src/engine/eslint/index.js'
-import { plugin as toolpathPlugin } from '../../src/eslint/plugin/index.js'
+import enginePlugin from '../../src/engine/eslint/index.js'
+import toolpathPlugin from '../../src/eslint/plugin/index.js'
 import { POLICY_GROUPS } from '../../src/policy/rules.js'
 
 const pluginModules: Record<string, () => Promise<{ default: ESLint.Plugin }>> = {
