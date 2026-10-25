@@ -171,11 +171,10 @@ export const runSuite = async (
     suite.runner === 'command' && suite.report
       ? join(project.directory, suite.report.path)
       : join(reportDirectory, `${suite.id.replace(/[^a-z0-9._-]/gi, '_')}.${extension}`)
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    TOOLPATH_DEV_REPORT: report,
-    TOOLPATH_DEV_SUITE: suite.id,
-  }
+  // Watch mode is interactive: the runner's own reporter, and no one-shot report.
+  const env: NodeJS.ProcessEnv = options.watch
+    ? { ...process.env, TOOLPATH_DEV_WATCH: '1', TOOLPATH_DEV_SUITE: suite.id }
+    : { ...process.env, TOOLPATH_DEV_REPORT: report, TOOLPATH_DEV_SUITE: suite.id }
   if (suite.runner !== 'command') {
     rmSync(report, { force: true })
   }
@@ -186,9 +185,7 @@ export const runSuite = async (
     case 'vitest': {
       const bin = requireTool(project, 'vitest', 'vitest', suite)
       command = process.execPath
-      args = options.watch
-        ? [bin, '--config', suite.config ?? '', ...filters]
-        : [bin, 'run', '--config', suite.config ?? '', ...filters]
+      args = [bin, options.watch ? 'watch' : 'run', '--config', suite.config ?? '', ...filters]
       break
     }
     case 'jest-expo': {

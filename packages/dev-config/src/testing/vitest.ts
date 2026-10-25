@@ -69,6 +69,7 @@ export const createVitestConfig = (config: DevConfig, options: VitestOptions): V
     extend.timeouts?.hook ?? DEFAULT_HOOK_TIMEOUT_MS,
   )
   const report = process.env.TOOLPATH_DEV_REPORT
+  const watching = process.env.TOOLPATH_DEV_WATCH === '1'
 
   return {
     root: project.directory,
@@ -101,7 +102,12 @@ export const createVitestConfig = (config: DevConfig, options: VitestOptions): V
       allowOnly: false,
       watch: false,
       maxWorkers: unitWorkerCeiling(availableParallelism()),
-      reporters: report ? ['minimal', ['json', { outputFile: report }]] : ['minimal'],
+      // One-shot runs print failures only; `toolpath-dev test --watch` keeps Vitest's own feedback.
+      reporters: watching
+        ? ['default']
+        : report
+          ? ['minimal', ['json', { outputFile: report }]]
+          : ['minimal'],
     },
   }
 }

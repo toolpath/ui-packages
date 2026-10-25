@@ -232,6 +232,30 @@ describe('the CLI against a real project', { timeout: 120_000 }, () => {
     expect(focused.stdout).not.toMatch(/b:unit/)
   })
 
+  it('keeps watching with --watch and exits after a plain run', async () => {
+    const watched = singleProject()
+    expect(watched.run(['test']).code).toBe(0)
+    const child = watched.start(['test', '--watch', '--suite', 'core:unit'])
+    let output = ''
+    child.stdout?.on('data', (chunk: Buffer) => {
+      output += chunk.toString()
+    })
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`watch mode printed no result:\n${output}`))
+      }, 30_000)
+      const poll = setInterval(() => {
+        if (/Waiting for file changes|press h to show help/i.test(output)) {
+          clearInterval(poll)
+          clearTimeout(timer)
+          resolve()
+        }
+      }, 100)
+    })
+    expect(child.exitCode).toBeNull()
+    child.kill('SIGTERM')
+  })
+
   it('does not report success when interrupted', async () => {
     const slow = singleProject({
       'src/sum.test.ts': `import { it } from 'vitest'\n\nit('waits', async () => {\n  await new Promise((resolve) => setTimeout(resolve, 4000))\n})\n`,
