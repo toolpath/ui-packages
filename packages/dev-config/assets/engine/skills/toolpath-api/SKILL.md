@@ -1,6 +1,11 @@
-# Toolpath Engine integration context
+---
+name: toolpath-api
+description: Toolpath Engine API domain model, contract/SDK/deployment rules, and integration patterns. Use before writing, reviewing, or debugging any code that calls the Engine or imports `@toolpath/api` — parts, CAD uploads, analysis jobs and their event streams, part results, features, DFM, plans, toolpaths, machining time, tools and holders, API keys and product access, staging versus production, or Engine test fixtures — even when the task does not name the Engine.
+---
 
-Optional context for repositories that integrate the Toolpath Engine API. It defines concepts and integration patterns; the selected contract defines routes, fields, enums, requiredness, and experimental status. The repository's own instructions come first and specialize this context.
+# Toolpath Engine API
+
+Context for code that integrates the Toolpath Engine API. It defines concepts and integration patterns; the selected contract defines routes, fields, enums, requiredness, and experimental status. The repository's own instructions come first and specialize this context.
 
 ## Domain model and terminology
 
@@ -79,7 +84,7 @@ A deployment, the contract it serves, and the SDK generated from a contract are 
 
 ### Testing Engine integrations
 
-- `@toolpath/dev-config/engine/testing` provides deterministic scenarios on the pinned public contracts (`api-1.29.1`, `api-1.32.0`) behind the real SDK: an injected `fetch` for unit tests, `/engine/testing/node` for a real local HTTP server, and `/engine/testing/msw` for MSW. See `node_modules/@toolpath/dev-config/docs/engine-testing.md`.
+- `@toolpath/dev-config/engine/testing` provides deterministic scenarios on the pinned public contracts (`api-1.29.1`, `api-1.32.0`) behind the real SDK: an injected `fetch` for unit tests, `/engine/testing/node` for a real local HTTP server, and `/engine/testing/msw` for MSW. See [Engine testing](../../../../docs/engine-testing.md).
 - Test refused access, job failures, expired artifacts, interrupted event streams, and contract/SDK mismatches where the application handles them. Fixture tests prove client compatibility, not a live service: keep real integration checks for behavior that depends on the deployed Engine.
 
 ## Documentation and sources

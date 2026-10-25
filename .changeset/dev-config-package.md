@@ -9,7 +9,8 @@ nothing to an application's or library's runtime.
 
 - `npx @toolpath/dev-config init` adds the standard: `dev.config.mjs`, native files that import the
   shared factories, scripts, the pre-commit hook, `.github/workflows/quality.yml`, a managed
-  `AGENTS.md` section with `commit`/`pr`/`review` skills, and exact tool versions. `--dry-run`
+  `AGENTS.md` section with `commit`/`pr`/`review` skills (plus a `toolpath-api` skill with the
+  `engine` profile), and exact tool versions. `--dry-run`
   prints the whole change; an existing config that differs stops the run with a diff.
 - `toolpath-dev check`, `lint`, `check-types`, `test` and `doctor` run strict TypeScript and ESLint 10
   policy (typed rules, runtime import boundaries, React and accessibility rules, the `toolpath/*`

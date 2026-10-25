@@ -6,9 +6,10 @@ import { isExternalDestination, rewriteLinkDestinations } from './links.js'
 
 /**
  * The agent assets a repository receives, from their one canonical copy under
- * the package's `assets/`. Skills are installed as whole managed files; the
- * shared guidance and the optional Engine context stay in the installed package
- * and are linked from a managed section of the repository's `AGENTS.md`.
+ * the package's `assets/`. Skills are installed as whole managed files, the
+ * `toolpath-api` skill only with the Engine profile; the shared guidance stays in
+ * the installed package and is linked from a managed section of the repository's
+ * `AGENTS.md`.
  */
 
 export interface AgentSelection {
@@ -32,6 +33,7 @@ export const AGENTS_BLOCK_ID = 'toolpath-dev-standard'
 /** Where the package is installed in a consumer, relative to its root. */
 const INSTALLED_PACKAGE = 'node_modules/@toolpath/dev-config'
 const SKILLS_SOURCE = 'assets/agents/skills'
+const ENGINE_SKILLS_SOURCE = 'assets/engine/skills'
 const packageRoot = fileURLToPath(new URL('../../', import.meta.url))
 
 const normalizeSkillsDir = (skillsDir: string): string => {
@@ -66,10 +68,12 @@ const packageFiles = (directory: string): Array<string> =>
     .sort()
 
 /** Where an installed copy of a package file lands, when the file is installed at all. */
-const installedTarget = (packagePath: string, skillsDir: string): string | undefined =>
-  packagePath.startsWith(`${SKILLS_SOURCE}/`)
-    ? `${skillsDir}/${packagePath.slice(SKILLS_SOURCE.length + 1)}`
-    : undefined
+const installedTarget = (packagePath: string, skillsDir: string): string | undefined => {
+  const source = [SKILLS_SOURCE, ENGINE_SKILLS_SOURCE].find((directory) =>
+    packagePath.startsWith(`${directory}/`),
+  )
+  return source === undefined ? undefined : `${skillsDir}/${packagePath.slice(source.length + 1)}`
+}
 
 /** A relative link from repository file `from` to package file `packagePath` as installed. */
 const linkTo = (from: string, packagePath: string, skillsDir: string): string =>
@@ -101,14 +105,17 @@ const rewriteFor = (source: string, markdown: string, target: string, skillsDir:
 /** The skills, each installed as a whole managed file under the selected skills directory. */
 export const agentFileAssets = (selection: AgentSelection): Array<AgentFileAsset> => {
   const skillsDir = normalizeSkillsDir(selection.skillsDir)
-  return packageFiles(SKILLS_SOURCE).map((source) => {
-    const target = installedTarget(source, skillsDir) ?? source
-    const content = readFileSync(join(packageRoot, source), 'utf8')
-    return {
-      target,
-      content: source.endsWith('.md') ? rewriteFor(source, content, target, skillsDir) : content,
-    }
-  })
+  const sources = selection.engine ? [SKILLS_SOURCE, ENGINE_SKILLS_SOURCE] : [SKILLS_SOURCE]
+  return sources
+    .flatMap((directory) => packageFiles(directory))
+    .map((source) => {
+      const target = installedTarget(source, skillsDir) ?? source
+      const content = readFileSync(join(packageRoot, source), 'utf8')
+      return {
+        target,
+        content: source.endsWith('.md') ? rewriteFor(source, content, target, skillsDir) : content,
+      }
+    })
 }
 
 /**
@@ -140,7 +147,7 @@ export const agentsBlock = (selection: AgentSelection): string => {
   if (selection.engine) {
     lines.push(
       '',
-      `This repository integrates the Toolpath Engine API. Read the [Engine integration context](${link('assets/engine/agents/AGENTS.md')}) before changing Engine code.`,
+      `This repository integrates the Toolpath Engine API. Use the [toolpath-api](${link(`${ENGINE_SKILLS_SOURCE}/toolpath-api/SKILL.md`)}) skill before changing Engine code.`,
     )
   }
   return `${lines.join('\n')}\n\n`

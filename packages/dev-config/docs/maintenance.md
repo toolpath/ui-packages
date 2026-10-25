@@ -13,7 +13,7 @@ For people changing @toolpath/dev-config itself, in `packages/dev-config` of ui-
 | Formatting policy                            | `src/prettier/index.ts`                                              |
 | Configuration schema                         | `src/config/types.ts` and `src/config/validate.ts`                   |
 | Managed native files and scripts             | `src/sync/templates.ts`, `src/sync/desired.ts`                       |
-| Agent instructions and skills                | `assets/agents/`, `assets/engine/agents/`, `assets/claude-code/`     |
+| Agent instructions and skills                | `assets/agents/`, `assets/engine/skills/`                            |
 | Pinned third-party actions                   | `src/ci/pins.json`                                                   |
 | Engine contracts                             | `contracts/engine/<id>/` and `toolchain.json` `engine.contracts`     |
 

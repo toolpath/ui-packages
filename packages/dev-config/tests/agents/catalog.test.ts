@@ -77,6 +77,23 @@ describe('agentFileAssets', () => {
     ])
   })
 
+  it('adds the toolpath-api skill only with the Engine profile', () => {
+    expect(
+      agentFileAssets(selection({ engine: true, skillsDir: 'tools/agents/skills' })).map(
+        (asset) => asset.target,
+      ),
+    ).toEqual([
+      'tools/agents/skills/commit/SKILL.md',
+      'tools/agents/skills/pr/SKILL.md',
+      'tools/agents/skills/review/SKILL.md',
+      'tools/agents/skills/toolpath-api/SKILL.md',
+    ])
+    const api = agentFileAssets(selection({ engine: true })).find((asset) =>
+      asset.target.endsWith('/toolpath-api/SKILL.md'),
+    )
+    expect(api?.content).toContain(`](../../../${INSTALLED}/docs/engine-testing.md)`)
+  })
+
   it('installs under an explicit repository-relative skills directory', () => {
     expect(
       agentFileAssets(selection({ skillsDir: 'tools/agents/skills/' })).map(
@@ -122,11 +139,11 @@ describe('agentFileAssets', () => {
 })
 
 describe('agentsBlock', () => {
-  it('keeps the Engine context out unless the Engine profile is selected', () => {
+  it('points to the toolpath-api skill only when the Engine profile is selected', () => {
     const generic = agentsBlock(selection())
     const engine = agentsBlock(selection({ engine: true }))
-    expect(generic).not.toMatch(/Engine/)
-    expect(engine).toContain(`](${INSTALLED}/assets/engine/agents/AGENTS.md)`)
+    expect(generic).not.toMatch(/Engine|toolpath-api/)
+    expect(engine).toContain('[toolpath-api](.claude/skills/toolpath-api/SKILL.md)')
     expect(engine.startsWith(generic.trimEnd())).toBe(true)
   })
 

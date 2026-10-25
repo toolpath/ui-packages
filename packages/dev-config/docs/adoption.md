@@ -80,4 +80,6 @@ Other TypeScript repositories follow the same path as separate adoption changes.
 
 After a release is published, demonstrate the agent assets in a disposable repository. Then, with
 explicit authorization, add a pointer to this package in agent-config's README and archive it,
-keeping its content and history readable. Nothing in this package depends on that step.
+keeping its content and history readable. Its Claude Code worker subagent and Orchestrator output
+style are personal configuration this package does not ship; anyone who uses them keeps a copy in
+their own Claude configuration before the archive. Nothing in this package depends on that step.

@@ -145,7 +145,7 @@ Agents and people can read the shipped documentation at
 - [react.md](docs/react.md): React Compiler adapters, rules and opt-outs.
 - [engine-testing.md](docs/engine-testing.md): the Engine scenario kit and its limits.
 - [ci.md](docs/ci.md): the shared workflow, composite actions and the `quality` check.
-- [agents.md](docs/agents.md): agent instructions, skills and the optional Claude files.
+- [agents.md](docs/agents.md): agent instructions and skills, including the Engine profile's `toolpath-api` skill.
 - [adoption.md](docs/adoption.md): adopting the standard in an existing repository.
 - [maintenance.md](docs/maintenance.md): changing a default, a tool version or a rule.
 

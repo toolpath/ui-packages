@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
@@ -27,8 +27,14 @@ const frontmatter = (path: string): Record<string, unknown> => {
 }
 
 const BOOTSTRAP = 'assets/agents/AGENTS.md'
-const ENGINE_CONTEXT = 'assets/engine/agents/AGENTS.md'
+const ENGINE_SKILL = 'assets/engine/skills/toolpath-api/SKILL.md'
 const SKILLS = readdirSync(join(packageRoot, 'assets/agents/skills')).sort()
+const SKILL_FILES = [
+  ...SKILLS.map((skill) => `assets/agents/skills/${skill}/SKILL.md`),
+  ...readdirSync(join(packageRoot, 'assets/engine/skills'))
+    .sort()
+    .map((skill) => `assets/engine/skills/${skill}/SKILL.md`),
+]
 const GENERIC_FILES = filesUnder('assets/agents')
 const ALL_ASSETS = filesUnder('assets')
 
@@ -104,18 +110,27 @@ describe('skills', () => {
     expect(SKILLS).toEqual(['commit', 'pr', 'review'])
   })
 
-  it.each(SKILLS)('%s has valid Claude skill frontmatter named after its directory', (skill) => {
-    const fields = frontmatter(`assets/agents/skills/${skill}/SKILL.md`)
-    expect(
-      Object.keys(fields).filter((key) => !['name', 'description', 'argument-hint'].includes(key)),
-    ).toEqual([])
-    expect(fields.name).toBe(skill)
-    expect(fields.name).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-    expect(typeof fields.description).toBe('string')
-    expect(String(fields.description).length).toBeGreaterThan(40)
-    expect(String(fields.description).length).toBeLessThanOrEqual(1536)
-    expect(['undefined', 'string']).toContain(typeof fields['argument-hint'])
+  it('ships toolpath-api as the only Engine skill', () => {
+    expect(filesUnder('assets/engine')).toEqual([ENGINE_SKILL])
   })
+
+  it.each(SKILL_FILES)(
+    '%s has valid Claude skill frontmatter named after its directory',
+    (path) => {
+      const fields = frontmatter(path)
+      expect(
+        Object.keys(fields).filter(
+          (key) => !['name', 'description', 'argument-hint'].includes(key),
+        ),
+      ).toEqual([])
+      expect(fields.name).toBe(basename(dirname(path)))
+      expect(fields.name).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+      expect(typeof fields.description).toBe('string')
+      expect(String(fields.description).length).toBeGreaterThan(40)
+      expect(String(fields.description).length).toBeLessThanOrEqual(1536)
+      expect(['undefined', 'string']).toContain(typeof fields['argument-hint'])
+    },
+  )
 
   it('keeps review read-only unless the user asks otherwise', () => {
     expect(read('assets/agents/skills/review/SKILL.md')).toMatch(
@@ -144,8 +159,12 @@ describe('skills', () => {
   })
 })
 
-describe('Engine integration context', () => {
-  const context = read(ENGINE_CONTEXT)
+describe('toolpath-api skill', () => {
+  const context = read(ENGINE_SKILL)
+
+  it('is described by the code it applies to', () => {
+    expect(String(frontmatter(ENGINE_SKILL).description)).toMatch(/`@toolpath\/api`/)
+  })
 
   it('keeps the domain model first, patterns next, and sources last', () => {
     const order = [
@@ -174,63 +193,5 @@ describe('Engine integration context', () => {
   it('keeps the upload key boundary and SDK ownership explicit', () => {
     expect(context).toMatch(/never send the Engine API key to the upload host/)
     expect(context).toMatch(/A deficiency in them belongs in the SDK as an upstream change/)
-  })
-})
-
-describe('optional Claude Code files', () => {
-  const SUBAGENT_FIELDS = [
-    'name',
-    'description',
-    'tools',
-    'disallowedTools',
-    'model',
-    'effort',
-    'permissionMode',
-    'skills',
-    'color',
-  ]
-  const TOOLS = [
-    'Read',
-    'Glob',
-    'Grep',
-    'Bash',
-    'Edit',
-    'Write',
-    'WebFetch',
-    'WebSearch',
-    'Skill',
-    'NotebookEdit',
-  ]
-
-  it('defines one worker that defaults to Opus at high effort', () => {
-    const worker = frontmatter('assets/claude-code/agents/worker.md')
-    expect(Object.keys(worker).filter((key) => !SUBAGENT_FIELDS.includes(key))).toEqual([])
-    expect(worker.name).toBe('worker')
-    expect(typeof worker.description).toBe('string')
-    expect(worker.model).toBe('opus')
-    expect(worker.effort).toBe('high')
-    expect(
-      String(worker.tools)
-        .split(',')
-        .map((tool) => tool.trim())
-        .filter((tool) => !TOOLS.includes(tool)),
-    ).toEqual([])
-  })
-
-  it('defines the Orchestrator output style the launch command selects', () => {
-    const style = frontmatter('assets/claude-code/output-styles/orchestrator.md')
-    expect(Object.keys(style).sort()).toEqual(['description', 'keep-coding-instructions', 'name'])
-    expect(style['keep-coding-instructions']).toBe(true)
-    const selected = /"outputStyle":"([^"]+)"/.exec(read('assets/claude-code/install.sh'))?.[1]
-    expect(selected).toBe(style.name)
-    expect(read('assets/claude-code/output-styles/orchestrator.md')).toContain('**`worker`**')
-  })
-
-  it('ships only the worker, the style, and the installer', () => {
-    expect(filesUnder('assets/claude-code').sort()).toEqual([
-      'assets/claude-code/agents/worker.md',
-      'assets/claude-code/install.sh',
-      'assets/claude-code/output-styles/orchestrator.md',
-    ])
   })
 })

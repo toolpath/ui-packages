@@ -289,6 +289,38 @@ scenario('npm single project: doctor diagnoses a stale receipt and a missing man
   must(bin(single), ['doctor'], { cwd: single })
 })
 
+scenario('npm single project: the Engine profile adds and removes the toolpath-api skill', () => {
+  const configFile = join(single, 'dev.config.mjs')
+  const original = readFileSync(configFile, 'utf8')
+  const skill = join(single, '.claude/skills/toolpath-api/SKILL.md')
+  assert.match(original, /^ {2}schemaVersion: 1,$/m)
+  writeFiles(single, {
+    'dev.config.mjs': original.replace(
+      /^ {2}schemaVersion: 1,$/m,
+      "  schemaVersion: 1,\n  engine: { contract: 'api-1.29.1', integrationFiles: ['src/engine/**/*.ts'] },",
+    ),
+  })
+  must(bin(single), ['agents', 'sync'], { cwd: single })
+  assert.match(readFileSync(skill, 'utf8'), /^name: toolpath-api$/m)
+  assert.match(
+    readFileSync(join(single, 'AGENTS.md'), 'utf8'),
+    /\[toolpath-api\]\(\.claude\/skills\/toolpath-api\/SKILL\.md\)/,
+  )
+  writeFiles(single, { 'dev.config.mjs': original })
+  must(bin(single), ['agents', 'sync'], { cwd: single })
+  assert.ok(
+    !existsSync(join(single, '.claude/skills/toolpath-api')),
+    'the toolpath-api skill was left behind',
+  )
+  assert.doesNotMatch(readFileSync(join(single, 'AGENTS.md'), 'utf8'), /toolpath-api/)
+  assert.ok(
+    existsSync(join(single, 'eslint.config.mjs')),
+    'agents sync removed a file of another scope',
+  )
+  assert.match(must(bin(single), ['sync', '--dry-run'], { cwd: single }).stdout, /no changes/)
+  must(bin(single), ['doctor'], { cwd: single })
+})
+
 scenario(
   'init refuses a competing native config without writing, and recovers from a failed install',
   () => {
