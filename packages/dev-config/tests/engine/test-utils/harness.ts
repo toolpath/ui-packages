@@ -13,7 +13,7 @@ import {
 import { createEngineHandlers } from '../../../src/engine/testing/msw.js'
 import { startEngineTestServer } from '../../../src/engine/testing/node.js'
 
-export type Sdk = typeof stableSdk | typeof stagingSdk
+type Sdk = typeof stableSdk | typeof stagingSdk
 
 export interface SdkUnderTest {
   name: string

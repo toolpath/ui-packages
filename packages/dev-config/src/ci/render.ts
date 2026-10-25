@@ -20,7 +20,7 @@ export const CALLER_WORKFLOW_PATH = '.github/workflows/quality.yml'
 
 /** The aggregate job's ID and check name: what branch protection requires. */
 export const AGGREGATE_JOB = 'quality'
-export const STANDARDS_JOB = 'standards'
+const STANDARDS_JOB = 'standards'
 
 export interface ActionPin {
   version: string
@@ -33,7 +33,7 @@ export const TOOL_PINS: Readonly<Record<string, { version: string; url: string; 
   pins.tools
 
 /** `uses:` for a pinned third-party action, with its release tag as a comment. */
-export const pinnedUses = (action: string): string => {
+const pinnedUses = (action: string): string => {
   const pin = ACTION_PINS[action]
   if (!pin) {
     throw new Error(`${action} has no entry in src/ci/pins.json`)
@@ -52,13 +52,13 @@ const git = (cwd: string, args: Array<string>): string | undefined => {
 }
 
 /** The repository's default branch as its `origin` remote records it. */
-export const detectDefaultBranch = (root: string): string => {
+const detectDefaultBranch = (root: string): string => {
   const head = git(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'])
   return head?.replace(/^origin\//, '') || 'main'
 }
 
 /** The configuration root relative to the Git root, where `working-directory` starts. */
-export const workingDirectoryOf = (resolved: ResolvedConfig): string => {
+const workingDirectoryOf = (resolved: ResolvedConfig): string => {
   const top = git(resolved.root, ['rev-parse', '--show-toplevel'])
   if (!top) {
     return '.'
@@ -90,7 +90,7 @@ const releaseRef = (identity: ReleaseIdentity, path: string): string =>
   `${identity.repository}/${path}@${identity.sourceSha ?? ''} # @toolpath/dev-config ${identity.version}`
 
 /** The inventory the aggregate job checks, in `needs` order. */
-export const requiredJobs = (external: ReadonlyArray<ExternalJob>): Array<RequiredJob> => [
+const requiredJobs = (external: ReadonlyArray<ExternalJob>): Array<RequiredJob> => [
   { kind: 'standards', job: STANDARDS_JOB },
   ...external.map((entry): RequiredJob => ({ kind: 'suite', job: entry.job, suite: entry.suite })),
 ]

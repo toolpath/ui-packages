@@ -58,7 +58,7 @@ export interface OpenApiParameter {
   schema?: unknown
 }
 
-export interface OpenApiDocument {
+interface OpenApiDocument {
   openapi: string
   info: { version: string }
   security?: Array<Record<string, Array<string>>>

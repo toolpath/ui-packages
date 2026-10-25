@@ -3,10 +3,10 @@ import { toolchain } from '../policy/toolchain.js'
 import { prerequisiteBuilds } from '../cli/build.js'
 import { STANDARDS_STAGES, suiteReceiptId } from './result-policy.mjs'
 
-export type StandardsStage = (typeof STANDARDS_STAGES)[number]
+type StandardsStage = (typeof STANDARDS_STAGES)[number]
 
 /** A required browser or command suite the central workflow runs in its own bounded job. */
-export interface PlannedSuite {
+interface PlannedSuite {
   /** `project:suite`. */
   suite: string
   project: string
@@ -32,7 +32,7 @@ export interface ExternalJob {
   prerequisites: { env: Array<string>; commands: Array<string> }
 }
 
-export interface ManualEntry {
+interface ManualEntry {
   suite: string
   reason: string
 }
@@ -70,7 +70,7 @@ export interface SuiteMatrixEntry {
 
 const MAX_JOB_MINUTES = 120
 
-export const suiteKey = (suite: string): string => suite.replace(/[^a-z0-9._-]/gi, '-')
+const suiteKey = (suite: string): string => suite.replace(/[^a-z0-9._-]/gi, '-')
 
 const integrationTimeout = (suite: ResolvedSuite): number => {
   const base =

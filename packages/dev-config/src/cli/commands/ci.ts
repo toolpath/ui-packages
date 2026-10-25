@@ -230,10 +230,7 @@ const suiteStage = async (context: StageContext, id: string): Promise<StageResul
 }
 
 /** What an invocation runs, as receipt ids, in order. */
-export const selectCiWork = (
-  plan: CiPlan,
-  flags: Pick<CiFlags, 'stage' | 'suite'>,
-): Array<string> => {
+const selectCiWork = (plan: CiPlan, flags: Pick<CiFlags, 'stage' | 'suite'>): Array<string> => {
   if (flags.stage !== undefined && flags.suite !== undefined) {
     throw new UsageError('ci takes --stage or --suite, not both.')
   }

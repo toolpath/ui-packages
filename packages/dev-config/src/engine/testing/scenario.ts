@@ -12,13 +12,7 @@ import {
   type OpenApiOperation,
   type OpenApiParameter,
 } from '../contracts.js'
-import {
-  ARTIFACTS,
-  ARTIFACT_NAMES,
-  artifactBytes,
-  isArtifactName,
-  type ArtifactName,
-} from './artifacts.js'
+import { ARTIFACTS, ARTIFACT_NAMES, artifactBytes, isArtifactName } from './artifacts.js'
 import { EngineScenarioError } from './errors.js'
 import {
   DEFAULT_ENGINE_BASE_URL,
@@ -160,7 +154,7 @@ export interface EngineScenario {
 }
 
 /** How an adapter hands one request to the dispatcher. */
-export interface ScenarioRequest {
+interface ScenarioRequest {
   method: string
   url: URL
   headers: Headers
@@ -168,7 +162,7 @@ export interface ScenarioRequest {
   signal: AbortSignal | undefined
 }
 
-export interface ScenarioDispatchContext {
+interface ScenarioDispatchContext {
   target: 'api' | 'storage'
   /** Path prefix to strip before routing: the API base path, or the adapter's storage mount. */
   pathPrefix: string
@@ -1350,5 +1344,3 @@ export const createEngineScenario = (options: EngineScenarioOptions = {}): Engin
   internals.set(scenario, { dispatch, violation })
   return scenario
 }
-
-export type { ArtifactName }

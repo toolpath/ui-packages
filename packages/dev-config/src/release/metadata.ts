@@ -5,7 +5,7 @@ import { UsageError } from '../errors.js'
 import { toolchain, type Toolchain } from '../policy/toolchain.js'
 
 /** Repository paths whose content is part of what a dev-config release means. */
-export const RELEASE_SOURCE_PATHS = [
+const RELEASE_SOURCE_PATHS = [
   'packages/dev-config',
   '.github/workflows/dev-config-quality.yml',
   '.github/actions/dev-config-setup',

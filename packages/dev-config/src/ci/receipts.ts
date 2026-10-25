@@ -22,7 +22,7 @@ interface PackageIdentity {
  * The running package's identity for receipts: its build's release metadata,
  * or its manifest when run from source (tests, a local checkout).
  */
-export const receiptPackage = (): ReceiptPackage => {
+const receiptPackage = (): ReceiptPackage => {
   const release = new URL('../release.json', import.meta.url)
   const manifest = new URL('../../package.json', import.meta.url)
   const source: PackageIdentity = existsSync(release)
@@ -48,7 +48,7 @@ export interface ReceiptInput {
 const MESSAGE_LIMIT = 500
 
 /** A one-line, bounded failure summary; receipts never carry logs or file contents. */
-export const receiptMessage = (message: string): string => {
+const receiptMessage = (message: string): string => {
   const line = message.split('\n').find((candidate) => candidate.trim() !== '') ?? ''
   return line.length > MESSAGE_LIMIT ? `${line.slice(0, MESSAGE_LIMIT - 1)}…` : line
 }

@@ -63,7 +63,7 @@ const isGlobalReference = (
  * its authority is terminated by `/`, `?` or `#` (so `https://host` followed by
  * computed text is not enough: it could continue the host name).
  */
-export const originOf = ({ text, complete }: KnownText): string | undefined => {
+const originOf = ({ text, complete }: KnownText): string | undefined => {
   if (!complete && !/^[a-z][a-z0-9+.-]*:\/\/[^/?#]*[/?#]/i.test(text)) {
     return undefined
   }
