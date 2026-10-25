@@ -42,6 +42,27 @@ const namesCompiler = (entry: BabelPluginEntry): boolean =>
   (typeof entry === 'string' ? entry : entry[0]).includes(COMPILER_PACKAGE)
 
 /**
+ * `babel-preset-expo` as the project resolves it, else the copy `expo` itself
+ * depends on, which is the one Metro uses when a project has no Babel config.
+ * npm may leave that copy nested under `expo`, where the bare name does not
+ * resolve from the project.
+ */
+const resolveExpoPreset = (directory: string): string => {
+  try {
+    return createRequire(join(directory, 'package.json')).resolve(PRESET)
+  } catch {
+    const expo = requireInstalled(directory, 'expo', 'React (expo)')
+    try {
+      return createRequire(join(expo.directory, 'package.json')).resolve(PRESET)
+    } catch {
+      throw new ConfigError(
+        `expo@${expo.version} is installed, but ${PRESET} cannot be resolved from it or from ${directory}.`,
+      )
+    }
+  }
+}
+
+/**
  * The project's `babel.config.js` value. Node 24 can `require` this package's ESM
  * build, so a CommonJS Babel config may use it directly:
  *
@@ -73,7 +94,7 @@ export const createExpoBabelConfig = (
   return {
     presets: [
       [
-        PRESET,
+        resolveExpoPreset(project.directory),
         {
           ...options.presetOptions,
           'react-compiler': { ...compilerOptionsFor(project.react.minimumVersion) },
