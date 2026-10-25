@@ -9,6 +9,9 @@ on:
       - .github/workflows/release.yml
       - packages/app-support/src/**
       - packages/app-support/package.json
+      - packages/dev-config/src/**
+      - packages/dev-config/tsconfig/**
+      - packages/dev-config/package.json
       - packages/dfm/src/**
       - packages/dfm/package.json
       - packages/plan/src/**

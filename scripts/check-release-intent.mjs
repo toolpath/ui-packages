@@ -20,6 +20,10 @@ const releaseSensitivePaths = [
     paths: ['packages/app-support/src/'],
   },
   {
+    packageName: '@toolpath/dev-config',
+    paths: ['packages/dev-config/src/', 'packages/dev-config/tsconfig/'],
+  },
+  {
     packageName: '@toolpath/dfm',
     paths: ['packages/dfm/src/'],
   },

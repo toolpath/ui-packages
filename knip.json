@@ -10,6 +10,11 @@
       "entry": ["src/index.ts", "src/react/index.ts", "tests/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
     },
+    "packages/dev-config": {
+      "entry": ["src/eslint.ts", "src/prettier.ts", "src/react-compiler.ts", "tests/**/*.test.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"],
+      "ignoreDependencies": ["babel-plugin-react-compiler"]
+    },
     "packages/dfm": {
       "entry": ["src/index.ts", "src/model/index.ts", "tests/**/*.test.ts"],
       "project": ["src/**/*.ts", "tests/**/*.ts"]

@@ -29,6 +29,10 @@ Each package's README is its full documentation, and the npm packages ship it. T
 - [@toolpath/tool-drawing](https://github.com/toolpath/ui-packages/blob/main/packages/tool-drawing/README.md): a 2D drawing of a tool and its holder
 - [@toolpath/tool-scraper](https://github.com/toolpath/ui-packages/blob/main/packages/tool-scraper/README.md): reads tool geometry from vendor catalogs
 
+## Repository tooling
+
+- [@toolpath/dev-config](https://github.com/toolpath/ui-packages/blob/main/packages/dev-config/README.md): shared ESLint, Prettier and TypeScript configuration, and React Compiler build checks
+
 ## Examples and templates
 
 - [TypeScript example](https://github.com/toolpath/ui-packages/blob/main/examples/typescript/README.md): upload a STEP file and read its analysis

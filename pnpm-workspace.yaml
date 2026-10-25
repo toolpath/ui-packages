@@ -2,6 +2,7 @@ packages:
   - examples/typescript
   - examples/react-viewer
   - packages/app-support
+  - packages/dev-config
   - packages/dfm
   - packages/plan
   - packages/quoting

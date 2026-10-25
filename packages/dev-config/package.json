@@ -1,0 +1,85 @@
+{
+  "name": "@toolpath/dev-config",
+  "version": "0.0.0",
+  "description": "Shared ESLint, Prettier, TypeScript and React Compiler configuration for Toolpath repositories",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toolpath/ui-packages.git",
+    "directory": "packages/dev-config"
+  },
+  "homepage": "https://developers.toolpath.com",
+  "bugs": {
+    "url": "https://github.com/toolpath/ui-packages/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "type": "module",
+  "exports": {
+    "./eslint": {
+      "types": "./dist/eslint.d.ts",
+      "import": "./dist/eslint.js"
+    },
+    "./prettier": {
+      "types": "./dist/prettier.d.ts",
+      "import": "./dist/prettier.js"
+    },
+    "./react-compiler": {
+      "types": "./dist/react-compiler.d.ts",
+      "import": "./dist/react-compiler.js"
+    },
+    "./tsconfig/*.json": "./tsconfig/*.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "tsconfig",
+    "LICENSE",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup src/eslint.ts src/prettier.ts src/react-compiler.ts --format esm --dts --clean",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@eslint-react/eslint-plugin": "5.18.2",
+    "eslint-plugin-jsx-a11y-x": "0.2.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.13.0",
+    "typescript-eslint": "8.68.0"
+  },
+  "peerDependencies": {
+    "@babel/core": "^7.24.0",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "eslint": "^10.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.9.0 || ^6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@babel/core": {
+      "optional": true
+    },
+    "babel-plugin-react-compiler": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@babel/core": "7.29.7",
+    "@types/babel__core": "7.20.5",
+    "@types/node": "24.10.1",
+    "babel-plugin-react-compiler": "1.0.0",
+    "esbuild": "0.27.7",
+    "eslint": "10.9.1",
+    "prettier": "3.9.10",
+    "tsup": "8.5.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

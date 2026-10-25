@@ -9,6 +9,7 @@ __pycache__/
 .ruff_cache/
 .pytest_cache/
 packages/app-support/dist/
+packages/dev-config/dist/
 packages/dfm/dist/
 packages/plan/dist/
 packages/quoting/dist/
