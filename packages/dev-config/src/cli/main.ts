@@ -26,6 +26,7 @@ Commands:
   hooks install        Install the managed pre-commit hook
   hooks pre-commit     The pre-commit entry point (safe lint fixes, then formatting)
   agents sync          Synchronize agent instructions and skills
+  react verify         Prove each React project's real build runs React Compiler
   engine verify-contract  Network check of an Engine target's public contract
 
 Common options:

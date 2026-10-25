@@ -16,6 +16,7 @@ import {
   type SyncFlags,
 } from './manage.js'
 import { check, lint, test, typecheck, type QualityFlags } from './quality.js'
+import { reactVerify } from './react.js'
 
 export interface CommandContext {
   values: Record<string, unknown>
@@ -289,5 +290,11 @@ export const COMMANDS: Record<string, Command> = {
         },
         context.output,
       ),
+  },
+  'react verify': {
+    usage:
+      "toolpath-dev react verify [--project <name>]...\nChecks each React project's adapter wiring, then transforms a probe component through its real build config and fails unless React Compiler compiled it.",
+    options: {},
+    run: (context) => reactVerify(context.common, context.output),
   },
 }
