@@ -1,4 +1,13 @@
-import { lstatSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -169,6 +178,67 @@ describe('planSync', () => {
       'managed header\nmanaged config v1\nlocal addition\n',
     )
     expect(readFileSync(join(root, 'AGENTS.md'), 'utf8')).toContain('standard v2')
+  })
+
+  describe('a file the release no longer manages', () => {
+    const SKILL = '.claude/skills/toolpath-api/SKILL.md'
+    const withSkill = desired({
+      managed: [
+        ...desired().managed,
+        { kind: 'file', path: '.claude/skills/commit/SKILL.md', content: 'commit\n' },
+        { kind: 'file', path: SKILL, content: 'engine skill\n' },
+      ],
+    })
+    const withoutSkill = desired({
+      managed: withSkill.managed.filter((item) => item.path !== SKILL),
+    })
+    const installed = (): { root: string; receipt: Receipt } => {
+      const root = repository({})
+      mkdirSync(join(root, '.claude/skills/commit'), { recursive: true })
+      mkdirSync(join(root, '.claude/skills/toolpath-api'), { recursive: true })
+      return { root, receipt: apply(root, withSkill) }
+    }
+
+    it('is removed with the directory it leaves empty while it is unchanged', () => {
+      const { root, receipt } = installed()
+      const next = apply(root, withoutSkill, receipt)
+      expect(existsSync(join(root, '.claude/skills/toolpath-api'))).toBe(false)
+      expect(readFileSync(join(root, '.claude/skills/commit/SKILL.md'), 'utf8')).toBe('commit\n')
+      expect(Object.keys(next.files)).not.toContain(SKILL)
+      expect(plan(root, withoutSkill, next).writes).toEqual([])
+    })
+
+    it('is a conflict with a removal patch once it was edited', () => {
+      const { root, receipt } = installed()
+      writeFileSync(join(root, SKILL), 'engine skill\nour notes\n')
+      const result = plan(root, withoutSkill, receipt)
+      expect(result.conflicts.map((conflict) => conflict.path)).toEqual([SKILL])
+      expect(result.conflicts[0]?.patch).toContain('-our notes')
+      expect(result.writes.map((write) => write.path)).not.toContain(SKILL)
+    })
+
+    it('is removed by a scoped sync only when no other scope manages it', () => {
+      const { root, receipt } = installed()
+      const agentsOnly = (managed: DesiredState['managed']): DesiredState => ({
+        managed,
+        scripts: {},
+        devDependencies: {},
+        outsideScope: ['eslint.config.mjs'],
+      })
+      const scoped = plan(
+        root,
+        agentsOnly(withoutSkill.managed.filter((item) => item.path.startsWith('.claude/'))),
+        receipt,
+        { manifest: false },
+      )
+      expect(scoped.conflicts).toEqual([])
+      expect(scoped.writes).toEqual([{ path: SKILL, before: 'engine skill\n', after: undefined }])
+      expect(Object.keys(scoped.receipt.files).sort()).toEqual([
+        '.claude/skills/commit/SKILL.md',
+        'AGENTS.md',
+        'eslint.config.mjs',
+      ])
+    })
   })
 
   it('stops with a proposed patch when an edited block overlaps a change, writing nothing', () => {

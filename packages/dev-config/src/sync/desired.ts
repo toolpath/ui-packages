@@ -18,6 +18,8 @@ export interface DesiredState {
   scripts: Record<string, string>
   /** Exact versions every managed tool must be declared and installed at. */
   devDependencies: Record<string, string>
+  /** Files the standard manages outside a scoped sync, which it must leave in place. */
+  outsideScope?: Array<string>
 }
 
 export type DesiredScope = 'all' | 'agents'
@@ -126,7 +128,14 @@ export const desiredState = ({
     })),
   ]
   if (scope === 'agents') {
-    return { managed: agents, scripts: {}, devDependencies: {} }
+    const all = desiredState({ resolved, packageManager, identity, declared, gitPrefix })
+    const own = new Set(agents.map((item) => item.path))
+    return {
+      managed: agents,
+      scripts: {},
+      devDependencies: {},
+      outsideScope: all.managed.map((item) => item.path).filter((path) => !own.has(path)),
+    }
   }
 
   // Git hooks and workflows live at the Git root, which may be above the configuration root.

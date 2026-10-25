@@ -2,13 +2,16 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   renameSync,
+  rmdirSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { ConfigError, type Issue } from '../errors.js'
 import type { ReleaseIdentity } from '../release/metadata.js'
 import { BlockError, commentStyleFor, findBlock, upsertBlock } from './blocks.js'
@@ -25,7 +28,8 @@ const RUNTIME_PACKAGES = new Set(['@toolpath/api'])
 export interface Write {
   path: string
   before: string | undefined
-  after: string
+  /** The new text, or `undefined` to remove a file the standard no longer manages. */
+  after: string | undefined
   mode?: number
 }
 
@@ -102,7 +106,12 @@ export const planSync = (input: PlanInput): Plan => {
   const pending = new Map<string, string | undefined>()
   const current = (path: string): string | undefined =>
     pending.has(path) ? pending.get(path) : read(root, path)
-  const stage = (path: string, before: string | undefined, after: string, mode?: number): void => {
+  const stage = (
+    path: string,
+    before: string | undefined,
+    after: string | undefined,
+    mode?: number,
+  ): void => {
     if (before === after) {
       return
     }
@@ -195,6 +204,37 @@ export const planSync = (input: PlanInput): Plan => {
       text === undefined && item.path.endsWith('pre-commit') ? 0o755 : undefined,
     )
   }
+
+  // A file an earlier release managed and this one does not, such as the Engine skill after the
+  // profile is dropped, is removed while it still has the generated text; an edited one is the
+  // repository's to decide. A scoped sync leaves files of the other scopes alone.
+  const kept = new Set([
+    ...desired.managed.map((item) => item.path),
+    ...(desired.outsideScope ?? []),
+  ])
+  const retired = new Set<string>()
+  for (const [path, entry] of Object.entries(receipt?.files ?? {})) {
+    if (entry.kind !== 'file' || kept.has(path)) {
+      continue
+    }
+    retired.add(path)
+    const text = current(path)
+    if (text === undefined) {
+      continue
+    }
+    if (text === entry.base) {
+      stage(path, text, undefined)
+    } else {
+      conflicts.push({
+        path,
+        reason:
+          'is no longer managed by this release and has local edits; delete it, or move it to keep it as your own file, then rerun',
+        patch: unifiedDiff(path, text, undefined),
+      })
+    }
+  }
+  const unretired = (entries: Receipt['files']): Receipt['files'] =>
+    Object.fromEntries(Object.entries(entries).filter(([path]) => !retired.has(path)))
 
   let installs: Record<string, string> = {}
   let runtimeInstalls: Record<string, string> = {}
@@ -298,7 +338,7 @@ export const planSync = (input: PlanInput): Plan => {
       sourceSha: identity.sourceSha ?? '',
       workflow: identity.workflow,
     },
-    files: input.manifest === false && receipt ? { ...receipt.files, ...files } : files,
+    files: input.manifest === false && receipt ? { ...unretired(receipt.files), ...files } : files,
     manifest: input.manifest === false && receipt ? receipt.manifest : manifestReceipt,
   }
   return { writes, conflicts, installs, runtimeInstalls, receipt: receiptValue }
@@ -341,8 +381,28 @@ export const writeAtomically = (path: string, content: string, mode?: number): v
   renameSync(temporary, target)
 }
 
+/** Removes a file (a symlink itself, not its target) and the directories it leaves empty. */
+const removeManaged = (root: string, path: string): void => {
+  rmSync(join(root, path), { force: true })
+  for (
+    let directory = dirname(path);
+    directory !== '.' && basename(directory) !== '..';
+    directory = dirname(directory)
+  ) {
+    const absolute = join(root, directory)
+    if (!existsSync(absolute) || readdirSync(absolute).length > 0) {
+      return
+    }
+    rmdirSync(absolute)
+  }
+}
+
 export const applyWrites = (root: string, writes: ReadonlyArray<Write>): void => {
   for (const write of writes) {
-    writeAtomically(join(root, write.path), write.after, write.mode)
+    if (write.after === undefined) {
+      removeManaged(root, write.path)
+    } else {
+      writeAtomically(join(root, write.path), write.after, write.mode)
+    }
   }
 }
