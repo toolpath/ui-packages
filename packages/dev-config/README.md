@@ -326,3 +326,49 @@ module.exports = {
 ```
 
 There is no build check for Metro, so skipped functions are not reported there.
+
+## CI
+
+The checks hold only where CI runs them: the comment audit closes the inline-configuration
+loophole only in CI, and the React Compiler checks only fail a build that runs. Name the commands
+as scripts, so CI and people run the same thing (a React Router app's `lint` also runs
+`react-router typegen` first; a monorepo's scripts can call its task runner):
+
+```json
+// package.json
+"scripts": {
+  "format:check": "prettier --check .",
+  "lint": "eslint . --max-warnings=0",
+  "lint:comments": "eslint --no-inline-config -c eslint.comments-audit.config.mjs . --max-warnings=0",
+  "check-types": "tsc --noEmit",
+  "build": "vite build"
+}
+```
+
+```yaml
+# .github/workflows/quality.yml
+name: quality
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .tool-versions
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run format:check
+      - run: pnpm run lint
+      - run: pnpm run lint:comments
+      - run: pnpm run check-types
+      - run: pnpm run build
+```
+
+A failing run blocks nothing until the check is required: add a ruleset for the default branch
+(Settings → Rules → Rulesets) that requires the `quality` check before merging.
