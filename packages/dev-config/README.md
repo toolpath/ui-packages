@@ -17,16 +17,42 @@ import { createEslintConfig } from '@toolpath/dev-config/eslint'
 export default createEslintConfig({ tsconfigRootDir: import.meta.dirname, react: true })
 ```
 
-- Every JS and TS file gets ESLint's correctness rules, plus `curly`, `eqeqeq`, `prefer-const` and
-  `no-var`.
-- TypeScript files get typescript-eslint's `strictTypeChecked` preset, `Array<T>` and separate
-  type-only imports. Unused names may start with `_`.
+- Every JS and TS file gets ESLint's correctness rules, plus `curly`, `eqeqeq`, `prefer-const`,
+  `no-var`, `no-eval`, `no-new-func`, and `const` arrow functions (`func-style: expression`,
+  `prefer-arrow-callback`).
+- Defect-finding `eslint-plugin-unicorn` rules (`error-message`,
+  `no-invalid-remove-event-listener`, `no-thenable`, `no-unnecessary-await`, `no-useless-spread`,
+  `prefer-node-protocol`, `throw-new-error`); none of its style preset.
+- Import rules (`eslint-plugin-import-x`): `no-extraneous-dependencies` (devDependencies only in
+  tests, stories, scripts and `*.config.*`), `no-duplicates`, `no-self-import`,
+  `no-useless-path-segments` and `no-cycle`.
+- TypeScript files get typescript-eslint's `strictTypeChecked` preset plus
+  `prefer-nullish-coalescing`, `prefer-optional-chain`, `require-array-sort-compare`, `Array<T>`
+  and separate type-only imports. Unused names may start with `_`.
+- Type assertions are `as` only, never on an object or array literal (use `satisfies` or an
+  annotation), and never narrow a type without proof (`no-unsafe-type-assertion`: use a type guard
+  or a parser). Non-null assertions (`!`) are already banned by the strict preset.
+- `strict-boolean-expressions`: a condition is a boolean, a nullable boolean or a nullable object.
+  Numbers and strings are compared explicitly (`count > 0`, `name !== ''`, `a - b !== 0`).
 - `react: true` adds, for `.jsx` and `.tsx` files, the Hooks and React Compiler rules
-  (`eslint-plugin-react-hooks` `recommended-latest`), `@eslint-react` `recommended` and
-  `eslint-plugin-jsx-a11y-x` `recommended`.
+  (`eslint-plugin-react-hooks` `recommended-latest`) and `eslint-plugin-jsx-a11y-x`
+  `recommended`, with `@eslint-react` `recommended-type-checked` for `.tsx` and `recommended` for
+  `.jsx`.
+- Suppressions (`@eslint-community/eslint-plugin-eslint-comments`): every `eslint-disable` gives
+  a reason after `--`, none is unlimited or left open to the end of the file, and one that
+  suppresses nothing is an error. Some rules cannot be disabled inline at all, because each has a
+  fix that is not a suppression: the eslint-comments rules themselves, `ban-ts-comment`,
+  `consistent-type-assertions`, `no-explicit-any`, `no-floating-promises` (write `void` for a
+  deliberate one), `no-misused-promises`, the `no-unsafe-*` rules except
+  `no-unsafe-type-assertion`, `strict-boolean-expressions`, `no-extraneous-dependencies`,
+  `no-eval`, `no-new-func` and `rules-of-hooks`. `@ts-ignore` is banned and `@ts-expect-error`
+  needs a 10-character reason.
 - Build output (`dist`, `build`, `coverage`) is ignored. Pass more globs as `ignores`.
 
-Add repository rules after the shared ones:
+The typed rules need `strictNullChecks`; extend one of the tsconfig bases below.
+
+Add repository rules after the shared ones. An exception to a rule that cannot be disabled inline
+belongs here too, scoped to the files that need it, where review sees it:
 
 ```js
 export default [
@@ -63,11 +89,15 @@ echo 'pnpm exec lint-staged' > .husky/pre-commit
 
 | Base           | For                                                         |
 | -------------- | ----------------------------------------------------------- |
-| `base.json`    | Strict checks shared by all the others                      |
+| `base.json`    | Strict checks shared by all the others (see below)          |
 | `browser.json` | Bundled browser code: `Bundler` resolution, DOM, React JSX  |
 | `node.json`    | Node programs and scripts: `NodeNext`, Node types           |
 | `library.json` | Published libraries for any renderer: `NodeNext`, React JSX |
 
+`base.json` turns on `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
+`noImplicitOverride`, `noImplicitReturns`, `noFallthroughCasesInSwitch`,
+`noUncheckedSideEffectImports`, `erasableSyntaxOnly` (no
+enums, namespaces or parameter properties), and makes unreachable code and unused labels errors.
 The bases set `noEmit`; the build tool (Vite, tsup, esbuild) emits the JavaScript.
 
 ## React Compiler

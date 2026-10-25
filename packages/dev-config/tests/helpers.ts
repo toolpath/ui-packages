@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach } from 'vitest'
@@ -11,9 +11,12 @@ afterEach(() => {
   }
 })
 
-/** A temporary directory holding `files`, removed after the test. */
+/**
+ * A temporary directory holding `files`, removed after the test. Its real path,
+ * because resolvers return real paths and macOS's temporary directory is a symlink.
+ */
 export const temporaryDirectory = (files: Record<string, string>): string => {
-  const root = mkdtempSync(join(tmpdir(), 'toolpath-dev-config-'))
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'toolpath-dev-config-')))
   directories.push(root)
   for (const [path, content] of Object.entries(files)) {
     mkdirSync(dirname(join(root, path)), { recursive: true })
