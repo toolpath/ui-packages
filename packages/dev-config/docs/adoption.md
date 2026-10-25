@@ -22,14 +22,16 @@ Review the result, run `npm run check` (or `pnpm check`), and commit through the
 `init --dry-run` shows the whole change. It stops before writing when something would compete
 with a managed file:
 
-| It finds                                       | Do this                                                                                                                                                    |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.eslintrc*` or another `eslint.config.*`      | Move repository-specific import boundaries into `createEslintConfig(config, { restrictedImports })`, extra plugins into `extend`, and delete the old file. |
-| `.prettierrc*`, a `prettier` field             | Delete it. Byte-retained files go in `formatIgnore` with a reason.                                                                                         |
-| A lint-staged configuration                    | Delete it; `toolpath-dev hooks pre-commit` owns staged fixes and formatting.                                                                               |
-| A script named like a managed one (`lint`, …)  | Rename or remove it; the standard's scripts are fixed.                                                                                                     |
-| A runner config that does not call the factory | Rebuild it with the factory; move setup files and aliases into its `extend` options.                                                                       |
-| An existing `prepare` script                   | Nothing: `init` composes it with `toolpath-dev hooks install`.                                                                                             |
+| It finds                                          | Do this                                                                                                                                                    |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.eslintrc*` or another `eslint.config.*`         | Move repository-specific import boundaries into `createEslintConfig(config, { restrictedImports })`, extra plugins into `extend`, and delete the old file. |
+| `.prettierrc*`, a `prettier` field                | Delete it. Byte-retained files go in `formatIgnore` with a reason.                                                                                         |
+| A lint-staged configuration                       | Delete it; `toolpath-dev hooks pre-commit` owns staged fixes and formatting.                                                                               |
+| A script named like a managed one (`lint`, …)     | Rename or remove it; the standard's scripts are fixed.                                                                                                     |
+| A runner config that does not call the factory    | Rebuild it with the factory; move setup files and aliases into its `extend` options.                                                                       |
+| An existing `prepare` script                      | Nothing: `init` composes it with `toolpath-dev hooks install`.                                                                                             |
+| A React build config without the adapter          | Add the adapter's factory to it ([React](react.md)); `init` writes one when the project has none.                                                          |
+| A pre-commit hook running lint-staged or Prettier | Remove those commands; keep the hook's other steps. The managed block runs beside them.                                                                    |
 
 Then fix what `check` reports. Resolve real violations rather than suppressing them; the standard
 has no baseline file. A file that genuinely cannot meet a rule yet gets a narrow exception with a

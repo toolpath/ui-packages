@@ -51,18 +51,19 @@ version, workflow reference and agent asset, merging local edits and stopping on
 
 ## Daily commands
 
-| Command                               | What it does                                                                    |
-| ------------------------------------- | ------------------------------------------------------------------------------- |
-| `toolpath-dev check`                  | Doctor essentials, prerequisite builds, lint, type checks, ordinary tests       |
-| `toolpath-dev lint`                   | Strict lint of every maintained file in scope, zero warnings, no changes        |
-| `toolpath-dev lint:fix`               | Safe ESLint fixes only; optional, never a formatting step                       |
-| `toolpath-dev check-types`            | Strict no-emit checks of every source, test and tooling program                 |
-| `toolpath-dev test`                   | Unit and component suites, once; `--watch` and `--suite` for one suite          |
-| `toolpath-dev doctor`                 | Read-only diagnosis of config, scope, programs, versions, hooks, receipt and CI |
-| `toolpath-dev ci`                     | The CI contract: read-only formatting backstop plus every required stage        |
-| `toolpath-dev sync`                   | Update managed integrations to the installed release                            |
-| `toolpath-dev agents sync`            | Update only the managed agent section and skills                                |
-| `toolpath-dev engine verify-contract` | Explicit network check of an Engine target's public contract                    |
+| Command                               | What it does                                                                         |
+| ------------------------------------- | ------------------------------------------------------------------------------------ |
+| `toolpath-dev check`                  | Doctor essentials, prerequisite builds, lint, type checks, ordinary tests            |
+| `toolpath-dev lint`                   | Strict lint of every maintained file in scope, zero warnings, no changes             |
+| `toolpath-dev lint:fix`               | Safe ESLint fixes only; optional, never a formatting step                            |
+| `toolpath-dev check-types`            | Strict no-emit checks of every source, test and tooling program                      |
+| `toolpath-dev test`                   | Unit and component suites, once; `--watch` and `--suite` for one suite               |
+| `toolpath-dev doctor`                 | Read-only diagnosis of config, scope, programs, versions, hooks, receipt and CI      |
+| `toolpath-dev react verify`           | Proves React Compiler runs in each React project's real build (also part of `check`) |
+| `toolpath-dev ci`                     | The CI contract: read-only formatting backstop plus every required stage             |
+| `toolpath-dev sync`                   | Update managed integrations to the installed release                                 |
+| `toolpath-dev agents sync`            | Update only the managed agent section and skills                                     |
+| `toolpath-dev engine verify-contract` | Explicit network check of an Engine target's public contract                         |
 
 Common flags are `--project <name>` (repeatable), `--config <path>`, `--verbose` and `--json`. A
 file filter goes after `--`: `toolpath-dev test --project core -- src/sum.test.ts`. Exit codes are
