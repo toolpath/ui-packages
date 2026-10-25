@@ -1,6 +1,7 @@
 import { ESLint } from 'eslint'
 import { describe, expect, it } from 'vitest'
-import { createEslintConfig, type EslintOptions } from '../src/eslint.js'
+import type { Linter } from 'eslint'
+import { createCommentAuditConfig, createEslintConfig, type EslintOptions } from '../src/eslint.js'
 import { temporaryDirectory } from './helpers.js'
 
 const TSCONFIG = JSON.stringify({
@@ -17,12 +18,9 @@ const TSCONFIG = JSON.stringify({
 })
 const MANIFEST = JSON.stringify({ name: 'fixture', type: 'module' })
 
-/** Rule ids (or messages, for directives) reported for each fixture file. */
-const lint = async (
-  files: Record<string, string>,
-  options: Partial<EslintOptions> = {},
-): Promise<Record<string, Array<string>>> => {
-  const root = temporaryDirectory({
+/** A fixture repository holding `files`, with one installed but undeclared package. */
+const fixture = (files: Record<string, string>): string =>
+  temporaryDirectory({
     'tsconfig.json': TSCONFIG,
     'package.json': MANIFEST,
     // Installed but not declared in package.json.
@@ -30,11 +28,17 @@ const lint = async (
     'node_modules/left-pad/index.js': 'module.exports = (value) => value\n',
     ...files,
   })
-  const eslint = new ESLint({
-    cwd: root,
-    overrideConfigFile: true,
+
+/** Rule ids (or messages, for directives) reported for each fixture file. */
+const lint = async (
+  files: Record<string, string>,
+  options: Partial<EslintOptions> = {},
+  configure: (root: string) => ESLint.Options = (root) => ({
     overrideConfig: createEslintConfig({ tsconfigRootDir: root, ...options }),
-  })
+  }),
+): Promise<Record<string, Array<string>>> => {
+  const root = fixture(files)
+  const eslint = new ESLint({ cwd: root, overrideConfigFile: true, ...configure(root) })
   const results = await eslint.lintFiles(Object.keys(files))
   return Object.fromEntries(
     results.map((result) => [
@@ -80,10 +84,41 @@ const VIOLATIONS: Record<string, string> = {
     "import { add } from './clean.js'\nimport { sub } from './clean.js'\n\nexport const both = [add, sub]\n",
   'import-x/no-useless-path-segments':
     "import { add } from './nested/../clean.js'\n\nexport const plus = add\n",
+  '@typescript-eslint/restrict-template-expressions':
+    'export const greet = (name: string | undefined): string => `Hi ${name}`\n',
+  '@typescript-eslint/switch-exhaustiveness-check': [
+    "type Shape = 'circle' | 'square'",
+    '',
+    'export const sides = (shape: Shape): number => {',
+    '  switch (shape) {',
+    "    case 'circle':",
+    '      return 0',
+    '    default:',
+    '      return 4',
+    '  }',
+    '}',
+    '',
+  ].join('\n'),
+  '@typescript-eslint/method-signature-style':
+    'export interface Store {\n  get(key: string): string\n}\n',
+  '@typescript-eslint/prefer-readonly':
+    'export class Counter {\n  private count = 0\n\n  read(): number {\n    return this.count\n  }\n}\n',
+  '@typescript-eslint/no-import-type-side-effects':
+    "import { type Pair } from './clean.js'\n\nexport const pair: Pair = [1, 2]\n",
+  '@typescript-eslint/no-unused-vars': 'const _hidden = 1\n\nexport const shown = _hidden + 1\n',
+  '@typescript-eslint/ban-ts-comment':
+    "// @ts-expect-error a string is not a number\nexport const value: number = 'a'\n",
+  'no-template-curly-in-string': "export const greeting = 'Hi ${name}'\n",
+  'unicorn/no-xor-as-exponentiation': 'export const size = 2 ^ 8\n',
+  // Quadratic on long digit runs (7.4 s on 40k characters where it was found).
+  'regexp/no-super-linear-backtracking': 'export const decimal = /^(\\d+\\.?\\d*|\\.\\d+)$/\n',
+  '@eslint-community/eslint-comments/no-use':
+    '/* eslint no-eval: "off" -- trying */\nexport const value: unknown = eval(\'1\')\n',
 }
 
 describe('createEslintConfig', () => {
   const clean =
+    'export type Pair = [number, number]\n\n' +
     'export const add = (a: number, b: number): number => a + b\n\n' +
     'export const sub = (a: number, b: number): number => a - b\n'
   const fixtures = Object.fromEntries(
@@ -95,6 +130,69 @@ describe('createEslintConfig', () => {
     const reported = await lint({ 'clean.ts': clean, [file]: fixtures[file] ?? '' })
     expect(reported['clean.ts']).toEqual([])
     expect(reported[file]).toContain(rule)
+  })
+
+  it('applies the correctness rules to JavaScript files', async () => {
+    const reported = await lint({ 'script.mjs': 'export const value = missing + 1\n' })
+    expect(reported['script.mjs']).toContain('no-undef')
+  })
+
+  it('reports a relative import into another package', async () => {
+    const reported = await lint({
+      'vendor/package.json': JSON.stringify({ name: 'vendor', type: 'module' }),
+      'vendor/value.ts': 'export const value = 1\n',
+      'main.ts': "import { value } from './vendor/value.js'\n\nexport const copy = value\n",
+    })
+    expect(reported['main.ts']).toContain('import-x/no-relative-packages')
+  })
+
+  it('reports focused tests and allows an explained @ts-expect-error in tests only', async () => {
+    const reported = await lint({
+      'focus.test.ts': "import { it } from 'vitest'\n\nit.only('runs', () => {})\n",
+      'types.test.ts':
+        "// @ts-expect-error a string is not a number\nexport const value: number = 'a'\n",
+    })
+    expect(reported['focus.test.ts']).toContain('vitest/no-focused-tests')
+    expect(reported['types.test.ts']).not.toContain('@typescript-eslint/ban-ts-comment')
+  })
+
+  it.each(['x.ts', 'x.tsx', 'x.test.ts', 'x.mjs', 'x.jsx'])(
+    'leaves no rule at warn for %s',
+    async (file) => {
+      const root = fixture({ [file]: '' })
+      const eslint = new ESLint({
+        cwd: root,
+        overrideConfigFile: true,
+        overrideConfig: createEslintConfig({ tsconfigRootDir: root, react: true }),
+      })
+      const config = (await eslint.calculateConfigForFile(file)) as Linter.Config
+      const warnings = Object.entries(config.rules ?? {}).filter(([, entry]) => {
+        const level: unknown = Array.isArray(entry) ? entry[0] : entry
+        return level === 1 || level === 'warn'
+      })
+      expect(warnings).toEqual([])
+    },
+  )
+
+  it('runs the comment rules with inline configuration disabled', async () => {
+    const reported = await lint(
+      {
+        'evade.ts': [
+          '/* eslint-disable */',
+          '/* eslint @eslint-community/eslint-comments/no-use: "off" */',
+          'export const value = 1',
+          '',
+        ].join('\n'),
+      },
+      {},
+      () => ({ overrideConfig: createCommentAuditConfig(), allowInlineConfig: false }),
+    )
+    expect(reported['evade.ts']).toEqual(
+      expect.arrayContaining([
+        '@eslint-community/eslint-comments/no-unlimited-disable',
+        '@eslint-community/eslint-comments/no-use',
+      ]),
+    )
   })
 
   it('reports an import of the file itself', async () => {
@@ -170,6 +268,46 @@ describe('createEslintConfig', () => {
       'react-hooks/rules-of-hooks',
     )
     expect((await lint(component))['component.tsx']).not.toContain('react-hooks/rules-of-hooks')
+  })
+
+  it('checks hooks in .ts files', async () => {
+    const reported = await lint(
+      {
+        'use-total.ts': [
+          'const useThing = (): number => 1',
+          '',
+          'export const useTotal = (on: boolean): number => {',
+          '  if (on) {',
+          '    return useThing()',
+          '  }',
+          '  return 0',
+          '}',
+          '',
+        ].join('\n'),
+      },
+      { react: true },
+    )
+    expect(reported['use-total.ts']).toContain('react-hooks/rules-of-hooks')
+  })
+
+  it('reports a button without a type and an unused React import', async () => {
+    const reported = await lint(
+      {
+        'save.tsx': [
+          "import React from 'react'",
+          '',
+          'export const Save = (): unknown => <button>Save</button>',
+          '',
+        ].join('\n'),
+      },
+      { react: true },
+    )
+    expect(reported['save.tsx']).toEqual(
+      expect.arrayContaining([
+        '@eslint-react/dom-no-missing-button-type',
+        '@typescript-eslint/no-unused-vars',
+      ]),
+    )
   })
 
   it('finds leaked conditional rendering in .tsx with type information', async () => {
