@@ -1,0 +1,20 @@
+{
+  "id": "api-1.29.1",
+  "channel": "stable",
+  "apiVersion": "1.29.1",
+  "openApiVersion": "3.1.0",
+  "sha256": "123854eecdb1ee00468d573654e9a307e1d4764f183f4b3047a693c8fafb4a3c",
+  "source": {
+    "kind": "public-repository",
+    "repository": "toolpath/ui-packages",
+    "path": "openapi/openapi.json",
+    "commit": "c15dc9393024daff9b2a704e76a7290a164cc4d7",
+    "committedAt": "2026-10-19T15:19:02Z"
+  },
+  "sdk": {
+    "package": "@toolpath/api",
+    "version": "0.9.0",
+    "recordedSha256": "123854eecdb1ee00468d573654e9a307e1d4764f183f4b3047a693c8fafb4a3c"
+  },
+  "note": "Byte-identical copy of the host's pinned stable contract. Not a claim about what any deployment serves today; `toolpath-dev engine verify-contract` checks a live target explicitly."
+}

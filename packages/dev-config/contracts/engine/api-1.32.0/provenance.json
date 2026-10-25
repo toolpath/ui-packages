@@ -1,0 +1,19 @@
+{
+  "id": "api-1.32.0",
+  "channel": "staging",
+  "apiVersion": "1.32.0",
+  "openApiVersion": "3.1.0",
+  "sha256": "b21fe6b647ad5f4274f7650b838b0482d03010b9b89844e485ceb974adeb8c68",
+  "source": {
+    "kind": "public-endpoint",
+    "url": "https://api.staging.toolpath.com/v1/openapi.json",
+    "retrievedAt": "2026-10-25T00:14:15Z"
+  },
+  "sdk": {
+    "package": "@toolpath/api",
+    "version": "0.10.0-staging.20261024220030.gb8be413",
+    "recordedSha256": "b21fe6b647ad5f4274f7650b838b0482d03010b9b89844e485ceb974adeb8c68",
+    "uiPackagesCommit": "98b5da3d85622ec51d4e872da4d682c960245791"
+  },
+  "note": "The bytes the staging endpoint served at retrieval, verified against the SHA-256 the published staging SDK records. Not a claim about what staging serves today; `toolpath-dev engine verify-contract --target staging` checks it explicitly."
+}

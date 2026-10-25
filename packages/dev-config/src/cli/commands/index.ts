@@ -3,6 +3,7 @@ import type { Output } from '../output.js'
 import type { PackageManagerName } from '../../config/packages.js'
 import { UsageError } from '../../errors.js'
 import { runDoctor } from './doctor.js'
+import { verifyContract } from './engine.js'
 import { hookFiles, preCommit } from './hooks.js'
 import {
   parseProjectSpec,
@@ -239,5 +240,23 @@ export const COMMANDS: Record<string, Command> = {
       'toolpath-dev doctor [--verbose] [--json]\nRead-only diagnosis of configuration, scope, TypeScript programs, tool versions, native configs, hooks, receipt and CI wiring.',
     options: {},
     run: (context) => runDoctor(context.common, context.output),
+  },
+  'engine verify-contract': {
+    usage:
+      'toolpath-dev engine verify-contract [--target production|staging|<url>] [--contract <id>]\n' +
+      "Network check: compares the target's public /v1/openapi.json with the installed @toolpath/api's recorded contract\n" +
+      "and the pinned snapshot (--contract, else engine.contract in dev.config.mjs, else the SDK's). Changes nothing.",
+    options: { target: { type: 'string' }, contract: { type: 'string' } },
+    run: (context) =>
+      verifyContract(
+        {
+          ...(context.common.config === undefined ? {} : { config: context.common.config }),
+          ...(typeof context.values.target === 'string' ? { target: context.values.target } : {}),
+          ...(typeof context.values.contract === 'string'
+            ? { contract: context.values.contract }
+            : {}),
+        },
+        context.output,
+      ),
   },
 }

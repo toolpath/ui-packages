@@ -8,6 +8,17 @@ const createRule = ESLintUtils.RuleCreator(
 type Options = [{ origins: Array<string> }]
 
 const GLOBAL_OBJECTS = new Set(['globalThis', 'window', 'self'])
+const MAX_DEPTH = 8
+
+/**
+ * What static analysis knows about a string: its text, and whether that is the
+ * whole value or only a known prefix (a template or concatenation whose later
+ * parts are computed at run time).
+ */
+interface KnownText {
+  text: string
+  complete: boolean
+}
 
 /** The variable an identifier refers to in its scope, if any is declared. */
 const variableFor = (
@@ -25,34 +36,43 @@ const variableFor = (
   return undefined
 }
 
-/** A variable bound once by `const` (or an import-free declaration never written again). */
+/** The initializer of a variable bound exactly once by `const`. */
 const constantInitializer = (variable: TSESLint.Scope.Variable): TSESTree.Node | undefined => {
   const [definition] = variable.defs
-  if (variable.defs.length !== 1 || !definition) {
-    return undefined
-  }
-  if (definition.type !== TSESLint.Scope.DefinitionType.Variable) {
+  if (variable.defs.length !== 1 || definition?.type !== TSESLint.Scope.DefinitionType.Variable) {
     return undefined
   }
   const declarator = definition.node
-  if (declarator.parent.kind !== 'const') {
+  if (declarator.parent.kind !== 'const' || declarator.id.type !== AST_NODE_TYPES.Identifier) {
     return undefined
   }
-  if (variable.references.some((reference) => reference.isWrite() && reference.init !== true)) {
-    return undefined
-  }
-  return declarator.id.type === AST_NODE_TYPES.Identifier
-    ? (declarator.init ?? undefined)
-    : undefined
+  return declarator.init ?? undefined
 }
 
-/** Whether an identifier names the global (undeclared, or only declared ambiently) binding. */
+/** Whether an identifier names the global binding (nothing in scope declares it). */
 const isGlobalReference = (
   sourceCode: TSESLint.SourceCode,
   identifier: TSESTree.Identifier,
 ): boolean => {
   const variable = variableFor(sourceCode, identifier)
   return variable === undefined || variable.defs.length === 0
+}
+
+/**
+ * The origin a known URL text establishes: the whole URL's, or a prefix's once
+ * its authority is terminated by `/`, `?` or `#` (so `https://host` followed by
+ * computed text is not enough: it could continue the host name).
+ */
+export const originOf = ({ text, complete }: KnownText): string | undefined => {
+  if (!complete && !/^[a-z][a-z0-9+.-]*:\/\/[^/?#]*[/?#]/i.test(text)) {
+    return undefined
+  }
+  try {
+    const origin = new URL(complete ? text : text.replace(/[?#].*$/, '')).origin
+    return origin === 'null' ? undefined : origin
+  } catch {
+    return undefined
+  }
 }
 
 export const noDirectEngineHttp = createRule<Options, 'directEngineHttp'>({
@@ -79,42 +99,55 @@ export const noDirectEngineHttp = createRule<Options, 'directEngineHttp'>({
   defaultOptions: [{ origins: [] }],
   create: (context, [{ origins }]) => {
     const sourceCode = context.sourceCode
-    const engineOrigins = new Set(origins)
+    const engineOrigins = new Set(
+      origins.map((origin) => originOf({ text: origin, complete: true }) ?? origin),
+    )
 
-    /** The string a node evaluates to, when that is knowable without running code. */
-    const staticString = (
-      node: TSESTree.Node | null | undefined,
-      depth = 0,
-    ): string | undefined => {
-      if (!node || depth > 8) {
+    const concatenate = (
+      left: KnownText | undefined,
+      right: KnownText | undefined,
+    ): KnownText | undefined => {
+      if (!left) {
+        return undefined
+      }
+      if (!left.complete) {
+        return left
+      }
+      return right
+        ? { text: left.text + right.text, complete: right.complete }
+        : { text: left.text, complete: false }
+    }
+
+    /** What is statically known about the string an expression produces. */
+    const evaluate = (node: TSESTree.Node | null | undefined, depth = 0): KnownText | undefined => {
+      if (!node || depth > MAX_DEPTH) {
         return undefined
       }
       switch (node.type) {
         case AST_NODE_TYPES.Literal:
-          return typeof node.value === 'string' ? node.value : undefined
+          return typeof node.value === 'string' ? { text: node.value, complete: true } : undefined
         case AST_NODE_TYPES.TemplateLiteral: {
-          let text = node.quasis[0]?.value.cooked ?? ''
+          let known: KnownText = { text: node.quasis[0]?.value.cooked ?? '', complete: true }
           for (let index = 0; index < node.expressions.length; index += 1) {
-            const value = staticString(node.expressions[index], depth + 1)
-            if (value === undefined) {
-              return undefined
+            const next = concatenate(known, evaluate(node.expressions[index], depth + 1))
+            if (!next?.complete) {
+              return { text: next?.text ?? known.text, complete: false }
             }
-            text += value + (node.quasis[index + 1]?.value.cooked ?? '')
+            known = {
+              text: next.text + (node.quasis[index + 1]?.value.cooked ?? ''),
+              complete: true,
+            }
           }
-          return text
+          return known
         }
-        case AST_NODE_TYPES.BinaryExpression: {
-          if (node.operator !== '+') {
-            return undefined
-          }
-          const left = staticString(node.left, depth + 1)
-          const right = staticString(node.right, depth + 1)
-          return left === undefined || right === undefined ? undefined : left + right
-        }
+        case AST_NODE_TYPES.BinaryExpression:
+          return node.operator === '+'
+            ? concatenate(evaluate(node.left, depth + 1), evaluate(node.right, depth + 1))
+            : undefined
         case AST_NODE_TYPES.Identifier: {
           const variable = variableFor(sourceCode, node)
           const initializer = variable ? constantInitializer(variable) : undefined
-          return initializer ? staticString(initializer, depth + 1) : undefined
+          return initializer ? evaluate(initializer, depth + 1) : undefined
         }
         case AST_NODE_TYPES.NewExpression: {
           if (
@@ -123,20 +156,30 @@ export const noDirectEngineHttp = createRule<Options, 'directEngineHttp'>({
           ) {
             return undefined
           }
-          if (node.callee.name !== 'URL' && node.callee.name !== 'Request') {
+          if (node.callee.name === 'Request') {
+            return evaluate(node.arguments[0], depth + 1)
+          }
+          if (node.callee.name !== 'URL') {
             return undefined
           }
-          const input = staticString(node.arguments[0], depth + 1)
-          if (input === undefined) {
-            return undefined
+          const input = evaluate(node.arguments[0], depth + 1)
+          const base = node.arguments[1] ? evaluate(node.arguments[1], depth + 1) : undefined
+          if (input?.complete) {
+            try {
+              return {
+                text: new URL(input.text, base?.complete ? base.text : undefined).href,
+                complete: true,
+              }
+            } catch {
+              return undefined
+            }
           }
-          const base =
-            node.callee.name === 'URL' ? staticString(node.arguments[1], depth + 1) : undefined
-          try {
-            return new URL(input, base).href
-          } catch {
-            return undefined
+          // `new URL(`/v1/parts/${id}`, ENGINE)`: a path relative to a known base keeps the base's origin.
+          const baseOrigin = base ? originOf(base) : undefined
+          if (input && baseOrigin && input.text.startsWith('/') && !input.text.startsWith('//')) {
+            return { text: `${baseOrigin}${input.text}`, complete: false }
           }
+          return undefined
         }
         case AST_NODE_TYPES.MemberExpression:
           if (
@@ -144,7 +187,7 @@ export const noDirectEngineHttp = createRule<Options, 'directEngineHttp'>({
             node.property.type === AST_NODE_TYPES.Identifier &&
             (node.property.name === 'href' || node.property.name === 'url')
           ) {
-            return staticString(node.object, depth + 1)
+            return evaluate(node.object, depth + 1)
           }
           return undefined
         case AST_NODE_TYPES.CallExpression:
@@ -155,21 +198,21 @@ export const noDirectEngineHttp = createRule<Options, 'directEngineHttp'>({
             node.callee.property.name === 'toString' &&
             node.arguments.length === 0
           ) {
-            return staticString(node.callee.object, depth + 1)
+            return evaluate(node.callee.object, depth + 1)
           }
           return undefined
         case AST_NODE_TYPES.TSAsExpression:
         case AST_NODE_TYPES.TSSatisfiesExpression:
         case AST_NODE_TYPES.TSNonNullExpression:
-          return staticString(node.expression, depth + 1)
+          return evaluate(node.expression, depth + 1)
         default:
           return undefined
       }
     }
 
-    /** Whether an expression is the global `fetch` (directly, through a global object, or a const alias). */
+    /** Whether an expression is the global `fetch`: directly, through a global object, or a `const` alias. */
     const isGlobalFetch = (node: TSESTree.Node, depth = 0): boolean => {
-      if (depth > 4) {
+      if (depth > MAX_DEPTH) {
         return false
       }
       if (node.type === AST_NODE_TYPES.Identifier) {
@@ -177,36 +220,35 @@ export const noDirectEngineHttp = createRule<Options, 'directEngineHttp'>({
           return true
         }
         const variable = variableFor(sourceCode, node)
-        if (!variable) {
+        const [definition] = variable?.defs ?? []
+        if (
+          variable?.defs.length !== 1 ||
+          definition?.type !== TSESLint.Scope.DefinitionType.Variable
+        ) {
           return false
         }
-        const [definition] = variable.defs
-        if (
-          definition?.type === TSESLint.Scope.DefinitionType.Variable &&
-          definition.node.parent.kind === 'const'
-        ) {
-          const declarator = definition.node
-          if (declarator.id.type === AST_NODE_TYPES.Identifier && declarator.init) {
-            return isGlobalFetch(declarator.init, depth + 1)
-          }
-          // `const { fetch: send } = globalThis`
-          if (
-            declarator.id.type === AST_NODE_TYPES.ObjectPattern &&
-            declarator.init?.type === AST_NODE_TYPES.Identifier &&
-            GLOBAL_OBJECTS.has(declarator.init.name) &&
-            isGlobalReference(sourceCode, declarator.init)
-          ) {
-            return declarator.id.properties.some(
-              (property) =>
-                property.type === AST_NODE_TYPES.Property &&
-                property.key.type === AST_NODE_TYPES.Identifier &&
-                property.key.name === 'fetch' &&
-                property.value.type === AST_NODE_TYPES.Identifier &&
-                property.value.name === node.name,
-            )
-          }
+        const declarator = definition.node
+        if (declarator.parent.kind !== 'const') {
+          return false
         }
-        return false
+        if (declarator.id.type === AST_NODE_TYPES.Identifier && declarator.init) {
+          return isGlobalFetch(declarator.init, depth + 1)
+        }
+        // `const { fetch: send } = globalThis`
+        return (
+          declarator.id.type === AST_NODE_TYPES.ObjectPattern &&
+          declarator.init?.type === AST_NODE_TYPES.Identifier &&
+          GLOBAL_OBJECTS.has(declarator.init.name) &&
+          isGlobalReference(sourceCode, declarator.init) &&
+          declarator.id.properties.some(
+            (property) =>
+              property.type === AST_NODE_TYPES.Property &&
+              property.key.type === AST_NODE_TYPES.Identifier &&
+              property.key.name === 'fetch' &&
+              property.value.type === AST_NODE_TYPES.Identifier &&
+              property.value.name === node.name,
+          )
+        )
       }
       if (node.type === AST_NODE_TYPES.MemberExpression && !node.computed) {
         return (
@@ -221,6 +263,7 @@ export const noDirectEngineHttp = createRule<Options, 'directEngineHttp'>({
       if (
         node.type === AST_NODE_TYPES.CallExpression &&
         node.callee.type === AST_NODE_TYPES.MemberExpression &&
+        !node.callee.computed &&
         node.callee.property.type === AST_NODE_TYPES.Identifier &&
         node.callee.property.name === 'bind'
       ) {
@@ -234,17 +277,9 @@ export const noDirectEngineHttp = createRule<Options, 'directEngineHttp'>({
         if (engineOrigins.size === 0 || !isGlobalFetch(node.callee)) {
           return
         }
-        const target = staticString(node.arguments[0])
-        if (target === undefined) {
-          return
-        }
-        let origin: string
-        try {
-          origin = new URL(target).origin
-        } catch {
-          return
-        }
-        if (engineOrigins.has(origin)) {
+        const target = evaluate(node.arguments[0])
+        const origin = target ? originOf(target) : undefined
+        if (origin !== undefined && engineOrigins.has(origin)) {
           context.report({ node, messageId: 'directEngineHttp', data: { origin } })
         }
       },
