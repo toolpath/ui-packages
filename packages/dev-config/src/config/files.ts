@@ -35,6 +35,7 @@ export const BUILT_IN_EXCLUSIONS = [
   '**/blob-report/**',
   '**/.toolpath/ci-source/**',
   '**/.toolpath/reports/**',
+  '**/.tmp/**',
 ] as const
 
 export const toPosix = (path: string): string => path.split(sep).join('/')

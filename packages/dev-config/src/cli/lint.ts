@@ -57,6 +57,36 @@ const loadEslint = async (): Promise<typeof ESLint> => {
   return module.ESLint
 }
 
+const POLICY_RULE = 'toolpath/no-blanket-quality-disable'
+
+/**
+ * A directive that disables every rule also silences the report about itself,
+ * so the policy rule's suppressed messages count as errors: a blanket disable
+ * cannot hide its own violation.
+ */
+export const promoteSelfSuppressed = (result: ESLint.LintResult): ESLint.LintResult => {
+  const promoted = result.suppressedMessages.filter((message) => message.ruleId === POLICY_RULE)
+  if (promoted.length === 0) {
+    return result
+  }
+  const messages = [
+    ...result.messages,
+    ...promoted.map(({ suppressions: _suppressions, ...message }) => ({
+      ...message,
+      severity: 2 as const,
+    })),
+  ]
+  messages.sort((a, b) => a.line - b.line || a.column - b.column)
+  return {
+    ...result,
+    messages,
+    suppressedMessages: result.suppressedMessages.filter(
+      (message) => message.ruleId !== POLICY_RULE,
+    ),
+    errorCount: result.errorCount + promoted.length,
+  }
+}
+
 export interface LintRun {
   results: Array<ESLint.LintResult>
   errorCount: number
@@ -124,7 +154,9 @@ export const lintFiles = async (
     throw new ConfigError(`${ESLINT_CONFIG_FILE} weakens the shared policy:`, issues)
   }
 
-  const results = await native.lintFiles(files.map((file) => join(resolved.root, file)))
+  const results = (await native.lintFiles(files.map((file) => join(resolved.root, file)))).map(
+    promoteSelfSuppressed,
+  )
   let fixedFiles = 0
   if (fix) {
     fixedFiles = results.filter((result) => result.output !== undefined).length

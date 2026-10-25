@@ -117,7 +117,6 @@ export const typescriptCheckedCoreRules: RuleMap = {
   'no-throw-literal': 'off',
   'prefer-promise-reject-errors': 'off',
   'require-await': 'off',
-  'no-return-await': 'off',
 }
 
 /** typescript-eslint's strict type-checked rules, plus the stylistic rules the standard names. */
