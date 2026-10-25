@@ -232,6 +232,20 @@ describe('the CLI against a real project', { timeout: 120_000 }, () => {
     expect(focused.stdout).not.toMatch(/b:unit/)
   })
 
+  it('applies typed fixes in a CI environment', () => {
+    // CI=true makes typescript-eslint assume a single run, which a fix pass must not use.
+    const fixable = singleProject({
+      'src/twice.ts':
+        'export function twice(value: number) {\n  if (value > 0) return value * 2\n  return 0\n}\n',
+    })
+    const result = fixable.run(['lint:fix'], { env: { CI: 'true' } })
+    expect(result.stderr).toBe('')
+    expect(result.code).toBe(0)
+    expect(readFileSync(join(fixable.root, 'src/twice.ts'), 'utf8')).toMatch(
+      /^export const twice = \(value: number\) => \{/,
+    )
+  })
+
   it('keeps watching with --watch and exits after a plain run', async () => {
     const watched = singleProject()
     expect(watched.run(['test']).code).toBe(0)

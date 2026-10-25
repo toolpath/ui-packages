@@ -154,9 +154,24 @@ export const lintFiles = async (
     throw new ConfigError(`${ESLINT_CONFIG_FILE} weakens the shared policy:`, issues)
   }
 
-  const results = (await native.lintFiles(files.map((file) => join(resolved.root, file)))).map(
-    promoteSelfSuppressed,
-  )
+  // typescript-eslint treats a CI=true process without `--fix` in its argv as a single run
+  // and builds each program once; a fix pass re-parses the fixed text, which needs the
+  // programs it can update. Fixing goes through this API, so say so explicitly.
+  const singleRun = process.env.TSESTREE_SINGLE_RUN
+  if (fix) {
+    process.env.TSESTREE_SINGLE_RUN = 'false'
+  }
+  let linted: Array<ESLint.LintResult>
+  try {
+    linted = await native.lintFiles(files.map((file) => join(resolved.root, file)))
+  } finally {
+    if (singleRun === undefined) {
+      delete process.env.TSESTREE_SINGLE_RUN
+    } else {
+      process.env.TSESTREE_SINGLE_RUN = singleRun
+    }
+  }
+  const results = linted.map(promoteSelfSuppressed)
   let fixedFiles = 0
   if (fix) {
     fixedFiles = results.filter((result) => result.output !== undefined).length
