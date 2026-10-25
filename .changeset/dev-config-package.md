@@ -16,5 +16,7 @@ Add `@toolpath/dev-config`, shared development configuration for Toolpath reposi
 - `@toolpath/dev-config/prettier`: the shared Prettier config.
 - `@toolpath/dev-config/tsconfig/{base,browser,node,library}.json`: strict TypeScript bases.
 - `@toolpath/dev-config/react-compiler`: the shared compiler options, a Vite plugin that fails a
-  build the compiler did not run in, an esbuild plugin for tsup libraries, and
-  `assertReactCompiled` for library output.
+  build the compiler did not run in and reports every function the compiler skipped, an esbuild
+  plugin for tsup libraries that reports skipped functions at their location, and
+  `assertReactCompiled` for library output. A function opted out with `'use no memo'` is not
+  reported.

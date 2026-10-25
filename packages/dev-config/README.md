@@ -208,9 +208,17 @@ pnpm add -D babel-plugin-react-compiler @babel/core
 `target: '19'`. Code that must run on React 17 or 18 passes `reactCompilerOptions({ target: '18' })`
 and installs `react-compiler-runtime`.
 
-Wire the compiler the way your build tool documents it, then add the check for that tool. The
-check fails the build when the compiler compiled nothing, for example after an upgrade drops an
-option it was configured through.
+Wire the compiler the way your build tool documents it, with `reactCompilerOptions()`, then add
+the check for that tool. The check fails the build when:
+
+- the compiler compiled nothing, for example after an upgrade drops an option it was configured
+  through;
+- the compiler skipped a function, which then runs uncompiled. With `panicThreshold: 'none'` the
+  compiler does this silently. The build lists each function with its reason, such as
+  `src/reader.tsx:2  [Refs] Cannot access refs during render`. Fix what the reason names (lint
+  reports most of them), or opt the function out with a `'use no memo'` directive and a comment
+  saying why. Pass `{ onSkip: 'warn' }` to the check to report skips without failing, while a
+  repository works through them.
 
 ### Vite with `@vitejs/plugin-react` 6
 
@@ -263,8 +271,8 @@ export default defineConfig({
 ```
 
 `reactCompilerGuard()` checks production client builds. It counts the project's `.jsx` and `.tsx`
-modules and fails when none imports the compiler runtime. Server builds and dependencies are not
-counted.
+modules and fails when none imports the compiler runtime, and reports the functions the logger in
+`reactCompilerOptions()` recorded as skipped. Server builds and dependencies are not counted.
 
 ### tsup and esbuild libraries
 
@@ -291,9 +299,10 @@ export default defineConfig({
 })
 ```
 
-`reactCompilerEsbuildPlugin()` runs the compiler over each source file before esbuild lowers it.
-`assertReactCompiled('dist')` throws unless the output imports the compiler runtime, which is why
-`react` stays external.
+`reactCompilerEsbuildPlugin()` runs the compiler over each source file before esbuild lowers it,
+and reports each skipped function at its location as a build error (`{ onSkip: 'warn' }` for
+warnings; `{ target: '18' }` for React 17 or 18). `assertReactCompiled('dist')` throws unless the
+output imports the compiler runtime, which is why `react` stays external.
 
 ### Expo
 
@@ -313,4 +322,4 @@ module.exports = {
 }
 ```
 
-There is no build check for Metro.
+There is no build check for Metro, so skipped functions are not reported there.
