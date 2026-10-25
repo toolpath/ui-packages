@@ -60,7 +60,8 @@ const VIOLATIONS: Record<string, string> = {
     'export const sorted = (values: Array<number>): Array<number> => values.toSorted()\n',
   'no-eval': "export const value: unknown = eval('1')\n",
   'no-new-func': "export const make = new Function('return 1')\n",
-  'func-style': 'export function add(a: number, b: number): number {\n  return a + b\n}\n',
+  '@typescript-eslint/no-non-null-assertion':
+    'export const first = (values: Array<number | undefined>): number => values[0]!\n',
   'prefer-arrow-callback':
     'export const same = [1].map(function (value: number): number {\n  return value\n})\n',
   '@typescript-eslint/strict-boolean-expressions':
@@ -70,13 +71,13 @@ const VIOLATIONS: Record<string, string> = {
   '@typescript-eslint/no-unsafe-type-assertion':
     'interface User {\n  name: string\n}\n\nexport const toUser = (value: unknown): User => value as User\n',
   '@eslint-community/eslint-comments/require-description':
-    '// eslint-disable-next-line func-style\nexport function one(): number {\n  return 1\n}\n',
+    '// eslint-disable-next-line no-self-compare\nexport const same = (x: number): boolean => x === x\n',
   '@eslint-community/eslint-comments/no-restricted-disable':
     "// eslint-disable-next-line no-eval -- needed here\nexport const value: unknown = eval('1')\n",
   '@eslint-community/eslint-comments/disable-enable-pair':
-    '/* eslint-disable func-style -- legacy file */\nexport function one(): number {\n  return 1\n}\n',
+    '/* eslint-disable no-self-compare -- legacy file */\nexport const same = (x: number): boolean => x === x\n',
   '@eslint-community/eslint-comments/no-unlimited-disable':
-    '/* eslint-disable */\nexport function one(): number {\n  return 1\n}\n',
+    '/* eslint-disable */\nexport const same = (x: number): boolean => x === x\n',
   'unicorn/prefer-node-protocol': "import { sep } from 'path'\n\nexport const separator = sep\n",
   'import-x/no-extraneous-dependencies':
     "import leftPad from 'left-pad'\n\nexport const pad: unknown = leftPad\n",
@@ -146,6 +147,30 @@ describe('createEslintConfig', () => {
     expect(reported['main.ts']).toContain('import-x/no-relative-packages')
   })
 
+  it('lets tests use non-null assertions and casts but keeps the async rules', async () => {
+    const reported = await lint({
+      'fixture.test.ts': [
+        'interface Report {',
+        '  parts: Array<{ id: string } | undefined>',
+        '}',
+        '',
+        'const load = async (): Promise<unknown> => {',
+        '  await Promise.resolve()',
+        '  return { parts: [] }',
+        '}',
+        '',
+        'export const firstId = async (): Promise<string> => {',
+        '  const report = (await load()) as Report',
+        '  return report.parts[0]!.id',
+        '}',
+        '',
+        'load()',
+        '',
+      ].join('\n'),
+    })
+    expect(reported['fixture.test.ts']).toEqual(['@typescript-eslint/no-floating-promises'])
+  })
+
   it('reports focused tests and allows an explained @ts-expect-error in tests only', async () => {
     const reported = await lint({
       'focus.test.ts': "import { it } from 'vitest'\n\nit.only('runs', () => {})\n",
@@ -206,7 +231,7 @@ describe('createEslintConfig', () => {
   it('reports an unused disable directive', async () => {
     const reported = await lint({
       'directive.ts':
-        '// eslint-disable-next-line func-style -- not needed\nexport const one = 1\n',
+        '// eslint-disable-next-line no-self-compare -- not needed\nexport const one = 1\n',
     })
     expect(reported['directive.ts']).toEqual([
       expect.stringMatching(/Unused eslint-disable directive/),

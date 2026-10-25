@@ -68,7 +68,6 @@ const unusedVars = {
 const coreRules: Linter.RulesRecord = {
   curly: ['error', 'all'],
   eqeqeq: ['error', 'always', { null: 'ignore' }],
-  'func-style': ['error', 'expression'],
   'no-eval': 'error',
   'no-implied-eval': 'error',
   'no-new-func': 'error',
@@ -485,9 +484,18 @@ export const createEslintConfig = ({
     },
     { files: TESTS, plugins: { vitest }, rules: vitestRules },
     {
-      // Vitest's version understands `expect(mock.method)`.
+      // A wrong `!` or cast in a test fails the test loudly, so tests may use them to reach
+      // into fixtures; the async and `no-unsafe-*` rules stay on. Vitest's `unbound-method`
+      // understands `expect(mock.method)`.
       files: TYPESCRIPT_TESTS,
-      rules: { '@typescript-eslint/unbound-method': 'off', 'vitest/unbound-method': 'error' },
+      rules: {
+        '@typescript-eslint/consistent-type-assertions': 'off',
+        '@typescript-eslint/no-non-null-assertion': 'off',
+        '@typescript-eslint/no-unsafe-type-assertion': 'off',
+        '@typescript-eslint/require-await': 'off',
+        '@typescript-eslint/unbound-method': 'off',
+        'vitest/unbound-method': 'error',
+      },
     },
     react ? reactConfigs() : [],
   )

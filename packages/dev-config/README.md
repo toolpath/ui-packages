@@ -26,10 +26,9 @@ Run it as `eslint . --max-warnings=0`. Every rule is an error or off; none warns
 
 - **All JS and TS files:** `@eslint/js` recommended, plus `curly`, `eqeqeq`, `prefer-const`,
   `no-var`, `no-eval`, `no-implied-eval`, `no-new-func`, `no-self-compare`,
-  `no-template-curly-in-string`, `no-unreachable-loop`, and `const` arrow functions
-  (`func-style: expression`; `prefer-arrow-callback` allows named function expressions, so
-  `memo(function Row…)` keeps its name). Unused names may start with `_`, but a `_` name that is
-  read is reported.
+  `no-template-curly-in-string`, `no-unreachable-loop`, and arrow callbacks
+  (`prefer-arrow-callback`, which allows named function expressions, so `memo(function Row…)`
+  keeps its name). Unused names may start with `_`, but a `_` name that is read is reported.
 - **Defect-finding plugin rules**, none of their style presets:
   - `eslint-plugin-unicorn`: logic slips (`a | b` in a condition, `2 ^ 8`, `total += total + n`),
     async and event timing (`currentTarget` read after `await`, `resolve()` called twice),
@@ -56,7 +55,9 @@ Run it as `eslint . --max-warnings=0`. Every rule is an error or off; none warns
     reason; shipped code fixes the type.
 - **Tests** (`*.test.*`, `*.spec.*`, `tests/` and similar): `@vitest/eslint-plugin` recommended,
   plus no `.only`, `.skip` or `.todo`, awaited async expectations, `toThrow` with a message, and
-  `vi.mock` hoisting and `import()` paths.
+  `vi.mock` hoisting and `import()` paths. Tests may use `!`, type assertions and `async`
+  callbacks without `await`, because a wrong one fails the test; the async and `no-unsafe-*`
+  rules stay on.
 - **`react: true`**, for every JS and TS file, since hooks live in `.ts` files too:
   - `eslint-plugin-react-hooks` `recommended-latest`, the Rules of React and React Compiler's
     diagnostics. `exhaustive-deps` is an error.
@@ -123,6 +124,22 @@ modules in a fresh checkout:
 ```json
 "lint": "react-router typegen && eslint . --max-warnings=0"
 ```
+
+### Adopting it in an existing repository
+
+Fix what fixes itself, then record the rest as a baseline, so new code is clean from the first
+day and old findings are fixed when someone works on that file:
+
+```sh
+eslint . --fix
+eslint . --suppress-all   # writes eslint-suppressions.json; commit it
+```
+
+Lint then fails on any new finding, and on a file with more findings of a rule than recorded. A
+fixed finding makes lint fail (exit 2) until `eslint . --prune-suppressions` removes it from the
+file, so the baseline only shrinks. Review changes to `eslint-suppressions.json` like changes to the
+config: rerunning `--suppress-all` would absorb new findings. Suppressions apply to the ESLint CLI
+only; editors still show suppressed findings.
 
 ## Prettier
 
