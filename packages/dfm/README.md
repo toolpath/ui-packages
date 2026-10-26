@@ -10,7 +10,7 @@ The views that show and edit the rules — `RuleList`, `ReachChart`,
 The logic they read is here, so a view in another renderer (React Native, say)
 builds the same thing:
 
-- the views' data types (`CandidateRow`, `InspectedFace`, `ComparedFace`,
+- the views' data types (`CandidateRowData`, `InspectedFaceData`, `ComparedFace`,
   `DfmRules`, `Choices`)
 - the rule editor's choices (`subjectChoices`, `metricChoices`,
   `comparisonChoices`, `rangeLowChoices`, `rangeHighChoices`, `OP_TITLES`,

@@ -5,7 +5,7 @@
 Exposes the rule-list, feature-panel and reach-chart logic from `/model` (and the root, the same
 entry), so non-DOM UIs can build the same views:
 
-- The views' data types: `CandidateRow`, `ComparedFace`, `ComparedFaceList`, `InspectedFace`,
+- The views' data types: `CandidateRowData`, `ComparedFace`, `ComparedFaceList`, `InspectedFaceData`,
   `Hovered`, `FeatureIdentity`, `DfmRules`, `Choice`, `ChoiceGroup` and `Choices`, and `ListedRule`,
   `ComparisonRow` and `RuleSetRead`.
 - The rule editor's pickers: `subjectChoices`, `metricChoices`, `comparisonChoices`,
