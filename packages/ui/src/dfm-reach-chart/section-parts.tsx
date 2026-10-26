@@ -277,7 +277,7 @@ export const OffsetOrdinates: FC<ArrowedProps> = (props): ReactElement => {
           <line
             x1={x(riser.at)}
             x2={x(riser.at)}
-            y1={y(riser.from) + 2}
+            y1={y(riser.from) + SECTION_LABEL.extensionGap}
             y2={ordinateY + SECTION_LABEL.tickBelow}
             strokeWidth={0.5}
             strokeDasharray="2 2"
@@ -315,7 +315,7 @@ export const HeightOrdinates: FC<DimensionProps> = ({ geometry, units }): ReactE
       {geometry.up.map((h) => (
         <g key={`y:${h}`}>
           <line
-            x1={right - 2}
+            x1={right - SECTION_LABEL.leaderOverlap}
             x2={datumX}
             y1={y(h)}
             y2={y(h)}

@@ -14,6 +14,7 @@ import {
   LABEL_GAP_X,
   LABEL_GAP_Y,
   SECTION_MAX_H,
+  SECTION_LABEL,
   SECTION_MIN_H,
   SECTION_PAD,
   risersOf,
@@ -198,7 +199,7 @@ export const sectionGeometry = (
     featureTopY: depth === null ? SECTION_PAD.top : y(depth),
     featureBottomY: feature.through ? floorY + FLOOR_STRIP : floorY,
     wallTop: y(curve.heights[0] ?? 0),
-    datumX: right + 8,
-    ordinateY: floorY + 22,
+    datumX: right + SECTION_LABEL.datumRight,
+    ordinateY: floorY + SECTION_LABEL.ordinatesBelow,
   }
 }
