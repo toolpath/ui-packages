@@ -680,6 +680,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
           className={className}
           style={style}
           canvas={canvasSettings(projection)}
+          labels={resolved.labels}
           onPointerMissed={onPointerMissed}
           webglUnavailable={webglUnavailable}
           accessibilityLabel={accessibilityLabel}
