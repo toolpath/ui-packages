@@ -5,69 +5,60 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
-  type ReactNode,
   type RefObject,
 } from 'react'
-import { EXCLUDE_FROM_FRAME, type ViewerHandle } from '@toolpath/viewer'
-import type { Group, Object3D } from 'three'
+import {
+  createExplodeMotion,
+  explodeFits,
+  type ExplodeInput,
+  type ViewerHandle,
+} from '@toolpath/viewer'
 import type { ExampleModel } from '../models'
-import { explodeStats } from './geometry'
 import { colorGroups, makeGroups, type ColorBy } from './groups'
-import { useExplosionMotion, useMotionAmount } from './motion-react'
-import type { ExplodeInput } from '@toolpath/viewer'
 
-/** Example app policy: stable feature pieces with application-owned selection and color. */
+/** Example app policy: stable feature pieces with application-owned color. */
 export const useExampleExplode = (
   part: ExampleModel,
   viewer: RefObject<ViewerHandle | null>,
   ready: boolean,
 ) => {
-  const { motion, active } = useExplosionMotion(0)
-  const amount = useMotionAmount(motion)
-  const [preparedFor, setPreparedFor] = useState<ExampleModel | null>(null)
-  const onPrepared = useCallback(() => setPreparedFor(part), [part])
+  // The package animates; the example decides when.
+  const [motion] = useState(() => createExplodeMotion(0))
+  const active = useSyncExternalStore(motion.subscribe, () => motion.getSnapshot().active)
+  const preparing = useSyncExternalStore(motion.subscribe, () => motion.getSnapshot().preparing)
   const [enabled, setEnabled] = useState(false)
   const [colorBy, setColorBy] = useState<ColorBy>('feature')
-  const [selected, select] = useState<string | null>(null)
-  const [hovered, hover] = useState<string | null>(null)
   const groups = useMemo(() => makeGroups(part), [part])
-  const stats = useMemo(() => explodeStats(part.model, groups), [part.model, groups])
-  const renderable = stats.renderable && groups.length > 0
-  // At stationary zero use the app's existing PartMesh. A second assembled part would
-  // replace the region attribute on geometry that the normal renderer already owns.
+  const renderable = groups.length > 0 && explodeFits(part.model, groups)
+  // At stationary zero use the app's existing PartMesh, which `<ExplodedPart>` stands in for.
   const visible = renderable && active
   const input: ExplodeInput = useMemo(
     () => ({
-      amount: renderable ? amount : 0,
+      amount: renderable ? motion : 0,
       groups,
       colors: new Map(colorGroups(groups, colorBy).map((group) => [group.id, group.color])),
     }),
-    [amount, colorBy, groups, renderable],
+    [motion, colorBy, groups, renderable],
   )
   const resetAfterClose = useRef(false)
-  const clear = () => {
-    select(null)
-    hover(null)
-  }
+  const onAssembled = useCallback(() => {
+    if (resetAfterClose.current) {
+      resetAfterClose.current = false
+      viewer.current?.reset()
+    }
+  }, [viewer])
   const setOpen = (next: boolean, immediate = false) => {
     resetAfterClose.current = false
     setEnabled(next)
-    clear()
     const target = next && renderable ? 1 : 0
-    if (immediate || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (immediate) {
       motion.seek(target)
     } else {
       motion.moveTo(target)
     }
   }
-  const onAssembled = useCallback(() => {
-    if (resetAfterClose.current) {
-      viewer.current?.reset()
-    }
-  }, [viewer])
   return {
-    ready: ready && (!renderable || preparedFor === part),
-    onPrepared,
+    ready: ready && !preparing,
     enabled,
     visible,
     colorBy,
@@ -76,22 +67,18 @@ export const useExampleExplode = (
     groups,
     input,
     motion,
-    selected,
-    hovered,
-    select,
-    hover,
+    onAssembled,
     toggle: () => setOpen(!enabled),
     close: (immediate = false) => setOpen(false, immediate),
     reset: () => {
-      // Reset measures the scene. Wait for the ordinary part to be visible,
-      // then let Reset own both framing and the opening camera orientation.
+      // Reset measures the scene. Wait for the ordinary part to be visible, then let Reset
+      // own both framing and the opening camera orientation.
       setOpen(false, true)
       resetAfterClose.current = visible
       if (!visible) {
         viewer.current?.reset()
       }
     },
-    onAssembled,
     seek: (next: number) => {
       setEnabled(true)
       motion.seek(next)
@@ -101,44 +88,23 @@ export const useExampleExplode = (
 
 type ExampleExplode = ReturnType<typeof useExampleExplode>
 
-export const ExplodeButton = ({
-  state,
-  onClick,
+/**
+ * Says when the assembled part is shown again. Rendered inside `<Viewer>`, whose tree commits
+ * after the page's, so the part has been shown by the time this runs.
+ */
+export const OnAssembled = ({
+  assembled,
+  onAssembled,
 }: {
-  state: ExampleExplode
-  onClick: () => void
+  assembled: boolean
+  onAssembled: () => void
 }) => {
-  const label = state.enabled ? 'Collapse features' : 'Explode'
-  return (
-    <button
-      type="button"
-      className="viewer-toolbar-button"
-      data-viewer-toolbar-action="explode"
-      aria-label={label}
-      aria-pressed={state.enabled}
-      disabled={!state.ready}
-      onClick={onClick}
-    >
-      <svg
-        className="viewer-toolbar-icon"
-        data-viewer-toolbar-icon="true"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-        focusable="false"
-      >
-        <path d="m12 5 1.6 3.1L17 7l-1.1 3.4L19 12l-3.1 1.6L17 17l-3.4-1.1L12 19l-1.6-3.1L7 17l1.1-3.4L5 12l3.1-1.6L7 7l3.4 1.1Z" />
-        <path d="M12 1.5V3m0 18v1.5M1.5 12H3m18 0h1.5" />
-      </svg>
-      <span className="viewer-toolbar-tooltip" data-viewer-toolbar-tooltip="true" role="tooltip">
-        {label}
-      </span>
-    </button>
-  )
+  useLayoutEffect(() => {
+    if (assembled) {
+      onAssembled()
+    }
+  }, [assembled, onAssembled])
+  return null
 }
 
 export const ExplodeOptions = ({ state }: { state: ExampleExplode }) => {
@@ -185,43 +151,5 @@ export const ExplodeOptions = ({ state }: { state: ExampleExplode }) => {
         </span>
       )}
     </div>
-  )
-}
-
-/** Keep PartMesh mounted so its normal selection/tools survive an explode round trip.
- * Three's raycaster ignores ancestor visibility, so hidden objects also leave its layers. */
-export const PartVisibility = ({
-  visible,
-  children,
-  onVisible,
-}: {
-  visible: boolean
-  children: ReactNode
-  onVisible: () => void
-}) => {
-  const root = useRef<Group>(null)
-  useLayoutEffect(() => {
-    if (visible) {
-      onVisible()
-      return
-    }
-    if (!root.current) {
-      return
-    }
-    const masks = new Map<Object3D, number>()
-    root.current.traverse((object) => {
-      masks.set(object, object.layers.mask)
-      object.layers.mask = 0
-    })
-    return () => {
-      for (const [object, mask] of masks) {
-        object.layers.mask = mask
-      }
-    }
-  }, [onVisible, visible])
-  return (
-    <group ref={root} visible={visible} userData={{ [EXCLUDE_FROM_FRAME]: !visible }}>
-      {children}
-    </group>
   )
 }
