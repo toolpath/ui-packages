@@ -48,7 +48,8 @@ export default defineConfig([
     onSuccess: 'node scripts/copy-assets.mjs web',
   },
   // The React Native build, behind the `react-native` export condition: the
-  // same entries, with each `.native.ts(x)` file in place of its sibling.
+  // same entries, with each `src/native/` file in place of the file at the
+  // same path under `src/`.
   {
     entry,
     format: ['esm'],
