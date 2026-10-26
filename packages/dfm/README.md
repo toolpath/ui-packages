@@ -38,7 +38,8 @@ npm install @toolpath/dfm
 | `@toolpath/dfm/model` | The same entry, under its name from before the views moved                                                                                                                           |
 
 Both are ES modules. A resolver that asks for `require` rather than `import`
-gets the same files through the `default` condition.
+gets the same files through the `default` condition, as it does for the one
+package dfm imports, `@toolpath/tool-support`.
 
 ### Testing with Jest
 

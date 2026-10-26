@@ -25,19 +25,23 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./export": {
       "types": "./dist/export/index.d.ts",
-      "import": "./dist/export/index.js"
+      "import": "./dist/export/index.js",
+      "default": "./dist/export/index.js"
     },
     "./export/fusion": {
       "types": "./dist/export/fusion/index.d.ts",
-      "import": "./dist/export/fusion/index.js"
+      "import": "./dist/export/fusion/index.js",
+      "default": "./dist/export/fusion/index.js"
     },
     "./export/mastercam": {
       "types": "./dist/export/mastercam/index.d.ts",
-      "import": "./dist/export/mastercam/index.js"
+      "import": "./dist/export/mastercam/index.js",
+      "default": "./dist/export/mastercam/index.js"
     },
     "./package.json": "./package.json"
   },
