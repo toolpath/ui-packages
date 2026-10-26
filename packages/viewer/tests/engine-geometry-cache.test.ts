@@ -66,6 +66,28 @@ describe('Engine geometry cache', () => {
     expect(dispose).toHaveBeenCalledOnce()
   })
 
+  it('keeps geometry read for a part that has not retained it yet when another opens', async () => {
+    const loader = vi.fn(async () => new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader, 1)
+    const closed = cache.get(part('closed'))
+    await closed.promise
+    cache.retain(closed)
+    cache.release(closed)
+
+    // Two parts mounting in one commit: both read during the render, then
+    // retained one effect at a time.
+    const first = cache.get(part('first'))
+    const second = cache.get(part('second'))
+    await Promise.all([first.promise, second.promise])
+    const dispose = vi.fn()
+    second.geometry!.addEventListener('dispose', dispose)
+    cache.retain(first)
+
+    expect(dispose).not.toHaveBeenCalled()
+    expect(cache.get(part('second'))).toBe(second)
+    expect(loader).toHaveBeenCalledTimes(3)
+  })
+
   it('keys on the artifact path, so a re-presigned URL is still a hit', async () => {
     const loader = vi.fn(async () => new THREE.BufferGeometry())
     const cache = createEngineGeometryCache(loader)
