@@ -196,6 +196,16 @@ describe('a lost finger', () => {
     ])
   })
 
+  it("is forgotten when the next gesture reuses another lost finger's id", () => {
+    const fingers = createFingerTracker()
+    fingers.update('start', [finger(0, 10, 10)], [finger(0, 10, 10)])
+    fingers.update('start', [finger(1, 50, 50)], [finger(0, 10, 10), finger(1, 50, 50)])
+    // Neither end arrives; the next gesture starts with id 0 again.
+    expect(fingers.update('start', [finger(0, 20, 20)], [finger(0, 20, 20)])).toEqual([
+      finger(0, 20, 20),
+    ])
+  })
+
   it('is kept while it is still down, as a second finger joins', () => {
     const fingers = createFingerTracker()
     fingers.update('start', [finger(1, 10, 10)], [finger(1, 10, 10)])
