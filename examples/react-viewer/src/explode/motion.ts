@@ -13,8 +13,10 @@ export interface ExplosionMotion {
   advance: (timestamp: number) => boolean
   /** Exclude time while the app's animation driver is suspended. Keeps current progress. */
   resetClock: () => void
+  /** Jump to an amount without animating. */
   seek: (amount: number) => void
-  moveTo: (amount: number, immediate?: boolean) => void
+  /** Animate to an amount. */
+  moveTo: (amount: number) => void
 }
 
 const DURATION_MS = 1800
@@ -22,7 +24,11 @@ const clamp = (value: number): number => Math.max(0, Math.min(1, value))
 // Zero velocity and acceleration at each end, without overshooting the part's geometry.
 const ease = (t: number): number => t * t * t * (t * (t * 6 - 15) + 10)
 
-export const createExplosionMotion = (initial: number): ExplosionMotion => {
+/** `now` reads the clock animation-frame timestamps use. */
+export const createExplosionMotion = (
+  initial: number,
+  now: () => number = () => performance.now(),
+): ExplosionMotion => {
   let amount = clamp(initial)
   let mode: Mode = 'idle'
   let from = amount
@@ -42,7 +48,8 @@ export const createExplosionMotion = (initial: number): ExplosionMotion => {
     from = amount
     to = clamp(next)
     elapsed = 0
-    lastFrame = null
+    // Count from the request, so time before the first frame belongs to the run.
+    lastFrame = now()
     lastPublished = -Infinity
     mode = from === to ? 'idle' : 'transition'
     publish()
@@ -68,13 +75,7 @@ export const createExplosionMotion = (initial: number): ExplosionMotion => {
     resetClock: () => {
       lastFrame = null
     },
-    moveTo: (next, immediate = false) => {
-      if (immediate) {
-        seek(next)
-      } else {
-        start(next)
-      }
-    },
+    moveTo: start,
     advance: (timestamp) => {
       if (mode === 'idle') {
         return false

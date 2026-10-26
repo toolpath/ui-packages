@@ -53,10 +53,12 @@ export const useExampleExplode = (
     resetAfterClose.current = false
     setEnabled(next)
     clear()
-    motion.moveTo(
-      next && renderable ? 1 : 0,
-      immediate || matchMedia('(prefers-reduced-motion: reduce)').matches,
-    )
+    const target = next && renderable ? 1 : 0
+    if (immediate || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      motion.seek(target)
+    } else {
+      motion.moveTo(target)
+    }
   }
   const onAssembled = useCallback(() => {
     if (resetAfterClose.current) {

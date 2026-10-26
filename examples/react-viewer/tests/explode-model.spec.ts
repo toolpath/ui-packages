@@ -28,8 +28,8 @@ test('keeps feature layout stable and clears inner walls', async ({ page }) => {
 })
 
 test('eases transitions, reverses without a jump, and stops at the scrubbed amount', () => {
-  const motion = createExplosionMotion(0)
   let time = 0
+  const motion = createExplosionMotion(0, () => time)
   const step = (milliseconds: number) => {
     const end = time + milliseconds
     while (time < end) {
@@ -53,7 +53,7 @@ test('eases transitions, reverses without a jump, and stops at the scrubbed amou
   step(1000)
   expect(motion.amount).toBe(0.3)
   expect(motion.getSnapshot().mode).toBe('idle')
-  motion.moveTo(0, true)
+  motion.seek(0)
   expect(motion.amount).toBe(0)
   motion.moveTo(1)
   motion.advance(time)
@@ -63,18 +63,19 @@ test('eases transitions, reverses without a jump, and stops at the scrubbed amou
 })
 
 test('finishes in elapsed time even when frames are hundreds of milliseconds apart', () => {
-  const motion = createExplosionMotion(0)
+  let time = 0
+  const motion = createExplosionMotion(0, () => time)
+  // At 2 fps the first frame arrives 500 ms after the request, and that time counts.
   motion.moveTo(1)
-  motion.advance(0)
-  motion.advance(300)
+  motion.advance(500)
   motion.advance(900)
   expect(motion.amount).toBeCloseTo(0.5)
   expect(motion.advance(1800)).toBe(false)
   expect(motion.amount).toBe(1)
   expect(motion.getSnapshot().mode).toBe('idle')
 
+  time = 2000
   motion.moveTo(0)
-  motion.advance(2000)
   motion.advance(2900)
   expect(motion.amount).toBeCloseTo(0.5)
   expect(motion.advance(3800)).toBe(false)
@@ -82,7 +83,7 @@ test('finishes in elapsed time even when frames are hundreds of milliseconds apa
 })
 
 test('resumes a suspended clock without counting time spent in the background', () => {
-  const motion = createExplosionMotion(0)
+  const motion = createExplosionMotion(0, () => 0)
   motion.moveTo(1)
   motion.advance(0)
   motion.advance(100)
