@@ -19,8 +19,8 @@ the app setup.
   part stays smooth to touch.
 - The components React Native runs import drei's modules one by one (`@react-three/drei/core/…`)
   rather than its root, which on React Native loads every drei module as the app starts.
-- `PartMesh` works out which faces touch which only when `onAdjacency` is passed, and once per mesh
-  however often the callback changes: on a phone the walk over every triangle is felt.
+- `PartMesh` works out which faces touch which only when `onAdjacency` is passed, and once per
+  mesh: on a phone the walk over every triangle is felt. A new callback is still handed the result.
 
 `createEngineGeometryCache` now evicts released geometry past its capacity when a part is retained
 as well as when one is released, so at a capacity of 1 (a phone's) a closed part's geometry goes as
