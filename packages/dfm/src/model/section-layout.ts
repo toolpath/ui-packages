@@ -70,6 +70,11 @@ export const LABEL_GAP_Y = 14
  * a label and the 0, which is one character, with a little air.
  */
 export const WALL_LABEL_GAP_X = 30
+/*
+ * The three widths below are estimates for a sans-serif face at the
+ * `SECTION_TYPE` sizes, not measurements: they keep text inside the drawing
+ * without measuring it, on the web and on React Native alike.
+ */
 /** A rough width per character of the 11 px reading, to keep it inside the drawing. */
 export const READ_CHAR_PX = 6.4
 /** A rough width per character of the 9 px bold headings, to keep them inside the drawing. */
