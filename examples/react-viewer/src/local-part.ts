@@ -10,6 +10,8 @@ let opened = 0
  * `.stl` mesh from the same analysis, picked together — and, for its sharp
  * corners, the features' datasheets: one or more `.json` files as
  * `GET /v1/parts/{id}/features` answers, `{ datasheets: [{ featureTag, datasheet }] }`.
+ * Also accepts cad-viewer's offline `{ filename, report, datasheets }` snapshot,
+ * whose datasheets are keyed by feature tag, with its matching mesh.
  *
  * Read the way an application reads one — the report normalized, the mesh
  * checked against it, region normals smoothed, each datasheet through the DFM
@@ -29,12 +31,21 @@ export async function partFromFiles(files: readonly File[]): Promise<ExampleMode
     throw new Error('Pick the report .json and its mesh .glb or .stl together.')
   }
 
-  const model = normalizePartReport(report.json)
+  const snapshot = isRecord(report.json) && isRecord(report.json.report) ? report.json : null
+  const model = normalizePartReport(snapshot ? snapshot.report : report.json)
   const format = mesh.name.toLowerCase().endsWith('.stl') ? 'stl' : 'glb'
   const geometry = await parsePartGeometry(await mesh.arrayBuffer(), model.mesh, format)
   smoothRegionNormals(geometry, model.regions)
 
-  const datasheets = documents.flatMap(({ json }) => (isDatasheets(json) ? json.datasheets : []))
+  const datasheets = [
+    ...(snapshot && isRecord(snapshot.datasheets)
+      ? Object.entries(snapshot.datasheets).map(([featureTag, datasheet]) => ({
+          featureTag,
+          datasheet,
+        }))
+      : []),
+    ...documents.flatMap(({ json }) => (isDatasheets(json) ? json.datasheets : [])),
+  ]
   const sheets: Record<string, FeatureSheet> = {}
   for (const entry of datasheets) {
     const { featureTag, datasheet } = (entry ?? {}) as { featureTag?: unknown; datasheet?: unknown }
@@ -51,8 +62,11 @@ export async function partFromFiles(files: readonly File[]): Promise<ExampleMode
       : 'no datasheets, so no sharp corners'
   return {
     id: `opened-${opened}`,
-    name: `Part ${model.partId.slice(0, 8)}`,
-    hint: `${model.mesh.triangleCount.toLocaleString()} triangles in ${model.regions.length} regions, kernel ${model.kernelVersion}; ${read}. Opened from ${files.map((file) => file.name).join(', ')}.`,
+    name:
+      typeof snapshot?.filename === 'string'
+        ? snapshot.filename.replace(/\.(step|stp)$/i, '')
+        : `Part ${model.partId.slice(0, 8)}`,
+    hint: `${model.features.length} features, ${model.mesh.triangleCount.toLocaleString()} triangles in ${model.regions.length} regions, kernel ${model.kernelVersion}; ${read}. Opened from ${files.map((file) => file.name).join(', ')}.`,
     model,
     geometry,
     sharpCorners,
@@ -65,3 +79,6 @@ const isDatasheets = (json: unknown): json is { datasheets: unknown[] } =>
   typeof json === 'object' &&
   json !== null &&
   Array.isArray((json as { datasheets?: unknown }).datasheets)
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)

@@ -11,17 +11,11 @@ test.skip(!sampleDir, 'Set VIEWER_STRESS_SAMPLE_DIR to an offline analysis.json 
 test.use({ channel: 'chromium', viewport: { width: 1500, height: 1000 } })
 test.setTimeout(90_000)
 
-// cad-viewer's offline analysis.json holds the Engine report under `report`.
-const report = async () => {
-  const json = JSON.parse(await readFile(join(sampleDir!, 'analysis.json'), 'utf8'))
-  return Buffer.from(JSON.stringify(json.report ?? json))
-}
-
 const files = async () => [
   {
     name: 'analysis.json',
     mimeType: 'application/json',
-    buffer: await report(),
+    buffer: await readFile(join(sampleDir!, 'analysis.json')),
   },
   {
     name: 'mesh.glb',
