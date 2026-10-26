@@ -84,7 +84,56 @@ export const createLabelStore = (): LabelStore => {
   const listeners = new Set<() => void>()
   const scratch = new Vector3()
   let snapshot: readonly ProjectedLabel[] = []
+  /** {@link snapshot} by id: what the overlay was last told, which a move is measured from. */
+  const notified = new Map<string, ProjectedLabel>()
   let membershipChanged = false
+
+  // Per-frame state for the two `forEach` callbacks below, which are made once
+  // so that projecting a still view allocates nothing: `project` runs in a
+  // frame callback.
+  let camera: Camera | null = null
+  let size = { width: 0, height: 0 }
+  const place = { x: 0, y: 0, visible: false }
+  let changed = false
+  let building: ProjectedLabel[] = []
+
+  const placeOf = (position: LabelSpec['position']): void => {
+    if (Array.isArray(position)) scratch.set(position[0], position[1], position[2])
+    else scratch.copy(position as Vector3)
+    scratch.project(camera!)
+
+    // Outside the depth range is behind the camera, or past its far plane.
+    place.visible =
+      scratch.z >= -1 &&
+      scratch.z <= 1 &&
+      Math.abs(scratch.x) <= EDGE_MARGIN_NDC &&
+      Math.abs(scratch.y) <= EDGE_MARGIN_NDC
+    place.x = ((scratch.x + 1) / 2) * size.width
+    place.y = ((1 - scratch.y) / 2) * size.height
+  }
+
+  const check = (label: LabelSpec, id: string): void => {
+    if (changed) return
+    placeOf(label.position)
+    const before = notified.get(id)
+    if (
+      !before ||
+      before.visible !== place.visible ||
+      !sameContent(before, label) ||
+      Math.abs(before.x - place.x) >= MOVE_THRESHOLD ||
+      Math.abs(before.y - place.y) >= MOVE_THRESHOLD
+    ) {
+      changed = true
+    }
+  }
+
+  const build = (label: LabelSpec, id: string): void => {
+    const { position, ...content } = label
+    placeOf(position)
+    const projected = { id, ...content, x: place.x, y: place.y, visible: place.visible }
+    building.push(projected)
+    notified.set(id, projected)
+  }
 
   return {
     set(id, label) {
@@ -94,43 +143,23 @@ export const createLabelStore = (): LabelStore => {
     remove(id) {
       if (labels.delete(id)) membershipChanged = true
     },
-    project(camera, size) {
-      const previous = new Map(snapshot.map((label) => [label.id, label]))
-      let changed = membershipChanged || previous.size !== labels.size
-      const next: ProjectedLabel[] = []
-
-      for (const [id, label] of labels) {
-        const { position, ...content } = label
-        if (Array.isArray(position)) scratch.set(position[0], position[1], position[2])
-        else scratch.copy(position as Vector3)
-        scratch.project(camera)
-
-        // Outside the depth range is behind the camera, or past its far plane.
-        const visible =
-          scratch.z >= -1 &&
-          scratch.z <= 1 &&
-          Math.abs(scratch.x) <= EDGE_MARGIN_NDC &&
-          Math.abs(scratch.y) <= EDGE_MARGIN_NDC
-        const x = ((scratch.x + 1) / 2) * size.width
-        const y = ((1 - scratch.y) / 2) * size.height
-
-        const before = previous.get(id)
-        if (
-          !before ||
-          before.visible !== visible ||
-          !sameContent(before, label) ||
-          Math.abs(before.x - x) >= MOVE_THRESHOLD ||
-          Math.abs(before.y - y) >= MOVE_THRESHOLD
-        ) {
-          changed = true
-        }
-        next.push({ id, ...content, x, y, visible })
-      }
-
+    project(frameCamera, frameSize) {
+      camera = frameCamera
+      size = frameSize
+      changed = membershipChanged || notified.size !== labels.size
+      labels.forEach(check)
       membershipChanged = false
-      if (!changed) return
-      snapshot = next
-      for (const listener of listeners) listener()
+
+      if (changed) {
+        // Only now is a new snapshot made: the overlay renders from it.
+        building = []
+        notified.clear()
+        labels.forEach(build)
+        snapshot = building
+      }
+      camera = null
+
+      if (changed) for (const listener of listeners) listener()
     },
     subscribe(listener) {
       listeners.add(listener)
