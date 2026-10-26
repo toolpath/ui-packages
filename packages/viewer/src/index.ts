@@ -8,15 +8,25 @@ export { featureTriangles } from './render/feature-triangles.js'
 export { PartMesh } from './part-mesh.js'
 export { createExplodeAmount } from './model/explode-amount.js'
 export type { ExplodeAmount } from './model/explode-amount.js'
+export { createExplodeMotion } from './model/explode-motion.js'
+export type {
+  ExplodeMotion,
+  ExplodeMotionOptions,
+  ExplodeMotionSnapshot,
+} from './model/explode-motion.js'
+export { EXPLODE_LIMITS, explodeFits, explodeLayout } from './render/explode-layout.js'
 export { ExplodedPart } from './exploded-part.js'
 export type { ExplodedPartProps } from './exploded-part.js'
 export type {
+  ExplodeAssignment,
   ExplodeGroup,
   ExplodeGroupIds,
   ExplodeInput,
   ExplodePick,
   ExplodeRegionColors,
 } from './model/explode.js'
+export { VisibilityGroup } from './visibility-group.js'
+export type { VisibilityGroupProps } from './visibility-group.js'
 export { usePartContext } from './part-context.js'
 export { HoverCard } from './hover-card.js'
 export { ViewerToolbar, ViewerToolbarProvider, useViewerToolbar } from './viewer-toolbar.js'
@@ -253,7 +263,12 @@ export type { DirectionGroup } from './model/directions.js'
 export type { SurfaceOf } from './model/surfaces.js'
 export type { RankingContext } from './render/selection.js'
 export type { PartObject, RegionPaint } from './render/part.js'
-export type { FeatureHighlight, HighlightLayers, RegionHighlight } from './render/paint.js'
+export type {
+  FeatureHighlight,
+  HighlightLayers,
+  PaintTarget,
+  RegionHighlight,
+} from './render/paint.js'
 export type { FocusOptions } from './render/focus.js'
 export type { ViewerTheme } from './render/theme.js'
 export type { PartMeshProps } from './part-mesh.js'

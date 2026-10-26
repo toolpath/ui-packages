@@ -85,6 +85,13 @@
 .viewer-toolbar-button:hover {
   background: #303b51;
 }
+.viewer-toolbar-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+.viewer-toolbar-button:disabled:hover {
+  background: transparent;
+}
 .viewer-toolbar-button[aria-pressed='true'] {
   border-color: #83a9ff;
   background: #2b3f66;

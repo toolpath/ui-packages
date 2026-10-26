@@ -1,10 +1,22 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
-import { ignoreRay, viewDirection } from './render/picking.js'
+import { ignoreRay, viewDirection, type PickModifiers } from './render/picking.js'
+import { readTarget } from './render/orbit-target.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
 import { regionEdgesGeometry } from './render/edges.js'
+import { trackDoubleTaps } from './render/tap.js'
 import { useTapGuard } from './tap.js'
-import type { PartModel } from './model/types.js'
+import { useOptionalSectionStore, useRetarget } from './viewer.js'
+import { PartContext } from './part-context.js'
+import type { FeatureTag, PartModel } from './model/types.js'
 import {
   DoubleSide,
   Vector4,
@@ -16,25 +28,64 @@ import {
 } from 'three'
 import { createExplodeBatch } from './render/explode.js'
 import { readExplodeAmount } from './model/explode-amount.js'
-import type { ExplodeGroupIds, ExplodeInput, ExplodePick } from './model/explode.js'
+import type {
+  ExplodeGroup,
+  ExplodeGroupIds,
+  ExplodeInput,
+  ExplodePick,
+  ExplodeRegionColors,
+} from './model/explode.js'
 import { edgeOpacityScale, resolveExplodeTheme, type ExplodeTheme } from './render/explode-theme.js'
+import { explodeRegionColors, explodeTint } from './render/explode-paint.js'
+import { explodeFits } from './render/explode-layout.js'
+import type { FeatureHighlight, RegionHighlight } from './render/paint.js'
 import type { ViewerTheme } from './render/theme.js'
 
 export interface ExplodedPartProps {
-  /** Source report geometry. All region indices must refer to this model. */
-  model: PartModel
-  geometry: BufferGeometry
+  /**
+   * Source report geometry. All region indices must refer to this model. Omitted inside
+   * `<PartMesh>` or `<EnginePart>`, the part's own model and mesh are used.
+   */
+  model?: PartModel
+  geometry?: BufferGeometry
   /** Controlled layout and appearance; application metadata stays outside the renderer. */
   explode: ExplodeInput
-  /** Application-owned group IDs; independent of feature tags and API feature IDs. */
+  /**
+   * Application-owned group IDs; independent of feature tags and API feature IDs. Given, it
+   * replaces the selection `selectedFeatures` describes.
+   */
   selected?: ExplodeGroupIds
+  /** Given, it replaces the piece under the pointer and `hoveredFeatures`. */
   hovered?: ExplodeGroupIds
+  /**
+   * The features being read, as `<PartMesh selection>` takes them: every piece standing for one
+   * of them (its `featureTags`) is selected, or only the piece clicked when it is one of those.
+   */
+  selectedFeatures?: readonly FeatureTag[]
+  /**
+   * Features shown as hovered from outside the viewport, such as a list row. The piece under
+   * the pointer is tracked here and needs no prop.
+   */
+  hoveredFeatures?: readonly FeatureTag[]
+  /** Whether the piece under the pointer is lit and reported. Default true; picks still work. */
+  hover?: boolean
+  /**
+   * The application's own colors, as `<PartMesh>` takes them and painted as it paints them, so
+   * a piece wears the colors its surfaces wear on the assembled part. `explode.regionColors`
+   * win over them.
+   */
+  highlights?: readonly FeatureHighlight[]
+  regionHighlights?: readonly RegionHighlight[]
   /**
    * Scopes a pick's ranked owners to one machining direction, as an index into
    * the model's `candidateDirections`, as `<PartMesh activeDirection>` does.
    */
   activeDirection?: number | null
-  /** Part/edge colors, emissive, edge opacity, selection/hover tints, and `picked` source surfaces. */
+  /**
+   * Part/edge colors, emissive, edge opacity, selection/hover tints, and `picked` source
+   * surfaces. Without `highlight` and `hover`, selection tints toward the viewer's selection
+   * colors, or toward blue when the pieces' own colors are mostly warm.
+   */
   theme?: Partial<ViewerTheme>
   /** False hides rendering, picking, and framing while retaining prepared buffers. Default true. */
   visible?: boolean
@@ -53,8 +104,12 @@ const Ghost = ({
   explode,
   appearance,
   visible = true,
-}: Pick<ExplodedPartProps, 'model' | 'geometry' | 'explode' | 'visible'> & {
+}: {
+  model: PartModel
+  geometry: BufferGeometry
+  explode: ExplodeInput
   appearance: ExplodeTheme
+  visible?: boolean
 }) => {
   const material = useRef<MeshLambertMaterial>(null)
   const outline = useRef<LineBasicMaterial>(null)
@@ -100,35 +155,84 @@ const Ghost = ({
   )
 }
 
+/** The pointer details a pick reports, read in one place. */
+const pointerOf = (
+  source: MouseEvent,
+): { modifiers: PickModifiers } & Pick<ExplodePick, 'pointer'> => ({
+  pointer: { clientX: source.clientX, clientY: source.clientY },
+  modifiers: {
+    alt: source.altKey,
+    ctrl: source.ctrlKey,
+    meta: source.metaKey,
+    shift: source.shiftKey,
+    secondary: source.button === 2,
+  },
+})
+
+const NO_ENGAGEMENT = () => () => undefined
+const NOT_ENGAGED = () => false
+
+interface PiecesProps {
+  model: PartModel
+  geometry: BufferGeometry
+  explode: ExplodeInput
+  regionColors: ExplodeRegionColors | undefined
+  selected: ExplodeGroupIds
+  hovered: ExplodeGroupIds
+  hover: boolean
+  activeDirection: number | null
+  visible: boolean
+  appearance: ExplodeTheme
+  onReady?: () => void
+  onPick: (pick: ExplodePick) => void
+  onHover: (pick: ExplodePick | null) => void
+}
+
 const Pieces = ({
   model,
   geometry,
   explode,
-  selected = null,
-  hovered = null,
-  activeDirection = null,
-  visible = true,
+  regionColors,
+  selected,
+  hovered,
+  hover,
+  activeDirection,
+  visible,
   appearance,
   onReady,
   onPick,
   onHover,
-}: ExplodedPartProps & { appearance: ExplodeTheme }) => {
-  const { groups, colors, regionColors } = explode
+}: PiecesProps) => {
+  const { groups, colors, amount } = explode
   const invalidate = useThree((state) => state.invalidate)
   const camera = useThree((state) => state.camera)
+  const controls = useThree((state) => state.controls)
   const gl = useThree((state) => state.gl)
   const scene = useThree((state) => state.scene)
   const isTap = useTapGuard()
+  const retarget = useRetarget()
+  const doubles = useMemo(() => trackDoubleTaps(), [])
+  // While a `<SectionTool>` is mounted the pointer is its, as on `<PartMesh>`.
+  const store = useOptionalSectionStore()
+  const engaged = useSyncExternalStore(
+    store?.subscribe ?? NO_ENGAGEMENT,
+    store?.isEngaged ?? NOT_ENGAGED,
+    store?.isEngaged ?? NOT_ENGAGED,
+  )
+  const pressedWhileEngaged = useRef(false)
   const ready = useRef(onReady)
   useLayoutEffect(() => {
     ready.current = onReady
   }, [onReady])
   const root = useRef<Group>(null)
   const resources = useRef<ReturnType<typeof createExplodeBatch> | null>(null)
+  // Whether this batch's shaders and buffers are warm.
+  const warm = useRef(false)
   useLayoutEffect(() => {
     const parent = root.current!
     const batch = createExplodeBatch(model, geometry, groups)
     resources.current = batch
+    warm.current = false
     parent.add(batch.object)
     invalidate()
     return () => {
@@ -137,6 +241,18 @@ const Pieces = ({
       batch.dispose()
     }
   }, [geometry, groups, invalidate, model])
+  // A motion holds its move until these pieces are warm.
+  const release = useRef<(() => void) | null>(null)
+  useLayoutEffect(() => {
+    const held = warm.current || typeof amount === 'number' ? null : (amount.hold?.() ?? null)
+    release.current = held
+    return () => {
+      held?.()
+      if (release.current === held) {
+        release.current = null
+      }
+    }
+  }, [amount, geometry, groups, model])
   useLayoutEffect(() => {
     resources.current?.setAppearance({
       colors,
@@ -145,12 +261,12 @@ const Pieces = ({
       hovered,
       theme: appearance,
     })
-    resources.current?.setAmount(readExplodeAmount(explode.amount))
+    resources.current?.setAmount(readExplodeAmount(amount))
     invalidate()
   }, [
+    amount,
     appearance,
     colors,
-    explode,
     geometry,
     groups,
     hovered,
@@ -192,76 +308,229 @@ const Pieces = ({
         // the restored scene, even when onReady leaves application state unchanged.
         invalidate()
       }
+      warm.current = true
+      release.current?.()
+      release.current = null
       ready.current?.()
     }, 0)
     return () => clearTimeout(scheduled)
   }, [camera, geometry, gl, groups, invalidate, model, scene])
   useFrame(() => {
     if (visible) {
-      resources.current?.setAmount(readExplodeAmount(explode.amount))
+      resources.current?.setAmount(readExplodeAmount(amount))
     }
   }, -1)
 
-  const pick = (event: ThreeEvent<PointerEvent | MouseEvent>): ExplodePick | null => {
-    const source = event.nativeEvent
-    return (
-      resources.current?.pick(event, {
-        activeDirection,
-        viewDirection: viewDirection(camera, event.point),
-        pointer: { clientX: source.clientX, clientY: source.clientY },
-        modifiers: {
-          alt: source.altKey,
-          ctrl: source.ctrlKey,
-          meta: source.metaKey,
-          shift: source.shiftKey,
-          secondary: source.button === 2,
-        },
-        doubled: source.detail === 2,
-      }) ?? null
-    )
+  // Hover is per piece and face, as on `<PartMesh>`: crossing triangles of one face is not new.
+  const hovering = useRef<{ group: string; region: number } | null>(null)
+  const dropHover = () => {
+    if (hovering.current !== null) {
+      hovering.current = null
+      onHover(null)
+    }
   }
+  const hoverLive = visible && hover && !engaged
+  const dropHoverRef = useRef(dropHover)
+  dropHoverRef.current = dropHover
+  useLayoutEffect(() => {
+    if (!hoverLive) {
+      dropHoverRef.current()
+    }
+  }, [hoverLive])
+
+  const pick = (event: ThreeEvent<MouseEvent>, doubled = false): ExplodePick | null =>
+    resources.current?.pick(event, {
+      ...pointerOf(event.nativeEvent),
+      activeDirection,
+      // Ranked from the orbit target, as `<PartMesh>` ranks, not from the point under the cursor.
+      viewDirection: viewDirection(camera, readTarget(controls)),
+      doubled,
+    }) ?? null
+  const clickable = () => visible && !engaged && !pressedWhileEngaged.current
   return (
     <group
       ref={root}
       name="exploded-part"
       visible={visible}
       userData={{ [EXCLUDE_FROM_FRAME]: !visible }}
-      onPointerMove={
-        visible && onHover
-          ? (event) => {
-              event.stopPropagation()
-              onHover?.(pick(event))
-            }
-          : undefined
-      }
-      onPointerOut={visible && onHover ? () => onHover(null) : undefined}
-      onClick={
-        visible && onPick
-          ? (event) => {
-              event.stopPropagation()
-              if (isTap(event.nativeEvent)) {
-                const hit = pick(event)
-                if (hit) {
-                  onPick?.(hit)
-                }
-              }
-            }
-          : undefined
-      }
+      onPointerDown={() => {
+        pressedWhileEngaged.current = engaged
+      }}
+      onPointerMove={(event) => {
+        if (!hoverLive) {
+          return
+        }
+        const hit = pick(event)
+        if (!hit) {
+          dropHover()
+          return
+        }
+        event.stopPropagation()
+        const at = hovering.current
+        if (at?.group === hit.explodeGroupId && at.region === hit.region) {
+          return
+        }
+        hovering.current = { group: hit.explodeGroupId, region: hit.region }
+        onHover(hit)
+      }}
+      onPointerOut={() => {
+        dropHover()
+        // Leaving the pieces breaks a double-click pair, as on `<PartMesh>`.
+        doubles.reset()
+      }}
+      onClick={(event) => {
+        if (!clickable()) {
+          return
+        }
+        if (!isTap(event.nativeEvent)) {
+          doubles.reset()
+          return
+        }
+        // Paired before the pick is built, and the orbit re-aimed after: see `<PartMesh>`.
+        const doubled = doubles.isDouble(event.nativeEvent)
+        const hit = pick(event, doubled)
+        if (!hit) {
+          return
+        }
+        event.stopPropagation()
+        if (doubled && retarget) {
+          retarget(event.point)
+        }
+        onPick(hit)
+      }}
+      // The right button is judged on release, where a pan has shown itself: see `<PartMesh>`.
+      onPointerUp={(event) => {
+        if (event.nativeEvent.button !== 2 || !clickable() || !isTap(event.nativeEvent)) {
+          return
+        }
+        const hit = pick(event)
+        if (hit) {
+          event.stopPropagation()
+          onPick(hit)
+        }
+      }}
+      onContextMenu={(event) => {
+        if (visible && pick(event)) {
+          event.nativeEvent.preventDefault()
+        }
+      }}
     />
   )
 }
 
+const lowerCase = (tag: string): string => tag.toLowerCase()
+
+/**
+ * The pieces standing for any of `tags`, or the one `preferred` among them: a clicked piece
+ * keeps its selection to itself rather than lighting every copy of its feature.
+ */
+const piecesFor = (
+  groups: ReadonlyArray<ExplodeGroup>,
+  tags: readonly FeatureTag[] | undefined,
+  preferred: string | null,
+): ExplodeGroupIds => {
+  if (!tags?.length) {
+    return null
+  }
+  const wanted = new Set(tags.map(lowerCase))
+  const ids = groups
+    .filter((group) => group.featureTags?.some((tag) => wanted.has(lowerCase(tag))))
+    .map((group) => group.id)
+  return preferred !== null && ids.includes(preferred) ? preferred : ids
+}
+
+/**
+ * `value`, with an identity that changes only when `key` does. Callers pass inline arrays, as
+ * they do to `<PartMesh>`, and a fresh array with the same contents is not a change.
+ */
+const useByContent = <T,>(value: T, key: string): T => {
+  const held = useRef<{ key: string; value: T } | null>(null)
+  if (held.current === null || held.current.key !== key) {
+    held.current = { key, value }
+  }
+  return held.current.value
+}
+
+const paintKey = (layer: ReadonlyArray<FeatureHighlight | RegionHighlight> | undefined): string =>
+  (layer ?? [])
+    .map(
+      (entry) =>
+        `${'tag' in entry ? entry.tag : entry.region}:${entry.color}:${entry.weight ?? ''}`,
+    )
+    .join(' ')
+
 /** GPU batching preserves each piece's pick map, source highlight, and connector. */
 export const ExplodedPart = (props: ExplodedPartProps) => {
-  const { part, partEmissive, edge, edgeOpacity, highlight, hover, picked } = props.theme ?? {}
+  const part = useContext(PartContext)
+  const model = props.model ?? part?.model
+  const geometry = props.geometry ?? part?.geometry
+  if (!model || !geometry) {
+    throw new Error(
+      'ExplodedPart needs model and geometry, or a <PartMesh> or <EnginePart> around it',
+    )
+  }
+  const { explode, visible = true, hover = true } = props
+  const { groups, colors, amount, regionColors: ownRegionColors } = explode
+  const fits = useMemo(() => explodeFits(model, groups), [model, groups])
+  const highlights = useByContent(props.highlights, paintKey(props.highlights))
+  const regionHighlights = useByContent(props.regionHighlights, paintKey(props.regionHighlights))
+  const selectedFeatures = useByContent(
+    props.selectedFeatures,
+    props.selectedFeatures?.join('\n') ?? '',
+  )
+  const hoveredFeatures = useByContent(
+    props.hoveredFeatures,
+    props.hoveredFeatures?.join('\n') ?? '',
+  )
+  const regionColors = useMemo(
+    () => explodeRegionColors(model, groups, { highlights, regionHighlights }, ownRegionColors),
+    [model, groups, highlights, regionHighlights, ownRegionColors],
+  )
+  const tint = useMemo(
+    () => explodeTint(groups, colors, regionColors),
+    [groups, colors, regionColors],
+  )
+  const {
+    part: ghost,
+    partEmissive,
+    edge,
+    edgeOpacity,
+    highlight,
+    hover: hoverColor,
+    picked,
+  } = props.theme ?? {}
   // Inline theme objects must not repaint the batch when their colors are unchanged.
   const appearance = useMemo(
-    () => resolveExplodeTheme({ part, partEmissive, edge, edgeOpacity, highlight, hover, picked }),
-    [part, partEmissive, edge, edgeOpacity, highlight, hover, picked],
+    () =>
+      resolveExplodeTheme(
+        { part: ghost, partEmissive, edge, edgeOpacity, highlight, hover: hoverColor, picked },
+        tint,
+      ),
+    [ghost, partEmissive, edge, edgeOpacity, highlight, hoverColor, picked, tint],
+  )
+  // The piece last clicked, and the piece under the pointer.
+  const [clicked, setClicked] = useState<string | null>(null)
+  const [pointed, setPointed] = useState<string | null>(null)
+  useLayoutEffect(() => {
+    setClicked(null)
+    setPointed(null)
+  }, [groups, visible])
+  const ownSelected = props.selected
+  const ownHovered = props.hovered
+  const selected = useMemo(
+    () => (ownSelected !== undefined ? ownSelected : piecesFor(groups, selectedFeatures, clicked)),
+    [ownSelected, groups, selectedFeatures, clicked],
+  )
+  const hovered = useMemo(
+    () =>
+      ownHovered !== undefined
+        ? ownHovered
+        : hover && pointed !== null
+          ? pointed
+          : piecesFor(groups, hoveredFeatures, null),
+    [ownHovered, hover, pointed, groups, hoveredFeatures],
   )
   const invalidate = useThree((state) => state.invalidate)
-  const amount = props.explode.amount
   useLayoutEffect(() => {
     if (typeof amount !== 'number') {
       const unsubscribe = amount.subscribe(invalidate)
@@ -269,16 +538,50 @@ export const ExplodedPart = (props: ExplodedPartProps) => {
       return unsubscribe
     }
   }, [amount, invalidate])
-  return props.explode.groups.length === 0 ? null : (
+  const onPickRef = useRef(props.onPick)
+  onPickRef.current = props.onPick
+  const onHoverRef = useRef(props.onHover)
+  onHoverRef.current = props.onHover
+  const handlers = useMemo(
+    () => ({
+      onPick: (pick: ExplodePick) => {
+        if (!pick.modifiers.secondary) {
+          setClicked(pick.explodeGroupId)
+        }
+        onPickRef.current?.(pick)
+      },
+      onHover: (pick: ExplodePick | null) => {
+        setPointed(pick?.explodeGroupId ?? null)
+        onHoverRef.current?.(pick)
+      },
+    }),
+    [],
+  )
+  // Nothing to draw, or more than the pieces' buffers are allowed: see `explodeFits`.
+  return groups.length === 0 || !fits ? null : (
     <>
       <Ghost
-        model={props.model}
-        geometry={props.geometry}
-        explode={props.explode}
+        model={model}
+        geometry={geometry}
+        explode={explode}
         appearance={appearance}
-        visible={props.visible}
+        visible={visible}
       />
-      <Pieces {...props} appearance={appearance} />
+      <Pieces
+        model={model}
+        geometry={geometry}
+        explode={explode}
+        regionColors={regionColors}
+        selected={selected}
+        hovered={hovered}
+        hover={hover}
+        activeDirection={props.activeDirection ?? null}
+        visible={visible}
+        appearance={appearance}
+        onReady={props.onReady}
+        onPick={handlers.onPick}
+        onHover={handlers.onHover}
+      />
     </>
   )
 }

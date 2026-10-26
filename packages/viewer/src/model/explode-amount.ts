@@ -3,6 +3,12 @@ export interface ExplodeAmount {
   readonly value: number
   set: (value: number) => void
   subscribe: (listener: () => void) => () => void
+  /**
+   * Holds back a requested move until the returned release is called. `<ExplodedPart>` holds
+   * from building its pieces until its shaders and buffers are warm, so a move starts on
+   * prepared pieces. Optional: `createExplodeMotion` implements it; a plain amount need not.
+   */
+  hold?: () => () => void
 }
 
 /** Read the same bounded amount for surfaces, source ghost, and picking. */

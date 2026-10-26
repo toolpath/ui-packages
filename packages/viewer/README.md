@@ -306,7 +306,8 @@ the part opaque. For multiselection, update your own tag array and avoid duplica
 | `Viewer`                     | Canvas, camera, lighting, controls, initial framing, and viewer-owned section state. |
 | `EnginePart`                 | Validated Engine report plus cached mesh loading; imports from `/engine`.            |
 | `PartMesh`                   | Your normalized model and prepared geometry; selection, paint, picking, sections.    |
-| `ExplodedPart`               | Supplied surface groups, translations, colors, and controlled explosion amount.      |
+| `ExplodedPart`               | A part pulled apart into supplied pieces, with layout, motion, paint and picking.    |
+| `VisibilityGroup`            | Hides what it holds from drawing, framing and picking, and keeps it mounted.         |
 | `ViewCube`                   | 26 orientation targets: faces, edges, and corners.                                   |
 | `Grid`, `Axes`               | Reference geometry excluded from camera framing.                                     |
 | `DirectionArrows`            | Candidate and optional named/preview machining directions.                           |
@@ -386,13 +387,13 @@ fails or is absent. It does not fetch a report or start an Engine job.
 | `display`, `showEdges`               | `solid` or `wireframe`; outlines default on. Wireframe always shows semantic face boundaries, not triangle diagonals. |
 | `opacity`                            | 0–1, default 1. Below 1 the part is see-through, drawn after solid parts; it still takes the pointer.                 |
 | `depthLayer`                         | 0–63, default 0. Where two parts' surfaces coincide, the lower layer is drawn.                                        |
-| `visible`                            | Default true. False draws nothing, lets the pointer through, skips the section, and unmounts `children`.              |
 | `sharpCorners`                       | `{ features: tags }` for externally flagged features, or `null`.                                                      |
 | `threads`                            | `{ threads: marks }` to draw threads in their holes, or `null`. See "Showing threads".                                |
 | `section`, `onSectionChange`         | Controlled section options and change reporting. Omit `section` to follow the viewer's section store.                 |
 | `onAdjacency`                        | Receive touching-region sets for the prepared mesh.                                                                   |
 | `theme`                              | Partial `ViewerTheme` for the part.                                                                                   |
-| `children`                           | R3F overlays that can read `usePartContext()`.                                                                        |
+| `visible`                            | `false` hides the part from drawing, picking and, outside a collection, framing; keeps paint, selection and cut.      |
+| `children`                           | R3F overlays that can read `usePartContext()`. Not hidden with the part: an `<ExplodedPart>` stands in for it.        |
 
 With an active direction, picking ranks only reachable owners; a face with none
 has `best === null`. `owners` still carries all owners. `directionHighlights(model,
@@ -401,115 +402,139 @@ or establish that an unpainted face is impossible to machine.
 
 ### `<ExplodedPart>`
 
-Renders application-defined surface pieces inside `<Viewer>` or an R3F canvas. Import
-`ExplodedPart`, `ExplodedPartProps`, `ExplodeGroup`, `ExplodeGroupIds`, `ExplodeInput`,
-`ExplodePick`, `ExplodeRegionColors`, `createExplodeAmount`, and `ExplodeAmount` from
-`@toolpath/viewer`. Version 2.5.0 does not contain these exports.
+Pulls a part's surfaces apart into application-defined pieces, inside `<Viewer>` or an R3F
+canvas. The application chooses the pieces and the approach each one moves out along; the
+viewer spaces them, animates them, and draws, paints and picks them. It reads no planning data
+and makes no API requests.
 
-The application supplies the pieces and their translations. The renderer neither selects
-feature interpretations nor chooses machining directions, setups, or an ownership policy for
-overlapping surfaces. It reads no planning data and makes no API requests.
+Place it inside the part it stands in for, and hide that part while it is apart. A child of
+`<PartMesh>` or `<EnginePart>` reads the part's model and mesh, and stays drawn while
+`visible={false}` hides the part:
 
 ```tsx
-import { useMemo, useState } from 'react'
-import { ExplodedPart, Viewer, type ExplodeGroup, type PartModel } from '@toolpath/viewer'
-import type { BufferGeometry } from 'three'
+import { useMemo, useState, useSyncExternalStore } from 'react'
+import {
+  EnginePart,
+  ExplodedPart,
+  Viewer,
+  createExplodeMotion,
+  explodeLayout,
+  usePartContext,
+  type ExplodeAssignment,
+  type ExplodeMotion,
+} from '@toolpath/viewer'
 
-const ExplodeView = ({
-  model,
-  geometry,
-  groups,
-  amount,
+// Inside the part, which supplies its model and mesh to the layout and the pieces.
+const Pieces = ({
+  assignments,
+  motion,
+  active,
+  selection,
 }: {
-  model: PartModel
-  geometry: BufferGeometry
-  groups: readonly ExplodeGroup[]
-  amount: number
+  assignments: readonly ExplodeAssignment[]
+  motion: ExplodeMotion
+  active: boolean
+  selection: readonly string[]
 }) => {
-  const [selected, select] = useState<string | null>(null)
-  const [hovered, hover] = useState<string | null>(null)
-  const explode = useMemo(() => ({ groups, amount }), [groups, amount])
+  const { model, geometry } = usePartContext()
+  const groups = useMemo(
+    () => explodeLayout(model, geometry, assignments),
+    [model, geometry, assignments],
+  )
+  const explode = useMemo(() => ({ groups, amount: motion }), [groups, motion])
+  return <ExplodedPart explode={explode} visible={active} selectedFeatures={selection} />
+}
+
+const ExplodingPart = ({
+  report,
+  assignments,
+  selection,
+}: {
+  report: unknown
+  assignments: readonly ExplodeAssignment[]
+  selection: readonly string[]
+}) => {
+  const [motion] = useState(() => createExplodeMotion(0))
+  const active = useSyncExternalStore(motion.subscribe, () => motion.getSnapshot().active)
   return (
-    <Viewer>
-      <ExplodedPart
-        model={model}
-        geometry={geometry}
-        explode={explode}
-        selected={selected}
-        hovered={hovered}
-        onPick={(pick) => select(pick.explodeGroupId)}
-        onHover={(pick) => hover(pick?.explodeGroupId ?? null)}
-      />
-    </Viewer>
+    <>
+      <button onClick={() => motion.moveTo(active ? 0 : 1)}>
+        {active ? 'Collapse' : 'Explode'}
+      </button>
+      <Viewer>
+        <EnginePart report={report} visible={!active} selection={selection}>
+          <Pieces assignments={assignments} motion={motion} active={active} selection={selection} />
+        </EnginePart>
+      </Viewer>
+    </>
   )
 }
 ```
 
-Each `ExplodeGroup` contains a unique `id`, `regionIdxs`, an `offset: { x, y, z }` in
-millimetres in the source geometry's frame, and a numeric RGB `color`. IDs belong to the
-application and need not be feature tags. Groups may contain any region set, and different
+Hide what else is drawn with the part, such as stock or direction arrows, in a
+`<VisibilityGroup visible={!active}>`: kept mounted, and left out of drawing, Fit and every
+raycast, which three.js would otherwise still run against hidden objects.
+
+`explodeLayout(model, geometry, assignments)` places pieces. Each `ExplodeAssignment` has a
+unique `id`, `regionIdxs`, a `direction` (`null` keeps the piece in place), a numeric RGB
+`color`, and optional `featureTags`. Each piece moves clear of the part along its direction;
+pieces sharing surfaces and a direction stack rather than overlap, in the order given. Grouping
+policy stays with the application: one piece per feature, per setup, or per surface set.
+
+Groups can also be written by hand. Each `ExplodeGroup` contains a unique `id`, `regionIdxs`,
+an `offset: { x, y, z }` in millimetres in the source geometry's frame, a `color`, and
+optionally `featureTags` and `direction`. Groups may contain any region set, and different
 groups can share the same surfaces without being merged. Region IDs must come from the same
-model and mesh. Source geometry must be non-indexed and match `model.mesh.triangleCount`.
-An empty `groups` array draws nothing. Invalid IDs, regions, or offsets throw before allocation.
+model and mesh. Source geometry must be non-indexed and match `model.mesh.triangleCount`. An
+empty `groups` array draws nothing. Invalid IDs, regions, or offsets throw before allocation.
+A layout past `EXPLODE_LIMITS` (4096 pieces, one million copied triangles) draws nothing;
+`explodeFits(model, groups)` says so first, so an application can say why.
 
-`explode.amount` interpolates all supplied offsets from zero to their full translations;
-values outside `[0, 1]` are clamped and nonfinite amounts use zero. The caller owns animation,
-timing, and reduced-motion preferences. Pass a number for ordinary controlled React updates.
-For frame-by-frame animation, create a stable controller with `createExplodeAmount(initial)`
-and pass it as `explode.amount`:
+`explode.amount` interpolates all offsets from zero to their full translations. Values outside
+`[0, 1]` are clamped and nonfinite amounts use zero. `createExplodeMotion(initial, options?)`
+returns an amount that animates itself: `moveTo(target)` eases over 1800 ms for a full move,
+in real elapsed time, pausing while the tab is hidden, and jumps instead where the person
+prefers reduced motion; `moveTo(target, { immediate: true })` jumps; `seek(amount)` jumps now
+and stops any move. A move waits until every `<ExplodedPart>` it drives has warmed its shaders
+and buffers, so it starts on prepared pieces; one motion can drive several parts. For React
+readouts, `getSnapshot()` returns `{ amount, mode, active, preparing }`, a new object at most
+ten times a second while moving: `active` means pieces are apart or moving and should be drawn
+in place of the part, and `preparing` that a part is still warming. A plain number or a
+`createExplodeAmount(initial)` controller still works where the application owns the clock;
+optional `onReady` runs once a layout is warm. The renderer never moves the camera; Fit and
+Reset remain explicit.
 
-```tsx
-const [amount] = useState(() => createExplodeAmount(0))
-const explode = useMemo(() => ({ groups, amount }), [groups, amount])
-// From the application's animation loop, slider, or animation library:
-amount.set(0.5)
-```
+Keep the `groups` array stable across amount, selection, and color changes. Pieces take paint
+as `<PartMesh>` does: `highlights` and `regionHighlights` color their surfaces as they are
+colored on the assembled part. `explode.colors` (by group ID) and `explode.regionColors` (by
+group ID, then region index) override colors without rebuilding the layout, and the latter win
+over the paint. Unknown group/region keys are ignored. Color changes retain geometry buffers,
+pick identities, and shader programs.
 
-The controller clamps its value to `[0, 1]`, exposes it as `amount.value`, and notifies
-subscribers only when it changes. `ExplodedPart` subscribes and requests a frame automatically,
-including on a demand-driven canvas, without React updates on every frame. Subscriptions are
-removed on unmount or when the controller changes; one controller can drive multiple viewers.
-The application owns scheduling and cancelling its animation loop. The renderer never moves
-the camera. Fit and Reset remain explicit.
+`selectedFeatures` and `hoveredFeatures` take feature tags, as `<PartMesh selection>` and
+`hoveredFeatureIds` do: every piece whose `featureTags` include one is lit, or only the piece
+clicked when it is one of them. The piece under the pointer is lit and reported unless
+`hover={false}`. `selected` and `hovered` take group IDs directly, one or several treated as one
+piece, and replace those. Selecting a piece highlights its original surfaces and draws one
+connector from them to where it is.
 
-Keep the `groups` array stable across amount, selection, and color changes. An optional
-`explode.colors: ReadonlyMap<string, number>` changes colors by group ID without rebuilding
-the layout. Optional `explode.regionColors: ExplodeRegionColors` (a
-`ReadonlyMap<string, ReadonlyMap<number, number>>`) sets colors by group ID and source region index, overriding that group's color. The same
-source region may have different colors in different groups. Regions without an override use
-`explode.colors` or the group's own color; selection and hover tint all of a group's surfaces.
-Replace color maps when changing paint. Unknown group/region keys are ignored. Color changes
-retain geometry buffers, pick identities, and shader programs; they do not require one group
-per region. `visible={false}` retains its buffers while excluding it from rendering, picking,
-and framing. Optional `onReady` runs after warming shaders and buffers for a layout; an app can
-keep it hidden or disable its play control until then. Changing the source or group array
-rebuilds the owned buffers; unmounting releases them without disposing the source geometry.
-Batching uses per-instance colors where Three.js provides them and shared vertex colors on
-earlier supported Three.js releases.
+`onPick` and `onHover` return an `ExplodePick`: the usual source `region` and `triangleIndex`,
+the `explodeGroupId`, the displayed world-space `point`/`normal`, `modelPoint` in the source
+geometry's frame, and `explodeDirection`, the group's `direction` or `null`. On a group with
+`featureTags`, `owners`, `ranked` and `best` name only those features. Picking otherwise works
+as on `<PartMesh>`: ranked from the orbit target, scoped by `activeDirection`, a right-click
+judged on release, a double click reported as `doubled` and re-aiming the orbit, hover reported
+once per piece and face, and nothing picked while a `<SectionTool>` holds the pointer. The
+ghost of the source part and the source overlays do not accept picks, and a pick that finds
+nothing passes to what is behind.
 
-Pass `theme?: Partial<ViewerTheme>` to match the surrounding application. `part` colors
-the source ghost, `partEmissive` sets emissive lighting, and `edge`/`edgeOpacity` control
-the outlines (the ghost outline fades further with the explosion). `highlight` tints the
-selected piece, `picked` colors its source surfaces, and `hover` tints the hovered piece. Group colors and
-`explode.colors` remain application-owned. Omit the theme to retain the default explode
-appearance. Theme changes update materials and colors in place without rebuilding geometry,
-changing selection, warming shaders again, or moving the camera.
-
-The source part is drawn as an unpickable ghost during explosion. Selecting a group highlights
-its original surfaces and draws one connector. `selected` and `hovered` also accept arrays of
-group IDs, so an application can interact with several render chunks as one logical piece.
-Selection highlights all their source surfaces; one connector joins their combined source and
-translated bounds. `onPick` and `onHover` return an `ExplodePick`:
-the usual source `region` and `triangleIndex`, the application's `explodeGroupId`, the displayed
-world-space `point`/`normal`, and `modelPoint` in the original geometry's frame. Region owners
-and the default ranked feature remain available as `PartPick` fields; applications can use
-the group ID to supply their own metadata. Pass `activeDirection`, as on `<PartMesh>`, to rank
-those owners for one machining direction. Hidden groups and source overlays do not accept picks.
-
-At stationary zero, the example gives rendering and picking back to its ordinary `PartMesh`.
-That assembled/exploded mode switch and its toolbar are application UI. The example's candidate
-grouping, colors, translation spacing, and rendering-budget policy stay in
-`examples/react-viewer/src/explode/` and are not exported by the package.
+`visible={false}` retains buffers while excluding the pieces from rendering, picking, and
+framing. `theme?: Partial<ViewerTheme>` styles the pieces: `part` colors the source ghost,
+`partEmissive` sets emissive lighting, `edge`/`edgeOpacity` control the outlines, `highlight`
+and `hover` tint the selected and hovered piece, and `picked` colors its source surfaces.
+Without `highlight` and `hover`, pieces tint toward the viewer's selection colors, or toward
+blue when the colors shown are mostly warm, as rule paint is, so the tint reads either way.
+Theme changes update materials in place without rebuilding geometry or moving the camera.
 
 ### `<PartCollection>`
 
@@ -594,10 +619,10 @@ surfaces. Where they do, the item earlier in `items` is drawn, rather than the
 two fighting over each pixel; set an item's `depthLayer` (0 to 63, lower in
 front) to put another body there, such as the one being pointed at. To show
 one body at a time, as when stepping through a list of them, set the others'
-`visible` to false: a hidden item draws nothing, lets the pointer through, and
-unmounts its children, and showing it again rebuilds nothing. It still counts
-toward the shared bounds, so the frame, grid, and section do not jump when a
-body is hidden.
+`visible` to false: a hidden item draws nothing and lets the pointer through,
+and showing it again rebuilds nothing. Its children are not hidden with it. It
+still counts toward the shared bounds, so the frame, grid, and section do not
+jump when a body is hidden.
 To show a whole file and also one body as a part, switch between
 `<PartCollection>` and `<EnginePart>` inside one `<Viewer>`, and call
 `ViewerHandle.fit()` after switching, since the viewer frames its first content
@@ -689,9 +714,10 @@ With no children, `ViewerToolbar` renders configured controls in standard order.
 For custom composition use `ViewerToolbar.Controls`, `ViewerToolbar.Divider`, and
 its `*Button` components. A button without a matching provider control throws.
 The supported action names are `stock`, `axes`, `grid`, `banana`, `tools`,
-`directions`, `dfm`, `sharpCorners`, `threads`, `hover`, `focus`, `wireframe`, `section`,
-`measure`, `fit`, `reset`, and `top`; button names capitalize the action, such as
-`ViewerToolbar.SharpCornersButton`. `useViewerToolbar()` reads those controls.
+`directions`, `dfm`, `sharpCorners`, `threads`, `hover`, `focus`, `wireframe`, `explode`,
+`section`, `measure`, `fit`, `reset`, and `top`; button names capitalize the action, such as
+`ViewerToolbar.SharpCornersButton`. `useViewerToolbar()` reads those controls. A control with
+`disabled: true` is shown greyed, and a click does nothing.
 
 `viewerToolGroups(controls, options?)` describes the same controls for a toolbar
 that groups, explains and pins its tools, such as `@toolpath/ui`'s `ToolDock`. It

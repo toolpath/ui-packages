@@ -45,6 +45,19 @@ describe('buildPick', () => {
     expect(new Set(pick.ranked)).toEqual(new Set(pick.owners))
   })
 
+  it('ranks only a scope’s features, matched without regard to case, and falls back to them', () => {
+    const model = cubeModel()
+    const all = pickOn(model, 3)
+    const [one, two] = all.owners
+    const scoped = pickOn(model, 3, { scope: [two!.toUpperCase(), one!] })
+    expect(scoped.owners).toEqual([one, two])
+    expect(new Set(scoped.ranked)).toEqual(new Set([one, two]))
+    expect([one, two]).toContain(scoped.best)
+    // A scope owning none of the face still names its own features.
+    const elsewhere = model.features.find((feature) => !all.owners.includes(feature.tag))!
+    expect(pickOn(model, 3, { scope: [elsewhere.tag] }).owners).toEqual([elsewhere.tag])
+  })
+
   it('preserves a browser pointer location when a caller supplies one', () => {
     const pick = pickOn(cubeModel(), 3, { pointer: { clientX: 120, clientY: 48 } })
 

@@ -2,7 +2,7 @@ import { Color, Matrix4, Vector3 } from 'three'
 import { expect, it, vi } from 'vitest'
 import { parsePartGeometry } from '../src/engine/geometry.js'
 import { createExplodeBatch } from '../src/render/explode.js'
-import { resolveExplodeTheme } from '../src/render/explode-theme.js'
+import { DEFAULT_EXPLODE_THEME, resolveExplodeTheme } from '../src/render/explode-theme.js'
 import { cubeModel, loadMeshFixture } from './fixtures.js'
 
 // r159 appends a geometry and its instance together and uses vertex colors.
@@ -45,7 +45,7 @@ it('keeps separate identities, translations, and colors on the earlier batching 
       piece.range.start,
     )
     const expected = new Color(piece.group.color).lerp(
-      new Color(0xffffff),
+      new Color(DEFAULT_EXPLODE_THEME.selected),
       piece.group.id === 'two' ? 0.45 : 0,
     )
     expect(color.r).toBeCloseTo(expected.r)

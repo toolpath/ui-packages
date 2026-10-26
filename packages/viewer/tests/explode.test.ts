@@ -82,8 +82,10 @@ describe('explode rendering primitives', () => {
         [region, 0xff0000],
         [other, 0x0000ff],
       ]) {
+        const toward =
+          kind === 'select' ? DEFAULT_EXPLODE_THEME.selected : DEFAULT_EXPLODE_THEME.hovered
         expect(vertexColor('left-piece', idx!).getHex()).toBe(
-          new Color(base).lerp(new Color(0xffffff), tint).getHex(),
+          new Color(base).lerp(new Color(toward), tint).getHex(),
         )
       }
       expect(vertexColor('right-piece', region).getHex()).toBe(0x00ff00)
@@ -244,8 +246,8 @@ describe('explode rendering primitives', () => {
     batch.setAppearance({})
     batch.mesh.getColorAt(0, color)
     expect(color.getHex()).toBe(groups[0]!.color)
-    expect(outline.material.color.getHex()).toBe(0x182535)
-    expect(outline.material.opacity).toBe(0.45)
+    expect(outline.material.color.getHex()).toBe(DEFAULT_EXPLODE_THEME.edge)
+    expect(outline.material.opacity).toBe(DEFAULT_EXPLODE_THEME.edgeOpacity * 0.5)
     expect(batch.mesh.geometry.getAttribute('position')).toBe(positions)
     expect(outline.geometry.getAttribute('position')).toBe(edgePositions)
     expect(batch.mesh.material).toBe(material)
@@ -329,6 +331,36 @@ describe('explode rendering primitives', () => {
     geometry.dispose()
   })
 
+  it('names a piece’s own features and approach on its picks', async () => {
+    const { model, geometry, groups, region } = await source()
+    const [owner] = model.regionIndex.featuresForRegion(region)
+    const up = { x: 0, y: 0, z: 1 }
+    const batch = createExplodeBatch(model, geometry, [
+      { ...groups[0]!, featureTags: [owner!], direction: up },
+      { ...groups[1]!, direction: null },
+    ])
+    batch.setAppearance({})
+    batch.setAmount(1)
+    batch.object.updateMatrixWorld(true)
+    const pickOf = (index: number) => {
+      const piece = batch.pieces[index]!
+      const matrix = new Matrix4()
+      batch.mesh.getMatrixAt(piece.instanceId, matrix)
+      const point = piece.centre.clone().applyMatrix4(matrix)
+      const ray = new Raycaster(point.clone().add(new Vector3(0, 0, 100)), new Vector3(0, 0, -1))
+      return batch.pick(ray.intersectObject(batch.mesh)[0]!)!
+    }
+    const own = pickOf(0)
+    expect(own.owners).toEqual([owner])
+    expect(own.best).toBe(owner)
+    expect(own.explodeDirection).toEqual(up)
+    const unscoped = pickOf(1)
+    expect(unscoped.owners).toEqual(model.regionIndex.featuresForRegion(region))
+    expect(unscoped.explodeDirection).toBeNull()
+    batch.dispose()
+    geometry.dispose()
+  })
+
   it('reuses buffers for motion and appearance, frames translated bounds, and disposes only owned resources', async () => {
     const { model, geometry, groups } = await source()
     const original = { ...geometry.attributes }
@@ -342,7 +374,7 @@ describe('explode rendering primitives', () => {
     batch.setAppearance({ colors, selected: 'right-piece', hovered: 'left-piece' })
     const painted = new Color()
     batch.mesh.getColorAt(1, painted)
-    const expected = new Color(0xf472b6).lerp(new Color(0xffffff), 0.45)
+    const expected = new Color(0xf472b6).lerp(new Color(DEFAULT_EXPLODE_THEME.selected), 0.45)
     expect(painted.r).toBeCloseTo(expected.r)
     expect(painted.g).toBeCloseTo(expected.g)
     expect(painted.b).toBeCloseTo(expected.b)

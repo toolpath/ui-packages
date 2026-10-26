@@ -114,11 +114,31 @@ export interface BuildPickInput {
   readonly viewDirection?: Vec3 | null
   /** Whether this click completed a double click. Defaults to `false`. */
   readonly doubled?: boolean
+  /**
+   * The features the pick may name, for a surface drawn on behalf of some of its owners only:
+   * an exploded piece. Matched without regard to case. Those owning the face are its owners;
+   * where none of them do, the scope's own features are.
+   */
+  readonly scope?: readonly FeatureTag[]
+}
+
+/** The face's owners within a scope, in report order, else the scope's features. */
+const scopedOwners = (
+  model: PartModel,
+  owners: readonly FeatureTag[],
+  scope: readonly FeatureTag[],
+): readonly FeatureTag[] => {
+  const wanted = new Set(scope.map((tag) => tag.toLowerCase()))
+  const owning = owners.filter((tag) => wanted.has(tag.toLowerCase()))
+  return owning.length > 0
+    ? owning
+    : model.features.map((feature) => feature.tag).filter((tag) => wanted.has(tag.toLowerCase()))
 }
 
 export function buildPick(input: BuildPickInput): PartPick {
   const { model, region } = input
-  const owners = model.regionIndex.featuresForRegion(region)
+  const owning = model.regionIndex.featuresForRegion(region)
+  const owners = input.scope ? scopedOwners(model, owning, input.scope) : owning
   const context = {
     activeDirection:
       input.activeDirection == null
