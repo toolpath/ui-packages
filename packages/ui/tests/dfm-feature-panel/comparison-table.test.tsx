@@ -70,6 +70,21 @@ describe('ComparisonTable', () => {
     ).toEqual(['Yes', 'No'])
   })
 
+  it('draws a measurement as a measurement, whatever its key is named', () => {
+    const named = faces.map((face) => ({
+      ...face,
+      measurements: [
+        { key: 'rules', label: 'Rule count', value: '7', alt: '7 rules', derivation: [] },
+      ],
+    }))
+    render(<ComparisonTable faces={named} active={0} onSelect={vi.fn()} />)
+    const [first] = within(rowOf('Rule count')).getAllByRole('cell')
+    expect(first).toHaveTextContent('7')
+    expect(first!.querySelector('[title]')).toHaveAttribute('title', '7 rules')
+    // The fixed rules row is still its own row, with its swatch.
+    expect(within(rowOf('Rules broken')).getAllByRole('cell')[0]).toHaveTextContent('1')
+  })
+
   it("reads a face's feature from its column head", () => {
     const onSelect = vi.fn()
     render(<ComparisonTable faces={faces} active={0} onSelect={onSelect} />)

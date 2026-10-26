@@ -19,7 +19,12 @@ export {
   type ListedRule,
 } from './broken-rules.js'
 export { featureTypeLabel, hitFigure } from './dfm-explain.js'
-export { comparisonRows, faceLetter, type ComparisonRow } from './comparison-rows.js'
+export {
+  comparisonRows,
+  faceLetter,
+  type ComparisonRow,
+  type ComparisonRowKind,
+} from './comparison-rows.js'
 export {
   checkPart,
   withSurroundedFaces,
