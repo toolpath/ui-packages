@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from 'react'
-import type { CubeLabelProps } from './cube-label.js'
-import { glyphLabelGeometry } from './render/view-cube-glyph-label.js'
+import type { CubeLabelProps } from '../cube-label.js'
+import { glyphLabelGeometry } from '../render/view-cube-glyph-label.js'
 
-export type { CubeLabelProps } from './cube-label.js'
+export type { CubeLabelProps } from '../cube-label.js'
 
 /**
  * React Native's face name on the view cube: the name as flat glyph geometry

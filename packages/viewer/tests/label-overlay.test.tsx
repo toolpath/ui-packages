@@ -22,7 +22,7 @@ vi.mock('react-native', () => ({
   StyleSheet: { create: <T,>(styles: T) => styles, absoluteFill: {} },
 }))
 
-const { LabelOverlay } = await import('../src/label-overlay.native.js')
+const { LabelOverlay } = await import('../src/native/label-overlay.js')
 const { createLabelStore } = await import('../src/render/label-store.js')
 
 type Slop = { top: number; bottom: number; left: number; right: number }

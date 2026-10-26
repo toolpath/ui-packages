@@ -17,11 +17,11 @@ import {
   View,
   type ViewStyle,
 } from 'react-native'
-import { SceneLabelStoreContext } from './label-context.js'
-import { LabelOverlay } from './label-overlay.js'
-import { type LabelStore, createLabelStore } from './render/label-store.js'
-import { createPresenter, createRelease, createSceneRelease } from './render/native-gl.js'
-import { pauseWhileInactive } from './render/pause-inactive.js'
+import { SceneLabelStoreContext } from '../label-context.js'
+import { LabelOverlay } from '../label-overlay.js'
+import { type LabelStore, createLabelStore } from '../render/label-store.js'
+import { createPresenter, createRelease, createSceneRelease } from '../render/native-gl.js'
+import { pauseWhileInactive } from '../render/pause-inactive.js'
 import {
   type FingerTracker,
   type TouchOps,
@@ -34,10 +34,10 @@ import {
   createTouchOrbit,
   holdInvalidate,
   localPoint,
-} from './render/touch-orbit.js'
-import type { CanvasSettings, ViewerFrameProps } from './viewer-frame.js'
+} from '../render/touch-orbit.js'
+import type { CanvasSettings, ViewerFrameProps } from '../viewer-frame.js'
 
-export type { CanvasSettings, ViewerFrameProps } from './viewer-frame.js'
+export type { CanvasSettings, ViewerFrameProps } from '../viewer-frame.js'
 
 /** The touch camera's state, shared between the frame's touch handlers and the canvas. */
 interface TouchState {

@@ -1,8 +1,8 @@
 /**
  * The DOM stays in the files that are web-only by design.
  *
- * The React Native build swaps each `.native.ts(x)` file in for its sibling
- * and bundles everything else as it is, so a `window` read or a `<div>` in any
+ * The React Native build swaps each file in `src/native/` in for the file at the
+ * same path under `src/` and bundles everything else as it is, so a `window` read or a `<div>` in any
  * other file ships to a phone, where it throws the first time it runs — and
  * nothing in the web build, its tests or its types would notice. So the uses
  * are found in the source, with TypeScript's own parser, and allowed only in
@@ -13,10 +13,10 @@
  * parameter type, a `Pick<HTMLCanvasElement, ...>` cast — is not a use: only
  * what runs is.
  *
- * Two more rules hold the swap together. A web-only file with no `.native`
- * sibling ships as it is, so only other web-only files may import it. And the
+ * Two more rules hold the swap together. A web-only file with no `src/native/`
+ * counterpart ships as it is, so only other web-only files may import it. And the
  * native modules — React Native, Expo, three-mesh-bvh, fiber's native build —
- * are imported only by `.native` files, which the web build never sees.
+ * are imported only by `src/native/` files, which the web build never sees.
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -190,10 +190,9 @@ const importsOf = (path: string): Import[] => {
 }
 
 const NAMES = new Set(SOURCES.map(name))
-const isNative = (file: string) => /\.native\.tsx?$/.test(file)
-const hasNativeSibling = (file: string) =>
-  NAMES.has(file.replace(/\.tsx?$/, '.native.ts')) ||
-  NAMES.has(file.replace(/\.tsx?$/, '.native.tsx'))
+const isNative = (file: string) => file.startsWith('native/')
+/** Whether `src/native/` holds a replacement for this file. */
+const hasNativeSibling = (file: string) => NAMES.has(`native/${file}`)
 
 /** The source a relative `./x.js` specifier in `file` names, if it is one. */
 const resolveRelative = (file: string, from: string): string | null => {
@@ -268,7 +267,7 @@ describe('the DOM stays in the web-only files', () => {
     expect(offenders).toEqual([])
   })
 
-  it('imports the native modules only from .native files', () => {
+  it('imports the native modules only from src/native files', () => {
     const offenders = SOURCES.filter((path) => !isNative(name(path))).flatMap((path) =>
       nativeImports(path).map((use) => `${name(path)}:${use}`),
     )
@@ -280,7 +279,7 @@ describe('the DOM stays in the web-only files', () => {
     expect(webOnlyImports(join(SRC, 'viewer-toolbar.tsx'))).toContainEqual(
       expect.stringMatching(/imports toolbar-icons\.tsx$/),
     )
-    expect(nativeImports(join(SRC, 'viewer-frame.native.tsx'))).toContainEqual(
+    expect(nativeImports(join(SRC, 'native/viewer-frame.tsx'))).toContainEqual(
       expect.stringMatching(/imports react-native$/),
     )
     expect(dreiRootImports(join(SRC, 'measure-tool.tsx'))).toContainEqual(

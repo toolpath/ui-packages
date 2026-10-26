@@ -1,13 +1,13 @@
-import { webOnly } from './render/web-only.js'
-import type { ViewerToolbar as WebToolbar } from './viewer-toolbar.js'
+import { webOnly } from '../render/web-only.js'
+import type { ViewerToolbar as WebToolbar } from '../viewer-toolbar.js'
 
-export type { ViewerToolbarControlsProps, ViewerToolbarProps } from './viewer-toolbar.js'
+export type { ViewerToolbarControlsProps, ViewerToolbarProps } from '../viewer-toolbar.js'
 export {
   ViewerToolbarProvider,
   useViewerToolbar,
   type ViewerToolbarControl,
   type ViewerToolbarControls,
-} from './viewer-toolbar-context.js'
+} from '../viewer-toolbar-context.js'
 
 const unavailable = (name: string) => (): never => webOnly(name)
 

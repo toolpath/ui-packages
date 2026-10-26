@@ -3,7 +3,7 @@ import type { Material, Object3D, Texture } from 'three'
 /**
  * The GPU side of React Native's frame, without React or expo-gl: how a frame
  * reaches the screen, and how everything a canvas holds on the GPU is freed.
- * `viewer-frame.native.tsx` wires these to fiber and expo-gl.
+ * `native/viewer-frame.tsx` wires these to fiber and expo-gl.
  */
 
 /** expo-gl's context: `endFrameEXP` shows what has been drawn. */
