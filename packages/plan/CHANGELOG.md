@@ -1,5 +1,14 @@
 # @toolpath/plan
 
+## 0.2.1
+
+### Patch Changes
+
+- e35f7bb: `groupFaces` ranks `circular_wall`, which Engine API 1.34.0 reports for a stud, a round boss or a
+  turned part's outline, with the bosses, as the viewer does. Among features that include equally
+  many faces still ungathered, a circular wall goes before a chamfer, fillet or wall, as a stud did
+  when it read as a `boss`. Unranked, it went after chamfers and fillets.
+
 ## 0.2.0
 
 ### Minor Changes
