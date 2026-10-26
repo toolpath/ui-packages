@@ -26,16 +26,16 @@ npm install @toolpath/viewer
 
 Your application must provide compatible peers:
 
-| Dependency           | Declared range | Needed for                                           |
-| -------------------- | -------------- | ---------------------------------------------------- |
-| `react`              | `^19.0.0`      | Both                                                 |
-| `react-dom`          | `^19.0.0`      | The web (optional peer)                              |
-| `three`              | `>=0.159.0`    | Both                                                 |
-| `@react-three/fiber` | `^9.7.0`       | Both                                                 |
-| `@react-three/drei`  | `^10.7.8`      | Both                                                 |
-| `react-native`       | `>=0.79`       | React Native (optional peer)                         |
-| `expo-asset`         | `>=8.4`        | React Native, where it is required: imported at load |
-| `expo-gl`            | `>=11.0`       | React Native: the GL context (optional peer)         |
+| Dependency           | Declared range | Needed for                         |
+| -------------------- | -------------- | ---------------------------------- |
+| `react`              | `^19.0.0`      | Both                               |
+| `react-dom`          | `^19.0.0`      | The web (optional peer)            |
+| `three`              | `>=0.159.0`    | Both                               |
+| `@react-three/fiber` | `^9.7.0`       | Both                               |
+| `@react-three/drei`  | `^10.7.8`      | Both                               |
+| `react-native`       | `>=0.79`       | React Native, where it is required |
+| `expo-asset`         | `>=8.4`        | React Native, where it is required |
+| `expo-gl`            | `>=11.0`       | React Native, where it is required |
 
 A web application installs `react-dom` itself; it is optional only so a React
 Native app does not need it. The React Native peers are optional only so a web
