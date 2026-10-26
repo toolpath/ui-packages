@@ -160,7 +160,16 @@ export interface FaceGroup {
 /** Feature types by rank, most specific first, as the viewer ranks them. */
 const RANKS: ReadonlyArray<ReadonlyArray<string>> = [
   ['blind_hole', 'through_hole', 'filleted_blind_hole'],
-  ['pocket', 'open_pocket', 'boss', 'filleted_boss', 'undercut_tslot', 'undercut_dovetail', 'sink'],
+  [
+    'pocket',
+    'open_pocket',
+    'boss',
+    'filleted_boss',
+    'circular_wall',
+    'undercut_tslot',
+    'undercut_dovetail',
+    'sink',
+  ],
   ['chamfer', 'inner_fillet', 'outer_fillet', 'contour_surface', 'slanted_face'],
   ['wall', 'face'],
   ['profile'],

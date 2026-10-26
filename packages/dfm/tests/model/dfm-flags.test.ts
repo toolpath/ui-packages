@@ -128,6 +128,33 @@ describe('which features a subject names', () => {
     const empty = sourcesOf(Object.fromEntries(filleted.map(({ tag }) => [tag, {}])))
     expect(caught(filleted, empty, [rule({ subject: 'fillet' })])[0]).toEqual(['outer', 'plain'])
   })
+
+  it('names a circular wall standing on a floor a boss, and any other a wall', () => {
+    const round = [
+      feature('stud', { featureType: 'circular_wall', regionIdxs: [0] }),
+      feature('outline', { featureType: 'circular_wall', regionIdxs: [1] }),
+      feature('unread', { featureType: 'circular_wall', regionIdxs: [2] }),
+      feature('boss', { featureType: 'boss', regionIdxs: [3] }),
+      feature('wall', { featureType: 'wall', regionIdxs: [4] }),
+    ]
+    const circular = (standsOnAFloor: boolean) => ({
+      facts: { kind: 'CircularWall', diameter: 8, standsOnAFloor },
+    })
+    const sources = sourcesOf({
+      stud: circular(true),
+      outline: circular(false),
+      boss: { facts: { kind: 'Boss' } },
+      wall: { facts: { kind: 'Wall' } },
+    })
+    const named = (subject: string): string[] =>
+      caught(round, sources, [rule({ subject })])[0] ?? []
+    expect(named('boss')).toEqual(['stud', 'boss'])
+    // `unread` has no datasheet to say it stands on a floor.
+    expect(named('wall')).toEqual(['outline', 'unread', 'wall'])
+    expect(named('type:circular_wall')).toEqual(['stud', 'outline', 'unread'])
+    // Its diameter is the cylinder's, not a bore: a stud is milled.
+    expect(named('drilled')).toEqual([])
+  })
 })
 
 describe('how a metric is read, and when a rule abstains', () => {

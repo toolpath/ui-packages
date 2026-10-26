@@ -36,6 +36,7 @@ export type KnownFeatureType =
   | 'blind_hole'
   | 'boss'
   | 'chamfer'
+  | 'circular_wall'
   | 'contour_surface'
   | 'face'
   | 'filleted_blind_hole'
