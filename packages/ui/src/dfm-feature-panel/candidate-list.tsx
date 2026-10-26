@@ -8,7 +8,7 @@ import { FeatureName, RequiredBadge } from './feature-name'
 import { FoldSection } from './fold-section'
 import { resolveLook, secondaryText, type FeaturePanelLook, type ResolvedLook } from './look'
 import {
-  type CandidateRow as CandidateRowData,
+  type CandidateRowData,
   type ComparedFaceList,
   type FoldStore,
   type RuleVocabulary,

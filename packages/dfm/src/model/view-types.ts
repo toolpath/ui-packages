@@ -32,11 +32,11 @@ export interface Choices {
 export type FeatureIdentity = Pick<DfmFeature, 'tag' | 'featureType' | 'machiningDirection'>
 
 /**
- * One feature a face could have meant, as its row says it. `@toolpath/ui`'s
- * `CandidateRow` adds what the row renders beside it: a label, a detail, a
- * note and an action.
+ * One feature a face could have meant, as its row says it: the data, named
+ * apart from `@toolpath/ui`'s `CandidateRow`, which extends it with what the
+ * row renders beside it: a label, a detail, a note and an action.
  */
-export interface CandidateRow {
+export interface CandidateRowData {
   readonly feature: FeatureIdentity
   /** The dot before it: the colour it is painted, or its direction's. Left out, a gap keeps the rows aligned. */
   readonly color?: string
@@ -65,12 +65,16 @@ export interface ComparedFace {
   readonly measurements: readonly Measurement[]
 }
 
-/** One face being inspected: the features it could mean, and the one being read. */
-export interface InspectedFace {
+/**
+ * One face being inspected: the features it could mean, and the one being
+ * read. The data, named apart from `@toolpath/ui`'s `InspectedFace`, whose
+ * rows are its own `CandidateRow`s.
+ */
+export interface InspectedFaceData {
   /** The face clicked; null for a feature chosen from a list, which has no candidates to show. */
   readonly region: number | null
   /** In the app's order: the first is what a click meant first. */
-  readonly rows: readonly CandidateRow[]
+  readonly rows: readonly CandidateRowData[]
   readonly selected: string | null
 }
 
