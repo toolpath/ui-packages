@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { ignoreRay, viewDirection } from './render/picking.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
+import { readPointer } from './render/pointer.js'
 import { regionEdgesGeometry } from './render/edges.js'
 import { useTapGuard } from './tap.js'
 import type { PartModel } from './model/types.js'
@@ -203,7 +204,10 @@ const Pieces = ({
   }, -1)
 
   const pick = (event: ThreeEvent<PointerEvent | MouseEvent>): ExplodePick | null => {
-    const source = event.nativeEvent
+    // Through `readPointer`, so a React Native event, which has page rather
+    // than client coordinates and no modifier keys, reads the same way. A
+    // double click is the DOM's `detail`, which React Native events lack.
+    const source = readPointer(event.nativeEvent)
     return (
       resources.current?.pick(event, {
         activeDirection,
@@ -216,7 +220,7 @@ const Pieces = ({
           shift: source.shiftKey,
           secondary: source.button === 2,
         },
-        doubled: source.detail === 2,
+        doubled: event.nativeEvent.detail === 2,
       }) ?? null
     )
   }
