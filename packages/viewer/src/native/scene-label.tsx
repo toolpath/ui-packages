@@ -37,16 +37,19 @@ export const SceneLabel = ({
   }, [accessibilityHint, axis, color, id, invalidate, kind, note, onPress, position, store, text])
 
   useLayoutEffect(() => {
-    if (!store) return undefined
+    if (!store) {
+      // In an effect, so a render React throws away does not use up the warning.
+      if (!warned) {
+        warned = true
+        console.warn('@toolpath/viewer: <SceneLabel> on React Native draws only inside a <Viewer>.')
+      }
+      return undefined
+    }
     return () => {
       store.remove(id)
       invalidate()
     }
   }, [id, invalidate, store])
 
-  if (!store && !warned) {
-    warned = true
-    console.warn('@toolpath/viewer: <SceneLabel> on React Native draws only inside a <Viewer>.')
-  }
   return null
 }
