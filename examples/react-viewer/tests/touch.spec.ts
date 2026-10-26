@@ -59,31 +59,33 @@ test('one finger orbits the part and selects nothing', async ({ page }) => {
   await expect(selected).toHaveText(selection ?? '')
 })
 
-test('a pinch zooms the orthographic camera in', async ({ page }) => {
-  const { canvas, box } = await openViewer(page, 'projection=orthographic')
-  const session = await page.context().newCDPSession(page)
-  const before = await brightBounds(canvas, outside(page))
-  expect(before.count, 'the part is on screen').toBeGreaterThan(1000)
+for (const projection of ['perspective', 'orthographic'] as const) {
+  test(`a pinch zooms the ${projection} camera in`, async ({ page }) => {
+    const { canvas, box } = await openViewer(page, `projection=${projection}`)
+    const session = await page.context().newCDPSession(page)
+    const before = await brightBounds(canvas, outside(page))
+    expect(before.count, 'the part is on screen').toBeGreaterThan(1000)
 
-  const { x, y } = middle(box)
-  await glide(
-    session,
-    [
-      { x: x - 40, y },
-      { x: x + 40, y },
-    ],
-    [
-      { x: x - 160, y },
-      { x: x + 160, y },
-    ],
-  )
+    const { x, y } = middle(box)
+    await glide(
+      session,
+      [
+        { x: x - 40, y },
+        { x: x + 40, y },
+      ],
+      [
+        { x: x - 160, y },
+        { x: x + 160, y },
+      ],
+    )
 
-  const width = (bounds: typeof before) => bounds.right - bounds.left
-  const height = (bounds: typeof before) => bounds.bottom - bounds.top
-  await expect
-    .poll(async () => {
-      const after = await brightBounds(canvas, outside(page))
-      return Math.max(width(after) / width(before), height(after) / height(before))
-    }, 'the part grew on screen')
-    .toBeGreaterThan(1.2)
-})
+    const width = (bounds: typeof before) => bounds.right - bounds.left
+    const height = (bounds: typeof before) => bounds.bottom - bounds.top
+    await expect
+      .poll(async () => {
+        const after = await brightBounds(canvas, outside(page))
+        return Math.max(width(after) / width(before), height(after) / height(before))
+      }, 'the part grew on screen')
+      .toBeGreaterThan(1.2)
+  })
+}
