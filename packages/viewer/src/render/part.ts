@@ -390,7 +390,7 @@ export function createPart(
   // Leaves room below for a section's stencil pass and its cap, which would
   // otherwise be painted over by the very surface they exist to cap.
   mesh.renderOrder = 3
-  const releasePicking = acceleratePicking(mesh)
+  acceleratePicking(mesh)
 
   // Region boundaries rather than an angle threshold: a small bore's facets sit
   // 30 degrees apart and would each be drawn as an edge.
@@ -608,7 +608,6 @@ export function createPart(
       if (geometry.getAttribute(REGION_ATTRIBUTE) === regionAttribute) {
         geometry.deleteAttribute(REGION_ATTRIBUTE)
       }
-      releasePicking()
       material.dispose()
       focusMaterial.dispose()
       edgeGeometry.dispose()

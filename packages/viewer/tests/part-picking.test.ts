@@ -57,12 +57,10 @@ describe('acceleratePicking (React Native)', () => {
     expect(Array.from(geometry.index?.array ?? [])).toEqual(before)
   })
 
-  it('builds one tree per geometry, kept across parts and their release', () => {
+  it('builds one tree per geometry, kept across parts', () => {
     const geometry = sphere()
-    const release = acceleratePicking(new Mesh(geometry, new MeshBasicMaterial()))
+    acceleratePicking(new Mesh(geometry, new MeshBasicMaterial()))
     const tree = geometry.boundsTree
-    release()
-    expect(geometry.boundsTree).toBe(tree)
 
     acceleratePicking(new Mesh(geometry, new MeshBasicMaterial()))
     expect(geometry.boundsTree).toBe(tree)
