@@ -1,13 +1,9 @@
 import { defineConfig } from '@playwright/test'
 
-// Isolated worktrees can test without reusing another checkout's preview server.
-const port = process.env.VIEWER_TEST_PORT ?? '4173'
-const baseURL = `http://127.0.0.1:${port}`
-
 export default defineConfig({
   testDir: './tests',
   use: {
-    baseURL,
+    baseURL: 'http://127.0.0.1:4173',
     browserName: 'chromium',
     // Pinned, because the assertions below click into a 3D canvas. Where a
     // direction arrow lands depends on how the part is framed, which depends on
@@ -16,9 +12,8 @@ export default defineConfig({
     viewport: { width: 1280, height: 720 },
   },
   webServer: {
-    command: `pnpm exec vite ${process.env.VIEWER_TEST_DEV ? '' : 'preview '}--host 127.0.0.1 --port ${port} --strictPort`,
-    url: baseURL,
-    reuseExistingServer:
-      !process.env.CI && !process.env.VIEWER_TEST_PORT && !process.env.VIEWER_TEST_DEV,
+    command: 'pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort',
+    url: 'http://127.0.0.1:4173',
+    reuseExistingServer: !process.env.CI,
   },
 })

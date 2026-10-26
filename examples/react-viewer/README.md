@@ -74,19 +74,15 @@ The same rendering budget applies to both color modes. These are example policy 
 machining decisions made by the package. The new public exports need the next viewer release;
 they are not available in published version 2.3.3.
 
-After building the example, run its explode checks on a separate preview port:
+After building the example, run its explode checks:
 
 ```sh
-VIEWER_TEST_PORT=5195 pnpm --filter @toolpath/example-react-viewer exec playwright test tests/explode-toolbar.spec.ts tests/explode-model.spec.ts --workers=1
+pnpm --filter @toolpath/example-react-viewer exec playwright test tests/explode-toolbar.spec.ts tests/explode-model.spec.ts --workers=1
 ```
 
-`VIEWER_TEST_PORT` also works for the full browser suite. When set, tests start their own preview
-server instead of reusing another checkout's server. Add `VIEWER_TEST_DEV=1` to exercise Vite
-and React StrictMode effect replay as well.
-
-For a real dense part, open `analysis.json` and `mesh.glb` together from
-`~/dev/cad-viewer/packages/core/sample/` using **Open an Engine part**. The example accepts that
-app's offline snapshot, including its filename and datasheets. PC Housing v3 has 403 feature
+For a real dense part, use the PC Housing v3 sample in `~/dev/cad-viewer/packages/core/sample/`.
+Its `analysis.json` holds the Engine report under `report`; open that report and `mesh.glb`
+together using **Open an Engine part**. PC Housing v3 has 403 feature
 readings, producing 307 distinct feature pieces in either color mode. The CAD files stay
 outside this repository; opening them makes no Engine requests and a reload forgets them.
 
@@ -98,11 +94,11 @@ repeated surfaces, arbitrary translations, source-coordinate picks, and a bounde
 The toolbar tests cover buffer reuse and shader preparation.
 
 ```sh
-VIEWER_STRESS_SAMPLE_DIR="$HOME/dev/cad-viewer/packages/core/sample" VIEWER_TEST_PORT=5195 pnpm --filter @toolpath/example-react-viewer exec playwright test tests/explode-stress.spec.ts --workers=1
+VIEWER_STRESS_SAMPLE_DIR="$HOME/dev/cad-viewer/packages/core/sample" pnpm --filter @toolpath/example-react-viewer exec playwright test tests/explode-stress.spec.ts --workers=1
 VIEWER_STRESS_SAMPLE_DIR="$HOME/dev/cad-viewer/packages/core/sample" pnpm --filter @toolpath/viewer exec vitest run tests/explode-stress.test.ts
 ```
 
-Build first for preview testing, or add `VIEWER_TEST_DEV=1` for StrictMode. These tests use full
+Build first; the tests run against the preview build. These tests use full
 Chromium so the host GPU can be used where available. A passing interaction check alone is not
 a frame-rate guarantee on other devices; geometry size, transparency, and GPU support still matter.
 
