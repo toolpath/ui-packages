@@ -29,15 +29,6 @@ const LOW_TITLES: Record<RangeLow, string> = { gte: 'at most', gt: 'less than' }
 /** The one-sided comparisons, offered from a range to leave it: their values marked apart from its ends'. */
 const ONE_SIDED = 'one:'
 
-/** Every one-sided comparison, under a heading, in either end of a range. */
-export const ONE_SIDED_CHOICES: ChoiceGroup = {
-  heading: 'One-sided',
-  choices: OPS.filter((op) => op !== 'between').map((op) => ({
-    value: `${ONE_SIDED}${op}`,
-    label: `${opSymbol(op)} ${OP_TITLES[op]}`,
-  })),
-}
-
 /** A range with one end's choice made: that end held the new way, or a one-sided comparison in its place. */
 export const rangeEnd = (
   rule: DfmRule,
@@ -60,6 +51,22 @@ export const rangeEnd = (
 export type OpLabel = (symbol: string, op: DfmOp, title: string) => string
 
 const symbolOnly: OpLabel = (symbol) => symbol
+const symbolAndTitle: OpLabel = (symbol, _op, title) => `${symbol} ${title}`
+
+/**
+ * Every one-sided comparison, under a heading, in either end of a range:
+ * worded by `label`, or by symbol and title when there is none.
+ */
+const oneSidedChoices = (label: OpLabel = symbolAndTitle): ChoiceGroup => ({
+  heading: 'One-sided',
+  choices: OPS.filter((op) => op !== 'between').map((op) => ({
+    value: `${ONE_SIDED}${op}`,
+    label: label(opSymbol(op), op, OP_TITLES[op]),
+  })),
+})
+
+/** {@link oneSidedChoices}' default wording. */
+export const ONE_SIDED_CHOICES: ChoiceGroup = oneSidedChoices()
 
 /** Every comparison, for a one-sided rule. */
 export const comparisonChoices = (label: OpLabel = symbolOnly): Choices => ({
@@ -68,30 +75,34 @@ export const comparisonChoices = (label: OpLabel = symbolOnly): Choices => ({
   ],
 })
 
-/** A range's low end, held either way, and the one-sided comparisons to leave the range by. */
-export const rangeLowChoices = (label: OpLabel = symbolOnly): Choices => ({
+/**
+ * A range's low end, held either way, and the one-sided comparisons to leave
+ * the range by. `label` words both groups; without one, the ends are their
+ * symbols and the one-sided comparisons their symbols and titles.
+ */
+export const rangeLowChoices = (label?: OpLabel): Choices => ({
   groups: [
     {
       heading: 'Range',
       choices: RANGE_LOWS.map((op) => ({
         value: op,
-        label: label(LOW_SYMBOLS[op], op, LOW_TITLES[op]),
+        label: (label ?? symbolOnly)(LOW_SYMBOLS[op], op, LOW_TITLES[op]),
       })),
     },
-    ONE_SIDED_CHOICES,
+    oneSidedChoices(label),
   ],
 })
 
-/** A range's high end, held either way, and the one-sided comparisons to leave the range by. */
-export const rangeHighChoices = (label: OpLabel = symbolOnly): Choices => ({
+/** A range's high end, held either way, and the one-sided comparisons to leave the range by; worded as {@link rangeLowChoices}' are. */
+export const rangeHighChoices = (label?: OpLabel): Choices => ({
   groups: [
     {
       heading: 'Range',
       choices: RANGE_HIGHS.map((op) => ({
         value: op,
-        label: label(opSymbol(op), op, OP_TITLES[op]),
+        label: (label ?? symbolOnly)(opSymbol(op), op, OP_TITLES[op]),
       })),
     },
-    ONE_SIDED_CHOICES,
+    oneSidedChoices(label),
   ],
 })
