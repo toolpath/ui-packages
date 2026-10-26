@@ -80,6 +80,52 @@ test('dragging the section handle moves the cut without changing the selection',
 })
 
 /**
+ * The handle stays lit for as long as it is held, and goes back to its own
+ * colour once it is let go.
+ *
+ * The drag captures the pointer, so the handle stays under it as far as R3F
+ * is concerned until the release: a pointer that has left the arrow is still
+ * dragging it. After the release the next move finds the arrow gone and ends
+ * the hover.
+ */
+test('the section handle is lit while held and unlit once released', async ({ page }) => {
+  const { canvas, box } = await openViewer(page)
+
+  await page.getByRole('button', { name: 'Section' }).click()
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(page.locator('p', { hasText: 'Cut:' })).toContainText('Part surface')
+
+  await page.mouse.move(box.x + box.width + 20, box.y + box.height / 2)
+  const handle = await findHandle(page, canvas)
+
+  const along = handle.axis.y < 0 ? -1 : 1
+  const from = { x: box.x + handle.centre.x, y: box.y + handle.centre.y }
+  // Across the arrow, so the pointer ends well off it.
+  const away = { x: from.x + handle.axis.y * 120, y: from.y - handle.axis.x * 120 }
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  await page.mouse.move(from.x + along * handle.axis.x * 20, from.y + along * handle.axis.y * 20, {
+    steps: 4,
+  })
+  await page.mouse.move(away.x, away.y, { steps: 8 })
+
+  const ownColour = async () =>
+    (
+      await findColour(canvas, Z_HANDLE, {
+        mask: [
+          page.locator('[data-viewer-toolbar]'),
+          page.getByRole('group', { name: 'Section and measure options', exact: true }),
+        ],
+      })
+    ).count
+  await expect.poll(ownColour, 'held, the handle is drawn lit').toBeLessThan(50)
+
+  await page.mouse.up()
+  await page.mouse.move(away.x + 4, away.y)
+  await expect.poll(ownColour, 'released, the handle is back in its own colour').toBeGreaterThan(50)
+})
+
+/**
  * A drag the system cancels still hands the view back.
  *
  * The handle switches the camera controls off while it is dragged, and only
