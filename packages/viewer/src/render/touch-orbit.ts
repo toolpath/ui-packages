@@ -167,8 +167,11 @@ export const createFingerTracker = (): FingerTracker => {
 export interface TouchOps {
   push(ops: readonly TouchOp[]): void
   /** Everything since the last call, merged; empty when nothing arrived. */
-  take(): TouchOp[]
+  take(): readonly TouchOp[]
 }
+
+/** What `take` returns for a frame no touch reached: one array, so an idle frame allocates nothing. */
+const NO_OPS: readonly TouchOp[] = Object.freeze([])
 
 export const createTouchOps = (): TouchOps => {
   let orbit: { dx: number; dy: number } | null = null
@@ -188,6 +191,7 @@ export const createTouchOps = (): TouchOps => {
       }
     },
     take() {
+      if (!orbit && !pan && !zoom) return NO_OPS
       const ops: TouchOp[] = []
       if (orbit) ops.push({ kind: 'orbit', ...orbit })
       if (pan) ops.push({ kind: 'pan', ...pan })
