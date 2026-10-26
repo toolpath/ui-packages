@@ -81,6 +81,9 @@ export interface PartPick {
   readonly sharpCorner?: SharpCorner
 }
 
+/** A raycast that never hits, for drawings the pointer passes through. */
+export const ignoreRay = (): void => undefined
+
 /** A unit vector from the part toward the camera, for the owner ranking. */
 export function viewDirection(camera: Camera, target: Vector3): Vec3 {
   const { x, y, z } = camera.position

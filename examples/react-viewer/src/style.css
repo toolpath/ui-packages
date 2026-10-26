@@ -143,6 +143,49 @@ strong {
   margin: 0 0 0.5rem;
   font-size: 0.85rem;
 }
+.viewer-toolbar-button[data-viewer-toolbar-action='explode'] {
+  padding: 0;
+}
+.explode-options {
+  gap: 0.45rem;
+  font-size: 0.8rem;
+}
+.explode-colors {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.15rem;
+  padding: 0.15rem;
+  border: 1px solid #52607880;
+  border-radius: 0.4rem;
+}
+.explode-options .explode-colors button {
+  width: auto;
+  height: 1.65rem;
+  padding: 0.2rem 0.45rem;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: #b9c0d1;
+  font: inherit;
+  font-size: 0.75rem;
+}
+.explode-options .explode-colors button:hover {
+  background: #303b51;
+  color: #eef0f6;
+}
+.explode-options .explode-colors button[aria-pressed='true'] {
+  background: #2b3f66;
+  color: #eef0f6;
+}
+.explode-options input[type='range'] {
+  min-width: 4rem;
+  flex: 1;
+  accent-color: #83a9ff;
+}
+.explode-options output {
+  min-width: 2.5rem;
+  text-align: right;
+}
 .stock-allowance input,
 .stock-allowance select {
   width: 100%;
@@ -261,6 +304,9 @@ strong {
   background-color: #303b51;
 }
 @media (max-width: 760px) {
+  .explode-options > label {
+    display: none;
+  }
   main {
     height: auto;
     min-height: 100vh;

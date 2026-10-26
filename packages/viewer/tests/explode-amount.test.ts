@@ -1,0 +1,36 @@
+import { expect, it, vi } from 'vitest'
+import { createExplodeAmount, readExplodeAmount } from '../src/model/explode-amount.js'
+
+it('clamps amounts, notifies only on change, and detaches individual canvas subscriptions', () => {
+  const amount = createExplodeAmount(-2)
+  const first = vi.fn()
+  const second = vi.fn()
+  const detach = amount.subscribe(first)
+  amount.subscribe(second)
+  amount.set(0.4)
+  expect(amount.value).toBe(0.4)
+  expect(readExplodeAmount(amount)).toBe(0.4)
+  amount.set(0.4)
+  expect(first).toHaveBeenCalledTimes(1)
+  detach()
+  detach()
+  amount.set(2)
+  expect(amount.value).toBe(1)
+  expect(first).toHaveBeenCalledTimes(1)
+  expect(second).toHaveBeenCalledTimes(2)
+  amount.set(NaN)
+  expect(amount.value).toBe(0)
+  amount.set(Infinity)
+  expect(second).toHaveBeenCalledTimes(3)
+  expect(createExplodeAmount(Infinity).value).toBe(0)
+})
+
+it('keeps duplicate callback registrations independent when a sibling unmounts', () => {
+  const amount = createExplodeAmount()
+  const invalidate = vi.fn()
+  const detach = amount.subscribe(invalidate)
+  amount.subscribe(invalidate)
+  detach()
+  amount.set(0.5)
+  expect(invalidate).toHaveBeenCalledTimes(1)
+})

@@ -8,7 +8,7 @@ requires no Toolpath API key or Engine request. The extra parts exist for the me
 have holes, chamfers, a pocket and a bore to snap to, and each page states what its dimensions
 should measure.
 
-The toolbar offers stock, axes, grid, direction coloring, wireframe, Section, Measure, Fit,
+The toolbar offers stock, axes, grid, direction coloring, wireframe, Explode, Section, Measure, Fit,
 Reset, and Top view. Stock can be a box/cylinder preview or one of the bundled GLB blanks.
 The sidebar controls dimensions and centered/top/bottom positioning for previews and reports
 their size. Use Fit after showing or resizing stock to frame the whole blank. These values
@@ -31,6 +31,80 @@ The build command includes the example's workspace dependencies; installation al
 does not create their `dist` output.
 
 To see changes to `packages/viewer` while the example runs, keep `pnpm --filter @toolpath/viewer build:watch` going beside it.
+
+## Explode
+
+The **Explode** toolbar button animates the loaded part's surfaces along candidate machining
+approaches. Use the amount slider to scrub and **Color by: Feature / Direction** to change colors.
+The transition respects reduced-motion preferences. Hover and click copies using the existing
+feature card and selection readout. Selection highlights the original surfaces with one connector;
+surface labels are omitted.
+
+The layout merges readings with identical region sets and keeps partially overlapping readings
+as separate copies. Its default approach and ordering are deterministic. **Feature** gives each
+piece a stable color; **Direction** colors the same pieces by their chosen machining approach,
+including approaches absent from the report's candidate list. Changing colors preserves pieces,
+positions, selection, hover identities, and geometry buffers. These pieces describe candidate
+readings, not calculated setups or disassembly instructions. Travel clears the part's projected
+bounds, and copies sharing surfaces and an approach are separated along that approach.
+
+Exploding, collapsing, scrubbing, and changing colors preserve the camera's position, target,
+and zoom. Surfaces can move outside the viewport; use **Fit** or zoom out when you want to see
+the whole layout. Collapsing keeps camera adjustments made while exploded.
+
+Entering Explode leaves Section, Measure, direction coloring, wireframe, focus, and sharp-corner
+display; feature hover is enabled. Choosing an assembled analysis/display mode returns to the
+normal part first. Stock, axes, grid, and camera controls remain available. Reset or changing
+parts closes Explode.
+
+The example imports `ExplodedPart` and its primitive types from `@toolpath/viewer`.
+The application owns grouping, chosen approaches, spacing, colors, animation state, and controls
+in `src/explode/`; the package renderer receives region groups and offsets. It draws
+open, double-sided surface copies and preserves original report identities for picking.
+Source geometry is never translated, reordered, or disposed. The ordinary `PartMesh` stays mounted
+and takes over again at stationary zero, preserving its ownership of region attributes.
+Surfaces share one GPU batch and their outlines share one draw; batching preserves each piece's
+source triangle map and independent picking. The example prepares shaders before enabling Explode
+and retains buffers through collapse/reopen, releasing them when the part changes. Animation updates
+instance transforms without rebuilding geometry. Slider and hover readouts update locally, and
+animation updates React readouts at most ten times per second.
+
+Layouts exceeding 512 groups or 1,000,000 copied triangles leave the original part visible.
+The same rendering budget applies to both color modes. These are example policy limits, not
+machining decisions made by the package. The new public exports need the next viewer release;
+they are not available in published version 2.3.3.
+
+After building the example, run its explode checks on a separate preview port:
+
+```sh
+VIEWER_TEST_PORT=5195 pnpm --filter @toolpath/example-react-viewer exec playwright test tests/explode-toolbar.spec.ts tests/explode-model.spec.ts --workers=1
+```
+
+`VIEWER_TEST_PORT` also works for the full browser suite. When set, tests start their own preview
+server instead of reusing another checkout's server. Add `VIEWER_TEST_DEV=1` to exercise Vite
+and React StrictMode effect replay as well.
+
+For a real dense part, open `analysis.json` and `mesh.glb` together from
+`~/dev/cad-viewer/packages/core/sample/` using **Open an Engine part**. The example accepts that
+app's offline snapshot, including its filename and datasheets. PC Housing v3 has 403 feature
+readings, producing 307 distinct feature pieces in either color mode. The CAD files stay
+outside this repository; opening them makes no Engine requests and a reload forgets them.
+
+The opt-in browser stress tests verify clearance, deterministic layout, feature-level picking,
+selection preservation when recoloring, camera preservation, and repeated collapse/reopen.
+The package's opt-in unit test verifies every copied triangle's position and source identity.
+`explode-primitives.spec.ts` exercises the public renderer with application-defined IDs,
+repeated surfaces, arbitrary translations, source-coordinate picks, and a bounded draw count.
+The toolbar tests cover buffer reuse and shader preparation.
+
+```sh
+VIEWER_STRESS_SAMPLE_DIR="$HOME/dev/cad-viewer/packages/core/sample" VIEWER_TEST_PORT=5195 pnpm --filter @toolpath/example-react-viewer exec playwright test tests/explode-stress.spec.ts --workers=1
+VIEWER_STRESS_SAMPLE_DIR="$HOME/dev/cad-viewer/packages/core/sample" pnpm --filter @toolpath/viewer exec vitest run tests/explode-stress.test.ts
+```
+
+Build first for preview testing, or add `VIEWER_TEST_DEV=1` for StrictMode. These tests use full
+Chromium so the host GPU can be used where available. A passing interaction check alone is not
+a frame-rate guarantee on other devices; geometry size, transparency, and GPU support still matter.
 
 ## Sharp corners, on real parts
 

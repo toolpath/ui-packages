@@ -6,6 +6,17 @@ export { EnginePart, normalizePartReport, smoothRegionNormals } from './engine/i
 export { regionAdjacency } from './render/adjacency.js'
 export { featureTriangles } from './render/feature-triangles.js'
 export { PartMesh } from './part-mesh.js'
+export { createExplodeAmount } from './model/explode-amount.js'
+export type { ExplodeAmount } from './model/explode-amount.js'
+export { ExplodedPart } from './exploded-part.js'
+export type { ExplodedPartProps } from './exploded-part.js'
+export type {
+  ExplodeGroup,
+  ExplodeGroupIds,
+  ExplodeInput,
+  ExplodePick,
+  ExplodeRegionColors,
+} from './model/explode.js'
 export { usePartContext } from './part-context.js'
 export { HoverCard } from './hover-card.js'
 export { ViewerToolbar, ViewerToolbarProvider, useViewerToolbar } from './viewer-toolbar.js'

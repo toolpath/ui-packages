@@ -4,6 +4,7 @@ import { DoubleSide } from 'three'
 import { MEASURE_LABEL_CLASS } from './measure-tool.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
 import { MEASURE_LINE_PIXELS, MEASURE_RENDER_ORDER } from './render/measure.js'
+import { ignoreRay } from './render/picking.js'
 import { type ViewerTheme, resolveTheme } from './render/theme.js'
 import { type ToolMark, type ToolMarkShape, toolMarkShape } from './render/tool-marks.js'
 
@@ -24,7 +25,6 @@ export interface ToolMarksProps {
 /** The tool itself: pale and see-through, so what it stands in shows through it. */
 const BODY = { color: 0xf8fafc, opacity: 0.32 } as const
 const NO_POINTER = { pointerEvents: 'none' } as const
-const ignoreRay = (): void => undefined
 
 /**
  * Cutting tools drawn on the part, each to scale where it stands: a

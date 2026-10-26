@@ -18,6 +18,7 @@ import {
   ViewerToolbarProvider,
   MeasureTool,
   PartMesh,
+  ExplodedPart,
   SectionTool,
   Viewer,
   CONTROL_SCHEME_OPTIONS,
@@ -39,6 +40,12 @@ import {
   type ViewerToolbarControls,
 } from '@toolpath/viewer'
 import { AnalysisOptions } from './analysis-options'
+import {
+  ExplodeButton,
+  ExplodeOptions,
+  PartVisibility,
+  useExampleExplode,
+} from './explode/example-mode'
 import type { FeatureSheet } from '@toolpath/dfm/model'
 import { partFromFiles } from './local-part'
 import { type ExampleModel, MODELS, modelFromQuery } from './models'
@@ -268,8 +275,26 @@ const App = () => {
   // below changes the live controls without remounting the viewer.
   const [controls, setControls] = useState<ControlScheme>(initialControls)
   const viewerRef = useRef<ViewerHandle>(null)
-  const [hovered, setHovered] = useState<string[]>([])
-  const [hoverPick, setHoverPick] = useState<PartPick | null>(null)
+  const [hovered, setHoveredState] = useState<string[]>([])
+  const setHovered = useCallback((tags: string[]) => {
+    setHoveredState((held) =>
+      held.length === tags.length && held.every((tag, index) => tag === tags[index]) ? held : tags,
+    )
+  }, [])
+  const [hoverPick, setHoverPickState] = useState<PartPick | null>(null)
+  const setHoverPick = useCallback((pick: PartPick | null) => {
+    // HoverCard already follows the pointer locally. Only changed surface or
+    // feature details need to update the page and its scene props.
+    setHoverPickState((held) =>
+      held &&
+      pick &&
+      held.region === pick.region &&
+      held.best === pick.best &&
+      held.sharpCorner === pick.sharpCorner
+        ? held
+        : pick,
+    )
+  }, [])
   const [featureHover, setFeatureHover] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
   // The selection put down on entering section mode, to pick up again on the
@@ -349,6 +374,9 @@ const App = () => {
     [direction, part.model, showDirections],
   )
   const [pose, setPose] = useState<CameraState>(AT_START)
+  // The first camera readout comes from a rendered frame. Before that, the
+  // viewer's imperative controls and opening fit may not have been installed.
+  const explode = useExampleExplode(part, viewerRef, pose.distance > 0)
 
   // Called from a frame, so it runs whether or not anything changed. Holding
   // the previous object when the numbers match keeps a still camera from
@@ -361,7 +389,9 @@ const App = () => {
   // frames the new part, and drops the cut and the measurements with the
   // tools that made them.
   const choosePart = (next: ExampleModel) => {
+    explode.close(true)
     setPart(next)
+    setPose(AT_START)
     setCut(null)
     setMeasured([])
     setSelected([])
@@ -372,7 +402,7 @@ const App = () => {
   }
   const toolbarControls: ViewerToolbarControls = {
     fit: { onClick: () => viewerRef.current?.fit() },
-    reset: { onClick: () => viewerRef.current?.reset() },
+    reset: { onClick: explode.reset },
     top: { onClick: () => viewerRef.current?.setView('top') },
     stock: { pressed: showStock, onClick: () => setShowStock((on) => !on) },
     axes: { pressed: showAxes, onClick: () => setShowAxes((on) => !on) },
@@ -381,6 +411,7 @@ const App = () => {
     directions: {
       pressed: showDirections,
       onClick: () => {
+        explode.close(true)
         setShowDirections((on) => !on)
         setDirection(null)
         setSelected([])
@@ -388,12 +419,33 @@ const App = () => {
         setWireframe(false)
       },
     },
-    sharpCorners: { pressed: sharpOn, onClick: () => setSharpOn((on) => !on) },
-    hover: { pressed: featureHover, onClick: () => setFeatureHover((enabled) => !enabled) },
-    focus: { pressed: focus, onClick: () => setFocus((enabled) => !enabled) },
+    sharpCorners: {
+      pressed: sharpOn,
+      onClick: () => {
+        explode.close(true)
+        setSharpOn((on) => !on)
+      },
+    },
+    hover: {
+      pressed: featureHover,
+      onClick: () => {
+        setFeatureHover((enabled) => !enabled)
+        setHoverPick(null)
+        setHovered([])
+        explode.hover(null)
+      },
+    },
+    focus: {
+      pressed: focus,
+      onClick: () => {
+        explode.close(true)
+        setFocus((enabled) => !enabled)
+      },
+    },
     wireframe: {
       pressed: wireframe,
       onClick: () => {
+        explode.close(true)
         setWireframe((on) => !on)
         setShowDirections(false)
         setDirection(null)
@@ -402,6 +454,7 @@ const App = () => {
     section: {
       pressed: sectioning,
       onClick: () => {
+        explode.close(true)
         if (sectioning) {
           viewerRef.current?.setSection(null)
           setSelected(heldSelection.current)
@@ -416,6 +469,7 @@ const App = () => {
     measure: {
       pressed: measuring,
       onClick: () => {
+        explode.close(true)
         if (measuring) {
           setMeasured([])
           setSelected(heldSelection.current)
@@ -716,6 +770,7 @@ const App = () => {
             {(pick) => <HoverDetails pick={pick} model={part.model} sheets={part.sheets} />}
           </HoverCard>
           <ViewerToolbar>
+            <ExplodeOptions state={explode} />
             <AnalysisOptions
               sectioning={sectioning}
               measuring={measuring}
@@ -775,6 +830,29 @@ const App = () => {
               <ViewerToolbar.HoverButton />
               <ViewerToolbar.FocusButton />
               <ViewerToolbar.WireframeButton />
+              <ExplodeButton
+                state={explode}
+                onClick={() => {
+                  if (!explode.enabled) {
+                    viewerRef.current?.setSection(null)
+                    setSectioning(false)
+                    setCut(null)
+                    setMeasuring(false)
+                    setMeasured([])
+                    heldSelection.current = []
+                    setSelected([])
+                    setShowDirections(false)
+                    setDirection(null)
+                    setWireframe(false)
+                    setFocus(false)
+                    setSharpOn(false)
+                    setFeatureHover(true)
+                  }
+                  setHovered([])
+                  setHoverPick(null)
+                  explode.toggle()
+                }}
+              />
               <ViewerToolbar.SectionButton />
               <ViewerToolbar.MeasureButton />
               <ViewerToolbar.Divider />
@@ -812,29 +890,64 @@ const App = () => {
             projection={projection}
             controls={controls}
             showOrbitTarget={showOrbitTarget}
-            onPointerMissed={() => setSelected([])}
+            onPointerMissed={() => {
+              setSelected([])
+              explode.select(null)
+            }}
           >
             <CameraReadout onChange={onCamera} />
-            <PartMesh
-              model={part.model}
-              geometry={part.geometry}
-              selection={selected}
-              focus={focus ? {} : undefined}
-              display={wireframe ? 'wireframe' : 'solid'}
-              sharpCorners={sharpCorners}
-              regionHighlights={highlights}
-              hover={featureHover}
-              activeDirection={showDirections ? direction : null}
-              onSectionChange={(state) => {
-                setCut(state.enabled ? state : null)
-                if (state.enabled) setOffset(state.offset)
-              }}
-              onHover={(pick: PartPick | null) => {
-                setHovered(pick ? [...pick.owners] : [])
-                setHoverPick(pick)
-              }}
-              onPick={(pick: PartPick) => setSelected([...pick.ranked])}
-            />
+            <PartVisibility visible={!explode.visible} onVisible={explode.onAssembled}>
+              <PartMesh
+                model={part.model}
+                geometry={part.geometry}
+                selection={selected}
+                focus={focus ? {} : undefined}
+                display={wireframe ? 'wireframe' : 'solid'}
+                sharpCorners={sharpCorners}
+                regionHighlights={highlights}
+                hover={featureHover}
+                activeDirection={showDirections ? direction : null}
+                onSectionChange={(state) => {
+                  setCut(state.enabled ? state : null)
+                  if (state.enabled) setOffset(state.offset)
+                }}
+                onHover={(pick: PartPick | null) => {
+                  setHovered(pick ? [...pick.owners] : [])
+                  setHoverPick(pick)
+                }}
+                onPick={(pick: PartPick) => {
+                  explode.select(null)
+                  setSelected([...pick.ranked])
+                }}
+              />
+            </PartVisibility>
+            {explode.renderable ? (
+              <ExplodedPart
+                model={part.model}
+                geometry={part.geometry}
+                explode={explode.input}
+                selected={explode.selected}
+                hovered={explode.hovered}
+                activeDirection={showDirections ? direction : null}
+                visible={explode.visible}
+                onReady={explode.onPrepared}
+                onPick={(pick) => {
+                  const group = explode.groups.find((entry) => entry.id === pick.explodeGroupId)
+                  explode.select(group?.id ?? null)
+                  setSelected(group ? [...group.featureTags] : [...pick.ranked])
+                }}
+                onHover={(pick) => {
+                  const group = explode.groups.find((entry) => entry.id === pick?.explodeGroupId)
+                  explode.hover(featureHover ? (group?.id ?? null) : null)
+                  setHovered(featureHover && pick ? [...(group?.featureTags ?? pick.owners)] : [])
+                  setHoverPick(
+                    featureHover && pick
+                      ? { ...pick, best: group?.activeFeatureTag ?? pick.best }
+                      : null,
+                  )
+                }}
+              />
+            ) : null}
             {showStock && stockSource === 'geometry' && stockShape === 'cylinder' ? (
               <Stock
                 cylinder={{
