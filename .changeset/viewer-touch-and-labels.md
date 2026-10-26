@@ -15,3 +15,6 @@ Touch, labels and camera calls for apps that drive the viewer themselves:
   which turned a red or green handle blue. `ViewerTheme.hover` no longer affects the handle.
 - `VIEW_CUBE_HALF_PX` is the view cube's half-extent on screen, in CSS pixels, for an app that
   judges whether a tap landed on the cube.
+- `TapTracker.isTap` and `DoubleTapTracker.isDouble` accept any pointer-like event (the new
+  `PointerLike` type), React Native's included. Code written against `TapPoint` and
+  `DoubleTapPoint` still compiles, and `useTapGuard`'s guard still takes a `TapPoint`.

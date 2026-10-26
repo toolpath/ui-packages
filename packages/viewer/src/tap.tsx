@@ -7,11 +7,10 @@ import {
   useMemo,
   useRef,
 } from 'react'
-import type { PointerLike } from './render/pointer.js'
-import { type TapTracker, trackTaps } from './render/tap.js'
+import { type TapPoint, type TapTracker, trackTaps } from './render/tap.js'
 
 /** Whether the gesture ending at this event was a click rather than a drag. */
-export type TapGuard = (event: PointerLike) => boolean
+export type TapGuard = (event: TapPoint) => boolean
 
 const ViewerTapContext = createContext<TapGuard | null>(null)
 
@@ -61,7 +60,7 @@ export function useTapGuard(): TapGuard {
   }, [domElement, shared])
 
   const own = useMemo<TapGuard>(
-    () => (event: PointerLike) => tracker.current?.isTap(event) ?? true,
+    () => (event: TapPoint) => tracker.current?.isTap(event) ?? true,
     [],
   )
 

@@ -1,6 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 import { readPointer } from '../src/render/pointer.js'
-import { TAP_SLOP, movedFar, trackDoubleTaps } from '../src/render/tap.js'
+import {
+  type DoubleTapPoint,
+  type DoubleTapTracker,
+  TAP_SLOP,
+  type TapPoint,
+  type TapTracker,
+  movedFar,
+  trackDoubleTaps,
+} from '../src/render/tap.js'
+import type { useTapGuard } from '../src/tap.js'
 
 /**
  * The whole distinction the viewport rests on: a press that ends where it
@@ -117,5 +126,24 @@ describe('React Native presses', () => {
     expect(doubles.isDouble(touch(11, 10, 200))).toBe(true)
     expect(doubles.isDouble(touch(10, 10, 300))).toBe(false)
     expect(doubles.isDouble(touch(10, 10, 900))).toBe(false)
+  })
+})
+
+/**
+ * The tap types a consumer can hold or implement: widening what the trackers
+ * accept must not stop code written against `TapPoint` from compiling.
+ */
+describe('tap types', () => {
+  it('accepts consumer code written against TapPoint', () => {
+    expectTypeOf<ReturnType<typeof useTapGuard>>().toExtend<(event: TapPoint) => boolean>()
+    expectTypeOf<(event: TapPoint) => boolean>().toExtend<ReturnType<typeof useTapGuard>>()
+    expectTypeOf<{
+      isTap(event: TapPoint): boolean
+      dispose(): void
+    }>().toExtend<TapTracker>()
+    expectTypeOf<{
+      isDouble(event: DoubleTapPoint): boolean
+      reset(): void
+    }>().toExtend<DoubleTapTracker>()
   })
 })
