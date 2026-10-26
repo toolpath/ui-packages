@@ -35,6 +35,11 @@ type TouchOp =
   | { kind: 'zoom'; scale: number; x: number; y: number }
   | { kind: 'pan'; dx: number; dy: number }
 
+/** A `switch` over {@link TouchOp}'s kinds that misses one does not compile. */
+const unhandled = (op: never): never => {
+  throw new Error(`Unhandled touch operation: ${JSON.stringify(op)}`)
+}
+
 export interface TouchOrbit {
   /** Every finger down now. */
   update(touches: readonly TouchPoint[]): TouchOp[]
@@ -181,12 +186,18 @@ export const createTouchOps = (): TouchOps => {
   return {
     push(ops) {
       for (const op of ops) {
-        if (op.kind === 'orbit') {
-          orbit = { dx: (orbit?.dx ?? 0) + op.dx, dy: (orbit?.dy ?? 0) + op.dy }
-        } else if (op.kind === 'pan') {
-          pan = { dx: (pan?.dx ?? 0) + op.dx, dy: (pan?.dy ?? 0) + op.dy }
-        } else {
-          zoom = { scale: (zoom?.scale ?? 1) * op.scale, x: op.x, y: op.y }
+        switch (op.kind) {
+          case 'orbit':
+            orbit = { dx: (orbit?.dx ?? 0) + op.dx, dy: (orbit?.dy ?? 0) + op.dy }
+            break
+          case 'pan':
+            pan = { dx: (pan?.dx ?? 0) + op.dx, dy: (pan?.dy ?? 0) + op.dy }
+            break
+          case 'zoom':
+            zoom = { scale: (zoom?.scale ?? 1) * op.scale, x: op.x, y: op.y }
+            break
+          default:
+            unhandled(op)
         }
       }
     },
@@ -232,9 +243,19 @@ export const applyTouchOps = (
     return false
   }
   for (const op of ops) {
-    if (op.kind === 'orbit') controls.orbitBy(op.dx, op.dy, Math.min(size.width, size.height))
-    else if (op.kind === 'zoom') controls.zoomAt(op.scale, { x: op.x, y: op.y }, size)
-    else controls.panBy(op.dx, op.dy, size)
+    switch (op.kind) {
+      case 'orbit':
+        controls.orbitBy(op.dx, op.dy, Math.min(size.width, size.height))
+        break
+      case 'zoom':
+        controls.zoomAt(op.scale, { x: op.x, y: op.y }, size)
+        break
+      case 'pan':
+        controls.panBy(op.dx, op.dy, size)
+        break
+      default:
+        unhandled(op)
+    }
   }
   return true
 }
