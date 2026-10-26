@@ -92,7 +92,7 @@ export {
   type FeatureUndercut,
 } from './feature-sheet.js'
 export type {
-  CandidateRow,
+  CandidateRowData,
   Choice,
   ChoiceGroup,
   Choices,
@@ -101,7 +101,7 @@ export type {
   DfmRules,
   FeatureIdentity,
   Hovered,
-  InspectedFace,
+  InspectedFaceData,
 } from './view-types.js'
 export { storageFolds, type FoldOptions, type FoldStorage, type FoldStore } from './fold-store.js'
 export { MAX_DATASHEET_FIELDS, datasheetFields, type FeatureRecord } from './feature-record.js'

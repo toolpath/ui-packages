@@ -9,7 +9,7 @@ import { resolveLook, secondaryText, type FeaturePanelLook } from './look'
 import {
   type ComparedFace,
   type FoldStore,
-  type InspectedFace as InspectedFaceData,
+  type InspectedFaceData,
   type RuleVocabulary,
 } from '@toolpath/dfm'
 
