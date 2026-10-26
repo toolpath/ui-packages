@@ -23,7 +23,7 @@ describe('useAdjacencyReport', () => {
     expect(regionAdjacency).not.toHaveBeenCalled()
   })
 
-  it('walks it once per mesh for a listener, however often the listener changes', () => {
+  it('walks it once per mesh for a listener, and hands a new listener the same result', () => {
     regionAdjacency.mockClear()
     const model = part()
     const geometry = new BufferGeometry()
@@ -37,6 +37,7 @@ describe('useAdjacencyReport', () => {
 
     expect(regionAdjacency).toHaveBeenCalledTimes(1)
     expect(first).toHaveBeenCalledTimes(1)
-    expect(second).not.toHaveBeenCalled()
+    expect(second).toHaveBeenCalledTimes(1)
+    expect(second.mock.calls[0]![0]).toBe(first.mock.calls[0]![0])
   })
 })

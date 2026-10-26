@@ -641,23 +641,25 @@ function useStableTheme(theme: Partial<ViewerTheme> | undefined): ViewerTheme {
 }
 
 /**
- * Hands `onAdjacency` the mesh's face adjacency, once per mesh, and works it
- * out only when there is an `onAdjacency` to hand it to: it walks every
- * triangle, which blocks a phone's JS thread for long enough to notice.
+ * Hands `onAdjacency` the mesh's face adjacency, and works it out only when
+ * there is an `onAdjacency` to hand it to: it walks every triangle, which
+ * blocks a phone's JS thread for long enough to notice.
  *
- * Once per mesh because the topology is a property of the geometry, and a
- * report gaining a feature does not move a single triangle. The callback is
- * read through a ref, so a new one each render does not work it out again.
+ * Worked out once per mesh, because the topology is a property of the
+ * geometry, and a report gaining a feature does not move a single triangle. A
+ * new callback is handed the same result.
  */
 export const useAdjacencyReport = (
   model: PartModel,
   geometry: BufferGeometry,
   onAdjacency: PartMeshProps['onAdjacency'],
 ): void => {
-  const onAdjacencyRef = useRef(onAdjacency)
-  onAdjacencyRef.current = onAdjacency
   const wantsAdjacency = onAdjacency !== undefined
+  const adjacency = useMemo(
+    () => (wantsAdjacency ? regionAdjacency(model, geometry) : null),
+    [model, geometry, wantsAdjacency],
+  )
   useEffect(() => {
-    if (wantsAdjacency) onAdjacencyRef.current?.(regionAdjacency(model, geometry))
-  }, [model, geometry, wantsAdjacency])
+    if (adjacency) onAdjacency?.(adjacency)
+  }, [adjacency, onAdjacency])
 }
