@@ -4,12 +4,14 @@ import {
   areaOf,
   classifyFaces,
   groupFaces,
+  planFeaturesOf,
   planTags,
   type Coverage,
   type CoverageFeature,
   type CoverageKind,
   type Face,
 } from '../src/coverage'
+import type { TrimmedFeature } from '../src/engine-plan'
 
 describe('classifyFaces', () => {
   const regions = [1, 2, 3, 4, 5, 6].map((idx) => ({ idx, area: idx }))
@@ -77,6 +79,115 @@ describe('planTags', () => {
     expect(planTags([{ actions: [{ featureTags: ['A', 'b'] }, { featureTags: null }] }])).toEqual(
       new Set(['a', 'b']),
     )
+  })
+})
+
+describe('planFeaturesOf', () => {
+  const up = { x: 0, y: 0, z: 1 }
+  const side = { x: 1, y: 0, z: 0 }
+  const regions = [1, 2, 3, 4, 5, 6].map((idx) => ({ idx, area: idx }))
+  const report: Array<CoverageFeature & { machiningDirection: typeof up }> = [
+    { tag: 'A', featureType: 'pocket', regionIdxs: [1, 2, 3], machiningDirection: up },
+    { tag: 'C', featureType: 'pocket', regionIdxs: [4, 5, 6], machiningDirection: up },
+    { tag: 'D', featureType: 'wall', regionIdxs: [6], machiningDirection: side },
+  ]
+  const trimmed = (overrides: Partial<TrimmedFeature>): TrimmedFeature => ({
+    featureTag: 'T',
+    featureType: 'pocket',
+    machiningDirection: up,
+    regionIdxs: [],
+    fromFeatureTag: null,
+    ...overrides,
+  })
+  const kinds = (
+    features: ReadonlyArray<CoverageFeature>,
+    cut: Array<string>,
+    ignored: Array<number> = [],
+  ) => {
+    const { faces } = classifyFaces({ regions, features, ignored, machined: new Set(cut) })
+    return COVERAGE_KINDS.map((kind) => [kind, faces[kind].map((face) => face.region).sort()])
+  }
+
+  it('lists the report’s features, then the plan’s trimmed ones shaped as features', () => {
+    const cut = trimmed({ featureTag: "A'", regionIdxs: [1, 2], fromFeatureTag: 'A' })
+    expect(planFeaturesOf(report, { trimmedFeatures: [cut] })).toEqual([
+      ...report.map((feature) => ({ ...feature, trimmed: false, fromFeatureTag: null })),
+      {
+        tag: "A'",
+        featureType: 'pocket',
+        regionIdxs: [1, 2],
+        machiningDirection: up,
+        trimmed: true,
+        fromFeatureTag: 'A',
+      },
+    ])
+  })
+
+  it('reads a feature trimmed by ignored faces as machined, where the plan cuts its tag', () => {
+    const cut = trimmed({ featureTag: "a'", regionIdxs: [1, 2], fromFeatureTag: 'A' })
+    const features = planFeaturesOf(report, { trimmedFeatures: [cut] })
+    // Face 3 ignored; the plan names only the trimmed tag.
+    expect(kinds(features, ["a'"], [3])).toEqual([
+      ['pinned', []],
+      ['ignored', [3]],
+      ['open', []],
+      ['machined', [1, 2]],
+      ['notMachined', [4, 5, 6]],
+    ])
+    // Joined to the report alone, the same faces read as not machined.
+    expect(kinds(report, ["a'"], [3])[3]).toEqual(['machined', []])
+  })
+
+  it('reads what a pin from another direction leaves of a feature as machined', () => {
+    // D, pinned from the side, shares face 6 with C: C' is what is left of C from above.
+    const cut = trimmed({ featureTag: "c'", regionIdxs: [4, 5], fromFeatureTag: 'C' })
+    const features = planFeaturesOf(report, { trimmedFeatures: [cut] })
+    expect(kinds(features, ['d', "c'"])).toEqual([
+      ['pinned', []],
+      ['ignored', []],
+      ['open', []],
+      ['machined', [4, 5, 6]],
+      ['notMachined', [1, 2, 3]],
+    ])
+  })
+
+  it('reads a plan with no trimmed features, or none, as the report alone', () => {
+    const joined = (plan: { trimmedFeatures?: Array<TrimmedFeature> } | null) =>
+      kinds(planFeaturesOf(report, plan), ['a'])
+    expect(joined({ trimmedFeatures: [] })).toEqual(kinds(report, ['a']))
+    expect(joined({})).toEqual(kinds(report, ['a']))
+    expect(joined(null)).toEqual(kinds(report, ['a']))
+  })
+
+  it('drops a trimmed feature whose tag the report lists already', () => {
+    const clash = trimmed({ featureTag: 'c', regionIdxs: [4], fromFeatureTag: 'C' })
+    expect(planFeaturesOf(report, { trimmedFeatures: [clash] }).map((f) => f.tag)).toEqual([
+      'A',
+      'C',
+      'D',
+    ])
+  })
+
+  it('reads a pinned trimmed feature in the constraints view, and no unpinned one', () => {
+    const plan = {
+      trimmedFeatures: [
+        trimmed({ featureTag: "C'", regionIdxs: [4, 5], fromFeatureTag: 'C' }),
+        trimmed({ featureTag: "A'", regionIdxs: [1, 2], fromFeatureTag: 'A' }),
+      ],
+    }
+    const pinned = new Set(["c'", 'd'])
+    const features = planFeaturesOf(report, plan, pinned)
+    expect(features.filter((f) => f.trimmed).map((f) => f.tag)).toEqual(["C'"])
+    const { faces } = classifyFaces({ regions, features, pinned })
+    expect(faces.pinned.map((face) => face.region).sort()).toEqual([4, 5, 6])
+    expect(faces.open.map((face) => face.region).sort()).toEqual([1, 2, 3])
+  })
+
+  it('gathers a trimmed feature’s faces under its own tag', () => {
+    const cut = trimmed({ featureTag: "c'", regionIdxs: [4, 5], fromFeatureTag: 'C' })
+    const features = planFeaturesOf(report, { trimmedFeatures: [cut] })
+    const { faces } = classifyFaces({ regions, features, machined: new Set(['a', 'd']) })
+    expect(groupFaces(faces.notMachined, features).map((group) => group.tag)).toEqual(["c'"])
   })
 })
 

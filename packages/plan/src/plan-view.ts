@@ -2,9 +2,11 @@ import { tagKey, type Coverage, type Face } from './coverage'
 import {
   featureTypeLabel,
   notMachinedOf,
+  trimmedFeatureLabel,
   type EnginePlan,
   type EnginePlanSetup,
   type PlanDirection,
+  type TrimmedFeature,
 } from './engine-plan'
 import { notFinishedIn } from './not-machined'
 import { placedFolders, sameDirection, type Constraints, type PlacedFolder } from './plan-draft'
@@ -36,6 +38,8 @@ export interface PlanFeatureRow {
   type?: string
   /** A hole's bore, once its sheet is in: what holes of a type are grouped by. */
   bore?: FeatureBore
+  /** A feature a statement trimmed (`TrimmedFeature`), which the part's report does not list. */
+  trimmed?: true
 }
 
 /** A hole's bore: its diameter in millimetres, and as the page says it (`⌀6.35 mm`). */
@@ -276,8 +280,27 @@ export interface PlanPart {
 
 export { featureTypeLabel }
 
-/** A tag's row, as the part reads it. */
-const featureRow = (part: PlanPart, tag: string): PlanFeatureRow => {
+/** A plan's trimmed features, by tag (lower case). */
+type TrimmedByTag = ReadonlyMap<string, TrimmedFeature>
+
+/** A plan's trimmed features by tag (lower case); none with no plan. */
+const trimmedByTag = (plan: Partial<Pick<EnginePlan, 'trimmedFeatures'>> | null): TrimmedByTag =>
+  new Map((plan?.trimmedFeatures ?? []).map((feature) => [tagKey(feature.featureTag), feature]))
+
+/**
+ * A tag's row, as the part reads it. A trimmed tag reads as what it was trimmed from, with its own
+ * type (`trimmedFeatureLabel`).
+ */
+const featureRow = (part: PlanPart, trimmed: TrimmedByTag, tag: string): PlanFeatureRow => {
+  const cut = trimmed.get(tagKey(tag))
+  if (cut) {
+    return {
+      tag,
+      label: trimmedFeatureLabel(cut, part.featureLabel),
+      type: cut.featureType,
+      trimmed: true,
+    }
+  }
   const bore = part.featureBore?.(tag)
   return {
     tag,
@@ -296,14 +319,21 @@ const unique = (tags: Iterable<string>): Array<string> => [...new Set(tags)]
  * The plan's own statement (`setupPlan`) says both, and is what a plan is edited from. An Engine
  * that does not serve one (before API 1.19) gives each setup only its first direction, so the
  * features are read off its passes instead: every tag an action cuts, in machining order.
+ *
+ * A tag the plan's statements trimmed (`trimmedFeatures`) is a row of its own, marked `trimmed`:
+ * `Pocket (trimmed)`, from the label of the feature it was trimmed from.
  */
 export const planView = (
-  plan: Pick<EnginePlan, 'setups' | 'setupPlan'>,
+  plan: Pick<EnginePlan, 'setups' | 'setupPlan'> & Partial<Pick<EnginePlan, 'trimmedFeatures'>>,
   part: PlanPart,
-): Array<PlannedSetupView> =>
-  plan.setups.map((setup, index) =>
-    plannedSetupView(setup, index, plannedDirections(plan, setup, index), part),
+): Array<PlannedSetupView> => {
+  const trimmed = trimmedByTag(plan)
+  return plan.setups.map((setup, index) =>
+    plannedSetupView(setup, index, plannedDirections(plan, setup, index), part, (tag) =>
+      featureRow(part, trimmed, tag),
+    ),
   )
+}
 
 /** One direction a planned setup is machined from, and the tags it takes. */
 interface PlannedDirection {
@@ -344,9 +374,9 @@ const plannedSetupView = (
   index: number,
   directions: ReadonlyArray<PlannedDirection>,
   part: PlanPart,
-): PlannedSetupView => {
-  const row = (tag: string): PlanFeatureRow => featureRow(part, tag)
-  return flatView({
+  row: (tag: string) => PlanFeatureRow,
+): PlannedSetupView =>
+  flatView({
     id: `setup-${setup.idx}`,
     name: `Setup ${index + 1}`,
     process: directions.length > 1 ? '3+2' : '3axis',
@@ -360,7 +390,6 @@ const plannedSetupView = (
     notFinished: notFinishedIn(setup),
     operations: setup.actions.length,
   })
-}
 
 /**
  * A plan's count of holds and of the directions they are machined from (FLD60): a setup is one
@@ -564,12 +593,15 @@ export const planHatch = (input: PlanPaintInput): Array<FaceHatch> => {
 /**
  * The draft as the page lays it out: its folders, in its order and with its names, each listing
  * what is pinned in it in the order it was pinned (MP-5). Nothing of Toolpath's: the constraints,
- * and only those.
+ * and only those. A pinned tag the latest plan (`plan`) trimmed reads as `planView` reads it,
+ * `Pocket (trimmed)`; with no plan, as the part labels it.
  */
 export const draftView = (
   draft: Pick<Constraints, 'setups'>,
   part: PlanPart,
+  plan: Partial<Pick<EnginePlan, 'trimmedFeatures'>> | null = null,
 ): Array<PlanSetupView> => {
+  const trimmed = trimmedByTag(plan)
   const placed = placedFolders(draft.setups)
   const view = (here: PlacedFolder): PlanSetupView => ({
     id: here.folder.id,
@@ -580,7 +612,7 @@ export const draftView = (
         id: `${here.folder.id}-0`,
         direction: here.direction,
         directionIndex: part.directionIndex(here.direction),
-        features: unique(here.folder.features).map((tag) => featureRow(part, tag)),
+        features: unique(here.folder.features).map((tag) => featureRow(part, trimmed, tag)),
       },
     ],
     depth: here.depth,

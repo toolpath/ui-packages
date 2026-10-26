@@ -67,6 +67,30 @@ through `parseDraftSetups` first.
 `classifyFaces` reads what the draft and the plan leave of each face: pinned, ignored, open,
 machined or not machined (`COVERAGE_KINDS`). A viewer paints faces from it.
 
+### Trimmed features
+
+A plan's tags (an action's `featureTags`, its `setupPlan`, a setup's `unmachined`) can name a
+feature the part's report does not list: what is left of a report feature once a statement keeps
+some of its faces away. Ignored faces trim from API 1.30.0; a pinned feature sharing faces with it,
+maybe from another direction, trims from the Engine release that plans with tp-kernel 0.29.
+Toolpath serves these as `trimmedFeatures`; read a null or absent field as `[]` when you parse
+the plan into an `EnginePlan`. Toolpath keeps each trimmed feature for the part, so a draft can pin
+its tag and a statement sent back can name it.
+
+`planFeaturesOf(reportFeatures, plan, pinned?)` is the one join of plan tags to features: the
+report's features, then each trimmed one shaped as a report feature, with `trimmed` and
+`fromFeatureTag`. A trimmed tag the report lists already is the report's. Pass it as `features`
+to `classifyFaces` and `groupFaces`, and resolve a row's tag to its faces (`regionsOf`) through
+it, so a trimmed feature's faces read as machined where the plan cuts it. The constraints view
+passes its pins too: a trimmed feature is in it only where it is pinned. Its faces never include an
+ignored face, so pinning one un-ignores nothing.
+
+`planView` and `resultsView` mark a trimmed tag's row `trimmed` and label it from what it was
+trimmed from, `Pocket (trimmed)`, or from its own type where Toolpath does not say
+(`trimmedFeatureLabel`). `draftView(draft, part, plan)` labels a pinned trimmed tag the same way
+from the latest plan, and as the part labels it with none. `planFromResults` (and `fromPlan`
+with `pins`) pins trimmed tags where they were planned, as it pins any feature.
+
 ## Edits: one menu, one function, one question
 
 A page edits the draft through three things, and nothing else:
@@ -248,8 +272,8 @@ These are the helpers behind the Plan page of Toolpath's own app. Each is a plai
   `ignoreEdit`, `unignoreEdit`, `ignoreClick` and `ignoreSelection`. `readingsFor` lists the
   features a click on a face can mean.
 - The tree: `draftView` lays out the draft, `planView` and `resultsView` the plan. The setups of
-  `resultsView` can be passed to `planFromResults`. `flattenFolders`, `projectFolder` and `gapAt`
-  place a folder being dragged, and say where it lands as a `DropAt`.
+  `resultsView` can be passed to `planFromResults`, trimmed rows too. `flattenFolders`,
+  `projectFolder` and `gapAt` place a folder being dragged, and say where it lands as a `DropAt`.
 - Paint: `planPaint` and `planHatch` color each face from `classifyFaces`
   (`DONE_COLOR`, `UNMACHINED_FACE_COLOR`, `OTHER_FOLDER_COLOR`).
 - Before Apply: `planChecks` and `confirmChecks` list what the person should check.

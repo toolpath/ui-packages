@@ -121,8 +121,8 @@ export type DraftAction =
   /**
    * Start from Toolpath's plan, on a plan with no folders: folders facing each of its setups
    * (`foldersFromPlan`), and with `pins` every feature pinned where it was planned
-   * (`planFromResults`), its faces no longer ignored. New folders' ids are `idSeed`, `-` and a count: no `:`, which
-   * an app may use to join an id with other keys.
+   * (`planFromResults`), trimmed ones too, its faces no longer ignored. New folders' ids are
+   * `idSeed`, `-` and a count: no `:`, which an app may use to join an id with other keys.
    */
   | {
       kind: 'fromPlan'

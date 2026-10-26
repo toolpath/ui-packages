@@ -1,3 +1,5 @@
+import type { EnginePlan, PlanDirection } from './engine-plan'
+
 /*
   Who machines each face of a part, read the one way the server and every page read it. Two views,
   one rule: the constraints view reads the person's pins — a face is ignored, pinned, or open (left
@@ -62,6 +64,50 @@ export interface CoverageFeature {
 /** A tag as compared: Toolpath and the analysis spell a tag differently, so in lower case. */
 export const tagKey = (tag: string): string => tag.toLowerCase()
 
+/** A feature a plan's tags can name: one of the report's, or one a statement trimmed. */
+export interface PlanFeature extends CoverageFeature {
+  machiningDirection?: PlanDirection
+  /** Whether a statement trimmed it (`TrimmedFeature`): no report lists it. */
+  trimmed: boolean
+  /**
+   * The report feature it was trimmed from: null for a report feature, or where Toolpath does not
+   * say.
+   */
+  fromFeatureTag: string | null
+}
+
+/**
+ * Every feature a plan's tags can name: the report's, then the plan's trimmed features shaped as
+ * report features, but one whose tag the report lists already, which the report's speaks for.
+ * The one join of plan tags to features: a view's coverage, its Not machined groups, a row's faces.
+ * The constraints view passes its pins (`pinned`, by lower-case tag): a trimmed feature shows there
+ * only where it is pinned.
+ */
+export const planFeaturesOf = (
+  reportFeatures: ReadonlyArray<CoverageFeature & { machiningDirection?: PlanDirection }>,
+  plan: Partial<Pick<EnginePlan, 'trimmedFeatures'>> | null,
+  pinned?: ReadonlySet<string>,
+): Array<PlanFeature> => {
+  const listed = tagSet(reportFeatures.map((feature) => feature.tag))
+  const kept = (plan?.trimmedFeatures ?? []).filter((feature) => {
+    const key = tagKey(feature.featureTag)
+    return !listed.has(key) && (pinned === undefined || pinned.has(key))
+  })
+  return [
+    ...reportFeatures.map((feature) => ({ ...feature, trimmed: false, fromFeatureTag: null })),
+    ...kept.map(
+      (feature): PlanFeature => ({
+        tag: feature.featureTag,
+        featureType: feature.featureType,
+        regionIdxs: feature.regionIdxs,
+        machiningDirection: feature.machiningDirection,
+        trimmed: true,
+        fromFeatureTag: feature.fromFeatureTag,
+      }),
+    ),
+  ]
+}
+
 /** Tags in lower case: Toolpath and the analysis spell a tag differently. */
 export const tagSet = (tags: Iterable<string>): Set<string> => new Set([...tags].map(tagKey))
 
@@ -81,14 +127,20 @@ interface ClassifiedPart {
   ignored?: ReadonlyArray<number>
 }
 
-/** The constraints view: the person's pins, by tag (lower case). The rest is open. */
+/**
+ * The constraints view: the person's pins, by tag (lower case). The rest is open. Its `features`
+ * are `planFeaturesOf` the latest plan with the pins, so a pinned trimmed feature owns its faces.
+ */
 export interface ConstraintsCoverage extends ClassifiedPart {
   pinned: ReadonlySet<string>
   /** One view at a time: never Toolpath's plan beside the pins. */
   machined?: never
 }
 
-/** The results view: what Toolpath's plan cuts, by tag (lower case). The rest is not machined. */
+/**
+ * The results view: what Toolpath's plan cuts, by tag (lower case). The rest is not machined. Its
+ * `features` are `planFeaturesOf` the plan, so a trimmed feature's faces are read as its tag's.
+ */
 export interface ResultsCoverage extends ClassifiedPart {
   machined: ReadonlySet<string>
   /** One view at a time: never the pins beside Toolpath's plan. */

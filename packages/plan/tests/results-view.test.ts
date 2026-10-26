@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { EnginePlan } from '../src/engine-plan'
-import type { DraftSetup } from '../src/plan-draft'
-import type { PlanPart } from '../src/plan-view'
+import { planFromResults, type DraftSetup } from '../src/plan-draft'
+import { planView, rowsOf, type PlanPart } from '../src/plan-view'
 import { resultsView, setupOf } from '../src/results-view'
 
 const up = { x: 0, y: 0, z: 1 }
@@ -38,6 +38,7 @@ const plan = (overrides: Partial<EnginePlan> = {}): EnginePlan => ({
     },
   ],
   setupPlan: null,
+  trimmedFeatures: [],
   ...overrides,
 })
 
@@ -181,6 +182,99 @@ describe('resultsView', () => {
     const [only] = resultsView({ plan: stated, constraints: null, part }).setups
     expect(only!.orientations.map((o) => o.direction)).toEqual([up, side])
     expect(only!.process).toBe('3+2')
+  })
+})
+
+describe('resultsView, with trimmed features', () => {
+  // The plan cuts a' (a trimmed by an ignored face) and t (trimmed, its origin unsaid).
+  const trimmedPlan = plan({
+    setups: [
+      {
+        idx: 0,
+        direction: up,
+        unmachined: [],
+        actions: [{ idx: 0, toolName: 'End mill', featureTags: ["A'", 'b', 'T'] }],
+      },
+    ],
+    trimmedFeatures: [
+      {
+        featureTag: "a'",
+        featureType: 'pocket',
+        machiningDirection: up,
+        regionIdxs: [1],
+        fromFeatureTag: 'a',
+      },
+      {
+        featureTag: 't',
+        featureType: 'open_pocket',
+        machiningDirection: up,
+        regionIdxs: [2],
+        fromFeatureTag: null,
+      },
+    ],
+  })
+
+  it('labels a trimmed row by its origin, else its type, and marks it trimmed', () => {
+    const [only] = resultsView({ plan: trimmedPlan, constraints: null, part }).setups
+    expect(
+      only!.rows.map(({ tag, label, type, trimmed }) => ({ tag, label, type, trimmed })),
+    ).toEqual([
+      { tag: "A'", label: 'Feature a (trimmed)', type: 'pocket', trimmed: true },
+      { tag: 'b', label: 'Feature b', type: 'pocket', trimmed: undefined },
+      { tag: 'T', label: 'Open pocket (trimmed)', type: 'open_pocket', trimmed: true },
+    ])
+  })
+
+  it('pins its trimmed rows from the plan where they were planned, as the others', () => {
+    let count = 0
+    const { setups } = resultsView({ plan: trimmedPlan, constraints: null, part })
+    expect(planFromResults(setups, () => `id-${(count += 1)}`)).toEqual([
+      { id: 'id-1', name: 'Folder 1', direction: up, features: ["A'", 'b', 'T'], folders: [] },
+    ])
+  })
+
+  it('labels and marks a trimmed tag only the unmachined list names', () => {
+    const left = plan({
+      setups: [{ idx: 0, direction: up, unmachined: ["X'"], actions: [] }],
+      trimmedFeatures: [
+        {
+          featureTag: "x'",
+          featureType: 'boss',
+          machiningDirection: up,
+          regionIdxs: [3],
+          fromFeatureTag: 'x',
+        },
+      ],
+    })
+    const [only] = resultsView({ plan: left, constraints: null, part }).setups
+    expect(only!.notMachined).toEqual([
+      { tag: "X'", label: 'Feature x (trimmed)', type: 'boss', trimmed: true },
+    ])
+    expect(only!.rows).toEqual([
+      {
+        tag: "X'",
+        label: 'Feature x (trimmed)',
+        type: 'boss',
+        trimmed: true,
+        tool: null,
+        mark: 'notMachined',
+      },
+    ])
+  })
+
+  it('reads a plan without trimmed features as before', () => {
+    const { setups, setupPlan } = plan()
+    const views = planView({ setups, setupPlan, trimmedFeatures: [] }, part)
+    // A plan read without the field at all lays out the same.
+    expect(planView({ setups, setupPlan }, part)).toEqual(views)
+    expect(views.flatMap(rowsOf).some((row) => 'trimmed' in row)).toBe(false)
+    expect(resultsView({ plan: plan(), constraints: null, part }).setups[0]!.rows[0]).toEqual({
+      tag: 'a',
+      label: 'Feature a',
+      type: 'pocket',
+      tool: 'Face mill, End mill',
+      mark: false,
+    })
   })
 })
 
