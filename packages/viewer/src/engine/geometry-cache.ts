@@ -57,7 +57,10 @@ export function createEngineGeometryCache(
     resource.lastAccess = ++accessSequence
   }
 
-  const evictReleasedResources = () => {
+  /** Resources a part has held at some point; see `retain`. */
+  const retained = new WeakSet<EngineGeometryResource>()
+
+  const evictReleasedResources = (onlyOnceRetained: boolean) => {
     while (resources.size > maximumEntries) {
       let oldest: [string, EngineGeometryResource] | undefined
       for (const entry of resources) {
@@ -65,6 +68,7 @@ export function createEngineGeometryCache(
         if (
           resource.status !== 'fulfilled' ||
           resource.references > 0 ||
+          (onlyOnceRetained && !retained.has(resource)) ||
           (oldest && oldest[1].lastAccess <= resource.lastAccess)
         ) {
           continue
@@ -138,16 +142,20 @@ export function createEngineGeometryCache(
     },
     retain(resource) {
       resource.references += 1
+      retained.add(resource)
       touch(resource)
       // A part opening is when a closed one's geometry is no longer worth
       // keeping: at a capacity of one, waiting for the next release would hold
       // a closed part's geometry for as long as the open one is on screen.
-      evictReleasedResources()
+      // Only geometry a part has held and let go: parts mounting together read
+      // theirs during the render and retain it one effect at a time, and one
+      // of them retaining first must not evict another's before it does.
+      evictReleasedResources(true)
     },
     release(resource) {
       resource.references = Math.max(0, resource.references - 1)
       touch(resource)
-      evictReleasedResources()
+      evictReleasedResources(false)
     },
     clear() {
       for (const resource of resources.values()) resource.geometry?.dispose()
