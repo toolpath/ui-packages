@@ -26,6 +26,13 @@ export type {
   ViewerToolbarControlsProps,
   ViewerToolbarProps,
 } from './viewer-toolbar.js'
+export { viewerToolGroups } from './viewer-tools.js'
+export type {
+  ViewerTool,
+  ViewerToolGroup,
+  ViewerToolGroupId,
+  ViewerToolGroupOptions,
+} from './viewer-tools.js'
 export { Stock } from './stock.js'
 export type { StockProps, StockSource, StockAppearanceProps } from './stock.js'
 export { Banana, BANANA_MODEL_URL } from './banana.js'
