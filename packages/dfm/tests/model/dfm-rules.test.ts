@@ -91,6 +91,13 @@ describe('editing a rule word by word', () => {
     expect(moved.metric).not.toBe('diameter')
   })
 
+  it('offers a circular wall a pass length, which its facts carry, and no floor fillet', () => {
+    const onto = (metric: string) =>
+      withSubject(rule({ metric, op: 'gte', value: 1 }), 'type:circular_wall', 'mm').metric
+    expect(onto('passLength')).toBe('passLength')
+    expect(onto('floorFillet')).not.toBe('floorFillet')
+  })
+
   it('starts a new rule at the metric’s round number in each unit', () => {
     expect(makeRule('any', 'depthBelowTop', 'mm').value).toBe(50)
     expect(makeRule('any', 'depthBelowTop', 'inch').value).toBe(50.8)

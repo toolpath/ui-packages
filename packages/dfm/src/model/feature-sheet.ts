@@ -56,6 +56,12 @@ export interface FeatureSheet {
   /** For a contour surface: only a ball end mill can finish it, not a bull nose. */
   ballOnly?: true
   /**
+   * For a circular wall — the outside of a whole cylinder: it rises from a
+   * floor, so it is machined as a boss, as a stud or round boss is, rather than
+   * as a wall, as a turned part's outline is.
+   */
+  standsOnAFloor?: true
+  /**
    * The feature's minimum clearance: the smallest of its pinch discs
    * (`pinchPoints`), the tolerance taken out, leaving out the zero-wide ones
    * a sharp corner reports. The widest tool that fits where it is tightest,
@@ -278,6 +284,7 @@ export const featureSheet = (datasheet: unknown): FeatureSheet => {
   fields.fitCornerRadius = asNumber(toolFit.cornerRadius)
   const ballOnly =
     (facts.useOnlyBallToolsForFinish ?? recordOf(facts.three).useOnlyBallToolsForFinish) === true
+  const standsOnAFloor = kind === 'CircularWall' && facts.standsOnAFloor === true
   const measured = Object.fromEntries(
     Object.entries(fields).filter(([, value]) => value !== undefined),
   ) as FeatureSheet
@@ -307,6 +314,7 @@ export const featureSheet = (datasheet: unknown): FeatureSheet => {
     ...(sharp ? { sharpCorners: pinchCentres(sheet.pinchPoints) } : {}),
     ...(cramped ? { noToolFits: true as const } : {}),
     ...(ballOnly ? { ballOnly: true as const } : {}),
+    ...(standsOnAFloor ? { standsOnAFloor: true as const } : {}),
     ...(threading ? { threading } : {}),
     ...(undercut ? { undercut } : {}),
   }

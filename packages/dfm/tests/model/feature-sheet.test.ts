@@ -145,6 +145,14 @@ describe('featureSheet: the figures the rules read', () => {
     const sheet = featureSheet({ facts: { kind: 'Face' } })
     expect(sheet).toEqual({ kind: 'Face' })
   })
+
+  it('says a circular wall stands on a floor where its facts do, and gives it no bore', () => {
+    const circular = (standsOnAFloor: boolean) => ({
+      facts: { kind: 'CircularWall', diameter: 8, standsOnAFloor },
+    })
+    expect(featureSheet(circular(true))).toEqual({ kind: 'CircularWall', standsOnAFloor: true })
+    expect(featureSheet(circular(false))).toEqual({ kind: 'CircularWall' })
+  })
 })
 
 describe('featureSheet: an undercut’s own figures', () => {

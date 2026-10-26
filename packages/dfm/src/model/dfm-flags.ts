@@ -54,6 +54,9 @@ const featureIs = (
 ): boolean => {
   const type = featureType.toLowerCase()
   const kind = sheet?.kind?.toLowerCase() ?? ''
+  // A circular wall standing on a floor is machined as a boss, so it is one and not a wall; any
+  // other, or one without a datasheet to say, is a wall, as its name reads.
+  const boss = sheet?.standsOnAFloor === true
   // One feature type exactly, as the report names it.
   if (subject.startsWith(TYPE_SUBJECT)) return type === subject.slice(TYPE_SUBJECT.length)
   switch (subject) {
@@ -77,7 +80,7 @@ const featureIs = (
       // Toolpath's `contour_surface`: freeform 3D surfacing, cut with a ball or bull nose.
       return type.includes('contour') || kind.includes('contour')
     case 'wall':
-      return type.includes('wall') || kind === 'wall'
+      return !boss && (type.includes('wall') || kind === 'wall')
     case 'face':
       return type === 'face' || kind === 'face'
     case 'fillet':
@@ -86,7 +89,7 @@ const featureIs = (
     case 'chamfer':
       return type.includes('chamfer') || kind === 'chamfer'
     case 'boss':
-      return type.includes('boss') || kind === 'boss'
+      return boss || type.includes('boss') || kind === 'boss'
     case 'countersink':
       return type === 'sink'
     case 'profile':

@@ -123,6 +123,19 @@ describe('groupFaces', () => {
     expect(groups.map((group) => group.tag)).toEqual(['hole'])
   })
 
+  // A stud or round boss read as a `boss` before the kernel reported `circular_wall`; a turned
+  // outline read as a `wall`. Standing on a floor or not, the type alone ranks it, with the bosses.
+  it('ranks a circular wall with the bosses, ahead of an edge or a wall among equals', () => {
+    const shapes: Array<CoverageFeature> = [
+      { tag: 'stud', featureType: 'circular_wall', regionIdxs: [6, 7] },
+      { tag: 'edge', featureType: 'chamfer', regionIdxs: [6, 8] },
+      { tag: 'side', featureType: 'wall', regionIdxs: [7, 9] },
+    ]
+    const first = (faces: Array<Face>) => groupFaces(faces, shapes).map((group) => group.tag)
+    expect(first([face(6, 3, ['edge', 'stud'])])).toEqual(['stud'])
+    expect(first([face(7, 2, ['side', 'stud'])])).toEqual(['stud'])
+  })
+
   it('lists features largest first, then the faces no feature includes, passing over unknown owners', () => {
     const groups = groupFaces(
       [

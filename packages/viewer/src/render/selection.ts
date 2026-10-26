@@ -17,7 +17,16 @@ import type { FeatureTag, FeatureType, PartModel, PartModelFeature, Vec3 } from 
  */
 export const FEATURE_TYPE_RANKS: readonly (readonly FeatureType[])[] = [
   ['blind_hole', 'through_hole', 'filleted_blind_hole'],
-  ['pocket', 'open_pocket', 'boss', 'filleted_boss', 'undercut_tslot', 'undercut_dovetail', 'sink'],
+  [
+    'pocket',
+    'open_pocket',
+    'boss',
+    'filleted_boss',
+    'circular_wall',
+    'undercut_tslot',
+    'undercut_dovetail',
+    'sink',
+  ],
   ['chamfer', 'inner_fillet', 'outer_fillet', 'contour_surface', 'slanted_face'],
   // Unrecognized types sit here, ahead of the bulk surfaces: `featureType` is
   // an open set, and a type a future kernel adds is far likelier to be a
