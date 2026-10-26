@@ -1,5 +1,5 @@
 import { hitFigure } from './dfm-explain.js'
-import type { DfmCheck, DfmHit } from './dfm-flags.js'
+import type { DfmCheck, DfmHit, RuleResult } from './dfm-flags.js'
 import { MILLING_RULES, type RuleVocabulary } from './dfm-metrics.js'
 import { compareColors, describeRule, type DfmRule } from './dfm-rules.js'
 import type { Units } from './units.js'
@@ -86,9 +86,14 @@ export const featureColor = (
   return byColor(check.hitsByTag.get(key) ?? [])[0]?.rule.color
 }
 
-/** A rule in the list, and whether it is quiet: the check is in, and nothing breaks it. */
+/**
+ * A rule in the list: its result from the check, when there is one, and
+ * whether it is quiet — the check is in, nothing breaks it, and it is not the
+ * rule just added. A view sinks quiet rules and dims them.
+ */
 export interface ListedRule {
   readonly rule: DfmRule
+  readonly result: RuleResult | null
   readonly quiet: boolean
 }
 
@@ -106,9 +111,9 @@ export const ruleListOrder = (
 ): ListedRule[] => {
   const byId = new Map(check?.byRule.map((result) => [result.rule.id, result]))
   const listed = rules.map((rule): ListedRule => {
-    const result = byId.get(rule.id)
+    const result = byId.get(rule.id) ?? null
     const found = (result?.tags.length ?? 0) + (result?.otherTags.length ?? 0) > 0
-    return { rule, quiet: check !== null && rule.id !== keep && !found }
+    return { rule, result, quiet: check !== null && rule.id !== keep && !found }
   })
   return [...listed.filter((each) => !each.quiet), ...listed.filter((each) => each.quiet)]
 }

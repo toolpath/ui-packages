@@ -13,7 +13,8 @@ entry), so non-DOM UIs can build the same views:
   end, and `takesNumber` for a measure with no number to compare. An `OpLabel` words each choice
   from its symbol, comparison and title, the title reading the same way as the symbol (a range's
   low end is `≤ at most`).
-- The rule list: `ruleListOrder`, and `importNote` and `importError` for what an import says.
+- The rule list: `ruleListOrder`, whose `ListedRule`s carry each rule's result and whether it is
+  quiet, and `importNote` and `importError` for what an import says.
 - The feature panel's comparison: `comparisonRows`, whose rows say what they read (`kind`, a
   `ComparisonRowKind`), and `faceLetter`.
 - The fold store moves here from `@toolpath/ui`: `storageFolds`, `FoldStore`, `FoldStorage` and

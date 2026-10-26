@@ -1,11 +1,11 @@
-import { useMemo, useState, type FC, type ReactElement } from 'react'
+import { useState, type FC, type ReactElement } from 'react'
 import { ScrollArea } from '../scroll-area'
 import {
   MILLING_RULES,
   PRESENCE_METRIC,
   makeRule,
   ruleListOrder,
-  type DfmRule,
+  type ListedRule,
 } from '@toolpath/dfm'
 import { listKeys } from './list-keys'
 import { NewRule } from './new-rule'
@@ -54,18 +54,15 @@ export const RuleList: FC<RuleListProps> = ({
       if (!next.delete(id)) next.add(id)
       return next
     })
-  const byId = useMemo(
-    () => new Map(check?.byRule.map((result) => [result.rule.id, result])),
-    [check],
-  )
   // Rules nothing breaks sink below the rest, dimmed and saying so; one just added stays put.
   const ordered = ruleListOrder(rules.rules, check, added)
-  const row = (rule: DfmRule): ReactElement => (
+  const row = ({ rule, result, quiet }: ListedRule): ReactElement => (
     <RuleRow
       key={rule.id}
       rule={rule}
-      result={byId.get(rule.id) ?? null}
+      result={result}
       checking={check === null}
+      quiet={quiet}
       open={openIds.has(rule.id)}
       focusOnMount={added === rule.id}
       onToggle={() => toggleOpen(rule.id)}
@@ -84,7 +81,7 @@ export const RuleList: FC<RuleListProps> = ({
     // Grows with its rules, and scrolls once the panel can grow no more.
     <ScrollArea className="min-h-0 flex-auto">
       <ul className="flex flex-col gap-0.5 pt-2 pr-4 pl-2">
-        {ordered.map(({ rule }) => row(rule))}
+        {ordered.map(row)}
         <NewRule
           vocabulary={vocabulary}
           onAdd={(subject) => {

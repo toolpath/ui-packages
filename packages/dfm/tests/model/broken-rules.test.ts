@@ -183,4 +183,12 @@ describe('ruleListOrder', () => {
   it('leaves a rule just added where it is', () => {
     expect(ids(ruleListOrder(rules, emptyCheck(), 'b'))).toEqual(['b', 'a quiet', 'c quiet'])
   })
+
+  it('hands each rule its result, or null before the check or without one', () => {
+    const result = { rule: rules[1]!, tags: ['f1'], otherTags: [] }
+    const listed = ruleListOrder(rules, emptyCheck({ byRule: [result] }))
+    expect(listed.find((each) => each.rule.id === 'b')?.result).toBe(result)
+    expect(listed.find((each) => each.rule.id === 'a')?.result).toBeNull()
+    expect(ruleListOrder(rules, null).every((each) => each.result === null)).toBe(true)
+  })
 })
