@@ -1,6 +1,7 @@
 import { EXCLUDE_FROM_FRAME } from './camera.js'
 import { regionEdgesGeometry } from './edges.js'
 import { DEFAULT_EXPLODE_THEME, type ExplodeTheme } from './explode-theme.js'
+import { buildPick, ignoreRay, type BuildPickInput } from './picking.js'
 import type { PartModel } from '../model/types.js'
 import {
   BatchedMesh,
@@ -12,22 +13,75 @@ import {
   Group,
   LineBasicMaterial,
   LineSegments,
+  Matrix3,
   Matrix4,
   Mesh,
   MeshLambertMaterial,
   Vector3,
   Uint32BufferAttribute,
+  type Intersection,
 } from 'three'
-import { explodeAmount, explodeTriangleCount, extractExplodeGroup } from './explode-geometry.js'
-import type { ExplodeGroup } from '../model/explode.js'
+import { explodeTriangleCount, extractExplodeGroup } from './explode-geometry.js'
+import { readExplodeAmount } from '../model/explode-amount.js'
+import type {
+  ExplodeGroup,
+  ExplodeGroupIds,
+  ExplodePick,
+  ExplodeRegionColors,
+} from '../model/explode.js'
 
-const ignoreRay = () => {}
+/** At or below this amount the part is assembled: pieces are hidden and nothing picks. */
+const ASSEMBLED = 0.0001
+/** Pieces and their outlines fade in over this first part of the explosion. */
+const FADE_IN = 0.1
+/** How far selection and hover tint a piece toward their theme colors. */
+const SELECTED_TINT = 0.45
+const HOVERED_TINT = 0.25
+/** How far the source highlight lightens its theme color toward white. */
+const SOURCE_LIGHTEN = 0.45
+
 const WHITE = new Color(0xffffff)
-const idsOf = (value: string | ReadonlyArray<string> | null) =>
+// Pieces and their source highlight draw alike: one pass over both sides, behind outlines.
+const SURFACE_MATERIAL = {
+  emissive: DEFAULT_EXPLODE_THEME.emissive,
+  side: DoubleSide,
+  forceSinglePass: true,
+  transparent: true,
+  polygonOffset: true,
+  polygonOffsetFactor: 1,
+  polygonOffsetUnits: 1,
+} as const
+
+const idsOf = (value: ExplodeGroupIds) =>
   value === null ? [] : typeof value === 'string' ? [value] : value
 
-/** One surface batch and one outline draw, with feature identities kept outside GPU batching. */
-export const createExplodeBatch = (
+/** Paint, selection, and hover for one `setAppearance` call; omitted fields mean none. */
+interface ExplodeAppearance {
+  readonly colors?: ReadonlyMap<string, number>
+  readonly regionColors?: ExplodeRegionColors
+  readonly selected?: ExplodeGroupIds
+  readonly hovered?: ExplodeGroupIds
+  readonly theme?: ExplodeTheme
+}
+
+/** The pointer details a pick reports beyond the hit itself. */
+type ExplodePickContext = Omit<
+  BuildPickInput,
+  'model' | 'region' | 'triangleIndex' | 'point' | 'normal'
+>
+
+/** Overlays draw only for a selection; the pointer and framing pass through them. */
+const overlay = <T extends Mesh | LineSegments>(object: T, renderOrder = 0): T => {
+  object.visible = false
+  object.renderOrder = renderOrder
+  object.frustumCulled = false
+  object.raycast = ignoreRay
+  object.userData[EXCLUDE_FROM_FRAME] = true
+  return object
+}
+
+/** Every piece's surfaces in one batch, each mapped back to its source triangles. */
+const buildSurfaces = (
   model: PartModel,
   geometry: BufferGeometry,
   groups: readonly ExplodeGroup[],
@@ -37,14 +91,9 @@ export const createExplodeBatch = (
     throw new Error('An explode batch needs at least one group.')
   }
   const material = new MeshLambertMaterial({
+    ...SURFACE_MATERIAL,
     color: 0xffffff,
-    emissive: DEFAULT_EXPLODE_THEME.emissive,
-    side: DoubleSide,
-    forceSinglePass: true,
-    transparent: true,
-    polygonOffset: true,
-    polygonOffsetFactor: 1,
-    polygonOffsetUnits: 1,
+    vertexColors: true,
   })
   const mesh = new BatchedMesh(groups.length, triangles * 3, 0, material)
   mesh.name = 'explode-surfaces'
@@ -54,10 +103,9 @@ export const createExplodeBatch = (
   // and per-instance colors. Keep the published peer floor: only the color storage
   // changes there, using the same shared geometry and matrix/raycast APIs.
   const instanceColors = typeof mesh.setColorAt === 'function'
-  material.vertexColors = true
+  const edgePoints: Array<Float32Array> = []
   let vertexStart = 0
-  const edgeArrays: Array<Float32Array> = []
-  let edgeVertices = 0
+  let edgeStart = 0
   const pieces = groups.map((group) => {
     const extracted = extractExplodeGroup(model, geometry, group)
     const edges = regionEdgesGeometry(extracted.geometry, extracted)
@@ -78,9 +126,7 @@ export const createExplodeBatch = (
       count: (region.triangles.end - region.triangles.start) * 3,
     }))
     vertexStart += vertexCount
-    const edgeStart = edgeVertices
-    edgeVertices += points.length / 3
-    edgeArrays.push(points)
+    edgePoints.push(points)
     extracted.geometry.computeBoundingBox()
     const piece = {
       group,
@@ -93,34 +139,45 @@ export const createExplodeBatch = (
       edgeStart,
       edgeCount: points.length / 3,
     }
+    edgeStart += piece.edgeCount
     // BatchedMesh copied these attributes into its shared buffers.
     extracted.geometry.dispose()
     edges.dispose()
     return piece
   })
-  const byId = new Map(pieces.map((piece) => [piece.group.id, piece]))
+  return { mesh, material, instanceColors, pieces, edgePoints, triangles, edgeVertices: edgeStart }
+}
+
+type Piece = ReturnType<typeof buildSurfaces>['pieces'][number]
+
+/** Every piece's outline in one draw, translated on the GPU by the explosion amount. */
+const buildOutlines = (
+  pieces: ReadonlyArray<Piece>,
+  edgePoints: ReadonlyArray<Float32Array>,
+  edgeVertices: number,
+) => {
   const positions = new Float32Array(edgeVertices * 3)
   const offsets = new Float32Array(edgeVertices * 3)
   for (const [index, piece] of pieces.entries()) {
-    positions.set(edgeArrays[index]!, piece.edgeStart * 3)
+    positions.set(edgePoints[index]!, piece.edgeStart * 3)
     for (let vertex = piece.edgeStart; vertex < piece.edgeStart + piece.edgeCount; vertex += 1) {
       offsets[vertex * 3] = piece.group.offset.x
       offsets[vertex * 3 + 1] = piece.group.offset.y
       offsets[vertex * 3 + 2] = piece.group.offset.z
     }
   }
-  const edgeGeometry = new BufferGeometry()
-  edgeGeometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
-  edgeGeometry.setAttribute('aExplodeOffset', new Float32BufferAttribute(offsets, 3))
-  edgeGeometry.boundingBox = new Box3()
-  const amountUniform = { value: 0 }
-  const edgeMaterial = new LineBasicMaterial({
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
+  geometry.setAttribute('aExplodeOffset', new Float32BufferAttribute(offsets, 3))
+  geometry.boundingBox = new Box3()
+  const amount = { value: 0 }
+  const material = new LineBasicMaterial({
     color: DEFAULT_EXPLODE_THEME.edge,
     transparent: true,
     depthWrite: false,
   })
-  edgeMaterial.onBeforeCompile = (shader) => {
-    shader.uniforms.uExplodeAmount = amountUniform
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uExplodeAmount = amount
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -131,92 +188,105 @@ export const createExplodeBatch = (
         '#include <begin_vertex>\ntransformed += aExplodeOffset * uExplodeAmount;',
       )
   }
-  const edges = new LineSegments(edgeGeometry, edgeMaterial)
-  edges.name = 'explode-edges'
-  edges.renderOrder = 4
-  edges.frustumCulled = false
-  edges.raycast = ignoreRay
+  const outlines = new LineSegments(geometry, material)
+  outlines.name = 'explode-edges'
+  outlines.renderOrder = 4
+  outlines.frustumCulled = false
+  outlines.raycast = ignoreRay
+  return { outlines, amount }
+}
 
-  // The source highlight shares the batch's immutable vertex buffers. Changing
-  // selection changes draw ranges, not geometry, materials, or shader programs.
-  const originGeometry = new BufferGeometry()
-  originGeometry.setAttribute('position', mesh.geometry.getAttribute('position'))
-  originGeometry.setAttribute('normal', mesh.geometry.getAttribute('normal'))
-  originGeometry.setIndex(new Uint32BufferAttribute(new Uint32Array(triangles * 3), 1))
-  originGeometry.setDrawRange(0, 0)
-  const originMaterial = new MeshLambertMaterial({
-    color: new Color(DEFAULT_EXPLODE_THEME.source).lerp(WHITE, 0.45),
-    emissive: DEFAULT_EXPLODE_THEME.emissive,
-    side: DoubleSide,
-    transparent: true,
-    forceSinglePass: true,
-    polygonOffset: true,
-    polygonOffsetFactor: 1,
-    polygonOffsetUnits: 1,
+/**
+ * The selected pieces' surfaces where they sit in the assembled part. Shares the
+ * batch's immutable vertex buffers: changing selection changes draw ranges, not
+ * geometry, materials, or shader programs.
+ */
+const buildSourceSurfaces = (surfaces: BatchedMesh, triangles: number) => {
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', surfaces.geometry.getAttribute('position'))
+  geometry.setAttribute('normal', surfaces.geometry.getAttribute('normal'))
+  geometry.setIndex(new Uint32BufferAttribute(new Uint32Array(triangles * 3), 1))
+  geometry.setDrawRange(0, 0)
+  const material = new MeshLambertMaterial({
+    ...SURFACE_MATERIAL,
+    color: new Color(DEFAULT_EXPLODE_THEME.source).lerp(WHITE, SOURCE_LIGHTEN),
   })
-  const origin = new Mesh(originGeometry, originMaterial)
-  origin.name = 'explode-origin'
-  origin.visible = false
-  origin.renderOrder = 3
-  origin.frustumCulled = false
-  origin.raycast = ignoreRay
-  origin.userData[EXCLUDE_FROM_FRAME] = true
-  const originEdgesGeometry = new BufferGeometry()
-  originEdgesGeometry.setAttribute('position', edgeGeometry.getAttribute('position'))
-  originEdgesGeometry.setIndex(new Uint32BufferAttribute(new Uint32Array(edgeVertices), 1))
-  originEdgesGeometry.setDrawRange(0, 0)
-  const originEdgesMaterial = new LineBasicMaterial({
+  const source = overlay(new Mesh(geometry, material), 3)
+  source.name = 'explode-origin'
+  return source
+}
+
+/** The selected pieces' outlines where they sit in the assembled part. */
+const buildSourceOutlines = (outlines: BufferGeometry, edgeVertices: number) => {
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', outlines.getAttribute('position'))
+  geometry.setIndex(new Uint32BufferAttribute(new Uint32Array(edgeVertices), 1))
+  geometry.setDrawRange(0, 0)
+  const material = new LineBasicMaterial({
     color: DEFAULT_EXPLODE_THEME.edge,
     transparent: true,
     opacity: DEFAULT_EXPLODE_THEME.edgeOpacity,
   })
-  const originEdges = new LineSegments(originEdgesGeometry, originEdgesMaterial)
-  originEdges.visible = false
-  originEdges.renderOrder = 4
-  originEdges.frustumCulled = false
-  originEdges.raycast = ignoreRay
-  originEdges.userData[EXCLUDE_FROM_FRAME] = true
-  const connectorGeometry = new BufferGeometry()
-  connectorGeometry.setAttribute('position', new Float32BufferAttribute(new Float32Array(6), 3))
-  const connectorMaterial = new LineBasicMaterial({
+  return overlay(new LineSegments(geometry, material), 4)
+}
+
+/** One line from the selection's source to where its pieces sit now. */
+const buildConnector = () => {
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', new Float32BufferAttribute(new Float32Array(6), 3))
+  const material = new LineBasicMaterial({
     transparent: true,
     opacity: 0.85,
     depthWrite: false,
   })
-  const connector = new LineSegments(connectorGeometry, connectorMaterial)
-  connector.visible = false
-  connector.frustumCulled = false
-  connector.raycast = ignoreRay
-  connector.userData[EXCLUDE_FROM_FRAME] = true
+  return overlay(new LineSegments(geometry, material))
+}
+
+/** One surface batch and one outline draw, with feature identities kept outside GPU batching. */
+export const createExplodeBatch = (
+  model: PartModel,
+  geometry: BufferGeometry,
+  groups: readonly ExplodeGroup[],
+) => {
+  const { mesh, material, instanceColors, pieces, edgePoints, triangles, edgeVertices } =
+    buildSurfaces(model, geometry, groups)
+  const { outlines, amount: amountUniform } = buildOutlines(pieces, edgePoints, edgeVertices)
+  const source = buildSourceSurfaces(mesh, triangles)
+  const sourceOutlines = buildSourceOutlines(outlines.geometry, edgeVertices)
+  const connector = buildConnector()
   const object = new Group()
-  object.add(mesh, edges, origin, originEdges, connector)
+  object.add(mesh, outlines, source, sourceOutlines, connector)
+  const byId = new Map(pieces.map((piece) => [piece.group.id, piece]))
   const matrix = new Matrix4()
+  const inverse = new Matrix4()
+  const normalMatrix = new Matrix3()
   const color = new Color()
-  const selectedColor = new Color()
   const highlightColor = new Color()
-  let theme = DEFAULT_EXPLODE_THEME
-  let selectedPieces: typeof pieces = []
   const sourceBounds = new Box3()
   const placedBounds = new Box3()
   const movedBounds = new Box3()
   const point = new Vector3()
+  const modelPoint = new Vector3()
+  const normal = new Vector3()
+  let theme = DEFAULT_EXPLODE_THEME
+  let selectedPieces: typeof pieces = []
   let amount = -1
   let previousColors: ReadonlyMap<string, number> | undefined
-  let previousRegionColors: ReadonlyMap<string, ReadonlyMap<number, number>> | undefined
-  let previousSelected: string | ReadonlyArray<string> | null | undefined
-  let previousHovered: string | ReadonlyArray<string> | null | undefined
+  let previousRegionColors: ExplodeRegionColors | undefined
+  let previousSelected: ExplodeGroupIds | undefined
+  let previousHovered: ExplodeGroupIds | undefined
   let previousSelectedIds = new Set<string>()
   let previousHoveredIds = new Set<string>()
   let appearanceSet = false
   const syncConnector = () => {
-    const visible = selectedPieces.length > 0 && amount > 0.0001
-    origin.visible = visible
-    originEdges.visible = visible
+    const visible = selectedPieces.length > 0 && amount > ASSEMBLED
+    source.visible = visible
+    sourceOutlines.visible = visible
     connector.visible = visible
     if (selectedPieces.length === 0) {
       return
     }
-    const points = connectorGeometry.getAttribute('position')
+    const points = connector.geometry.getAttribute('position')
     sourceBounds.getCenter(point)
     points.setXYZ(0, point.x, point.y, point.z)
     placedBounds.makeEmpty()
@@ -229,27 +299,65 @@ export const createExplodeBatch = (
     points.setXYZ(1, point.x, point.y, point.z)
     points.needsUpdate = true
   }
+  const hit = (batchId: number | undefined, faceIndex: number | undefined) => {
+    if (batchId === undefined || faceIndex === undefined) {
+      return null
+    }
+    const piece = pieces[batchId]
+    const local = piece ? faceIndex - piece.range.start / 3 : -1
+    return piece && local >= 0 && local < piece.sourceTriangles.length
+      ? { group: piece.group, triangleIndex: piece.sourceTriangles[local]! }
+      : null
+  }
   return {
     object,
     mesh,
     pieces,
-    hit: (batchId: number | undefined, faceIndex: number | undefined) => {
-      if (batchId === undefined || faceIndex === undefined) {
+    hit,
+    /** A ray hit on the batch as a pick of its source surface, with the hit's unexploded point. */
+    pick: (
+      intersection: Pick<Intersection, 'batchId' | 'faceIndex' | 'face' | 'point'>,
+      context: ExplodePickContext = {},
+    ): ExplodePick | null => {
+      const { face } = intersection
+      if (amount <= ASSEMBLED || !face) {
         return null
       }
-      const piece = pieces[batchId]
-      const local = piece ? faceIndex - piece.range.start / 3 : -1
-      return piece && local >= 0 && local < piece.sourceTriangles.length
-        ? { group: piece.group, triangleIndex: piece.sourceTriangles[local]! }
-        : null
+      const found = hit(intersection.batchId, intersection.faceIndex ?? undefined)
+      if (!found) {
+        return null
+      }
+      const region = model.regionIndex.regionForTriangle(found.triangleIndex)
+      if (region === null) {
+        return null
+      }
+      // Instances only translate, so the batch's world matrix alone turns the normal.
+      normal.copy(face.normal).applyNormalMatrix(normalMatrix.getNormalMatrix(mesh.matrixWorld))
+      const { offset } = found.group
+      modelPoint.copy(intersection.point).applyMatrix4(inverse.copy(mesh.matrixWorld).invert())
+      modelPoint.x -= offset.x * amount
+      modelPoint.y -= offset.y * amount
+      modelPoint.z -= offset.z * amount
+      return {
+        ...buildPick({
+          ...context,
+          model,
+          region,
+          triangleIndex: found.triangleIndex,
+          point: intersection.point.toArray(),
+          normal: normal.toArray(),
+        }),
+        explodeGroupId: found.group.id,
+        modelPoint: modelPoint.toArray(),
+      }
     },
-    setAppearance: (
-      colors: ReadonlyMap<string, number> | undefined,
-      selected: string | ReadonlyArray<string> | null,
-      hovered: string | ReadonlyArray<string> | null,
-      nextTheme: ExplodeTheme = DEFAULT_EXPLODE_THEME,
-      regionColors?: ReadonlyMap<string, ReadonlyMap<number, number>>,
-    ) => {
+    setAppearance: ({
+      colors,
+      regionColors,
+      selected = null,
+      hovered = null,
+      theme: nextTheme = DEFAULT_EXPLODE_THEME,
+    }: ExplodeAppearance) => {
       const themeChanged = theme !== nextTheme
       if (
         appearanceSet &&
@@ -264,12 +372,12 @@ export const createExplodeBatch = (
       if (themeChanged) {
         theme = nextTheme
         material.emissive.setHex(theme.emissive)
-        originMaterial.emissive.setHex(theme.emissive)
-        originMaterial.color.setHex(theme.source).lerp(WHITE, 0.45)
-        edgeMaterial.color.setHex(theme.edge)
-        edgeMaterial.opacity = theme.edgeOpacity * Math.min(1, Math.max(0, amount) / 0.1)
-        originEdgesMaterial.color.setHex(theme.edge)
-        originEdgesMaterial.opacity = theme.edgeOpacity
+        source.material.emissive.setHex(theme.emissive)
+        source.material.color.setHex(theme.source).lerp(WHITE, SOURCE_LIGHTEN)
+        outlines.material.color.setHex(theme.edge)
+        outlines.material.opacity = theme.edgeOpacity * Math.min(1, Math.max(0, amount) / FADE_IN)
+        sourceOutlines.material.color.setHex(theme.edge)
+        sourceOutlines.material.opacity = theme.edgeOpacity
       }
       const selectedIds = new Set(idsOf(selected))
       const hoveredIds = new Set(idsOf(hovered))
@@ -291,7 +399,7 @@ export const createExplodeBatch = (
         const regions = regionColors?.get(id)
         const perVertex = !instanceColors || Boolean(regions?.size)
         highlightColor.setHex(selectedIds.has(id) ? theme.selected : theme.hovered)
-        const tint = selectedIds.has(id) ? 0.45 : hoveredIds.has(id) ? 0.25 : 0
+        const tint = selectedIds.has(id) ? SELECTED_TINT : hoveredIds.has(id) ? HOVERED_TINT : 0
         const vertices = mesh.geometry.getAttribute('color')
         if (perVertex || previousRegionColors?.get(id)?.size) {
           for (const region of piece.regions) {
@@ -328,8 +436,8 @@ export const createExplodeBatch = (
         sourceBounds.makeEmpty()
         let vertices = 0
         let edgeVertices = 0
-        const indices = originGeometry.index!
-        const edgeIndices = originEdgesGeometry.index!
+        const indices = source.geometry.index!
+        const edgeIndices = sourceOutlines.geometry.index!
         for (const piece of selectedPieces) {
           sourceBounds.union(piece.bounds)
           for (let i = 0; i < piece.range.count; i += 1) {
@@ -341,30 +449,29 @@ export const createExplodeBatch = (
         }
         indices.needsUpdate = true
         edgeIndices.needsUpdate = true
-        originGeometry.setDrawRange(0, vertices)
-        originEdgesGeometry.setDrawRange(0, edgeVertices)
+        source.geometry.setDrawRange(0, vertices)
+        sourceOutlines.geometry.setDrawRange(0, edgeVertices)
       }
       const first = selectedPieces[0]
       if (first) {
-        selectedColor.setHex(colors?.get(first.group.id) ?? first.group.color)
-        connectorMaterial.color.copy(selectedColor)
+        connector.material.color.setHex(colors?.get(first.group.id) ?? first.group.color)
       }
       syncConnector()
     },
     setAmount: (next: number) => {
-      next = explodeAmount(next)
+      next = readExplodeAmount(next)
       if (next === amount) {
         return
       }
       amount = next
-      const fade = Math.min(1, amount / 0.1)
+      const fade = Math.min(1, amount / FADE_IN)
       // Keep one shader variant throughout the fade. Single-pass double-sided
       // rendering avoids a second draw without compiling another program mid-motion.
       material.depthWrite = fade === 1
       material.opacity = fade
-      mesh.visible = amount > 0.0001
-      edges.visible = mesh.visible
-      edgeMaterial.opacity = theme.edgeOpacity * fade
+      mesh.visible = amount > ASSEMBLED
+      outlines.visible = mesh.visible
+      outlines.material.opacity = theme.edgeOpacity * fade
       amountUniform.value = amount
       for (const piece of pieces) {
         const offset = piece.group.offset
@@ -372,21 +479,17 @@ export const createExplodeBatch = (
         mesh.setMatrixAt(piece.instanceId, matrix)
       }
       mesh.computeBoundingBox()
-      edgeGeometry.boundingBox!.copy(mesh.boundingBox!)
+      outlines.geometry.boundingBox!.copy(mesh.boundingBox!)
       syncConnector()
     },
     dispose: () => {
       object.clear()
       mesh.dispose()
       material.dispose()
-      edgeGeometry.dispose()
-      edgeMaterial.dispose()
-      originGeometry.dispose()
-      originMaterial.dispose()
-      originEdgesGeometry.dispose()
-      originEdgesMaterial.dispose()
-      connectorGeometry.dispose()
-      connectorMaterial.dispose()
+      for (const drawn of [outlines, source, sourceOutlines, connector]) {
+        drawn.geometry.dispose()
+        drawn.material.dispose()
+      }
     },
   }
 }

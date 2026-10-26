@@ -398,8 +398,8 @@ or establish that an unpainted face is impossible to machine.
 ### `<ExplodedPart>`
 
 Renders application-defined surface pieces inside `<Viewer>` or an R3F canvas. Import
-`ExplodedPart`, `ExplodedPartProps`, `ExplodeGroup`, `ExplodeInput`, `ExplodePick`,
-`createExplodeAmount`, and `ExplodeAmount` from
+`ExplodedPart`, `ExplodedPartProps`, `ExplodeGroup`, `ExplodeGroupIds`, `ExplodeInput`,
+`ExplodePick`, `ExplodeRegionColors`, `createExplodeAmount`, and `ExplodeAmount` from
 `@toolpath/viewer`. Version 2.5.0 does not contain these exports.
 
 The application supplies the pieces and their translations. The renderer neither selects
@@ -470,8 +470,8 @@ the camera. Fit and Reset remain explicit.
 
 Keep the `groups` array stable across amount, selection, and color changes. An optional
 `explode.colors: ReadonlyMap<string, number>` changes colors by group ID without rebuilding
-the layout. Optional `explode.regionColors: ReadonlyMap<string, ReadonlyMap<number, number>>`
-sets colors by group ID and source region index, overriding that group's color. The same
+the layout. Optional `explode.regionColors: ExplodeRegionColors` (a
+`ReadonlyMap<string, ReadonlyMap<number, number>>`) sets colors by group ID and source region index, overriding that group's color. The same
 source region may have different colors in different groups. Regions without an override use
 `explode.colors` or the group's own color; selection and hover tint all of a group's surfaces.
 Replace color maps when changing paint. Unknown group/region keys are ignored. Color changes
@@ -486,7 +486,7 @@ earlier supported Three.js releases.
 Pass `theme?: Partial<ViewerTheme>` to match the surrounding application. `part` colors
 the source ghost, `partEmissive` sets emissive lighting, and `edge`/`edgeOpacity` control
 the outlines (the ghost outline fades further with the explosion). `highlight` tints the
-selected piece and its source surfaces; `hover` tints the hovered piece. Group colors and
+selected piece, `picked` colors its source surfaces, and `hover` tints the hovered piece. Group colors and
 `explode.colors` remain application-owned. Omit the theme to retain the default explode
 appearance. Theme changes update materials and colors in place without rebuilding geometry,
 changing selection, warming shaders again, or moving the camera.
@@ -499,7 +499,8 @@ translated bounds. `onPick` and `onHover` return an `ExplodePick`:
 the usual source `region` and `triangleIndex`, the application's `explodeGroupId`, the displayed
 world-space `point`/`normal`, and `modelPoint` in the original geometry's frame. Region owners
 and the default ranked feature remain available as `PartPick` fields; applications can use
-the group ID to supply their own metadata. Hidden groups and source overlays do not accept picks.
+the group ID to supply their own metadata. Pass `activeDirection`, as on `<PartMesh>`, to rank
+those owners for one machining direction. Hidden groups and source overlays do not accept picks.
 
 At stationary zero, the example gives rendering and picking back to its ordinary `PartMesh`.
 That assembled/exploded mode switch and its toolbar are application UI. The example's candidate

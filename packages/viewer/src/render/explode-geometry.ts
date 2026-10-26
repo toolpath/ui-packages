@@ -39,9 +39,6 @@ export const explodeTriangleCount = (
   return triangles
 }
 
-/** Amount is a fraction of the supplied translations, never inferred from the model. */
-export { readExplodeAmount as explodeAmount } from '../model/explode-amount.js'
-
 /** Compact geometry for one copy, with an explicit map back to report triangle identities. */
 export const extractExplodeGroup = (
   source: Pick<PartModel, 'regions'>,

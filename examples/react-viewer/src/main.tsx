@@ -928,6 +928,7 @@ const App = () => {
                 explode={explode.input}
                 selected={explode.selected}
                 hovered={explode.hovered}
+                activeDirection={showDirections ? direction : null}
                 visible={explode.visible}
                 onReady={explode.onPrepared}
                 onPick={(pick) => {

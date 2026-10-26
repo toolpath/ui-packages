@@ -116,6 +116,7 @@ const App = () => {
                       edgeOpacity: 0.6,
                       highlight: 0x0284c7,
                       hover: 0xd97706,
+                      picked: 0x16a34a,
                     }
                   : undefined
               }

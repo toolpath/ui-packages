@@ -1,13 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
-import { buildPick } from './render/picking.js'
+import { ignoreRay, viewDirection } from './render/picking.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
 import { regionEdgesGeometry } from './render/edges.js'
 import { useTapGuard } from './tap.js'
 import type { PartModel } from './model/types.js'
 import {
   DoubleSide,
-  Matrix3,
   Vector4,
   type BufferGeometry,
   type Group,
@@ -16,9 +15,9 @@ import {
   type Object3D,
 } from 'three'
 import { createExplodeBatch } from './render/explode.js'
-import { explodeAmount } from './render/explode-geometry.js'
-import type { ExplodeInput, ExplodePick } from './model/explode.js'
-import { resolveExplodeTheme, type ExplodeTheme } from './render/explode-theme.js'
+import { readExplodeAmount } from './model/explode-amount.js'
+import type { ExplodeGroupIds, ExplodeInput, ExplodePick } from './model/explode.js'
+import { edgeOpacityScale, resolveExplodeTheme, type ExplodeTheme } from './render/explode-theme.js'
 import type { ViewerTheme } from './render/theme.js'
 
 export interface ExplodedPartProps {
@@ -28,9 +27,14 @@ export interface ExplodedPartProps {
   /** Controlled layout and appearance; application metadata stays outside the renderer. */
   explode: ExplodeInput
   /** Application-owned group IDs; independent of feature tags and API feature IDs. */
-  selected?: string | ReadonlyArray<string> | null
-  hovered?: string | ReadonlyArray<string> | null
-  /** Part/edge colors, emissive, edge opacity, and selection/hover tints. */
+  selected?: ExplodeGroupIds
+  hovered?: ExplodeGroupIds
+  /**
+   * Scopes a pick's ranked owners to one machining direction, as an index into
+   * the model's `candidateDirections`, as `<PartMesh activeDirection>` does.
+   */
+  activeDirection?: number | null
+  /** Part/edge colors, emissive, edge opacity, selection/hover tints, and `picked` source surfaces. */
   theme?: Partial<ViewerTheme>
   /** False hides rendering, picking, and framing while retaining prepared buffers. Default true. */
   visible?: boolean
@@ -40,7 +44,8 @@ export interface ExplodedPartProps {
   onHover?: (pick: ExplodePick | null) => void
 }
 
-const ignoreRay = () => {}
+/** The ghost fades out over this first part of the explosion. */
+const GHOST_FADE = 0.18
 
 const Ghost = ({
   model,
@@ -59,13 +64,13 @@ const Ghost = ({
     if (!visible) {
       return
     }
-    const fade = Math.min(1, explodeAmount(explode.amount) / 0.18)
+    const fade = Math.min(1, readExplodeAmount(explode.amount) / GHOST_FADE)
     if (material.current) {
       material.current.opacity = 1 - 0.88 * fade
       material.current.depthWrite = fade === 0
     }
     if (outline.current) {
-      outline.current.opacity = ((0.7 - 0.46 * fade) * appearance.edgeOpacity) / 0.9
+      outline.current.opacity = (0.7 - 0.46 * fade) * edgeOpacityScale(appearance)
     }
   }, -1)
   return (
@@ -87,7 +92,7 @@ const Ghost = ({
           ref={outline}
           color={appearance.ghostEdge}
           transparent
-          opacity={(0.24 * appearance.edgeOpacity) / 0.9}
+          opacity={0.24 * edgeOpacityScale(appearance)}
           depthWrite={false}
         />
       </lineSegments>
@@ -101,6 +106,7 @@ const Pieces = ({
   explode,
   selected = null,
   hovered = null,
+  activeDirection = null,
   visible = true,
   appearance,
   onReady,
@@ -132,8 +138,14 @@ const Pieces = ({
     }
   }, [geometry, groups, invalidate, model])
   useLayoutEffect(() => {
-    resources.current?.setAppearance(colors, selected, hovered, appearance, regionColors)
-    resources.current?.setAmount(explodeAmount(explode.amount))
+    resources.current?.setAppearance({
+      colors,
+      regionColors,
+      selected,
+      hovered,
+      theme: appearance,
+    })
+    resources.current?.setAmount(readExplodeAmount(explode.amount))
     invalidate()
   }, [
     appearance,
@@ -186,40 +198,16 @@ const Pieces = ({
   }, [camera, geometry, gl, groups, invalidate, model, scene])
   useFrame(() => {
     if (visible) {
-      resources.current?.setAmount(explodeAmount(explode.amount))
+      resources.current?.setAmount(readExplodeAmount(explode.amount))
     }
   }, -1)
 
   const pick = (event: ThreeEvent<PointerEvent | MouseEvent>): ExplodePick | null => {
-    const amount = explodeAmount(explode.amount)
-    if (amount <= 0.0001 || !event.face) {
-      return null
-    }
-    const hit = resources.current?.hit(event.batchId, event.faceIndex ?? undefined)
-    if (!hit) {
-      return null
-    }
-    const region = model.regionIndex.regionForTriangle(hit.triangleIndex)
-    if (region === null) {
-      return null
-    }
-    const modelPoint = event.point.clone().applyMatrix4(event.object.matrixWorld.clone().invert())
-    modelPoint.x -= hit.group.offset.x * amount
-    modelPoint.y -= hit.group.offset.y * amount
-    modelPoint.z -= hit.group.offset.z * amount
-    const normal = event.face.normal
-      .clone()
-      .applyNormalMatrix(new Matrix3().getNormalMatrix(event.object.matrixWorld))
-    const view = camera.position.clone().sub(event.point).normalize()
     const source = event.nativeEvent
-    return {
-      ...buildPick({
-        model,
-        region,
-        triangleIndex: hit.triangleIndex,
-        point: event.point.toArray(),
-        normal: normal.toArray(),
-        viewDirection: view,
+    return (
+      resources.current?.pick(event, {
+        activeDirection,
+        viewDirection: viewDirection(camera, event.point),
         pointer: { clientX: source.clientX, clientY: source.clientY },
         modifiers: {
           alt: source.altKey,
@@ -228,11 +216,9 @@ const Pieces = ({
           shift: source.shiftKey,
           secondary: source.button === 2,
         },
-        doubled: event.nativeEvent.detail === 2,
-      }),
-      explodeGroupId: hit.group.id,
-      modelPoint: modelPoint.toArray(),
-    }
+        doubled: source.detail === 2,
+      }) ?? null
+    )
   }
   return (
     <group
@@ -268,11 +254,11 @@ const Pieces = ({
 
 /** GPU batching preserves each piece's pick map, source highlight, and connector. */
 export const ExplodedPart = (props: ExplodedPartProps) => {
-  const { part, partEmissive, edge, edgeOpacity, highlight, hover } = props.theme ?? {}
+  const { part, partEmissive, edge, edgeOpacity, highlight, hover, picked } = props.theme ?? {}
   // Inline theme objects must not repaint the batch when their colors are unchanged.
   const appearance = useMemo(
-    () => resolveExplodeTheme({ part, partEmissive, edge, edgeOpacity, highlight, hover }),
-    [part, partEmissive, edge, edgeOpacity, highlight, hover],
+    () => resolveExplodeTheme({ part, partEmissive, edge, edgeOpacity, highlight, hover, picked }),
+    [part, partEmissive, edge, edgeOpacity, highlight, hover, picked],
   )
   const invalidate = useThree((state) => state.invalidate)
   const amount = props.explode.amount

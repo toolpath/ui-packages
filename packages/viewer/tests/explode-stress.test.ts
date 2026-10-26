@@ -43,7 +43,7 @@ it.skipIf(!sampleDir)(
         }
       }
     }
-    batch.setAppearance(undefined, null, null)
+    batch.setAppearance({})
     batch.setAmount(0.5)
     expect(mappingsMatch).toBe(true)
     expect(copiesMatch).toBe(true)

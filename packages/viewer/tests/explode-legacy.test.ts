@@ -33,7 +33,7 @@ it('keeps separate identities, translations, and colors on the earlier batching 
     { id: 'two', regionIdxs: [region], offset: { x: -15, y: 0, z: 0 }, color: 0xa78bfa },
   ]
   const batch = createExplodeBatch(model, geometry, groups)
-  batch.setAppearance(undefined, 'two', null)
+  batch.setAppearance({ selected: 'two' })
   batch.setAmount(0.5)
   expect(batch.pieces).toHaveLength(2)
   for (const piece of batch.pieces) {
@@ -55,7 +55,7 @@ it('keeps separate identities, translations, and colors on the earlier batching 
   }
   const attribute = batch.mesh.geometry.getAttribute('color')
   const themed = resolveExplodeTheme({ highlight: 0x0088aa, edge: 0x223344 })
-  batch.setAppearance(undefined, 'two', null, themed)
+  batch.setAppearance({ selected: 'two', theme: themed })
   const selected = batch.pieces[1]!
   const painted = new Color().fromBufferAttribute(attribute, selected.range.start)
   const expected = new Color(selected.group.color).lerp(new Color(themed.selected), 0.45)

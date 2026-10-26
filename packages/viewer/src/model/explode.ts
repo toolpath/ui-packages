@@ -13,6 +13,12 @@ export interface ExplodeGroup {
   readonly color: number
 }
 
+/** One group ID, several treated as one piece, or `null` for none. */
+export type ExplodeGroupIds = string | ReadonlyArray<string> | null
+
+/** Colors by group ID, then by source region index. */
+export type ExplodeRegionColors = ReadonlyMap<string, ReadonlyMap<number, number>>
+
 export interface ExplodeInput {
   /** Fraction of each group's offset, clamped to [0, 1]. Read each rendered frame. */
   readonly amount: number | ExplodeAmount
@@ -23,7 +29,7 @@ export interface ExplodeInput {
   /** Per-group source-region colors, overriding the group color without splitting its identity.
    * Replace maps to update paint. Unknown groups/regions are ignored.
    */
-  readonly regionColors?: ReadonlyMap<string, ReadonlyMap<number, number>>
+  readonly regionColors?: ExplodeRegionColors
 }
 
 /** World coordinates describe the displayed hit; modelPoint names its original location. */
