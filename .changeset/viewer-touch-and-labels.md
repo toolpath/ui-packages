@@ -13,6 +13,8 @@ Touch, labels and camera calls for apps that drive the viewer themselves:
 - The section handle now lights in a lighter shade of its own colour under the pointer or a
   finger (a darker one when it is too light to lighten), rather than in the theme's `hover` colour,
   which turned a red or green handle blue. `ViewerTheme.hover` no longer affects the handle.
+- A dragged section handle captures the pointer, so it stays lit for the whole drag, even once the
+  pointer leaves the arrow, and goes back to its own colour after the release.
 - `VIEW_CUBE_HALF_PX` is the view cube's half-extent on screen, in CSS pixels, for an app that
   judges whether a tap landed on the cube.
 - `TapTracker.isTap` and `DoubleTapTracker.isDouble` accept any pointer-like event (the new
