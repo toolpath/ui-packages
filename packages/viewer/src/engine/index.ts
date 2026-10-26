@@ -31,3 +31,10 @@ export type {
   MeshFormat,
   PartMeshExpectation,
 } from './geometry.js'
+export { createPartCollectionLoader } from './collection.js'
+export type {
+  CollectionModel,
+  LoadedCollectionItem,
+  CollectionLoadResult,
+  PartCollectionLoader,
+} from './collection.js'

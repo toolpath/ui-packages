@@ -105,3 +105,13 @@ Show and hide it from the viewer's toolbar — `ViewerToolbar.ToolsButton` on a
 an end mill made from its diameter and corner; to draw it as the app's other
 tools are drawn, give the mark a `profile` from `@toolpath/tool-drawing`'s
 outline of a flat or bull nose end mill that size.
+
+## Combined body checks
+
+`combineBodyChecks(bodies, rules)` summarizes independently calculated body checks.
+Each body supplies `id`, `label`, `status` (`pending`, `ready`, or `error`), `check`,
+and `features`, with optional error text. The summary includes completed/failed
+counts, body-labelled features and required rule violations, and totals by rule.
+Repeated feature tags across bodies remain distinct. Alternative readings in
+`otherTags` are not counted as additional violations. Geometry and painted region
+indices stay in each original check; the helper does not merge parts or run jobs.

@@ -698,3 +698,12 @@ for published changes.
 ## License
 
 [MIT](https://github.com/toolpath/ui-packages/blob/main/packages/ui/LICENSE).
+
+### Combined body results
+
+`BodyDfmResults` displays a `combineBodyChecks` summary from `@toolpath/dfm`.
+Pass `tab="rules"` or `tab="features"`, `units`, and
+`onInspect(bodyId, featureTag)`. Optional `onHover(bodyId, featureTag | null)` and
+`onRetry(bodyId)` connect the rows to an application's viewer and retries. Pending
+and failed checks remain explicit alongside available results. The component
+uses the kit's Table and Button; the application owns analysis and selection.

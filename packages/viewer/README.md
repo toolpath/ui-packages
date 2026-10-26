@@ -1085,3 +1085,45 @@ for repo workflows and published changes.
 ## License
 
 [MIT](https://github.com/toolpath/ui-packages/blob/main/packages/viewer/LICENSE).
+
+## Complete multi-body scenes
+
+Use `PartCollection` for meshes in a shared CAD coordinate frame. Each item has a
+caller-owned `id` plus the existing `PartMesh` props. Pick callbacks receive
+`{ id, pick }`; hover callbacks receive `(id, pick)`. Feature tags and region
+numbers remain local to their item. Put scene tools inside the collection so
+sections and grids use its combined bounds. Selection and visibility remain
+controlled by the application. Existing single-part APIs are unchanged.
+
+Prepare the complete initial set before mounting `Viewer`. `/engine` exports
+`createPartCollectionLoader({ fetch?, signal?, concurrency? })`, whose `load`
+method accepts `{ id, model }` items and returns ordered `items` and `failures`
+after all requests finish. It preserves CAD coordinates, validates meshes, and
+smooths normals within regions. Successful items remain cached for retries.
+Call `release(oldItems)` after committing replacements, and `dispose()` after
+unmounting the collection. The loader owns geometry; `PartCollection` does not.
+
+```tsx
+import { Grid, PartCollection, SectionTool, Viewer, ViewCube } from '@toolpath/viewer'
+import { createPartCollectionLoader } from '@toolpath/viewer/engine'
+
+// models: [{ id: 'body-0', model }, { id: 'body-1', model }]
+const loader = createPartCollectionLoader({ concurrency: 3 })
+const prepared = await loader.load(models)
+// Handle failures before mounting the scene; retry with the same loader.
+if (prepared.failures.length) throw new AggregateError(prepared.failures.map(({ error }) => error))
+
+const scene = (
+  <Viewer>
+    <PartCollection items={prepared.items} onPick={({ id, pick }) => inspect(id, pick)}>
+      <Grid />
+      <SectionTool />
+      <ViewCube />
+    </PartCollection>
+  </Viewer>
+)
+// After unmounting `scene`: loader.dispose().
+```
+
+`renderItem` can supply an application's existing part renderer while retaining
+shared bounds. The collection never uploads files or starts Engine analysis.

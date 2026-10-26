@@ -468,6 +468,7 @@ export const PartMesh = ({
           pressedWhileEngaged.current = engaged
         }}
         onPointerMove={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation()
           if (!engaged && hover) emitHover(pickFor(event))
         }}
         onPointerOut={() => {
@@ -485,6 +486,7 @@ export const PartMesh = ({
           doubles.reset()
         }}
         onClick={(event: ThreeEvent<MouseEvent>) => {
+          event.stopPropagation()
           if (engaged || pressedWhileEngaged.current) return
           /*
            * The end of an orbit is not a request to select whatever it ended

@@ -1,0 +1,41 @@
+import { expect, test } from '@playwright/test'
+test('a complete collection scopes duplicate feature tags, hover, and sections to the correct bodies', async ({
+  page,
+}) => {
+  await page.goto('/tests/fixtures/collection.html')
+  await expect
+    .poll(
+      async () => JSON.parse((await page.getByTestId('scene').textContent()) || '{}').width ?? 0,
+    )
+    .toBeGreaterThan(70)
+  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  const canvas = page.locator('canvas')
+  const picks: Array<{ id: string; pick: { best: string } }> = []
+  for (const index of [0, 1]) {
+    const scene = JSON.parse((await page.getByTestId('scene').textContent())!)
+    await canvas.click({ position: scene.centers[index] })
+    await expect
+      .poll(async () => JSON.parse((await page.getByTestId('pick').textContent())!).id)
+      .toBe(index === 0 ? 'left' : 'right')
+    picks.push(JSON.parse((await page.getByTestId('pick').textContent())!))
+    await expect(page.getByTestId('hover')).toHaveText(index === 0 ? 'left' : 'right')
+  }
+  expect(picks[0]!.pick.best).toBe(picks[1]!.pick.best)
+  await page.getByRole('button', { name: 'Cut', exact: true }).click()
+  await expect
+    .poll(async () => Object.keys(JSON.parse((await page.getByTestId('cuts').textContent())!)))
+    .toHaveLength(2)
+  const cuts = JSON.parse((await page.getByTestId('cuts').textContent())!)
+  expect(cuts.left).toBe(cuts.right)
+})
+test('overlapping opaque bodies pick the nearest body once', async ({ page }) => {
+  await page.goto('/tests/fixtures/collection.html')
+  await expect(page.getByTestId('scene')).not.toHaveText('')
+  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Overlap', exact: true }).click()
+  const scene = JSON.parse((await page.getByTestId('scene').textContent())!)
+  await page.locator('canvas').click({ position: scene.centers[0] })
+  await expect
+    .poll(async () => JSON.parse((await page.getByTestId('pick').textContent())!).id)
+    .toBe('right')
+})

@@ -108,3 +108,10 @@ export {
 } from './turned-check.js'
 export { TURNING_RULES, turnedTypeLabel, type TurnedFactsKind } from './turning-metrics.js'
 export { lengthValue, unitLabel, type Units } from './units.js'
+export {
+  combineBodyChecks,
+  type BodyDfmCheck,
+  type BodyDfmFeature,
+  type BodyDfmViolation,
+  type BodyDfmSummary,
+} from './body-checks.js'

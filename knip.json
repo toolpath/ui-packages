@@ -78,6 +78,7 @@
     },
     "examples/react-viewer": {
       "entry": [
+        "tests/fixtures/collection.tsx",
         "tests/fixtures/explode-policy.ts",
         "tests/fixtures/explode-primitives.tsx",
         "tests/**/*.spec.ts"
