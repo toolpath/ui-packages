@@ -73,9 +73,9 @@
         "src/index.ts",
         "src/engine/index.ts",
         "src/native/**/*.{ts,tsx}",
-        "tests/**/*.test.ts"
+        "tests/**/*.test.{ts,tsx}"
       ],
-      "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts"]
+      "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
     },
     "examples/typescript": {
       "entry": ["src/**/*.test.ts"],
