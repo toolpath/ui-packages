@@ -1,4 +1,9 @@
-import type { EnginePlan, PlanDirection } from './engine-plan'
+import {
+  trimmedFeaturesOf,
+  type PlanDirection,
+  type TrimmedFeature,
+  type WithTrimmedFeatures,
+} from './engine-plan'
 
 /*
   Who machines each face of a part, read the one way the server and every page read it. Two views,
@@ -67,8 +72,8 @@ export const tagKey = (tag: string): string => tag.toLowerCase()
 /** A feature a plan's tags can name: one of the report's, or one a statement trimmed. */
 export interface PlanFeature extends CoverageFeature {
   machiningDirection?: PlanDirection
-  /** Whether a statement trimmed it (`TrimmedFeature`): no report lists it. */
-  trimmed: boolean
+  /** A statement trimmed it (`TrimmedFeature`): no report lists it. Absent for a report feature. */
+  trimmed?: true
   /**
    * The report feature it was trimmed from: null for a report feature, or where Toolpath does not
    * say.
@@ -77,24 +82,33 @@ export interface PlanFeature extends CoverageFeature {
 }
 
 /**
+ * A plan's trimmed features but any whose tag the report lists (`reportLists`, asked by lower-case
+ * tag): the report's feature speaks for its own tag, in coverage and in a row alike.
+ */
+export const unlistedTrimmedFeatures = (
+  plan: WithTrimmedFeatures,
+  reportLists: (key: string) => boolean,
+): Array<TrimmedFeature> =>
+  trimmedFeaturesOf(plan).filter((feature) => !reportLists(tagKey(feature.featureTag)))
+
+/**
  * Every feature a plan's tags can name: the report's, then the plan's trimmed features shaped as
- * report features, but one whose tag the report lists already, which the report's speaks for.
+ * report features, but one whose tag the report lists already (`unlistedTrimmedFeatures`).
  * The one join of plan tags to features: a view's coverage, its Not machined groups, a row's faces.
  * The constraints view passes its pins (`pinned`, by lower-case tag): a trimmed feature shows there
  * only where it is pinned.
  */
 export const planFeaturesOf = (
   reportFeatures: ReadonlyArray<CoverageFeature & { machiningDirection?: PlanDirection }>,
-  plan: Partial<Pick<EnginePlan, 'trimmedFeatures'>> | null,
+  plan: WithTrimmedFeatures,
   pinned?: ReadonlySet<string>,
 ): Array<PlanFeature> => {
   const listed = tagSet(reportFeatures.map((feature) => feature.tag))
-  const kept = (plan?.trimmedFeatures ?? []).filter((feature) => {
-    const key = tagKey(feature.featureTag)
-    return !listed.has(key) && (pinned === undefined || pinned.has(key))
-  })
+  const kept = unlistedTrimmedFeatures(plan, (key) => listed.has(key)).filter(
+    (feature) => pinned === undefined || pinned.has(tagKey(feature.featureTag)),
+  )
   return [
-    ...reportFeatures.map((feature) => ({ ...feature, trimmed: false, fromFeatureTag: null })),
+    ...reportFeatures.map((feature) => ({ ...feature, fromFeatureTag: null })),
     ...kept.map(
       (feature): PlanFeature => ({
         tag: feature.featureTag,

@@ -21,6 +21,7 @@ import {
   type PlanSetupView,
 } from '../src/plan-view'
 import { addFolder, moveFolder, moveWithin, type DraftSetup } from '../src/plan-draft'
+import { trimmedFeature } from './trimmed-feature'
 
 const up = { x: 0, y: 0, z: 1 }
 const down = { x: 0, y: 0, z: -1 }
@@ -337,21 +338,9 @@ describe('draftView', () => {
       setups: [{ id: 's-up', name: 'Top', direction: up, features: ["Y'", 'x'], folders: [] }],
     }
     const trimmedFeatures = [
-      {
-        featureTag: "y'",
-        featureType: 'pocket',
-        machiningDirection: up,
-        regionIdxs: [2],
-        fromFeatureTag: 'y',
-      },
+      trimmedFeature({ featureTag: "y'", regionIdxs: [2], fromFeatureTag: 'y' }),
       // Not pinned: never a row of the constraints.
-      {
-        featureTag: "w'",
-        featureType: 'pocket',
-        machiningDirection: up,
-        regionIdxs: [3],
-        fromFeatureTag: 'w',
-      },
+      trimmedFeature({ featureTag: "w'", regionIdxs: [3], fromFeatureTag: 'w' }),
     ]
     const rows = (plan: Parameters<typeof draftView>[2]) =>
       draftView(draft, part, plan).flatMap(rowsOf)

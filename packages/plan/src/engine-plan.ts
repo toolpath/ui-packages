@@ -105,10 +105,17 @@ export interface EnginePlan {
   setupPlan: SetupPlan | null
   /**
    * The features the plan's tags can name that the part's report does not list (`TrimmedFeature`).
-   * An app reads an Engine's null or absent field (before API 1.30) as none.
+   * Null or absent from an Engine that does not serve it (before API 1.30.0): none.
    */
-  trimmedFeatures: ReadonlyArray<TrimmedFeature>
+  trimmedFeatures?: ReadonlyArray<TrimmedFeature> | null
 }
+
+/** What reads a plan's trimmed features takes: the plan, or as little of it, or none. */
+export type WithTrimmedFeatures = Pick<EnginePlan, 'trimmedFeatures'> | null
+
+/** A plan's trimmed features: none with no plan, or from an Engine that does not serve them. */
+export const trimmedFeaturesOf = (plan: WithTrimmedFeatures): ReadonlyArray<TrimmedFeature> =>
+  plan?.trimmedFeatures ?? []
 
 /**
  * Which run of a plan this is: its id and the job that made it. What the Plan page stamps a taken-out

@@ -73,23 +73,37 @@ A plan's tags (an action's `featureTags`, its `setupPlan`, a setup's `unmachined
 feature the part's report does not list: what is left of a report feature once a statement keeps
 some of its faces away. Ignored faces trim from API 1.30.0; a pinned feature sharing faces with it,
 maybe from another direction, trims from the Engine release that plans with tp-kernel 0.29.
-Toolpath serves these as `trimmedFeatures`; read a null or absent field as `[]` when you parse
-the plan into an `EnginePlan`. Toolpath keeps each trimmed feature for the part, so a draft can pin
-its tag and a statement sent back can name it.
+Toolpath serves these as the plan's `trimmedFeatures`, which `EnginePlan` holds as optional: null
+or absent from an older Engine, read as none (`trimmedFeaturesOf`). Toolpath keeps each trimmed
+feature for the part, so a draft can pin its tag and a statement sent back can name it.
 
 `planFeaturesOf(reportFeatures, plan, pinned?)` is the one join of plan tags to features: the
-report's features, then each trimmed one shaped as a report feature, with `trimmed` and
-`fromFeatureTag`. A trimmed tag the report lists already is the report's. Pass it as `features`
-to `classifyFaces` and `groupFaces`, and resolve a row's tag to its faces (`regionsOf`) through
-it, so a trimmed feature's faces read as machined where the plan cuts it. The constraints view
-passes its pins too: a trimmed feature is in it only where it is pinned. Its faces never include an
-ignored face, so pinning one un-ignores nothing.
+report's features, then each trimmed one shaped as a report feature, marked `trimmed: true` and
+with its `fromFeatureTag`. A trimmed tag the report lists already is the report's feature, here
+and in a row alike (`unlistedTrimmedFeatures`). Pass it as `features` to `classifyFaces` and
+`groupFaces`, so a trimmed feature's faces read as machined where the plan cuts it. The
+constraints view passes its pins too: a trimmed feature is in it only where it is pinned. Its faces
+never include an ignored face, so pinning one un-ignores nothing.
 
 `planView` and `resultsView` mark a trimmed tag's row `trimmed` and label it from what it was
 trimmed from, `Pocket (trimmed)`, or from its own type where Toolpath does not say
-(`trimmedFeatureLabel`). `draftView(draft, part, plan)` labels a pinned trimmed tag the same way
-from the latest plan, and as the part labels it with none. `planFromResults` (and `fromPlan`
-with `pins`) pins trimmed tags where they were planned, as it pins any feature.
+(`trimmedFeatureLabel`). The row takes its origin's bore (`featureBore`) where the trimmed type is
+the origin's, so a trimmed hole groups with the holes of its bore; where the type changed, it has
+none. A tag the part has a type for (`featureType`) is the report's, and reads as the report's row:
+`PlanPart` reads the report alone. `draftView(draft, part, plan)` reads a pinned trimmed tag the
+same way from the latest plan, and as the part labels it with none. `planFromResults` (and
+`fromPlan` with `pins`) pins trimmed tags where they were planned, as it pins any feature.
+
+What the app does:
+
+- Parse the plan's `trimmedFeatures` into `EnginePlan`.
+- Pass `planFeaturesOf` to `classifyFaces` and `groupFaces`: with the pins (`pinned`) in the
+  constraints view, without them in the results view.
+- Pass the latest plan to `draftView`.
+- Look a tag's faces up for selection, zoom and `PlanRules.regionsOf` through `planFeaturesOf`,
+  so a trimmed tag resolves to its own faces.
+- DFM: count a trimmed tag's time and flags under its `fromFeatureTag`'s rules. The rules are the
+  app's, so the package does not look them up.
 
 ## Edits: one menu, one function, one question
 

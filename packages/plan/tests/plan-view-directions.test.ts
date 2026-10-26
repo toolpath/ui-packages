@@ -22,7 +22,6 @@ const plan: EnginePlan = {
     },
   ],
   setupPlan: null,
-  trimmedFeatures: [],
 }
 
 describe('planView, with no statement', () => {

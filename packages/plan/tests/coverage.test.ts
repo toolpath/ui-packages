@@ -12,6 +12,7 @@ import {
   type Face,
 } from '../src/coverage'
 import type { TrimmedFeature } from '../src/engine-plan'
+import { trimmedFeature } from './trimmed-feature'
 
 describe('classifyFaces', () => {
   const regions = [1, 2, 3, 4, 5, 6].map((idx) => ({ idx, area: idx }))
@@ -91,14 +92,6 @@ describe('planFeaturesOf', () => {
     { tag: 'C', featureType: 'pocket', regionIdxs: [4, 5, 6], machiningDirection: up },
     { tag: 'D', featureType: 'wall', regionIdxs: [6], machiningDirection: side },
   ]
-  const trimmed = (overrides: Partial<TrimmedFeature>): TrimmedFeature => ({
-    featureTag: 'T',
-    featureType: 'pocket',
-    machiningDirection: up,
-    regionIdxs: [],
-    fromFeatureTag: null,
-    ...overrides,
-  })
   const kinds = (
     features: ReadonlyArray<CoverageFeature>,
     cut: Array<string>,
@@ -109,9 +102,9 @@ describe('planFeaturesOf', () => {
   }
 
   it('lists the report’s features, then the plan’s trimmed ones shaped as features', () => {
-    const cut = trimmed({ featureTag: "A'", regionIdxs: [1, 2], fromFeatureTag: 'A' })
+    const cut = trimmedFeature({ featureTag: "A'", regionIdxs: [1, 2], fromFeatureTag: 'A' })
     expect(planFeaturesOf(report, { trimmedFeatures: [cut] })).toEqual([
-      ...report.map((feature) => ({ ...feature, trimmed: false, fromFeatureTag: null })),
+      ...report.map((feature) => ({ ...feature, fromFeatureTag: null })),
       {
         tag: "A'",
         featureType: 'pocket',
@@ -124,7 +117,7 @@ describe('planFeaturesOf', () => {
   })
 
   it('reads a feature trimmed by ignored faces as machined, where the plan cuts its tag', () => {
-    const cut = trimmed({ featureTag: "a'", regionIdxs: [1, 2], fromFeatureTag: 'A' })
+    const cut = trimmedFeature({ featureTag: "a'", regionIdxs: [1, 2], fromFeatureTag: 'A' })
     const features = planFeaturesOf(report, { trimmedFeatures: [cut] })
     // Face 3 ignored; the plan names only the trimmed tag.
     expect(kinds(features, ["a'"], [3])).toEqual([
@@ -140,7 +133,7 @@ describe('planFeaturesOf', () => {
 
   it('reads what a pin from another direction leaves of a feature as machined', () => {
     // D, pinned from the side, shares face 6 with C: C' is what is left of C from above.
-    const cut = trimmed({ featureTag: "c'", regionIdxs: [4, 5], fromFeatureTag: 'C' })
+    const cut = trimmedFeature({ featureTag: "c'", regionIdxs: [4, 5], fromFeatureTag: 'C' })
     const features = planFeaturesOf(report, { trimmedFeatures: [cut] })
     expect(kinds(features, ['d', "c'"])).toEqual([
       ['pinned', []],
@@ -160,7 +153,8 @@ describe('planFeaturesOf', () => {
   })
 
   it('drops a trimmed feature whose tag the report lists already', () => {
-    const clash = trimmed({ featureTag: 'c', regionIdxs: [4], fromFeatureTag: 'C' })
+    expect(planFeaturesOf(report, null).some((feature) => 'trimmed' in feature)).toBe(false)
+    const clash = trimmedFeature({ featureTag: 'c', regionIdxs: [4], fromFeatureTag: 'C' })
     expect(planFeaturesOf(report, { trimmedFeatures: [clash] }).map((f) => f.tag)).toEqual([
       'A',
       'C',
@@ -171,8 +165,8 @@ describe('planFeaturesOf', () => {
   it('reads a pinned trimmed feature in the constraints view, and no unpinned one', () => {
     const plan = {
       trimmedFeatures: [
-        trimmed({ featureTag: "C'", regionIdxs: [4, 5], fromFeatureTag: 'C' }),
-        trimmed({ featureTag: "A'", regionIdxs: [1, 2], fromFeatureTag: 'A' }),
+        trimmedFeature({ featureTag: "C'", regionIdxs: [4, 5], fromFeatureTag: 'C' }),
+        trimmedFeature({ featureTag: "A'", regionIdxs: [1, 2], fromFeatureTag: 'A' }),
       ],
     }
     const pinned = new Set(["c'", 'd'])
@@ -184,7 +178,7 @@ describe('planFeaturesOf', () => {
   })
 
   it('gathers a trimmed feature’s faces under its own tag', () => {
-    const cut = trimmed({ featureTag: "c'", regionIdxs: [4, 5], fromFeatureTag: 'C' })
+    const cut = trimmedFeature({ featureTag: "c'", regionIdxs: [4, 5], fromFeatureTag: 'C' })
     const features = planFeaturesOf(report, { trimmedFeatures: [cut] })
     const { faces } = classifyFaces({ regions, features, machined: new Set(['a', 'd']) })
     expect(groupFaces(faces.notMachined, features).map((group) => group.tag)).toEqual(["c'"])
