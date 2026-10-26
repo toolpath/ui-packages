@@ -2,8 +2,17 @@ import { featureTypeLabel } from './dfm-explain.js'
 import { directionLabel } from './direction-label.js'
 import type { ComparedFace, FeatureIdentity } from './view-types.js'
 
+/** What a comparison row reads: one of the fixed rows, or a measurement. */
+export type ComparisonRowKind = 'type' | 'direction' | 'required' | 'rules' | 'measurement'
+
 /** A row of the comparison: what it is, each face's reading, and whether the readings disagree. */
 export interface ComparisonRow {
+  /** What the row reads. A view draws a row by this, never by its `key`. */
+  readonly kind: ComparisonRowKind
+  /**
+   * A fixed row's kind, or a measurement's own `key`. A measurement can share
+   * a fixed row's name, so a row is unique only by `kind` and `key` together.
+   */
   readonly key: string
   readonly label: string
   /** One per face, in order: `—` for a face that has no reading. */
@@ -29,12 +38,12 @@ export const faceLetter = (index: number): string => String.fromCharCode(65 + (i
  */
 export const comparisonRows = (faces: readonly ComparedFace[]): ComparisonRow[] => {
   const row = (
-    key: string,
+    kind: Exclude<ComparisonRowKind, 'measurement'>,
     label: string,
     read: (face: ComparedFace, feature: FeatureIdentity) => string,
   ): ComparisonRow => {
     const texts = faces.map((face) => (face.feature ? read(face, face.feature) : DASH))
-    return { key, label, texts, differs: new Set(texts).size > 1 }
+    return { kind, key: kind, label, texts, differs: new Set(texts).size > 1 }
   }
 
   const rules = row('rules', 'Rules broken', (face) =>
@@ -61,7 +70,7 @@ export const comparisonRows = (faces: readonly ComparedFace[]): ComparisonRow[] 
     const texts = faces.map(
       (face) => face.measurements.find((each) => each.key === key)?.value ?? DASH,
     )
-    return { key, label, texts, differs: new Set(texts).size > 1 }
+    return { kind: 'measurement', key, label, texts, differs: new Set(texts).size > 1 }
   })
 
   return [...fixed, ...measured]

@@ -22,6 +22,19 @@ const byKey = (faces: readonly ComparedFace[]) =>
   Object.fromEntries(comparisonRows(faces).map((row) => [row.key, row]))
 
 describe('comparisonRows', () => {
+  it('says what each row reads, apart from its key', () => {
+    const rows = comparisonRows([
+      hole('a', { measurements: [measured('rules', 'Rules', '3')] }),
+      hole('b', { measurements: [measured('rules', 'Rules', '3')] }),
+    ])
+    expect(rows.map((row) => [row.kind, row.key])).toEqual([
+      ['type', 'type'],
+      ['direction', 'direction'],
+      ['rules', 'rules'],
+      ['measurement', 'rules'],
+    ])
+  })
+
   it('reads Type, Machined from and Rules broken, then the measurements', () => {
     const rows = comparisonRows([
       hole('a', { measurements: [measured('depth', 'Depth', '5 mm')] }),
