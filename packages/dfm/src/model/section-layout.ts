@@ -35,10 +35,18 @@ export const SECTION_LABEL = {
   axisBelow: 32,
   /** The reading's baseline, below the drawing's top. */
   readingBelow: 14,
+  /** The heights' datum line, right of the walls. */
+  datumRight: 8,
+  /** The offsets' ordinate line, below the floor. */
+  ordinatesBelow: 22,
+  /** An offset's extension line starts this far below the step it measures. */
+  extensionGap: 2,
+  /** A height's extension line starts this far inside the wall it measures. */
+  leaderOverlap: 2,
 } as const
 
 /** Room around the section for its dimensions. */
-export const SECTION_PAD = { left: 12, right: 64, top: 24, bottom: 62 }
+export const SECTION_PAD = { left: 12, right: 64, top: 24, bottom: 62 } as const
 export const SECTION_MAX_H = 380
 export const SECTION_MIN_H = 120
 /**
