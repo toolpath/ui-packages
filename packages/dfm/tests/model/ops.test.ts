@@ -31,6 +31,17 @@ describe('the comparison pickers', () => {
     expect(labels(rangeHighChoices(wordy))[0]).toEqual(['Range', ['< less than', '≤ at most']])
   })
 
+  it('words the one-sided comparisons as the caller asks, and by symbol and title by default', () => {
+    const wordy = (symbol: string, _op: string, title: string) => `${symbol}  ${title}`
+    expect(labels(rangeLowChoices(wordy))[1]?.[1]).toContain('≥  at least')
+    expect(labels(rangeHighChoices(wordy))[1]?.[1]).toContain('≠  not equal to')
+    expect(labels(rangeLowChoices())[1]?.[1]).toContain('≥ at least')
+    expect(labels(rangeHighChoices())[1]).toEqual([
+      'One-sided',
+      ONE_SIDED_CHOICES.choices.map((c) => c.label),
+    ])
+  })
+
   it('offers a range’s ends held either way, then the one-sided comparisons', () => {
     const low = labels(rangeLowChoices())
     const high = labels(rangeHighChoices())
