@@ -140,6 +140,11 @@ describe('createTouchOps', () => {
     ])
     expect(ops.take()).toEqual([])
   })
+
+  it('hands every idle frame the same empty list', () => {
+    const ops = createTouchOps()
+    expect(ops.take()).toBe(ops.take())
+  })
 })
 
 describe('applyTouchOps', () => {
