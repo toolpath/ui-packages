@@ -119,17 +119,23 @@ export interface FingerTracker {
  * After an interruption iOS can report a finger in `touches` that it never
  * ended, so an orbit fed from `touches` jumps and drifts; one fed from what
  * changed does not. A finger that did not change this event still takes its
- * position from `touches`. A lost end is forgotten when the next gesture
- * starts.
+ * position from `touches`. A finger whose end was lost is forgotten when a
+ * touch starts without it.
  */
 export const createFingerTracker = (): FingerTracker => {
   const fingers = new Map<number, TouchPoint>()
   return {
     update(kind, changed, touches) {
-      // A gesture starting with none of the fingers this remembers means their
-      // ends were lost — an interruption swallowed them — and they would
-      // otherwise count as down forever.
-      if (kind === 'start' && touches.every((touch) => !fingers.has(touch.id))) fingers.clear()
+      // A touch starts with every finger that is down in `touches`, so a
+      // remembered finger missing from them has ended without its end
+      // arriving — an interruption swallowed it — and would otherwise count as
+      // down forever. Checked per finger: the platforms reuse low ids, so a
+      // new gesture can start with the id of a finger that was lost.
+      if (kind === 'start') {
+        for (const id of fingers.keys()) {
+          if (!touches.some((touch) => touch.id === id)) fingers.delete(id)
+        }
+      }
       const ending = kind === 'end' || kind === 'cancel'
       for (const touch of changed) {
         if (ending) fingers.delete(touch.id)
