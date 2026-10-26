@@ -138,7 +138,7 @@ const Picker = ({ box, theme }: PickerProps) => {
   const camera = useThree((state) => state.camera)
   const scene = useThree((state) => state.scene)
   const domElement = useThree((state) => state.gl.domElement)
-  const size = useThree((state) => state.size)
+  const getState = useThree((state) => state.get)
   const invalidate = useThree((state) => state.invalidate)
   const isTap = useTapGuard()
   const square = useSquare()
@@ -174,7 +174,9 @@ const Picker = ({ box, theme }: PickerProps) => {
       // Canvas-local pixels, over the canvas's size as R3F measured it: the
       // same normalised device coordinates on the web and on native, where the
       // canvas has no bounding rectangle to measure.
+      // Read per move, so a resize does not re-run this effect.
       const { x, y } = readPointer(event, domElement)
+      const { size } = getState()
       pointer.set((x / size.width) * 2 - 1, -(y / size.height) * 2 + 1)
       raycaster.setFromCamera(pointer, camera)
       const hit = surfaceUnderRay(raycaster, scene)
@@ -214,7 +216,7 @@ const Picker = ({ box, theme }: PickerProps) => {
       domElement.removeEventListener('pointerleave', hide)
       domElement.removeEventListener('pointerup', up)
     }
-  }, [box, camera, domElement, invalidate, isTap, scene, size, span, store])
+  }, [box, camera, domElement, getState, invalidate, isTap, scene, span, store])
 
   // The global planes stand on whichever side of the part the camera is not,
   // so they move only when the camera crosses an axis — a render then, and not
