@@ -76,6 +76,16 @@ describe('label notification', () => {
     expect(listener).toHaveBeenCalledOnce()
   })
 
+  it('keeps the same snapshot while nothing changes', () => {
+    const store = createLabelStore()
+    store.set('a', { ...label, position: [0, 0, 0] })
+    store.project(camera(), SIZE)
+    const first = store.getSnapshot()
+
+    store.project(camera(), SIZE)
+    expect(store.getSnapshot()).toBe(first)
+  })
+
   it('ignores a move under half a pixel and notifies one of half a pixel or more', () => {
     const store = createLabelStore()
     const listener = vi.fn()
