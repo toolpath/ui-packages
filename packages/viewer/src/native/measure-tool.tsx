@@ -1,7 +1,7 @@
-import type { MeasureToolProps } from './measure-tool.js'
-import { webOnly } from './render/web-only.js'
+import type { MeasureToolProps } from '../measure-tool.js'
+import { webOnly } from '../render/web-only.js'
 
-export type { MeasureLabelKind, MeasureToolProps } from './measure-tool.js'
+export type { MeasureLabelKind, MeasureToolProps } from '../measure-tool.js'
 
 /**
  * Web-only: the measure tool's labels and keyboard modes are DOM. Rendering it

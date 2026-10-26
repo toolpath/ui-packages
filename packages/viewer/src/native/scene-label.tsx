@@ -1,9 +1,9 @@
 import { useThree } from '@react-three/fiber'
 import { useContext, useId, useLayoutEffect } from 'react'
-import { SceneLabelStoreContext } from './label-context.js'
-import type { SceneLabelProps } from './scene-label.js'
+import { SceneLabelStoreContext } from '../label-context.js'
+import type { SceneLabelProps } from '../scene-label.js'
 
-export type { SceneLabelProps } from './scene-label.js'
+export type { SceneLabelProps } from '../scene-label.js'
 
 let warned = false
 

@@ -1,23 +1,30 @@
 import { existsSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { defineConfig, type Options } from 'tsup'
+
+const SRC = resolve(import.meta.dirname, 'src')
+const NATIVE = join(SRC, 'native')
 
 type Plugin = NonNullable<Options['esbuildPlugins']>[number]
 
 /**
- * `./x.js` to `./x.native.tsx` or `./x.native.ts`, where one exists.
+ * An import of a file under `src/` to the file at the same path under
+ * `src/native/`, where one exists.
  *
  * The sources import each other with `.js` specifiers, as Node's ESM
  * resolution wants. esbuild maps those to `.ts` and `.tsx` itself, but never
- * to a `.native` sibling.
+ * to a native replacement.
  */
 const nativeSiblings: Plugin = {
   name: 'native-siblings',
   setup(build) {
     build.onResolve({ filter: /^\.\.?\/.*\.js$/ }, (args) => {
       const base = resolve(dirname(args.importer), args.path.slice(0, -'.js'.length))
-      for (const extension of ['.native.tsx', '.native.ts']) {
-        if (existsSync(base + extension)) return { path: base + extension }
+      const inSource = relative(SRC, base)
+      if (inSource.startsWith('..') || inSource.startsWith(`native${sep}`)) return undefined
+      for (const extension of ['.tsx', '.ts']) {
+        const replacement = join(NATIVE, inSource + extension)
+        if (existsSync(replacement)) return { path: replacement }
       }
       return undefined
     })

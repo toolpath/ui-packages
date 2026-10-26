@@ -1,5 +1,5 @@
 import { Asset } from 'expo-asset'
-import banana from './assets/banana.glb'
+import banana from '../assets/banana.glb'
 
 /**
  * The six-inch (154 mm) reference model bundled with `@toolpath/viewer`.

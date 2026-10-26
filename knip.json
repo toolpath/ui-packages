@@ -72,7 +72,7 @@
       "entry": [
         "src/index.ts",
         "src/engine/index.ts",
-        "src/**/*.native.{ts,tsx}",
+        "src/native/**/*.{ts,tsx}",
         "tests/**/*.test.ts"
       ],
       "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts"]
