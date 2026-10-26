@@ -14,7 +14,8 @@ entry), so non-DOM UIs can build the same views:
   from its symbol, comparison and title, the title reading the same way as the symbol (a range's
   low end is `≤ at most`).
 - The rule list: `ruleListOrder`, and `importNote` and `importError` for what an import says.
-- The feature panel's comparison: `comparisonRows` and `faceLetter`.
+- The feature panel's comparison: `comparisonRows`, whose rows say what they read (`kind`, a
+  `ComparisonRowKind`), and `faceLetter`.
 - The fold store moves here from `@toolpath/ui`: `storageFolds`, `FoldStore`, `FoldStorage` and
   `FoldOptions`. It gains `{ shutAtFirst }`, for sections that start shut until someone opens them.
 - The reach chart's section drawing: `sectionGeometry` and `SectionGeometry`, `Riser` and

@@ -1,6 +1,11 @@
 import { useMemo, type FC, type ReactElement, type ReactNode } from 'react'
 import { cn } from '../common'
-import { type ComparedFace, comparisonRows, type FoldStore } from '@toolpath/dfm'
+import {
+  type ComparedFace,
+  type ComparisonRow,
+  comparisonRows,
+  type FoldStore,
+} from '@toolpath/dfm'
 import { Swatch } from '../dfm-rule-list/swatch'
 import { FaceLetter } from './candidate-list'
 import { FeatureName } from './feature-name'
@@ -37,10 +42,10 @@ export const ComparisonTable: FC<ComparisonTableProps> = ({
   const rows = useMemo(() => comparisonRows(faces), [faces])
 
   /** A cell as the rows read it, with what only this table draws: swatches and the other unit. */
-  const cell = (key: string, text: string, index: number): ReactNode => {
+  const cell = (row: ComparisonRow, text: string, index: number): ReactNode => {
     const face = faces[index]
     if (!face?.feature) return text
-    if (key === 'direction') {
+    if (row.kind === 'direction') {
       return (
         <span className="inline-flex items-center gap-1">
           <Swatch color={face.directionColor} className="size-2.5" />
@@ -48,7 +53,7 @@ export const ComparisonTable: FC<ComparisonTableProps> = ({
         </span>
       )
     }
-    if (key === 'rules' && face.rules.length > 0) {
+    if (row.kind === 'rules' && face.rules.length > 0) {
       return (
         <span
           className="inline-flex items-center gap-0.5"
@@ -61,7 +66,8 @@ export const ComparisonTable: FC<ComparisonTableProps> = ({
         </span>
       )
     }
-    const measured = face.measurements.find((each) => each.key === key)
+    if (row.kind !== 'measurement') return text
+    const measured = face.measurements.find((each) => each.key === row.key)
     return measured ? <span title={measured.alt}>{text}</span> : text
   }
 
@@ -99,7 +105,7 @@ export const ComparisonTable: FC<ComparisonTableProps> = ({
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.key} data-differs={row.differs || undefined}>
+                <tr key={`${row.kind}:${row.key}`} data-differs={row.differs || undefined}>
                   <th
                     scope="row"
                     className={cn(
@@ -119,7 +125,7 @@ export const ComparisonTable: FC<ComparisonTableProps> = ({
                           : 'text-gray-400 dark:text-zinc-500',
                       )}
                     >
-                      {cell(row.key, text, index)}
+                      {cell(row, text, index)}
                     </td>
                   ))}
                 </tr>
