@@ -100,6 +100,16 @@ const DOLLY_SPEED = 1.15
 const REST_THRESHOLD = 0.005
 
 /**
+ * The shorter side of an element's box, in CSS pixels. Reading it can force a
+ * layout, so callers read it only while the view is turning.
+ */
+const viewportMin = (element: HTMLElement): number =>
+  Math.min(element.clientWidth, element.clientHeight)
+
+/** Radians per pixel of travel: half a turn across the viewport's shorter side. */
+const orbitScale = (viewportMin: number): number => Math.PI / Math.max(1, viewportMin)
+
+/**
  * `CameraControls` with free orbit, camera-relative up, and CAD navigation
  * schemes.
  *
@@ -406,7 +416,7 @@ export class ExtendedCameraControls extends CameraControls {
    * `#onPointerMove`; a canvas with no element calls it directly.
    */
   orbitBy(dx: number, dy: number, viewportMin: number): void {
-    const scale = Math.PI / Math.max(1, viewportMin)
+    const scale = orbitScale(viewportMin)
 
     const spherical = this.getSpherical(this.#spherical)
 
@@ -530,13 +540,12 @@ export class ExtendedCameraControls extends CameraControls {
       return
     }
 
-    // Read per move rather than cached in the constructor, since the element is
-    // usually still unlaid-out then; and only while turning, because this
-    // listener hears every move on the page and the read can force a layout.
-    const viewportMin = () => Math.min(element.clientWidth, element.clientHeight)
-
+    // The viewport is read per move rather than cached in the constructor,
+    // since the element is usually still unlaid-out then; and only while
+    // turning, because this listener hears every move on the page and the read
+    // can force a layout.
     if (this.currentAction === CameraControls.ACTION.ROTATE) {
-      this.orbitBy(event.movementX, event.movementY, viewportMin())
+      this.orbitBy(event.movementX, event.movementY, viewportMin(element))
       return
     }
 
@@ -554,7 +563,7 @@ export class ExtendedCameraControls extends CameraControls {
       // move shifts it by that move over the finger count. Turning by every
       // finger's own move would orbit twice as fast with two fingers together.
       const fingers = this.#touches.size
-      this.orbitBy(dx / fingers, dy / fingers, viewportMin())
+      this.orbitBy(dx / fingers, dy / fingers, viewportMin(element))
     }
   }
 
@@ -565,7 +574,7 @@ export class ExtendedCameraControls extends CameraControls {
       // Trackpad pinch arrives as a wheel event with ctrlKey set.
       void this.zoom(-event.deltaY * FUSION_PINCH_ZOOM_SCALE, false)
     } else if (this.#shiftPressed) {
-      const scale = Math.PI / Math.max(1, Math.min(element.clientWidth, element.clientHeight))
+      const scale = orbitScale(viewportMin(element))
 
       void this.rotate(
         event.deltaX * scale * FUSION_ROTATE_SCALE,
