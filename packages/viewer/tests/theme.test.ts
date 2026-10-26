@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEFAULT_LABELS,
   DEFAULT_THEME,
   DIRECTION_COLORS,
   HIGHLIGHT_COLORS,
+  cssHex,
   directionColor,
   resolveTheme,
   themesEqual,
@@ -45,5 +47,36 @@ describe('directionColor', () => {
 
   it('returns a usable color for an out-of-range index', () => {
     expect(directionColor(-1)).toBe(HIGHLIGHT_COLORS.default)
+  })
+})
+
+describe('label theme', () => {
+  const labels = {
+    text: '#1f2330',
+    background: 'rgba(255,255,255,0.92)',
+    border: '#4f8ef7',
+    axis: { x: '#ff6b6b', y: '#6fe08a', z: '#6f9bff' },
+    fontSize: 12,
+  }
+
+  it('defaults to the measure tool look', () => {
+    expect(resolveTheme().labels).toEqual(labels)
+    expect(DEFAULT_LABELS.border).toBe(cssHex(DEFAULT_THEME.measure))
+  })
+
+  it('compares labels by value', () => {
+    expect(themesEqual(resolveTheme({ labels }), resolveTheme({ labels: { ...labels } }))).toBe(
+      true,
+    )
+    expect(
+      themesEqual(resolveTheme({ labels }), resolveTheme({ labels: { ...labels, fontSize: 14 } })),
+    ).toBe(false)
+    expect(
+      themesEqual(
+        resolveTheme({ labels }),
+        resolveTheme({ labels: { ...labels, axis: { ...labels.axis, z: '#000000' } } }),
+      ),
+    ).toBe(false)
+    expect(themesEqual(resolveTheme(), resolveTheme({ labels: undefined }))).toBe(false)
   })
 })

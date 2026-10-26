@@ -3,6 +3,7 @@ import { useCallback, useRef, useSyncExternalStore } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { Projection } from './render/camera.js'
 import { type TapTracker, trackTaps } from './render/tap.js'
+import type { ViewerTheme } from './render/theme.js'
 import { webGLAvailableSnapshot } from './render/webgl.js'
 import { WebGLUnavailable } from './webgl-unavailable.js'
 
@@ -18,6 +19,8 @@ export interface ViewerFrameProps {
   className?: string
   style?: CSSProperties
   canvas: CanvasSettings
+  /** For labels drawn without a DOM: React Native only. The web's are styled by the application. */
+  labels?: ViewerTheme['labels']
   onPointerMissed?: () => void
   /** `<Viewer>`'s `webglUnavailable`: shown in place of the canvas without WebGL. */
   webglUnavailable?: ReactNode
