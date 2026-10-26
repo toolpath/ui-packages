@@ -6,6 +6,8 @@ export interface BodyDfmCheck {
   id: string
   label: string
   status: 'pending' | 'ready' | 'error'
+  /** Application-supplied analysis progress, from 0 to 100. */
+  progress?: number | null
   check: DfmCheck | null
   features: ReadonlyArray<DfmFeature>
   error?: string

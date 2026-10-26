@@ -74,6 +74,29 @@ describe('complete collections', () => {
     ])
     loader.dispose()
   })
+  it('prepares a replacement model and geometry while preserving the visible artifact', async () => {
+    const request = vi.fn(async () => new Response(loadMeshFixture('local-0.3.0-cube')))
+    const loader = createPartCollectionLoader({ fetch: request })
+    const [display] = models(1)
+    const original = (await loader.load([display!])).items[0]!
+    const disposed = vi.fn()
+    original.geometry.addEventListener('dispose', disposed)
+    const analysis = {
+      ...display!,
+      model: {
+        ...display!.model,
+        mesh: { ...display!.model.mesh, glbUrl: 'https://test/analysis.glb' },
+      },
+    }
+    const replacement = (await loader.load([analysis])).items[0]!
+    expect(replacement.model).toBe(analysis.model)
+    expect(replacement.geometry).not.toBe(original.geometry)
+    expect(disposed).not.toHaveBeenCalled()
+    loader.release([original])
+    expect(replacement.geometry.getAttribute('position').count).toBeGreaterThan(0)
+    loader.dispose()
+    expect(disposed).toHaveBeenCalledTimes(1)
+  })
   it('aborts reads and stops starting pending items', async () => {
     const controller = new AbortController()
     const request = vi.fn(

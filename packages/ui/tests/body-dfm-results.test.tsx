@@ -4,6 +4,25 @@ import { combineBodyChecks } from '@toolpath/dfm'
 import { BodyDfmResults } from '../src/body-dfm-results'
 
 describe('combined body results', () => {
+  it('identifies bodies still waiting and reports per-body progress', () => {
+    const summary = combineBodyChecks(
+      [
+        { id: 'a', label: 'Waiting body', status: 'pending', check: null, features: [] },
+        {
+          id: 'b',
+          label: 'Running body',
+          status: 'pending',
+          progress: 35,
+          check: null,
+          features: [],
+        },
+      ],
+      [],
+    )
+    render(<BodyDfmResults summary={summary} tab="rules" units="mm" onInspect={() => {}} />)
+    expect(screen.getByText('Waiting body: Pending analysis')).toBeVisible()
+    expect(screen.getByText('Running body: Checking 35%')).toBeVisible()
+  })
   it('keeps duplicate feature tags attached to their owning body and exposes failed-body retry', () => {
     const summary = combineBodyChecks(
       ['a', 'b'].map((id) => ({

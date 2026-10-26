@@ -11,6 +11,7 @@ import {
 import { Button } from '../button'
 import { Table } from '../table'
 import { Tooltip } from '../tooltip'
+import { ScrollArea } from '../scroll-area'
 
 export interface BodyDfmResultsProps {
   summary: BodyDfmSummary
@@ -40,20 +41,37 @@ export const BodyDfmResults = ({
         {summary.completed} of {summary.total} bodies checked
         {summary.failed ? ` · ${summary.failed} failed` : ''}
       </p>
-      {summary.bodies
-        .filter((body) => body.status === 'error')
-        .map((body) => (
-          <div key={body.id} className="flex shrink-0 items-center gap-2 px-3 text-xs text-danger">
-            <span className="flex-1">
-              {body.label}: {body.error ?? 'Analysis failed'}
-            </span>
-            {onRetry ? (
-              <Button size="sm" variant="secondary" onClick={() => onRetry(body.id)}>
-                Retry {body.label}
-              </Button>
-            ) : null}
-          </div>
-        ))}
+      {summary.completed < summary.total ? (
+        <ScrollArea className="max-h-24 flex-none [&_[data-viewport]]:max-h-24">
+          {summary.bodies
+            .filter((body) => body.status === 'pending')
+            .map((body) => (
+              <p key={body.id} className="shrink-0 px-3 text-xs text-gray-500 dark:text-zinc-400">
+                {body.label}:{' '}
+                {body.progress == null
+                  ? 'Pending analysis'
+                  : `Checking ${Math.round(body.progress)}%`}
+              </p>
+            ))}
+          {summary.bodies
+            .filter((body) => body.status === 'error')
+            .map((body) => (
+              <div
+                key={body.id}
+                className="flex shrink-0 items-center gap-2 px-3 text-xs text-danger"
+              >
+                <span className="flex-1">
+                  {body.label}: {body.error ?? 'Analysis failed'}
+                </span>
+                {onRetry ? (
+                  <Button size="sm" variant="secondary" onClick={() => onRetry(body.id)}>
+                    Retry {body.label}
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+        </ScrollArea>
+      ) : null}
       {rows.length > 0 ? (
         <Table
           data={rows}
