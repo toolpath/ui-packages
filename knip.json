@@ -29,7 +29,8 @@
       "project": ["src/**/*.ts", "tests/**/*.ts"]
     },
     "packages/sdk-typescript": {
-      "project": ["src/**/*.ts"],
+      "entry": ["src/index.ts", "tests/**/*.test.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"],
       "ignore": ["src/generated/**"]
     },
     "packages/tool-scraper": {

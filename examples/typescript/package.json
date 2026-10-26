@@ -10,8 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@toolpath/api": "workspace:*",
-    "eventsource-parser": "4.0.0"
+    "@toolpath/api": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

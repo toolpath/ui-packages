@@ -2,7 +2,7 @@
 
 This command uses the local `@toolpath/api` workspace package to create a part, upload a STEP file,
 start analysis, listen until the report is ready, fetch feature datasheets, and print the complete
-report as JSON. Analysis progress is received from the Engine job SSE stream.
+report as JSON. `waitForJob` follows the job's event stream for progress rather than polling.
 
 Run `pnpm install --frozen-lockfile` from the repository root first. Then replace the example API key
 and file path below with your own values.
