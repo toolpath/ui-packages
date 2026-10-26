@@ -18,8 +18,6 @@ const positionVersion = (geometry: BufferGeometry): number => {
 }
 const indexVersion = (geometry: BufferGeometry): number => geometry.index?.version ?? -1
 
-const nothing = (): void => {}
-
 /**
  * React Native's `render/part-picking.ts`: the part's raycasts go through a
  * bounding volume hierarchy, `three-mesh-bvh`'s.
@@ -35,9 +33,10 @@ const nothing = (): void => {}
  *
  * The tree is built once per geometry and kept with it, so a part disposed and
  * mounted again on the same geometry reuses it; it is built again only if the
- * geometry's positions or index changed since. There is nothing to undo.
+ * geometry's positions or index changed since, so there is nothing for the
+ * part's dispose to undo.
  */
-export function acceleratePicking(mesh: Mesh): () => void {
+export function acceleratePicking(mesh: Mesh): void {
   const geometry = mesh.geometry
   const position = positionVersion(geometry)
   const index = indexVersion(geometry)
@@ -48,5 +47,4 @@ export function acceleratePicking(mesh: Mesh): () => void {
   }
   geometry.boundsTree = held.tree
   mesh.raycast = acceleratedRaycast
-  return nothing
 }
