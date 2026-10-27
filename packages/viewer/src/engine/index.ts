@@ -38,3 +38,5 @@ export type {
   CollectionLoadResult,
   PartCollectionLoader,
 } from './collection.js'
+export { usePartCollection, type PartCollection } from './use-part-collection.js'
+export type { PartCollectionOptions, PartCollectionState } from './collection-session.js'

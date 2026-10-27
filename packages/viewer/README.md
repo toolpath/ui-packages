@@ -1101,40 +1101,51 @@ for all of its items.
 part, so a part behind it, or a handler on a parent group, no longer receives
 them. Its props are otherwise unchanged.
 
-Prepare the complete initial set before mounting `Viewer`. `/engine` exports
-`createPartCollectionLoader({ fetch?, signal?, concurrency? })`, whose `load`
-method accepts `{ id, model }` items and returns ordered `items` and `failures`
-after all requests finish. It preserves CAD coordinates, validates meshes, and
-smooths normals within regions. Successful items remain cached for retries.
-After the scene renders a result, pass everything it shows to `keep(items)`:
-meshes it showed before and no longer does are freed, and meshes a load returned
-that it has not shown yet are held for it, such as a failed attempt's successes
-that a retry returns again. Call `dispose()` after unmounting the collection.
-The loader owns geometry; `PartCollection` does not.
+In React, load the meshes with `usePartCollection(models, { concurrency? })`
+from `/engine`. Pass `{ id, model }` for every body, keeping each model object
+the same while it is unchanged, as `PartMesh` needs anyway. `items` is `null`
+until every body has loaded, so the scene appears complete. `failures` lists the
+bodies whose latest load failed, and `retry(id?)` loads them again, reusing the
+meshes that loaded. A new model for a body, such as its DFM analysis, loads
+while the body's current mesh stays on screen and replaces it once ready. The
+hook frees meshes the scene stops showing, drops results for models since
+replaced, and aborts loading on unmount. Geometry stays in CAD coordinates, and
+normals are smoothed within regions.
 
 ```tsx
 import { Grid, PartCollection, SectionTool, Viewer, ViewCube } from '@toolpath/viewer'
-import { createPartCollectionLoader } from '@toolpath/viewer/engine'
+import { usePartCollection } from '@toolpath/viewer/engine'
 
-// models: [{ id: 'body-0', model }, { id: 'body-1', model }]
-const loader = createPartCollectionLoader({ concurrency: 3 })
-const prepared = await loader.load(models)
-// Handle failures before mounting the scene; retry with the same loader.
-if (prepared.failures.length) throw new AggregateError(prepared.failures.map(({ error }) => error))
-// Once the scene below has rendered, and again after any replacement:
-loader.keep(prepared.items)
-
-const scene = (
-  <Viewer>
-    <PartCollection items={prepared.items} onPick={({ id, pick }) => inspect(id, pick)}>
-      <Grid />
-      <SectionTool />
-      <ViewCube />
-    </PartCollection>
-  </Viewer>
-)
-// After unmounting `scene`: loader.dispose().
+// models: [{ id: 'body-0', model }, { id: 'body-1', model }], each model kept stable
+const Scene = ({ models }) => {
+  const bodies = usePartCollection(models)
+  if (!bodies.items) {
+    return bodies.failures.length ? (
+      <button onClick={() => bodies.retry()}>Retry failed bodies</button>
+    ) : (
+      <p>Loading every body…</p>
+    )
+  }
+  return (
+    <Viewer>
+      <PartCollection items={bodies.items} onPick={({ id, pick }) => inspect(id, pick)}>
+        <Grid />
+        <SectionTool />
+        <ViewCube />
+      </PartCollection>
+    </Viewer>
+  )
+}
 ```
+
+Without React, `createPartCollectionLoader({ fetch?, signal?, concurrency? })`
+from `/engine` is what the hook runs on. `load` accepts `{ id, model }` items and
+resolves with ordered `items` and `failures` once every request has finished;
+successful meshes stay cached for retries. After the scene renders a result,
+pass everything it shows to `keep(items)`: meshes it showed before and no
+longer does are freed, and meshes a load returned that it has not shown yet are
+held for it. Call `dispose()` after unmounting the collection. The loader owns
+geometry; `PartCollection` does not.
 
 `renderItem` can supply an application's existing part renderer while retaining
 shared bounds and the single section. It receives each item with `onPick` and

@@ -4,4 +4,4 @@
 '@toolpath/ui': minor
 ---
 
-Support complete multi-body scenes, body-scoped picking and shared section bounds, reusable batch mesh preparation, and combined DFM results with body identities.
+Support complete multi-body scenes: `PartCollection` with body-scoped picking and shared section bounds, `usePartCollection` to load every body's mesh and swap in each analysis mesh as it arrives, and combined DFM results with body identities.
