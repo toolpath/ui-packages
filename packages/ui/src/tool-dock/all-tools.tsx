@@ -3,11 +3,11 @@ import { Popover } from '@base-ui/react/popover'
 import { DotsNineIcon } from '@phosphor-icons/react'
 import { cn } from '../common'
 import { POPOUT_GAP } from './bar-popout'
-import { isSwitch } from './pins'
 import { DockTooltip } from './dock-tooltip'
-import { BAR_BUTTON, FOCUS, HEADING, OPEN, pinLook, POPOVER } from './styles'
+import { BAR_BUTTON, DIMMED, FOCUS, HEADING, OPEN, pinLook, POPOVER, ROW_WITH_PIN } from './styles'
 import { useToolDock } from './tool-dock-context'
-import { lineOf, PinMark, pinLabel, ToolRowContent, ToolTipText } from './tool-row'
+import { PinMark, pinLabel, ToolRowContent, ToolTipText } from './tool-row'
+import { headingOf, isSwitch, lineOf } from './tools'
 import type { DockGroup, DockTool } from './types'
 
 interface Props {
@@ -32,7 +32,7 @@ export const AllTools: FC<Props> = ({ groups, pins, onPin }): ReactElement => {
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger
         data-all-tools="true"
-        className={cn(BAR_BUTTON, FOCUS, 'px-2 text-xs font-medium [&_svg]:size-4', open && OPEN)}
+        className={cn(BAR_BUTTON, FOCUS, 'px-2 text-xs font-medium [&_svg]:size-4', OPEN)}
       >
         <DotsNineIcon />
         All tools
@@ -53,8 +53,8 @@ export const AllTools: FC<Props> = ({ groups, pins, onPin }): ReactElement => {
             )}
           >
             {groups.map((group) => (
-              <section key={group.id} aria-label={group.title ?? group.label}>
-                <div className={HEADING}>{group.title ?? group.label}</div>
+              <section key={group.id} aria-label={headingOf(group)}>
+                <div className={HEADING}>{headingOf(group)}</div>
                 <ul>
                   {group.tools.map((tool) => (
                     <AllToolsRow
@@ -86,27 +86,27 @@ const AllToolsRow: FC<{
   onPin: () => void
   onUse: () => void
 }> = ({ tool, pinned, onPin, onUse }): ReactElement => {
-  const noteId = useId()
+  const lineId = useId()
   const toggles = isSwitch(tool)
   const line = lineOf(tool)
   return (
     // A grid, so the tooltip's wrapper, and the row in it, take the width the pin leaves.
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center">
+    <li className={ROW_WITH_PIN}>
       <DockTooltip tip={<ToolTipText tool={tool} />} delay={400}>
         <button
           type="button"
           {...(toggles ? { role: 'switch', 'aria-checked': tool.on } : {})}
           aria-label={tool.label}
-          aria-describedby={line ? noteId : undefined}
+          aria-describedby={line ? lineId : undefined}
           data-tool={tool.id}
           onClick={onUse}
           className={cn(
             FOCUS,
             'flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded px-2 py-1.5 text-left text-zinc-100 transition-colors hover:bg-zinc-800',
-            tool.gate && 'opacity-60',
+            tool.gate && DIMMED,
           )}
         >
-          <ToolRowContent tool={tool} noteId={noteId} compact />
+          <ToolRowContent tool={tool} lineId={lineId} compact />
         </button>
       </DockTooltip>
       <button

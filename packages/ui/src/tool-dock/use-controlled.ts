@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 /**
  * A value the caller may hold, or leave to this hook from a default. Either
@@ -11,9 +11,11 @@ export const useControlled = <T>(
 ): [T, (next: T) => void] => {
   const [own, setOwn] = useState(defaultValue)
   const controlled = value !== undefined
-  // Read at call time, so a new `onChange` each render does not make a new setter.
+  // Read at call time, so a new `onChange` does not make a new setter. Updated after each render.
   const onChangeRef = useRef(onChange)
-  onChangeRef.current = onChange
+  useLayoutEffect(() => {
+    onChangeRef.current = onChange
+  })
 
   const set = useCallback(
     (next: T) => {

@@ -1,8 +1,5 @@
 import type { DockGroup, DockTool } from './types'
 
-/** A switch is a tool that turns on and off and can work now: a gated tool is neither. */
-export const isSwitch = (tool: DockTool): boolean => tool.on !== undefined && !tool.gate
-
 /**
  * The tools with these ids, such as the pins, in their order. An id with no
  * tool is passed over, and so is an id given twice, after the first.

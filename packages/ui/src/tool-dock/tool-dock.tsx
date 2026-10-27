@@ -9,7 +9,7 @@ import { ToolDockContext } from './tool-dock-context'
 import type { DockGroup, DockTool, ToolDockLayout } from './types'
 import { useControlled } from './use-controlled'
 
-const NO_TOOLS: ReadonlyArray<string> = []
+const NO_PINS: ReadonlyArray<string> = []
 
 export interface ToolDockProps {
   groups: ReadonlyArray<DockGroup>
@@ -47,7 +47,7 @@ export const ToolDock: FC<ToolDockProps> = ({
   defaultLayout = 'spread',
   onLayoutChange,
   pins: pinsProp,
-  defaultPins = NO_TOOLS,
+  defaultPins = NO_PINS,
   onPinsChange,
   label = 'Tools',
   className,
@@ -69,7 +69,7 @@ export const ToolDock: FC<ToolDockProps> = ({
         // `dark`, so kit controls among the children, such as LayoutToggle, take their dark look.
         className={cn(SURFACE, 'dark flex max-w-full flex-wrap items-center gap-1 p-1', className)}
       >
-        <OnBar tools={toolsIn(groups, pins)}>
+        <PinnedTools tools={toolsIn(groups, pins)}>
           {layout === 'spread' ? (
             <AllTools groups={groups} pins={pins} onPin={pin} />
           ) : (
@@ -77,7 +77,7 @@ export const ToolDock: FC<ToolDockProps> = ({
               <GroupMenu key={group.id} group={group} pins={pins} onPin={pin} />
             ))
           )}
-        </OnBar>
+        </PinnedTools>
         {children ? (
           <>
             <Divider />
@@ -89,8 +89,8 @@ export const ToolDock: FC<ToolDockProps> = ({
   )
 }
 
-/** The tools on the bar as buttons, then a divider, then what holds the rest. */
-const OnBar: FC<{ tools: ReadonlyArray<DockTool>; children: ReactNode }> = ({
+/** The pinned tools as buttons, then a divider, then what holds the rest. */
+const PinnedTools: FC<{ tools: ReadonlyArray<DockTool>; children: ReactNode }> = ({
   tools,
   children,
 }): ReactElement => (

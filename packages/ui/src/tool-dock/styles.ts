@@ -23,14 +23,21 @@ export const BAR_BUTTON =
 
 export const PRESSED = 'bg-zinc-700 text-zinc-50 hover:bg-zinc-700'
 
-export const OPEN = 'bg-zinc-800 text-zinc-50'
+/** A trigger while its popup is open: Base UI marks it `data-popup-open`. */
+export const OPEN = 'data-[popup-open]:bg-zinc-800 data-[popup-open]:text-zinc-50'
 
 export const GATED = 'text-zinc-500 hover:text-zinc-300'
+
+/** A gated tool's row in All tools or a group's menu. */
+export const DIMMED = 'opacity-60'
 
 export const HEADING =
   'px-2 pt-2 pb-1 text-3xs font-semibold tracking-wider text-zinc-400 uppercase'
 
 export const NOTE = 'text-2xs font-normal text-zinc-400'
+
+/** A tool's row and its pin, side by side: the row takes the width the pin leaves. */
+export const ROW_WITH_PIN = 'grid grid-cols-[minmax(0,1fr)_auto] items-center'
 
 /** A tooltip's plate: the bar's own. */
 export const TIP = `max-w-72 rounded-md px-3 py-1 font-body text-xs font-medium break-words ${PLATE}`

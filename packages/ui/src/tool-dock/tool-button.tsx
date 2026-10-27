@@ -1,9 +1,9 @@
 import { useId, type FC, type ReactElement } from 'react'
 import { cn } from '../common'
-import { isSwitch } from './pins'
 import { BarTooltip } from './dock-tooltip'
 import { BAR_BUTTON, FOCUS, GATED, PRESSED } from './styles'
-import { lineOf, ToolTipText } from './tool-row'
+import { ToolTipText } from './tool-row'
+import { isSwitch, lineOf } from './tools'
 import type { DockTool } from './types'
 
 /** A tool as a button on the bar: its icon, with its label and line in a tooltip. */

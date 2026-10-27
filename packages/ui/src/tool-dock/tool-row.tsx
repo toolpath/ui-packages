@@ -1,12 +1,9 @@
 import type { FC, ReactElement } from 'react'
 import { PushPinIcon } from '@phosphor-icons/react'
 import { cn } from '../common'
-import { isSwitch } from './pins'
 import { NOTE } from './styles'
+import { isSwitch, lineOf } from './tools'
 import type { DockTool } from './types'
-
-/** What a row says under a tool's label: why it cannot work yet, or else what it does. */
-export const lineOf = (tool: DockTool): string | null | undefined => tool.gate || tool.note
 
 /** What a tool's pin is called, in All tools and in a group's menu. */
 export const pinLabel = (tool: DockTool): string => `Pin ${tool.label} to the bar`
@@ -35,9 +32,9 @@ export const ToolTipText: FC<{ tool: DockTool }> = ({ tool }): ReactElement => {
  * its line is left for the row's tooltip, and kept here, hidden, for
  * assistive technology.
  */
-export const ToolRowContent: FC<{ tool: DockTool; noteId: string; compact?: boolean }> = ({
+export const ToolRowContent: FC<{ tool: DockTool; lineId: string; compact?: boolean }> = ({
   tool,
-  noteId,
+  lineId,
   compact = false,
 }): ReactElement => {
   const line = lineOf(tool)
@@ -52,7 +49,7 @@ export const ToolRowContent: FC<{ tool: DockTool; noteId: string; compact?: bool
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className={cn('text-xs font-medium', compact && 'truncate')}>{tool.label}</span>
         {line ? (
-          <span id={noteId} className={NOTE} hidden={compact}>
+          <span id={lineId} className={NOTE} hidden={compact}>
             {line}
           </span>
         ) : null}

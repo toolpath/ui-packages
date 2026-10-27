@@ -4,9 +4,9 @@ import { CaretDownIcon } from '@phosphor-icons/react'
 import { cn } from '../common'
 import { Menu } from '../menu'
 import { useBarPopout } from './bar-popout'
-import { isSwitch } from './pins'
-import { BAR_BUTTON, FOCUS, HEADING, pinLook, POPOVER } from './styles'
+import { BAR_BUTTON, DIMMED, FOCUS, HEADING, OPEN, pinLook, POPOVER, ROW_WITH_PIN } from './styles'
 import { PinMark, pinLabel, ToolRowContent } from './tool-row'
+import { headingOf, isSwitch, lineOf } from './tools'
 import type { DockGroup, DockTool } from './types'
 
 interface Props {
@@ -29,12 +29,7 @@ export const GroupMenu: FC<Props> = ({ group, pins, onPin }): ReactElement => {
       <BaseMenu.Trigger
         ref={popout.trigger}
         data-group={group.id}
-        className={cn(
-          BAR_BUTTON,
-          FOCUS,
-          'group px-2 text-xs font-medium [&_svg]:size-4',
-          'data-[popup-open]:bg-zinc-800 data-[popup-open]:text-zinc-50',
-        )}
+        className={cn(BAR_BUTTON, FOCUS, OPEN, 'group px-2 text-xs font-medium [&_svg]:size-4')}
       >
         {group.icon}
         {group.label}
@@ -47,14 +42,10 @@ export const GroupMenu: FC<Props> = ({ group, pins, onPin }): ReactElement => {
         sideOffset={popout.sideOffset}
         className={cn(POPOVER, 'w-72 p-1')}
       >
-        <div className={HEADING}>{group.title ?? group.label}</div>
+        <div className={HEADING}>{headingOf(group)}</div>
         {group.tools.map((tool) => (
           // A grid, so the row takes the width the pin leaves. The arrow keys stop at both.
-          <div
-            key={tool.id}
-            role="presentation"
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1"
-          >
+          <div key={tool.id} role="presentation" className={cn(ROW_WITH_PIN, 'gap-1')}>
             <GroupMenuItem tool={tool} />
             <GroupMenuPin
               tool={tool}
@@ -69,22 +60,22 @@ export const GroupMenu: FC<Props> = ({ group, pins, onPin }): ReactElement => {
 }
 
 const GroupMenuItem: FC<{ tool: DockTool }> = ({ tool }): ReactElement => {
-  const noteId = useId()
+  const lineId = useId()
   const toggles = isSwitch(tool)
   return (
     <Menu.Item
       {...(toggles ? { role: 'menuitemcheckbox', 'aria-checked': tool.on } : {})}
       aria-label={tool.label}
-      aria-describedby={tool.gate || tool.note ? noteId : undefined}
+      aria-describedby={lineOf(tool) ? lineId : undefined}
       data-tool={tool.id}
       closeOnClick={!toggles}
       onClick={tool.onClick}
       className={cn(
         'gap-3 rounded py-1.5 whitespace-normal text-zinc-100 data-[highlighted]:bg-zinc-800',
-        tool.gate && 'opacity-60',
+        tool.gate && DIMMED,
       )}
     >
-      <ToolRowContent tool={tool} noteId={noteId} />
+      <ToolRowContent tool={tool} lineId={lineId} />
     </Menu.Item>
   )
 }
