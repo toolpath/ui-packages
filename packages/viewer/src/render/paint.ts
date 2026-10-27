@@ -1,10 +1,10 @@
 import { directionIndexOf } from '../model/directions.js'
 import type { FeatureTag } from '../model/types.js'
 import type { PartObject } from './part.js'
+import { type ViewerTheme, directionColor } from './theme.js'
 
 /** What painting needs of a part: its model, and its paint. `createPart` provides it. */
 export type PaintTarget = Pick<PartObject, 'model' | 'clearPaint' | 'paintRegion' | 'paintFeature'>
-import { type ViewerTheme, directionColor } from './theme.js'
 
 /**
  * A feature the consumer wants coloured, for a reason the viewer does not need

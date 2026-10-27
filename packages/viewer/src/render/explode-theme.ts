@@ -1,5 +1,12 @@
-import { EXPLODE_TINTS, type ExplodeTint } from './explode-paint.js'
 import { DEFAULT_THEME, type ViewerTheme } from './theme.js'
+
+/** Selection and hover tints: the viewer's warm pair, and a cool pair for warm pieces. */
+export const EXPLODE_TINTS = {
+  warm: { highlight: DEFAULT_THEME.highlight, hover: DEFAULT_THEME.hover },
+  cool: { highlight: 0x2563eb, hover: 0x0ea5e9 },
+} as const
+
+export type ExplodeTint = keyof typeof EXPLODE_TINTS
 
 /**
  * The explode look without a theme: the part's edges and the viewer's selection colors, as

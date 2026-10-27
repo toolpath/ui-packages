@@ -1,6 +1,7 @@
 import { Color } from 'three'
 import type { ExplodeGroup, ExplodeRegionColors } from '../model/explode.js'
 import type { PartModel } from '../model/types.js'
+import { EXPLODE_TINTS, type ExplodeTint } from './explode-theme.js'
 import { applyHighlightLayers, type HighlightLayers } from './paint.js'
 import { DEFAULT_THEME } from './theme.js'
 
@@ -61,14 +62,6 @@ export const explodeRegionColors = (
   }
   return colors
 }
-
-/** Selection and hover tints: the viewer's warm pair, and a cool pair for warm pieces. */
-export const EXPLODE_TINTS = {
-  warm: { highlight: DEFAULT_THEME.highlight, hover: DEFAULT_THEME.hover },
-  cool: { highlight: 0x2563eb, hover: 0x0ea5e9 },
-} as const
-
-export type ExplodeTint = keyof typeof EXPLODE_TINTS
 
 /** How much less distinct the warm tint must be before the cool one is used instead. */
 const COOL_WHEN = 2

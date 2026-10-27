@@ -9,7 +9,7 @@ const TARGET = new Vector3()
  * `camera-controls` reads its target out into a vector rather than exposing one,
  * and R3F's `controls` slot is typed loosely enough to hold either shape.
  */
-export function readTarget(controls: unknown): Vector3 {
+export const readTarget = (controls: unknown): Vector3 => {
   if (controls && typeof (controls as { getTarget?: unknown }).getTarget === 'function') {
     return (controls as { getTarget: (into: Vector3) => Vector3 }).getTarget(TARGET)
   }
