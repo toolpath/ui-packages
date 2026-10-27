@@ -512,8 +512,10 @@ over the paint. Unknown group/region keys are ignored. Color changes retain geom
 pick identities, and shader programs.
 
 `selectedFeatures` and `hoveredFeatures` take feature tags, as `<PartMesh selection>` and
-`hoveredFeatureIds` do: every piece whose `featureTags` include one is lit, or only the piece
-clicked when it is one of them, until the selection that click produced changes. The piece under
+`hoveredFeatureIds` do: every piece whose `featureTags` include one is lit. A clicked piece takes
+its own features' selection from their other pieces, until the selection that click produced
+changes; pieces of the other selected features stay lit, so a click that adds to the selection
+keeps the rest. The piece under
 the pointer is lit and reported unless `hover={false}`. `selected` and `hovered` take group IDs
 directly, one or several treated as one piece, and replace those. Selecting a piece highlights
 its original surfaces and draws one connector from them to where it is.

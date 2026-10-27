@@ -33,6 +33,15 @@ describe('piecesFor', () => {
     expect(piecesFor(groups, ['f'], 'face-2')).toBe('face-2')
     expect(piecesFor(groups, ['h'], 'face-2')).toEqual(['face-3'])
   })
+
+  it('keeps every piece of the other selected features when a click adds to the selection', () => {
+    // `h` was selected, and a click on `face-1` added `f`: the other `f` piece stays dark.
+    expect(piecesFor(groups, ['h', 'f'], 'face-1')).toEqual(['face-1', 'face-3'])
+    // `face-2` also stands for `g`, which the click on `face-1` does not, so it stays lit for `g`.
+    expect(piecesFor(groups, ['g', 'F'], 'face-1')).toEqual(['face-1', 'face-2'])
+    // A click on `face-2` stands for both `f` and `g`, so it keeps both to itself.
+    expect(piecesFor(groups, ['f', 'g', 'h'], 'face-2')).toEqual(['face-2', 'face-3'])
+  })
 })
 
 describe('settleClick', () => {

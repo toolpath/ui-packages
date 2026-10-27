@@ -59,8 +59,9 @@ export interface ExplodedPartProps {
   hovered?: ExplodeGroupIds
   /**
    * The features being read, as `<PartMesh selection>` takes them: every piece standing for one
-   * of them (its `featureTags`) is selected, or only the piece clicked when it is one of those,
-   * until the selection that click produced changes.
+   * of them (its `featureTags`) is selected. A clicked piece takes its own features' selection
+   * from their other pieces, until the selection that click produced changes; pieces of the
+   * other features stay selected.
    */
   selectedFeatures?: readonly FeatureTag[]
   /**
