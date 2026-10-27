@@ -11,6 +11,8 @@ export type ToggleProps = {
   disabled?: boolean
   size?: 'sm' | 'md' | 'lg'
   className?: string
+  /** The control's name for assistive technology, such as the setting it chooses. */
+  'aria-label'?: string
   children: ReactNode
 }
 
@@ -21,6 +23,7 @@ export const Toggle = ({
   size = 'md',
   className,
   children,
+  'aria-label': ariaLabel,
 }: ToggleProps) => {
   // Count the number of Toggle.Item children
   const itemCount = Children.toArray(children).filter(
@@ -97,6 +100,7 @@ export const Toggle = ({
               value={[value]}
               onValueChange={handleValueChange}
               disabled={disabled}
+              aria-label={ariaLabel}
               {...accessibilityProps}
               className={cn(
                 'relative inline-flex items-center bg-gray-100 dark:bg-zinc-900 px-0.5',

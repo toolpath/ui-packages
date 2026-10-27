@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { HoverCard } from '../src/hover-card.js'
@@ -111,5 +113,19 @@ describe('viewer styling hooks', () => {
 
     expect(markup).toContain('class="viewer-hover-card app-hover-card"')
     expect(markup).toContain('data-viewer-hover-card="true"')
+  })
+
+  it("sizes only the old toolbar's icons, so another toolbar can size its own", async () => {
+    const css = await readFile(join(process.cwd(), 'src/toolbar.css'), 'utf8')
+
+    const iconSelectors = [...css.matchAll(/([^{}]+)\{/g)]
+      .flatMap(([, selectorList = '']) => selectorList.split(','))
+      .map((selector) => selector.trim())
+      .filter((selector) => selector.includes('.viewer-toolbar-icon'))
+
+    expect(iconSelectors).not.toHaveLength(0)
+    for (const selector of iconSelectors) {
+      expect(selector).toContain('.viewer-toolbar-button')
+    }
   })
 })

@@ -317,6 +317,7 @@ the part opaque. For multiselection, update your own tag array and avoid duplica
 | `Banana`                     | Optional bundled 154 mm scale reference; loads its GLB on mount and suspends.        |
 | `CadCameraControls`          | Lower-level camera controls for custom R3F scenes. `Viewer` already installs them.   |
 | `ViewerToolbar`              | DOM controls configured through `ViewerToolbarProvider`.                             |
+| `viewerToolGroups`           | The toolbar controls in groups, with labels, notes and icons, for `ToolDock`.        |
 | `HoverCard`                  | Cursor-following DOM content for a pick.                                             |
 
 ### `<Viewer>`
@@ -593,6 +594,27 @@ The supported action names are `stock`, `axes`, `grid`, `banana`, `tools`,
 `directions`, `dfm`, `sharpCorners`, `threads`, `hover`, `focus`, `wireframe`, `section`,
 `measure`, `fit`, `reset`, and `top`; button names capitalize the action, such as
 `ViewerToolbar.SharpCornersButton`. `useViewerToolbar()` reads those controls.
+
+`viewerToolGroups(controls, options?)` describes the same controls for a toolbar
+that groups, explains and pins its tools, such as `@toolpath/ui`'s `ToolDock`. It
+puts them in four groups (`scene`, `dfm`, `tools`, `view`), each tool with its
+label, a line on what it does, its icon, whether it is on, and its `onClick`. A
+control you did not supply is left out, and so is a group left with none.
+`options.labels` renames a tool, `options.notes` replaces its line, and
+`options.gates` says why a tool cannot work yet:
+
+```tsx
+import { ToolDock } from '@toolpath/ui'
+import { viewerToolGroups } from '@toolpath/viewer'
+
+const groups = viewerToolGroups(controls, {
+  gates: { directions: report ? null : 'Waits for the DFM check' },
+})
+
+export const PartTools = () => (
+  <ToolDock groups={groups} defaultLayout="grouped" defaultPins={['section', 'measure']} />
+)
+```
 
 ### Stock and display controls
 

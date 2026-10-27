@@ -195,6 +195,7 @@ installed version.
 | `Notification`                           | Top-center feedback stack; `Provider`, `List`, `useNotificationManager`.                                                                                                          |
 | `Tabs`                                   | Controlled navigation with `value` and `onValueChange`; `List`, `Tab`, `useTabs`. Render the selected content yourself.                                                           |
 | `Toggle`                                 | Controlled segmented choice with `value` and `onValueChange`; `Item`, `useToggle`. With exactly two items, activating either switches to the other value.                         |
+| `ToolDock`                               | Toolbar for many tools, `spread` (pins and All tools) or `grouped` (menus); `defaultLayout`, `LayoutToggle`. See below.                                                           |
 | `Table`                                  | Data table with a header element and row render function; sorting, selection, grouping, tree, and virtualization options. See below.                                              |
 | `EditableCell`, `useEditableGrid`        | Inline editing and grid navigation. The application parses/validates committed strings and persists changes.                                                                      |
 | `Panels`                                 | Resizable layout; `Group`, `Panel`, `Separator`, `Collapsed`, layout/ref hooks, and related types.                                                                                |
@@ -302,6 +303,77 @@ export const PartMenu = ({ onRename }: { onRename: () => void }) => (
 For a right-click menu, use `<Menu context>` and put the target inside
 `Menu.Trigger`. Submenus use `Menu.Submenu`, `Menu.SubmenuTrigger`, and their own
 `Menu.Popover`.
+
+### Tool dock
+
+`ToolDock` is a toolbar for more tools than fit on a bar. It has two layouts:
+
+- `spread`: the pinned tools sit on the bar as buttons. **All tools** opens a
+  panel with every tool, a column per group, where each tool can be flipped and
+  pinned.
+- `grouped`: each group is a menu of its tools on the bar, and the pinned
+  tools sit on the bar as buttons beside the menus. Each row in a menu has a
+  pin too.
+
+The two layouts share one list of pins, so a tool pinned in one is on the bar
+in the other.
+
+The tools are plain data: each has an `id`, `label`, `icon` and `onClick`, an
+optional `note`, `on` (leave it out for an action, such as a camera move) and
+`gate` (why it cannot work yet; it is dimmed, and its click still calls
+`onClick`). A switch keeps its menu or panel open; an action closes it.
+`@toolpath/viewer`'s `viewerToolGroups` gives the viewer's toolbar controls in
+this shape.
+
+Pick the layout each app opens in with `defaultLayout`, and its first pins with
+`defaultPins`. To keep the layout or the pins, hold them yourself
+with `layout` and `onLayoutChange`, or `pins` and `onPinsChange`; the dock saves
+nothing. Children
+go at the end of the bar. Put `ToolDock.LayoutToggle` among them, such as in a
+settings menu, to let people switch layouts. A control of your own there can
+read and set the layout with `ToolDock.useToolDock()`.
+
+Every menu and panel from the bar opens 4px above it. A popup of your own
+there can do the same with `ToolDock.useBarPopout()`: put its `trigger` ref on
+the button, and its `anchor` and `sideOffset` on the popup. `useToolDock()`
+also gives the bar.
+
+```tsx
+import { Menu, ToolDock, type DockGroup } from '@toolpath/ui'
+
+export const PartTools = ({ groups }: { groups: Array<DockGroup> }) => (
+  <ToolDock groups={groups} defaultLayout="grouped" defaultPins={['section', 'measure']}>
+    <Settings />
+  </ToolDock>
+)
+
+const Settings = () => {
+  const popout = ToolDock.useBarPopout<HTMLButtonElement>()
+  return (
+    <Menu>
+      <Menu.Trigger>
+        <button ref={popout.trigger}>…</button>
+      </Menu.Trigger>
+      <Menu.Popover
+        side="top"
+        anchor={popout.anchor}
+        sideOffset={popout.sideOffset}
+        className="dark"
+      >
+        Toolbar layout <ToolDock.LayoutToggle />
+      </Menu.Popover>
+    </Menu>
+  )
+}
+```
+
+The dock is dark in either theme. It floats over a 3D view, and a bar that
+turned white with the page would be the brightest thing over the part. Its
+menus and panels carry `dark` too, as they open outside the bar; give a popup
+of your own there the `dark` class to match. Its tooltips are on the bar's own
+plate: a bar button's opens 4px above the bar, and a row's in All tools 4px
+above the row. Wrap a control of your own on the bar in `ToolDock.Tooltip` for
+the same.
 
 ### Confirmations
 
