@@ -341,6 +341,11 @@ const Pieces = ({
       dropHoverRef.current()
     }
   }, [hoverLive])
+  // New pieces drop the hover with the old ones, so the piece under the pointer is reported
+  // again on the next move, even with the same id and face.
+  useLayoutEffect(() => {
+    dropHoverRef.current()
+  }, [groups])
 
   const pick = (event: ThreeEvent<MouseEvent>, doubled: boolean): ExplodePick | null =>
     resources.current?.pick(event, {

@@ -319,6 +319,18 @@ describe('<ExplodedPart> pointer', () => {
     expect(onHover).toHaveBeenLastCalledWith(null)
   })
 
+  it('hovers the piece under the pointer again once the layout changes', async () => {
+    const { scene, handlers, onHover, element } = await render()
+    handlers().onPointerMove!(pointer(hitOn(scene, 60)).event)
+    expect(onHover).toHaveBeenCalledTimes(1)
+    // The same pieces, laid out again: the hover is dropped with the old ones.
+    await scene.rerender(element({ explode: { groups: layout(), amount: 1 } }))
+    expect(onHover).toHaveBeenLastCalledWith(null)
+    handlers().onPointerMove!(pointer(hitOn(scene, 60)).event)
+    expect(onHover).toHaveBeenCalledTimes(3)
+    expect(onHover.mock.calls[2]![0]!.explodeGroupId).toBe('right')
+  })
+
   it('neither hovers nor picks while hidden, and warms its pieces all the same', async () => {
     const { scene, handlers, onPick, onHover } = await render({ visible: false })
     const pieces = scene.find('explode-surfaces')
