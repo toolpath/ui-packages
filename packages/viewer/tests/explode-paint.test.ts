@@ -14,9 +14,9 @@ const group = (id: string, regionIdxs: Array<number>, color = 0x3b82f6): Explode
   color,
 })
 
-/** A color covering the white part by `weight`, as `<PartMesh>` stores and draws it. */
-const washed = (hex: number, weight: number) =>
-  new Color(0xffffff).lerp(new Color(hex), Math.round(weight * 255) / 255).getHex()
+/** A color covering the part, white by default, by `weight`, as `<PartMesh>` stores and draws it. */
+const washed = (hex: number, weight: number, part = 0xffffff) =>
+  new Color(part).lerp(new Color(hex), Math.round(weight * 255) / 255).getHex()
 
 describe('explodeRegionColors', () => {
   it('paints pieces as the assembled part is painted: features, then faces over them', () => {
@@ -33,6 +33,27 @@ describe('explodeRegionColors', () => {
     expect(colors.get('piece')?.get(second!)).toBe(0x00ff00)
     // A piece with nothing painted keeps its own color.
     expect(colors.has('bare')).toBe(false)
+  })
+
+  it('covers the theme’s part color, as the assembled part does', () => {
+    const model = cubeModel()
+    const feature = model.features.find((entry) => entry.regionIdxs.length > 1)!
+    const [first, second] = feature.regionIdxs
+    const part = 0x4b5563
+    const colors = explodeRegionColors(
+      model,
+      [group('piece', [first!, second!])],
+      {
+        highlights: [{ tag: feature.tag, color: 0xff0000 }],
+        regionHighlights: [{ region: second!, color: 0x00ff00, weight: 1 }],
+      },
+      undefined,
+      part,
+    )!
+    expect(colors.get('piece')?.get(first!)).toBe(washed(0xff0000, HIGHLIGHT_WEIGHT, part))
+    expect(colors.get('piece')?.get(first!)).not.toBe(washed(0xff0000, HIGHLIGHT_WEIGHT))
+    // Full coverage hides the part's color.
+    expect(colors.get('piece')?.get(second!)).toBe(0x00ff00)
   })
 
   it('lets the application’s own region colors win, and passes them through with no paint', () => {

@@ -531,8 +531,8 @@ ghost of the source part and the source overlays do not accept picks, and a pick
 nothing passes to what is behind.
 
 `visible={false}` retains buffers while excluding the pieces from rendering, picking, and
-framing. `theme?: Partial<ViewerTheme>` styles the pieces: `part` colors the source ghost,
-`partEmissive` sets emissive lighting, `edge`/`edgeOpacity` control the outlines, `highlight`
+framing. `theme?: Partial<ViewerTheme>` styles the pieces: `part` colors the source ghost and
+is what `highlights` paint covers, as on `<PartMesh>`, `partEmissive` sets emissive lighting, `edge`/`edgeOpacity` control the outlines, `highlight`
 and `hover` tint the selected and hovered piece, and `picked` colors its source surfaces.
 Without `highlight` and `hover`, pieces tint toward the viewer's selection colors, or toward
 blue when the colors shown are mostly warm, as rule paint is, so the tint reads either way.

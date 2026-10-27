@@ -8,29 +8,30 @@ import { DEFAULT_THEME } from './theme.js'
 /** The layers `<ExplodedPart>` paints: an application's own, as `<PartMesh>` takes them. */
 export type ExplodePaintLayers = Pick<HighlightLayers, 'highlights' | 'regionHighlights'>
 
-const WHITE = new Color(0xffffff)
-
 /**
  * Each piece's painted surfaces, colored as `<PartMesh>` colors them: feature highlights, then
- * region highlights over them, each covering the white part by its weight. `regionColors` the
- * application set itself win over the paint. Pieces with nothing painted are left out.
+ * region highlights over them, each covering the part's color (`part`, the theme's) by its
+ * weight. `regionColors` the application set itself win over the paint. Pieces with nothing
+ * painted are left out.
  */
 export const explodeRegionColors = (
   model: PartModel,
   groups: ReadonlyArray<ExplodeGroup>,
   layers: ExplodePaintLayers,
   regionColors?: ExplodeRegionColors,
+  part: number = DEFAULT_THEME.part,
 ): ExplodeRegionColors | undefined => {
   if (!layers.highlights?.length && !layers.regionHighlights?.length) {
     return regionColors
   }
   const painted = new Map<number, number>()
+  const base = new Color(part)
   const color = new Color()
   // The same layering `<PartMesh>` paints with, recorded rather than drawn.
   const paintRegion = (region: number, hex: number, weight: number) => {
     // Stored as `<PartMesh>` stores it: an 8-bit coverage.
     const coverage = Math.round(Math.max(0, Math.min(1, weight)) * 255) / 255
-    painted.set(region, color.copy(WHITE).lerp(new Color(hex), coverage).getHex())
+    painted.set(region, color.copy(base).lerp(new Color(hex), coverage).getHex())
   }
   applyHighlightLayers(
     {

@@ -46,7 +46,7 @@ import { edgeOpacityScale, resolveExplodeTheme, type ExplodeTheme } from './rend
 import { explodeRegionColors, explodeTint } from './render/explode-paint.js'
 import { explodeFits } from './render/explode-layout.js'
 import type { FeatureHighlight, RegionHighlight } from './render/paint.js'
-import type { ViewerTheme } from './render/theme.js'
+import { DEFAULT_THEME, type ViewerTheme } from './render/theme.js'
 
 export interface ExplodedPartProps {
   /**
@@ -457,9 +457,18 @@ export const ExplodedPart = (props: ExplodedPartProps) => {
   const selection = selectionKey(props.selectedFeatures)
   const selectedFeatures = useByContent(props.selectedFeatures, selection)
   const hoveredFeatures = useByContent(props.hoveredFeatures, selectionKey(props.hoveredFeatures))
+  // Paint covers the part's own color, as on `<PartMesh>`.
+  const partColor = props.theme?.part ?? DEFAULT_THEME.part
   const regionColors = useMemo(
-    () => explodeRegionColors(model, groups, { highlights, regionHighlights }, ownRegionColors),
-    [model, groups, highlights, regionHighlights, ownRegionColors],
+    () =>
+      explodeRegionColors(
+        model,
+        groups,
+        { highlights, regionHighlights },
+        ownRegionColors,
+        partColor,
+      ),
+    [model, groups, highlights, regionHighlights, ownRegionColors, partColor],
   )
   const tint = useMemo(
     () => explodeTint(groups, colors, regionColors),
