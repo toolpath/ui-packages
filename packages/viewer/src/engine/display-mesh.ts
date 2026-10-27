@@ -7,7 +7,7 @@ import type { PartModel, PartModelRegion } from '../model/types.js'
  */
 export interface DisplayMesh {
   partId?: string
-  /** Presigned and short-lived; `null` where the caller supplies the geometry. */
+  /** Presigned and short-lived. */
   meshGlbUrl?: string | null
   meshPointCount: number
   meshTriangleCount: number
@@ -19,30 +19,14 @@ export interface DisplayMesh {
 }
 
 /**
- * The shape kind of the one region of a mesh whose faces are not known: the
- * whole body, which `smoothRegionNormals` shades flat.
- */
-export const WHOLE_BODY = 'Body'
-
-/**
  * A `PartModel` of a display mesh: no features, and each face of the body as
  * one region, which is what draws its edges and shades each face on its own.
- * Without face spans the whole mesh is one region, of shape kind `'Body'`: it
- * is picked and hovered as one, shaded flat, and drawn without edges. The faces
- * must tile the mesh, or this throws `PartReportFormatError`.
+ * A mesh without face spans has no regions: it is drawn without edges, shaded
+ * flat, and offers nothing to pick. The faces must tile the mesh, or this
+ * throws `PartReportFormatError`.
  */
 export const displayMeshModel = (mesh: DisplayMesh): PartModel => {
-  const regions = mesh.faceTriangleCounts?.length
-    ? regionsFromFaces(mesh.faceTriangleCounts)
-    : [
-        {
-          splitOrigin: 0,
-          idx: 0,
-          shapeKind: WHOLE_BODY,
-          area: 0,
-          triangles: { start: 0, end: mesh.meshTriangleCount },
-        },
-      ]
+  const regions = regionsFromFaces(mesh.faceTriangleCounts ?? [])
   return {
     partId: mesh.partId ?? '',
     kernelVersion: '',
@@ -56,10 +40,11 @@ export const displayMeshModel = (mesh: DisplayMesh): PartModel => {
       stlUrl: null,
       thumbnailUrl: null,
     },
+    // Over no triangles when there are no faces, so that every lookup answers null.
     regionIndex: buildRegionIndex({
       regions,
       features: [],
-      triangleCount: mesh.meshTriangleCount,
+      triangleCount: regions.length > 0 ? mesh.meshTriangleCount : 0,
     }),
     warnings: [],
   }

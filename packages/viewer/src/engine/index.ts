@@ -40,8 +40,6 @@ export type {
 } from './collection.js'
 export { usePartCollection, type PartCollection } from './use-part-collection.js'
 export { displayMeshModel, type DisplayMesh } from './display-mesh.js'
-export { disposeFileMesh, loadFileMesh, parseFileMesh, type FileMeshBody } from './file-mesh.js'
-export { useFileMesh, type FileMesh } from './use-file-mesh.js'
 export type {
   PartCollectionModel,
   PartCollectionOptions,

@@ -1151,61 +1151,12 @@ longer does are freed, and meshes a load returned that it has not shown yet are
 held for it. Call `dispose()` after unmounting the collection. The loader owns
 geometry; `PartCollection` does not.
 
-### A file's bodies before any is a part
-
-**Experimental**, as the Engine's Files API is. After a file is inspected,
-`GET /v1/files/{id}/mesh` returns one GLB of every body (Engine API 1.35.0), so
-the whole file can be drawn before any body is made a part. `useFileMesh(url,
-{ fetch? })` from `/engine` fetches it and splits it by body: `bodies` maps each
-body's `index` among the file's `bodies` to `{ index, model, geometry }`. Pass
-`null` while the file has no mesh (`hasMesh` false). A new presigned URL for the
-same mesh is not fetched again. If your server keeps the presigned URL to
-itself, pass the URL of your own route that returns the GLB, or a `fetch`.
-
-Pass a body to `usePartCollection` as `{ id, model, geometry }`: it is shown at
-once, with nothing to fetch, and `useFileMesh` frees its geometry once another
-mesh replaces it or on unmounting. A body the Engine could not facet is missing
-from the mesh; draw its part's display mesh instead. The file's mesh carries no
-faces, so each body is one region: picked and hovered as a whole, shaded flat
-and drawn without edges. When its part's display mesh or analysis arrives, pass
-that model for the same `id`; the body stays on screen, listed in `waiting`,
-until it loads. `displayMeshModel(mesh)` makes a model of a **Get part mesh**
-response, its faces as regions.
-
-```tsx
-import { PartCollection, Viewer } from '@toolpath/viewer'
-import { displayMeshModel, useFileMesh, usePartCollection } from '@toolpath/viewer/engine'
-
-// file: GET /v1/files/{id}; meshUrl: GET /v1/files/{id}/mesh's meshGlbUrl;
-// partMeshes: GET /v1/parts/{id}/mesh responses by body index, as they arrive
-const FileScene = ({ file, meshUrl, partMeshes }) => {
-  const mesh = useFileMesh(file.hasMesh ? meshUrl : null)
-  const models = useMemo(() => {
-    const each = file.bodies.map(({ index }) => {
-      const part = partMeshes.get(index)
-      if (part) {
-        return { id: String(index), key: part.jobId, model: () => displayMeshModel(part) }
-      }
-      const body = mesh.bodies?.get(index)
-      return body ? { id: String(index), model: body.model, geometry: body.geometry } : null
-    })
-    // Every body at once, so the scene appears complete.
-    return each.every((model) => model !== null) ? each : []
-  }, [file, mesh.bodies, partMeshes])
-  const bodies = usePartCollection(models)
-  if (!bodies.items) {
-    return <p>Loading every body…</p>
-  }
-  return (
-    <Viewer>
-      <PartCollection items={bodies.items} onPick={({ id }) => choose(Number(id))} />
-    </Viewer>
-  )
-}
-```
-
-Without React, `loadFileMesh(url, { fetch?, signal? })` or `parseFileMesh(bytes)`
-returns the same map; call `disposeFileMesh(bodies)` once nothing draws them.
+To draw a body before its analysis, make its model from its part's display mesh
+with `displayMeshModel(mesh)` from `/engine`: pass the **Get part mesh**
+(`GET /v1/parts/{id}/mesh`) response as it is. Each face of the body becomes one
+region, which draws its edges and shades each face on its own. A mesh without
+face spans has no regions: it is drawn without edges, shaded flat, and offers
+nothing to pick.
 
 Each item takes the `PartMesh` props, so bodies can look different:
 `theme={{ part, partEmissive, hover }}` colours one, and an `opacity` below 1

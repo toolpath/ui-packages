@@ -1,4 +1,3 @@
-import { BufferGeometry } from 'three'
 import { describe, expect, it, vi } from 'vitest'
 import { createPartCollectionSession, waitingFor } from '../src/engine/collection-session.js'
 import type { PartModel } from '../src/model/types.js'
@@ -256,31 +255,6 @@ describe('collection sessions', () => {
     expect(session.get().items).toBeNull()
   })
 
-  it('shows a body given with its geometry at once, and never frees that geometry', async () => {
-    const request = vi.fn(async (_url: string) => cube())
-    const session = createPartCollectionSession({ fetch: request })
-    const geometry = new BufferGeometry()
-    const dispose = vi.spyOn(geometry, 'dispose')
-    const given = { id: '0', model: cubeModel(), geometry }
-    session.show([given, ...bodies(2).slice(1)])
-    expect(session.get().items).toBeNull()
-    const { items } = await settled(session, (state) => state.items !== null)
-    expect(items![0]).toEqual({ id: '0', model: given.model, geometry })
-    expect(request.mock.calls.map(([url]) => url)).toEqual(['https://test/1.glb'])
-    session.keep(items!)
-    expect(waitingFor([given], session.get())).toEqual([])
-
-    // Its part's mesh replaces it once loaded; the given geometry stays the caller's.
-    const part = { id: '0', model: modelAt('https://test/part.glb') }
-    session.show([part, ...bodies(2).slice(1)])
-    expect(waitingFor([part], session.get())).toEqual(['0'])
-    const after = await settled(session, (state) => state.items?.[0]?.model === part.model)
-    session.keep(after.items!)
-    expect(after.items![0]!.geometry).not.toBe(geometry)
-    session.dispose()
-    expect(dispose).not.toHaveBeenCalled()
-  })
-
   it('shows nothing for bodies given after an empty list until all of them have loaded', async () => {
     let release: () => void = () => {}
     const request = vi.fn(async (url: string) => {
@@ -300,24 +274,6 @@ describe('collection sessions', () => {
     release()
     const { items } = await settled(session, (state) => state.items !== null)
     expect(items!.map((item) => item.id)).toEqual(['0', '1'])
-    session.dispose()
-  })
-
-  it('shows a given geometry in place of a mesh still loading', async () => {
-    let release: () => void = () => {}
-    const request = vi.fn(async () => {
-      await new Promise<void>((resolve) => (release = resolve))
-      return cube()
-    })
-    const session = createPartCollectionSession({ fetch: request })
-    session.show(bodies(1))
-    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1))
-    const given = { id: '0', model: cubeModel(), geometry: new BufferGeometry() }
-    session.show([given])
-    expect(session.get().items).toEqual([{ id: '0', model: given.model, geometry: given.geometry }])
-    release()
-    await new Promise((resolve) => setTimeout(resolve, 5))
-    expect(session.get().items![0]!.geometry).toBe(given.geometry)
     session.dispose()
   })
 })
