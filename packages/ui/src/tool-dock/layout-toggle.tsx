@@ -1,5 +1,7 @@
 import type { FC, ReactElement } from 'react'
+import { cn } from '../common'
 import { Toggle } from '../toggle'
+import { FOCUS } from './styles'
 import { useToolDock } from './tool-dock-context'
 import type { ToolDockLayout } from './types'
 
@@ -18,8 +20,9 @@ export const LayoutToggle: FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'sm' })
       value={layout}
       onValueChange={(next) => setLayout(next as ToolDockLayout)}
       size={size}
-      // `dark:`, as the kit's own track color is a `dark:` one.
-      className="dark:bg-zinc-950"
+      // `dark:`, as the kit's own track color is a `dark:` one. The dock's
+      // focus ring, in place of the kit's blue one.
+      className={cn('dark:bg-zinc-950', FOCUS)}
     >
       <Toggle.Item value="spread">Spread</Toggle.Item>
       <Toggle.Item value="grouped">Grouped</Toggle.Item>

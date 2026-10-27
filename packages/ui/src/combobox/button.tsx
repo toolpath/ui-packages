@@ -9,12 +9,15 @@ import { Value } from './value'
 export type ComboboxButtonProps = {
   placeholder?: string
   icon?: FC<SVGProps<SVGSVGElement>>
+  /** Classes of your own, after the button's: a later class wins over one it replaces. */
+  className?: string
   children?: ReactNode
 }
 
 export const Button = ({
   placeholder = 'Select Option',
   icon: IconComponent,
+  className,
   children,
 }: ComboboxButtonProps) => {
   const { size, variant, disabled, invalid } = useCombobox()
@@ -50,6 +53,7 @@ export const Button = ({
           'text-2xs': size === 'sm',
           'cursor-not-allowed': disabled,
         },
+        className,
       )}
     >
       {IconComponent && (
