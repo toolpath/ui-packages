@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Vector3 } from 'three'
+import { Vector3, type Mesh, type ShaderMaterial } from 'three'
 import { Button } from '@toolpath/ui'
 import {
   PartCollection,
@@ -15,13 +15,20 @@ const cube = MODELS.find((part) => part.id === 'cube')!
 const Probe = ({ report }: { report: (value: string) => void }) => {
   const camera = useThree((state) => state.camera)
   const size = useThree((state) => state.size)
+  const root = useThree((state) => state.scene)
   const bounds = useContentBox()
   useFrame(() => {
+    // Section caps are the only shader materials that sample a mask.
+    let caps = 0
+    root.traverse((object) => {
+      const material = (object as Mesh).material as ShaderMaterial | undefined
+      if (material?.uniforms?.uMask) caps++
+    })
     const centers = [-35, 35].map((x) => {
       const point = new Vector3(x, 0, 0).project(camera)
       return { x: ((point.x + 1) * size.width) / 2, y: ((1 - point.y) * size.height) / 2 }
     })
-    report(JSON.stringify({ width: bounds.getSize(new Vector3()).x, centers }))
+    report(JSON.stringify({ width: bounds.getSize(new Vector3()).x, centers, caps }))
   })
   return null
 }
@@ -29,6 +36,7 @@ const App = () => {
   const viewer = useRef<ViewerHandle>(null)
   const [overlap, setOverlap] = useState(false)
   const [pick, setPick] = useState<CollectionPick | null>(null)
+  const [picks, setPicks] = useState<Array<string>>([])
   const [hover, setHover] = useState<string | null>(null)
   const [scene, setScene] = useState('')
   const [cuts, setCuts] = useState<Record<string, number>>({})
@@ -72,7 +80,10 @@ const App = () => {
         <Viewer ref={viewer}>
           <PartCollection
             items={items}
-            onPick={setPick}
+            onPick={(event) => {
+              setPick(event)
+              setPicks((old) => [...old, event.id])
+            }}
             onHover={(id, value) => setHover(value ? id : null)}
           >
             <Probe report={report} />
@@ -80,6 +91,7 @@ const App = () => {
         </Viewer>
       </div>
       <output data-testid="pick">{JSON.stringify(pick)}</output>
+      <output data-testid="picks">{JSON.stringify(picks)}</output>
       <output data-testid="hover">{hover}</output>
       <output data-testid="scene">{scene}</output>
       <output data-testid="cuts">{JSON.stringify(cuts)}</output>

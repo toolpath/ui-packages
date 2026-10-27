@@ -1093,15 +1093,22 @@ caller-owned `id` plus the existing `PartMesh` props. Pick callbacks receive
 `{ id, pick }`; hover callbacks receive `(id, pick)`. Feature tags and region
 numbers remain local to their item. Put scene tools inside the collection so
 sections and grids use its combined bounds. Selection and visibility remain
-controlled by the application. Existing single-part APIs are unchanged.
+controlled by the application. The collection draws one section cap and handle
+for all of its items.
+
+`PartMesh` stops pointer moves, clicks, and right-button picks at the nearest
+part, so a part behind it, or a handler on a parent group, no longer receives
+them. Its props are otherwise unchanged.
 
 Prepare the complete initial set before mounting `Viewer`. `/engine` exports
 `createPartCollectionLoader({ fetch?, signal?, concurrency? })`, whose `load`
 method accepts `{ id, model }` items and returns ordered `items` and `failures`
 after all requests finish. It preserves CAD coordinates, validates meshes, and
 smooths normals within regions. Successful items remain cached for retries.
-Call `release(oldItems)` after committing replacements, and `dispose()` after
-unmounting the collection. The loader owns geometry; `PartCollection` does not.
+Call `release(oldItems)` once for each result after committing its replacement;
+a mesh a newer result also returned stays loaded until every item holding it is
+released. Call `dispose()` after unmounting the collection. The loader owns
+geometry; `PartCollection` does not.
 
 ```tsx
 import { Grid, PartCollection, SectionTool, Viewer, ViewCube } from '@toolpath/viewer'

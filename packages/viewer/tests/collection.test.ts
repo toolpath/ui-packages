@@ -1,7 +1,9 @@
-import { BoxGeometry } from 'three'
+import { BoxGeometry, Plane, Vector3 } from 'three'
 import { describe, expect, it, vi } from 'vitest'
 import { collectionBounds } from '../src/model/collection.js'
 import { createPartCollectionLoader } from '../src/engine/collection.js'
+import { createCollectionSections } from '../src/render/collection-sections.js'
+import { resolveTheme } from '../src/render/theme.js'
 import { cubeModel, loadMeshFixture } from './fixtures.js'
 
 const models = (count: number) =>
@@ -34,6 +36,53 @@ describe('complete collections', () => {
     ).toThrow(/Duplicate/)
     first.dispose()
     second.dispose()
+  })
+  it('draws one section for the items a plane cuts, and drags them together', () => {
+    const sections = createCollectionSections()
+    const notified = vi.fn()
+    sections.subscribe(notified)
+    const theme = resolveTheme()
+    const [a, b, c] = [new BoxGeometry(), new BoxGeometry(), new BoxGeometry()]
+    const [first, second, third] = [{}, {}, {}]
+    const moved: Array<string> = []
+    const across = () => new Plane(new Vector3(0, 0, 1), 5)
+    sections.set(first, {
+      geometry: a,
+      plane: across(),
+      theme,
+      showHandle: true,
+      onDrag: (constant) => moved.push(`a${constant}`),
+    })
+    sections.set(second, {
+      geometry: b,
+      plane: across(),
+      theme,
+      showHandle: true,
+      onDrag: (constant) => moved.push(`b${constant}`),
+    })
+    // Controlled without a change callback: drawn, but nothing to drag.
+    sections.set(third, {
+      geometry: c,
+      plane: new Plane(new Vector3(1, 0, 0), 0),
+      theme,
+      showHandle: false,
+    })
+    const [cut, other] = sections.get()
+    expect(sections.get()).toHaveLength(2)
+    expect(cut!.geometries).toEqual([a, b])
+    expect(cut!.showHandle).toBe(true)
+    cut!.onDrag?.(3)
+    expect(moved).toEqual(['a3', 'b3'])
+    expect(other!.geometries).toEqual([c])
+    expect(other!.showHandle).toBe(false)
+    expect(other!.onDrag).toBeUndefined()
+    sections.set(first, null)
+    sections.set(first, null)
+    expect(sections.get()[0]!.geometries).toEqual([b])
+    expect(notified).toHaveBeenCalledTimes(4)
+    for (const geometry of [a, b, c]) {
+      geometry.dispose()
+    }
   })
   it('waits for every mesh, limits concurrent reads, and disposes retained geometry once', async () => {
     let active = 0
@@ -73,6 +122,29 @@ describe('complete collections', () => {
       'https://test/1.glb',
     ])
     loader.dispose()
+  })
+  it('keeps meshes a retry returned again when the superseded result is released', async () => {
+    let broken = true
+    const request = vi.fn(async (url: string) =>
+      url.endsWith('/9.glb') && broken
+        ? new Response(null, { status: 500 })
+        : new Response(loadMeshFixture('local-0.3.0-cube')),
+    )
+    // More bodies than the cache keeps unreferenced, so a dropped reference is evicted at once.
+    const loader = createPartCollectionLoader({ fetch: request })
+    const first = await loader.load(models(10))
+    broken = false
+    const again = await loader.load(models(10))
+    expect(again.items[0]!.geometry).toBe(first.items[0]!.geometry)
+    const disposed = vi.fn()
+    again.items[0]!.geometry.addEventListener('dispose', disposed)
+    loader.release(first.items)
+    expect(disposed).not.toHaveBeenCalled()
+    const fetched = request.mock.calls.length
+    await loader.load(models(10))
+    expect(request.mock.calls.length).toBe(fetched)
+    loader.dispose()
+    expect(disposed).toHaveBeenCalledTimes(1)
   })
   it('prepares a replacement model and geometry while preserving the visible artifact', async () => {
     const request = vi.fn(async () => new Response(loadMeshFixture('local-0.3.0-cube')))

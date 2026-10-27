@@ -3,6 +3,7 @@ import { useThree } from '@react-three/fiber'
 import {
   type ReactNode,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -35,6 +36,7 @@ import { trackDoubleTaps } from './render/tap.js'
 import { useRetarget, useSectionStore, useViewerControls } from './viewer.js'
 import { SectionView, resolveSectionPlane } from './section-view.js'
 import { useContentBox } from './content-box.js'
+import { CollectionSectionsContext } from './collection-context.js'
 import { type ViewerTheme, resolveTheme, themesEqual } from './render/theme.js'
 import type { ViewerCamera } from './render/camera.js'
 
@@ -460,6 +462,20 @@ export const PartMesh = ({
     [box, controlled, cut, onSectionChange, options, store],
   )
 
+  const showHandle = !controlled || onSectionChange !== undefined
+  const onDrag = !controlled || onSectionChange ? dragSection : undefined
+  const handleColor = theme?.sectionHandle
+  // In a collection the collection draws the cut once over every item: one cap
+  // stenciled from all of them and one handle, rather than one stacked per body.
+  const sections = useContext(CollectionSectionsContext)
+  useLayoutEffect(() => {
+    sections?.set(
+      part,
+      cut ? { geometry, plane: cut.plane, theme: resolved, handleColor, showHandle, onDrag } : null,
+    )
+  }, [cut, geometry, handleColor, onDrag, part, resolved, sections, showHandle])
+  useLayoutEffect(() => () => sections?.set(part, null), [part, sections])
+
   return (
     <>
       <primitive
@@ -557,8 +573,10 @@ export const PartMesh = ({
          * needed for: suppressing the browser's own menu over geometry.
          */
         onPointerUp={(event: ThreeEvent<PointerEvent>) => {
-          if (engaged || pressedWhileEngaged.current) return
           if (event.nativeEvent.button !== 2) return
+          // The nearest part answers, as it does for a left click.
+          event.stopPropagation()
+          if (engaged || pressedWhileEngaged.current) return
           if (!isTap(event.nativeEvent)) return
 
           const pick = pickFor(event)
@@ -570,15 +588,15 @@ export const PartMesh = ({
           if (pickFor(event)) event.nativeEvent.preventDefault()
         }}
       />
-      {cut ? (
+      {cut && !sections ? (
         <SectionView
           geometry={geometry}
           box={box}
           plane={cut.plane}
           theme={resolved}
-          handleColor={theme?.sectionHandle}
-          showHandle={!controlled || onSectionChange !== undefined}
-          onDrag={!controlled || onSectionChange ? dragSection : undefined}
+          handleColor={handleColor}
+          showHandle={showHandle}
+          onDrag={onDrag}
         />
       ) : null}
       {children ? <PartContext.Provider value={context}>{children}</PartContext.Provider> : null}

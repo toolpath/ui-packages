@@ -27,15 +27,25 @@ test('a complete collection scopes duplicate feature tags, hover, and sections t
     .toHaveLength(2)
   const cuts = JSON.parse((await page.getByTestId('cuts').textContent())!)
   expect(cuts.left).toBe(cuts.right)
+  // One cap over both bodies, not one stacked per body.
+  await expect
+    .poll(async () => JSON.parse((await page.getByTestId('scene').textContent())!).caps)
+    .toBe(1)
 })
-test('overlapping opaque bodies pick the nearest body once', async ({ page }) => {
+test('overlapping opaque bodies pick the nearest body once, with either button', async ({
+  page,
+}) => {
   await page.goto('/tests/fixtures/collection.html')
   await expect(page.getByTestId('scene')).not.toHaveText('')
   await page.getByRole('button', { name: 'Top', exact: true }).click()
   await page.getByRole('button', { name: 'Overlap', exact: true }).click()
   const scene = JSON.parse((await page.getByTestId('scene').textContent())!)
+  const picks = async () => JSON.parse((await page.getByTestId('picks').textContent())!)
   await page.locator('canvas').click({ position: scene.centers[0] })
-  await expect
-    .poll(async () => JSON.parse((await page.getByTestId('pick').textContent())!).id)
-    .toBe('right')
+  await expect.poll(picks).toEqual(['right'])
+  await page.locator('canvas').click({ position: scene.centers[0], button: 'right' })
+  await expect.poll(picks).toEqual(['right', 'right'])
+  expect(JSON.parse((await page.getByTestId('pick').textContent())!).pick.modifiers.secondary).toBe(
+    true,
+  )
 })

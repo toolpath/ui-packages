@@ -21,7 +21,10 @@ export interface CollectionLoadResult {
 export interface PartCollectionLoader {
   /** Resolves after every requested item succeeds or fails; successful geometry survives retry. */
   load(items: ReadonlyArray<CollectionModel>): Promise<CollectionLoadResult>
-  /** Release replaced items after the renderer has committed their replacements. */
+  /**
+   * Releases items a load returned, once each, after the renderer has committed their replacements.
+   * A mesh that a later load also returned stays loaded until every item holding it is released.
+   */
   release(items: ReadonlyArray<LoadedCollectionItem>): void
   /** Aborts pending reads and disposes this session's geometry. Call after unmounting its meshes. */
   dispose(): void
@@ -41,7 +44,9 @@ export const createPartCollectionLoader = (
   } else {
     options.signal?.addEventListener('abort', abort, { once: true })
   }
-  const retained = new Set<EngineGeometryResource>()
+  // One reference per item handed out: a retry or replacement can return a mesh an earlier
+  // result already holds, and releasing that earlier item must not free it.
+  const held = new Map<BufferGeometry, { resource: EngineGeometryResource; count: number }>()
   const cache = createEngineGeometryCache(async (part) => {
     const geometry = await loadPartMesh(part.mesh, {
       fetch: options.fetch,
@@ -80,10 +85,13 @@ export const createPartCollectionLoader = (
             if (!resource.geometry) {
               throw new Error('The mesh loaded without geometry.')
             }
-            if (!retained.has(resource)) {
-              retained.add(resource)
-              cache.retain(resource)
+            const entry = held.get(resource.geometry)
+            if (entry) {
+              entry.count += 1
+            } else {
+              held.set(resource.geometry, { resource, count: 1 })
             }
+            cache.retain(resource)
             loaded.set(item.id, { ...item, geometry: resource.geometry })
           } catch (error) {
             controller.signal.throwIfAborted()
@@ -100,21 +108,22 @@ export const createPartCollectionLoader = (
       }
     },
     release(items) {
-      const geometries = new Set(items.map((item) => item.geometry))
-      for (const resource of retained) {
-        if (resource.geometry && geometries.has(resource.geometry)) {
-          retained.delete(resource)
-          cache.release(resource)
+      for (const item of items) {
+        const entry = held.get(item.geometry)
+        if (!entry) {
+          continue
         }
+        entry.count -= 1
+        if (entry.count === 0) {
+          held.delete(item.geometry)
+        }
+        cache.release(entry.resource)
       }
     },
     dispose() {
       options.signal?.removeEventListener('abort', abort)
       controller.abort()
-      for (const resource of retained) {
-        cache.release(resource)
-      }
-      retained.clear()
+      held.clear()
       cache.clear()
     },
   }
