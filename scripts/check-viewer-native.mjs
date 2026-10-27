@@ -10,13 +10,15 @@
  * swaps included.
  *
  * It builds the viewer first, every time, so it never checks a stale build or
- * skips for want of one. The web build's assets are checked too: both builds
- * copy their own, and a rebuild that cleaned them away would ship without.
+ * skips for want of one. The assets are checked too: the native build keeps
+ * its import of the model as written and has no copy of its own, so each one
+ * it imports must be where that import points, and a rebuild that cleaned
+ * them away would ship without.
  */
 
 import { existsSync } from 'node:fs'
 import { readFile, readdir } from 'node:fs/promises'
-import { join, relative } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { repositoryRoot, run } from './lib.mjs'
 
 const viewer = join(repositoryRoot, 'packages/viewer')
@@ -26,7 +28,6 @@ const native = join(viewer, 'dist/native')
 const REQUIRED = [
   'dist/native/index.js',
   'dist/native/engine/index.js',
-  'dist/native/assets/banana.glb',
   'dist/index.js',
   'dist/assets/banana.glb',
   'dist/toolbar.css',
@@ -39,6 +40,9 @@ const FORBIDDEN = ['document.', 'window.addEventListener', 'import.meta', 'react
 /** A DOM element made by the JSX runtime: `jsx("div", …)` and the like. */
 const DOM_JSX =
   /\bjsx\w*\(\s*"(a|button|canvas|div|g|img|input|label|li|p|path|section|span|svg|ul)"/
+
+/** An asset the native build imports, which Metro bundles from where the import points. */
+const ASSET_SPECIFIER = /from\s*"(\.\.?\/[^"]*\.glb)"/g
 
 /** What only a phone has, which the web build must never import. */
 const NATIVE_SPECIFIER =
@@ -64,6 +68,15 @@ for (const path of files) {
     if (at === -1) continue
     const line = source.slice(0, at).split('\n').length
     failures.push(`${relative(viewer, path)}:${line} contains ${needle}`)
+  }
+}
+
+for (const path of files) {
+  const source = await readFile(path, 'utf8')
+  for (const match of source.matchAll(ASSET_SPECIFIER)) {
+    if (existsSync(resolve(dirname(path), match[1]))) continue
+    const line = source.slice(0, match.index).split('\n').length
+    failures.push(`${relative(viewer, path)}:${line} imports ${match[1]}, which is missing`)
   }
 }
 

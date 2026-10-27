@@ -2,20 +2,15 @@ import { cp, mkdir } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 
 /**
- * Copies one build's assets beside it: `web` or `native`.
+ * Copies the assets into `dist/`, beside the web build.
  *
- * Each tsup configuration runs this for its own build when it succeeds, so a
- * watch rebuild, which cleans its output first, puts them back.
+ * The web build's tsup configuration runs this when it succeeds, so a watch
+ * rebuild, which cleans its output first, puts them back. The React Native
+ * build has no copy of its own: it keeps its import of the model as written,
+ * `../assets/banana.glb`, which from `dist/native/` is this one.
  */
-const build = process.argv[2]
-if (build !== 'web' && build !== 'native') {
-  throw new Error('Usage: node scripts/copy-assets.mjs web|native')
-}
-
 const path = (relative) => fileURLToPath(new URL(relative, import.meta.url))
-const out = build === 'web' ? '../dist/' : '../dist/native/'
 
-// Both builds import the model relative to themselves, so each gets a copy.
-await mkdir(path(`${out}assets/`), { recursive: true })
-await cp(path('../src/assets/banana.glb'), path(`${out}assets/banana.glb`))
-if (build === 'web') await cp(path('../src/toolbar.css'), path('../dist/toolbar.css'))
+await mkdir(path('../dist/assets/'), { recursive: true })
+await cp(path('../src/assets/banana.glb'), path('../dist/assets/banana.glb'))
+await cp(path('../src/toolbar.css'), path('../dist/toolbar.css'))

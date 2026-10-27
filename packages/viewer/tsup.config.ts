@@ -45,7 +45,7 @@ export default defineConfig([
     clean: ['!native', '!native/**'],
     external,
     outDir: 'dist',
-    onSuccess: 'node scripts/copy-assets.mjs web',
+    onSuccess: 'node scripts/copy-assets.mjs',
   },
   // The React Native build, behind the `react-native` export condition: the
   // same entries, with each `src/native/` file in place of the file at the
@@ -55,10 +55,11 @@ export default defineConfig([
     format: ['esm'],
     dts: false,
     clean: true,
-    // A RegExp, since tsup reads a string external as a package name.
+    // A RegExp, since tsup reads a string external as a package name. The
+    // model's import is kept as written, `../assets/banana.glb`, which from
+    // `dist/native/` is the web build's copy: Metro bundles that one.
     external: [...external, 'react-native', 'expo-asset', 'expo-gl', /\.glb$/],
     outDir: 'dist/native',
-    onSuccess: 'node scripts/copy-assets.mjs native',
     esbuildPlugins: [nativeSiblings],
   },
 ] satisfies Options[])
