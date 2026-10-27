@@ -263,7 +263,7 @@ export const reactCompilerGuard = ({
       if (modules > 0 && reached === 0) {
         this.error(
           `React Compiler did not run: none of ${String(modules)} .jsx/.tsx modules were compiled. ` +
-            'Add babel-plugin-react-compiler to the React plugin with reactCompilerOptions() ' +
+            "Run babel-plugin-react-compiler with reactCompilerOptions() in the build's Babel step " +
             '(see the @toolpath/dev-config README).',
         )
       }

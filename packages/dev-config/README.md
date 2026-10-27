@@ -263,16 +263,31 @@ export default defineConfig({
 import { reactRouter } from '@react-router/dev/vite'
 import babel from 'vite-plugin-babel'
 
+// React Router builds route modules under ids with a query (`root.tsx?__react-router-build-client-route`,
+// `route.tsx?route-chunk=main`), and `@babel/preset-typescript` enables TypeScript only for names
+// ending in `.ts` or `.tsx`. These overrides test the id with its query.
+const typescriptWithQueries = () => ({
+  overrides: [
+    {
+      test: /\.tsx(?:$|\?)/,
+      presets: [['@babel/preset-typescript', { allExtensions: true, isTSX: true }]],
+    },
+    { test: /\.[cm]?ts(?:$|\?)/, presets: [['@babel/preset-typescript', { allExtensions: true }]] },
+  ],
+})
+
 export default defineConfig({
   plugins: [
     reactRouter(),
     babel({
-      // vite-plugin-babel 1.7 and later include only `.js`/`.jsx` unless told otherwise.
+      // vite-plugin-babel 1.7 and later include only `.js`/`.jsx` unless told otherwise. Without the
+      // query, split route chunks ship uncompiled.
       include: /\.[jt]sx?(?:$|\?)/,
       exclude: /node_modules/,
       babelConfig: {
-        presets: ['@babel/preset-typescript'],
+        presets: [typescriptWithQueries],
         plugins: [['babel-plugin-react-compiler', reactCompilerOptions()]],
+        sourceMaps: true,
       },
     }),
     reactCompilerGuard(),
