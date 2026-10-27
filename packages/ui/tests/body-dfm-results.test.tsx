@@ -65,4 +65,27 @@ describe('combined body results', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry Body c' }))
     expect(retry).toHaveBeenCalledWith('c')
   })
+  it('does not wait on a failed body once nothing is pending', () => {
+    const summary = combineBodyChecks(
+      [
+        { id: 'a', label: 'Body a', status: 'ready', check: null, features: [] },
+        { id: 'b', label: 'Body b', status: 'error', check: null, features: [], error: 'failed' },
+      ],
+      [],
+    )
+    const { rerender } = render(
+      <BodyDfmResults summary={summary} tab="rules" units="mm" onInspect={() => {}} />,
+    )
+    expect(screen.getByText('No rule violations in the checked bodies.')).toBeVisible()
+    expect(screen.queryByText('Results appear as bodies finish analysis.')).toBeNull()
+    rerender(
+      <BodyDfmResults
+        summary={combineBodyChecks([summary.bodies[1]!], [])}
+        tab="rules"
+        units="mm"
+        onInspect={() => {}}
+      />,
+    )
+    expect(screen.getByText('No bodies could be checked.')).toBeVisible()
+  })
 })

@@ -23,6 +23,18 @@ export interface BodyDfmResultsProps {
   onRetry?: (bodyId: string) => void
 }
 
+/** A failed body never finishes, so only a pending one is worth waiting for. */
+const emptyMessage = (summary: BodyDfmSummary, tab: BodyDfmResultsProps['tab']): string => {
+  if (summary.completed + summary.failed < summary.total) {
+    return 'Results appear as bodies finish analysis.'
+  }
+  if (summary.failed > 0 && summary.completed === 0) {
+    return 'No bodies could be checked.'
+  }
+  const none = tab === 'rules' ? 'No rule violations' : 'No features found'
+  return summary.failed > 0 ? `${none} in the checked bodies.` : `${none}.`
+}
+
 /** Combined results retain the body's identity; selection never hides other bodies. */
 export const BodyDfmResults = ({
   summary,
@@ -127,11 +139,7 @@ export const BodyDfmResults = ({
         </Table>
       ) : (
         <p className="px-3 text-sm text-gray-500 dark:text-zinc-400">
-          {summary.completed === summary.total
-            ? tab === 'rules'
-              ? 'No rule violations.'
-              : 'No features found.'
-            : 'Results appear as bodies finish analysis.'}
+          {emptyMessage(summary, tab)}
         </p>
       )}
     </div>
