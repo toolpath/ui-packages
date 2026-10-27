@@ -124,6 +124,55 @@ describe('reactCompilerGuard', () => {
     expect(error).not.toMatch(/did not run/)
   })
 
+  describe('against the file on disk', () => {
+    /** A component at 3:22 that reads a ref during render, with or without an opt-out. */
+    const readerFile = (directive: string): string =>
+      temporaryDirectory({
+        'src/Reader.tsx': [
+          "import { useRef } from 'react'",
+          '',
+          'export const Reader = () => {',
+          directive,
+          '  const ref = useRef(0)',
+          '  return <p>{ref.current}</p>',
+          '}',
+          '',
+        ].join('\n'),
+      })
+    const at = (line: number, column: number): ReactCompilerLogEvent => ({
+      ...REFS_ERROR,
+      fnLoc: { start: { line, column } },
+    })
+
+    it("accepts a function's 'use no memo' at the logged position", () => {
+      const id = join(readerFile("  'use no memo' // reads a ref on purpose"), 'src/Reader.tsx')
+      expect(guard([{ id, code: PLAIN, logged: [at(3, 22)] }])).toEqual({
+        error: undefined,
+        warnings: [],
+      })
+    })
+
+    it('reports a skip at the line of the function the compiler logged', () => {
+      const id = join(readerFile(''), 'src/Reader.tsx')
+      expect(guard([{ id, code: PLAIN, logged: [at(3, 22)] }]).error).toMatch(
+        /Reader\.tsx:3 {2}\[Refs\]/,
+      )
+    })
+
+    // What the compiler logs after a plugin moved the function one line down (TanStack Router).
+    it('reports a skip whose position names no function in the file as line unknown', () => {
+      const id = join(readerFile("  'use no memo' // reads a ref on purpose"), 'src/Reader.tsx')
+      const { error } = guard([
+        { id: `${id}?tsr-split=component`, code: PLAIN, logged: [at(4, 22)] },
+      ])
+      expect(error).toMatch(
+        /Reader\.tsx {2}\[Refs\] .*\(line unknown: a plugin rewrote this module/,
+      )
+      expect(error).not.toMatch(/Reader\.tsx:4/)
+      expect(error).toMatch(/put 'use no memo' at the top of that module/)
+    })
+  })
+
   it('passes with onSkip: warn when every component was skipped or opted out', () => {
     const result = guard(allSkipped, 'warn')
     expect(result.error).toBeUndefined()

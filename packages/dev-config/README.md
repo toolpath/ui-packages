@@ -311,6 +311,13 @@ modules and fails when the compiler ran on none of them: none imports the compil
 logger in `reactCompilerOptions()` saw none. It reports the functions that logger recorded as
 skipped. Server builds and dependencies are not counted.
 
+The compiler logs each function at its position in the code it received, and the guard finds the
+function, and any `'use no memo'` in it, at that position in the file on disk. A plugin that
+rewrites a module before the compiler, such as TanStack Router's `autoCodeSplitting`, moves its
+functions: the guard then reports a skip in that module without a line, and cannot match a
+function's `'use no memo'`. Opt such a module out with `'use no memo'` at its top, or pass
+`{ onSkip: 'warn' }`.
+
 ### tsup and esbuild libraries
 
 tsup 9 or later is needed for declarations on TypeScript 6; tsup 8 passes `baseUrl`, which

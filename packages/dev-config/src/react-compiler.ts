@@ -28,7 +28,11 @@ export interface ReactCompilerOptions {
 /** A function React Compiler tried and failed to compile; it runs as written. */
 export interface ReactCompilerSkip {
   file: string
-  line: number
+  /**
+   * The function's line in `file`; `undefined` when another plugin rewrote the
+   * module before the compiler, so the logged position is not one in the file.
+   */
+  line: number | undefined
   reason: string
 }
 
@@ -50,11 +54,15 @@ const parserPlugins = (path: string): Array<'jsx' | 'typescript'> => {
 
 const OPT_OUT = new Set(['use no memo', 'use no forget'])
 
-/** Where a file opts out of the compiler: the whole module, or functions by `line:column`. */
+/**
+ * A file's functions by `line:column`, and where it opts out of the compiler:
+ * the whole module, or single functions.
+ */
 interface OptOuts {
   source: string
   module: boolean
   functions: Set<string>
+  starts: Set<string>
 }
 
 const optOutsByFile = new Map<string, OptOuts>()
@@ -82,17 +90,22 @@ const optOutsOf = (filename: string): OptOuts => {
     module:
       ast?.program.directives.some((directive) => OPT_OUT.has(directive.value.value)) ?? false,
     functions: new Set(),
+    starts: new Set(),
   }
   if (ast !== null) {
     babel.traverse(ast, {
       Function: (path) => {
         const { body, loc } = path.node
+        if (loc == null) {
+          return
+        }
+        const position = `${String(loc.start.line)}:${String(loc.start.column)}`
+        found.starts.add(position)
         if (
-          loc != null &&
           body.type === 'BlockStatement' &&
           body.directives.some((directive) => OPT_OUT.has(directive.value.value))
         ) {
-          found.functions.add(`${String(loc.start.line)}:${String(loc.start.column)}`)
+          found.functions.add(position)
         }
       },
     })
@@ -101,18 +114,33 @@ const optOutsOf = (filename: string): OptOuts => {
   return found
 }
 
-const isOptedOut = (filename: string, event: ReactCompilerLogEvent): boolean => {
+/**
+ * Where the file on disk places a function the compiler logged: opted out, at
+ * the logged position, or nowhere. The compiler logs positions in the code
+ * Babel received, so a plugin that rewrote the module before it (TanStack
+ * Router's code splitting) leaves a position that names no function in the file.
+ */
+const placementOf = (
+  filename: string,
+  event: ReactCompilerLogEvent,
+): 'opted-out' | 'found' | 'unmatched' => {
   try {
     const optOuts = optOutsOf(filename)
+    if (optOuts.module) {
+      return 'opted-out'
+    }
     const start = event.fnLoc?.start
-    return (
-      optOuts.module ||
-      (start !== undefined &&
-        optOuts.functions.has(`${String(start.line)}:${String(start.column)}`))
-    )
+    if (start === undefined) {
+      return 'found'
+    }
+    const position = `${String(start.line)}:${String(start.column)}`
+    if (optOuts.functions.has(position)) {
+      return 'opted-out'
+    }
+    return optOuts.starts.has(position) ? 'found' : 'unmatched'
   } catch {
-    // A virtual module or unparsable file cannot opt out.
-    return false
+    // A virtual module or unparsable file cannot opt out; its logged line stands.
+    return 'found'
   }
 }
 
@@ -129,18 +157,20 @@ const recordSkip = (
     return
   }
   const file = withoutQuery(filename)
-  if (isOptedOut(file, event)) {
+  const placement = placementOf(file, event)
+  if (placement === 'opted-out') {
     return
   }
-  const line = event.fnLoc?.start.line ?? 1
-  const key = `${file}:${String(line)}`
+  const logged = event.fnLoc?.start.line ?? 1
+  // Keyed by the logged line, so functions stay apart where their line in the file is unknown.
+  const key = `${file}:${String(logged)}`
   // A function that fails several checks is reported once, with the first reason.
   if (!skips.has(key)) {
     const reason =
       event.detail === undefined
         ? (event.data ?? 'compiler pipeline error')
         : `[${event.detail.category}] ${event.detail.reason}`
-    skips.set(key, { file, line, reason })
+    skips.set(key, { file, line: placement === 'unmatched' ? undefined : logged, reason })
   }
 }
 
@@ -184,9 +214,16 @@ export const reactCompilerOptions = ({
 const skipReport = (skips: ReadonlyArray<ReactCompilerSkip>): string =>
   `React Compiler skipped ${skips.length === 1 ? '1 function, which runs' : `${String(skips.length)} functions, which run`} uncompiled:\n` +
   skips
-    .map((skip) => `  ${relative(process.cwd(), skip.file)}:${String(skip.line)}  ${skip.reason}`)
+    .map((skip) =>
+      skip.line === undefined
+        ? `  ${relative(process.cwd(), skip.file)}  ${skip.reason} (line unknown: a plugin rewrote this module before React Compiler ran)`
+        : `  ${relative(process.cwd(), skip.file)}:${String(skip.line)}  ${skip.reason}`,
+    )
     .join('\n') +
-  "\nFix what each reason names (lint reports most of them), or opt the function out with a 'use no memo' directive and a comment saying why."
+  "\nFix what each reason names (lint reports most of them), or opt the function out with a 'use no memo' directive and a comment saying why." +
+  (skips.some((skip) => skip.line === undefined)
+    ? "\nA function's 'use no memo' cannot be matched in a module rewritten before the compiler; put 'use no memo' at the top of that module instead."
+    : '')
 
 /**
  * Compiled code imports the compiler runtime: `react/compiler-runtime` for
@@ -244,14 +281,14 @@ export const reactCompilerGuard = ({
       const file = withoutQuery(id)
       // The compiler logged this module during the React plugin's transform, just before.
       const logged = pendingReached.delete(file)
-      const loggedSkips = [...pendingSkips.values()].filter((skip) => skip.file === file)
-      for (const skip of loggedSkips) {
-        pendingSkips.delete(`${skip.file}:${String(skip.line)}`)
+      const loggedSkips = [...pendingSkips].filter(([, skip]) => skip.file === file)
+      for (const [key] of loggedSkips) {
+        pendingSkips.delete(key)
       }
       // Server builds may leave the compiler out on purpose; the client build is checked.
       if (options?.ssr !== true && !NODE_MODULES.test(file)) {
-        for (const skip of loggedSkips) {
-          skips.set(`${skip.file}:${String(skip.line)}`, skip)
+        for (const [key, skip] of loggedSkips) {
+          skips.set(key, skip)
         }
         if (COMPONENT_MODULE.test(id)) {
           modules += 1
@@ -288,7 +325,7 @@ export const reactCompilerGuard = ({
 /** A build message located in a source file; assignable to esbuild's `PartialMessage`. */
 interface SkipMessage {
   text: string
-  location: { file: string; line: number; column?: number }
+  location: { file: string; line?: number; column?: number }
 }
 
 /** Where Babel's parser failed, when `error` is a parse error. */
@@ -409,7 +446,7 @@ export const reactCompilerEsbuildPlugin = ({
       const messages = [...skips.values()].map(
         (skip): SkipMessage => ({
           text: `React Compiler skipped this function, which runs uncompiled: ${skip.reason}. Fix it, or opt it out with a 'use no memo' directive and a comment saying why.`,
-          location: { file: path, line: skip.line },
+          location: skip.line === undefined ? { file: path } : { file: path, line: skip.line },
         }),
       )
       return {
