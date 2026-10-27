@@ -42,7 +42,8 @@ the connection fails, and on a 429, after its `Retry-After`, or a 5xx. Other err
 reject at once, since a refused key (401, 403) or an unreachable job (404, 410) will not change by
 asking again. `reconnect: true` waits 1, 2, 4, then every 8 seconds between streams, starting over
 after a stream that sent the job; `{ delaysMs, giveUpAfterMs }` sets the waits and gives up once
-that long passes without word of the job.
+reconnecting has failed for that long, after one last attempt. A quiet job on an open stream does
+not count against it.
 
 ```ts
 const job = await waitForJob(client, jobId, { reconnect: { giveUpAfterMs: 10 * 60_000 }, signal })

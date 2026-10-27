@@ -10,6 +10,7 @@ from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import aclosing
 from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
+from time import monotonic
 from uuid import UUID
 
 import httpx
@@ -49,9 +50,10 @@ class Reconnect:
     """How ``wait_for_job`` opens the job's stream again.
 
     ``delays`` are the seconds to wait before each new stream; the last repeats, and a stream that
-    sent the job starts them over. ``give_up_after`` is how many seconds may pass without the job
-    being sent before the wait gives up, raising the error that ended the last stream; ``None`` waits
-    until the job is final.
+    sent the job starts them over. ``give_up_after`` is how many seconds reconnecting may fail for,
+    counted from when the last stream that sent the job ended, or from the start: one last stream is
+    opened at that time, and the wait then raises the error that ended it. A quiet job on an open
+    stream never counts against it. ``None`` waits until the job is final.
     """
 
     delays: Sequence[float] = (1.0, 2.0, 4.0, 8.0)
@@ -160,15 +162,15 @@ async def wait_for_job(
         return await _stream_job(client, job_id, on_update)
     policy = Reconnect() if reconnect is True else reconnect
     attempts = 0
-    heard = time.monotonic()
+    # When the connection was last known good: the start, or the end of a stream that sent the job.
+    connected = monotonic()
     while True:
         sent = False
         caller_error: Exception | None = None
 
         def update(job: JobDetail) -> None:
-            nonlocal sent, heard, caller_error
+            nonlocal sent, caller_error
             sent = True
-            heard = time.monotonic()
             if on_update is not None:
                 try:
                     on_update(job)
@@ -183,12 +185,18 @@ async def wait_for_job(
                 raise
             if sent:
                 attempts = 0
-            wait = _retry_after(error)
+                connected = monotonic()
+            retry_after = _retry_after(error)
+            wait = retry_after
             if wait is None:
                 wait = policy.delays[min(attempts, len(policy.delays) - 1)] if policy.delays else 1.0
             attempts += 1
-            if policy.give_up_after is not None and time.monotonic() + wait - heard > policy.give_up_after:
-                raise
+            if policy.give_up_after is not None:
+                left = connected + policy.give_up_after - monotonic()
+                # A server's ``Retry-After`` past the deadline is respected by not asking again at all.
+                if left <= 0 or (retry_after is not None and retry_after > left):
+                    raise
+                wait = min(wait, left)
             await sleep(wait)
 
 

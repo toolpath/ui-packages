@@ -1,5 +1,6 @@
 import type { ToolpathClient } from './client.js'
 import {
+  FetchError,
   JobDetailFromJSON,
   JobDetailStatusEnum,
   ResponseError,
@@ -13,8 +14,10 @@ export interface WaitForJobReconnect {
    */
   delaysMs?: ReadonlyArray<number>
   /**
-   * Gives up once this long has passed, in milliseconds, without the job being sent, rejecting with
-   * the error that ended the last stream. Unset, it waits until the job is final or `signal` aborts.
+   * Gives up once reconnecting has failed for this long, in milliseconds, counted from when the
+   * last stream that sent the job ended, or from the start. One last stream is opened at that
+   * time; the wait then rejects with the error that ended it. A quiet job on an open stream never
+   * counts against it. Unset, it waits until the job is final or `signal` aborts.
    */
   giveUpAfterMs?: number
 }
@@ -38,6 +41,13 @@ export interface WaitForJobOptions {
 
 /** The waits before each new stream when `reconnect` names none, in milliseconds. */
 const RECONNECT_DELAYS_MS: ReadonlyArray<number> = [1_000, 2_000, 4_000, 8_000]
+
+/**
+ * The errors that ended a stream before the job was final: it closed early, or its connection
+ * dropped while it was read. Marked rather than wrapped, so a wait without `reconnect` rejects with
+ * the very errors it always has.
+ */
+const lostStreams = new WeakSet<object>()
 
 /** Thrown by {@link waitForJob} when the job fails. `failed` is final: the job will not run again. */
 export class JobFailedError extends Error {
@@ -72,7 +82,12 @@ async function* readJobEvents(
   let data: Array<string> = []
   try {
     for (;;) {
-      const { done, value } = await reader.read()
+      const { done, value } = await reader.read().catch((error: unknown) => {
+        if (typeof error === 'object' && error !== null) {
+          lostStreams.add(error)
+        }
+        throw error
+      })
       if (done) {
         return
       }
@@ -141,7 +156,7 @@ const withBufferedBody = async (error: ResponseError): Promise<ResponseError> =>
  * kept on `error.response`, so the problem `code` is still readable there.
  *
  * With `reconnect` it opens the stream again itself instead, until the job is final, an error
- * response says asking again will not help, `giveUpAfterMs` passes without word of the job, or
+ * response says asking again will not help, reconnecting has failed for `giveUpAfterMs`, or
  * `signal` aborts. A job the server can no longer find answers the new stream with a 404 or 410,
  * which ends the wait.
  */
@@ -155,7 +170,8 @@ export const waitForJob = async (
   }
   const { delaysMs = RECONNECT_DELAYS_MS, giveUpAfterMs } = reconnect === true ? {} : reconnect
   let attempts = 0
-  let heard = Date.now()
+  // When the connection was last known good: the start, or the end of a stream that sent the job.
+  let connected = Date.now()
   for (;;) {
     let sent = false
     // An error the caller's `onUpdate` threw is theirs: it ends the wait rather than a stream.
@@ -166,7 +182,6 @@ export const waitForJob = async (
         jobId,
         (job) => {
           sent = true
-          heard = Date.now()
           try {
             onUpdate?.(job)
           } catch (error) {
@@ -183,31 +198,38 @@ export const waitForJob = async (
       }
       if (sent) {
         attempts = 0
+        connected = Date.now()
       }
-      const wait =
-        retryAfterMs(error) ??
-        delaysMs[Math.min(attempts, delaysMs.length - 1)] ??
-        RECONNECT_DELAYS_MS[0]!
+      const retryAfter = retryAfterMs(error)
+      let wait =
+        retryAfter ?? delaysMs[Math.min(attempts, delaysMs.length - 1)] ?? RECONNECT_DELAYS_MS[0]!
       attempts += 1
-      if (giveUpAfterMs !== undefined && Date.now() + wait - heard > giveUpAfterMs) {
-        throw error
+      if (giveUpAfterMs !== undefined) {
+        const left = connected + giveUpAfterMs - Date.now()
+        // A server's `Retry-After` past the deadline is respected by not asking again at all.
+        if (left <= 0 || (retryAfter !== undefined && retryAfter > left)) {
+          throw error
+        }
+        wait = Math.min(wait, left)
       }
       await sleep(wait, signal)
     }
   }
 }
 
-/** Whether a stream that ended in `error` is worth opening again. */
+/**
+ * Whether a stream that ended in `error` is worth opening again: a 429 or 5xx, a connection that
+ * failed to open, or a stream that ended or dropped early. Anything else — a failed job, an event
+ * that was not one, a caller's mistake — would end the next stream the same way.
+ */
 const reopens = (error: unknown): boolean => {
-  // A job that failed, or an event that was not one: a stream sending it would send it again.
-  if (error instanceof JobFailedError || error instanceof SyntaxError) {
-    return false
-  }
   if (error instanceof ResponseError) {
     return error.response.status === 429 || error.response.status >= 500
   }
-  // A stream that ended early, or a connection that failed or dropped.
-  return true
+  return (
+    error instanceof FetchError ||
+    (typeof error === 'object' && error !== null && lostStreams.has(error))
+  )
 }
 
 /** A 429's or 503's `Retry-After`, in milliseconds: delay-seconds or an HTTP date. */
@@ -274,5 +296,7 @@ const streamJob = async (
     throw error
   }
   signal?.throwIfAborted()
-  throw new Error(`The event stream for job ${jobId} ended before the job finished`)
+  const ended = new Error(`The event stream for job ${jobId} ended before the job finished`)
+  lostStreams.add(ended)
+  throw ended
 }

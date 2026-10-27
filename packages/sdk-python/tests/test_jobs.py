@@ -318,16 +318,30 @@ def answering(*results: str | int | Exception, requests: list[httpx.Request] | N
     return client_with(handler)
 
 
+class Clock:
+    """``wait_for_job``'s clock: the seconds each reconnect waited, added to ``now`` instead of slept."""
+
+    def __init__(self) -> None:
+        self.now = 1_000.0
+        self.waits: list[float] = []
+
+
 @pytest.fixture
-def waits(monkeypatch: pytest.MonkeyPatch) -> list[float]:
-    """The seconds each reconnect waited, recorded instead of slept."""
-    recorded: list[float] = []
+def clock(monkeypatch: pytest.MonkeyPatch) -> Clock:
+    timeline = Clock()
 
-    async def record(seconds: float) -> None:
-        recorded.append(seconds)
+    async def sleep(seconds: float) -> None:
+        timeline.waits.append(seconds)
+        timeline.now += seconds
 
-    monkeypatch.setattr("toolpath.jobs.sleep", record)
-    return recorded
+    monkeypatch.setattr("toolpath.jobs.sleep", sleep)
+    monkeypatch.setattr("toolpath.jobs.monotonic", lambda: timeline.now)
+    return timeline
+
+
+@pytest.fixture
+def waits(clock: Clock) -> list[float]:
+    return clock.waits
 
 
 def wait_reconnecting(
@@ -417,3 +431,30 @@ def test_reconnect_ends_the_wait_with_an_error_on_update_raises(waits: list[floa
 
     assert raised.value is mistake
     assert len(requests) == 1
+
+
+def test_reconnect_does_not_count_a_quiet_job_on_an_open_stream_against_give_up_after(clock: Clock) -> None:
+    requests: list[httpx.Request] = []
+    client = answering(job_event("queued"), job_event("succeeded"), requests=requests)
+
+    def quiet(job: JobDetail) -> None:
+        # Twenty quiet minutes on the first, healthy stream before it drops.
+        if job.status is JobDetailStatus.QUEUED:
+            clock.now += 20 * 60
+
+    finished = wait_reconnecting(client, Reconnect(delays=(1.0,), give_up_after=60), quiet)
+
+    assert finished.status is JobDetailStatus.SUCCEEDED
+    assert len(requests) == 2
+    assert clock.waits == [1.0]
+
+
+def test_reconnect_opens_one_last_stream_at_the_deadline_before_giving_up(clock: Clock) -> None:
+    requests: list[httpx.Request] = []
+
+    with pytest.raises(RuntimeError, match="ended before the job finished"):
+        wait_reconnecting(answering("", "", "", "", "", requests=requests), Reconnect(delays=(2.0,), give_up_after=5))
+
+    # At 0, 2 and 4 seconds, and the last at the deadline, 5.
+    assert len(requests) == 4
+    assert clock.waits == [2.0, 2.0, 1.0]
