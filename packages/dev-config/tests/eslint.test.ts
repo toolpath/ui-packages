@@ -310,6 +310,39 @@ describe('createEslintConfig', () => {
     )
   })
 
+  // ESLint strips the quotes and honours the directive; the restriction must still apply.
+  const quoted = {
+    'quoted.ts': [
+      '// eslint-disable-next-line "no-eval" -- trying',
+      "export const value: unknown = eval('1')",
+      "/* eslint-disable '@typescript-eslint/no-explicit-any' -- trying */",
+      'export const loose: any = 1',
+      "/* eslint-enable '@typescript-eslint/no-explicit-any' -- trying */",
+      '',
+    ].join('\n'),
+  }
+
+  it('rejects a disable that quotes a rule name', async () => {
+    const reported = await lint(quoted)
+    expect(
+      reported['quoted.ts']?.filter(
+        (rule) => rule === '@eslint-community/eslint-comments/no-restricted-disable',
+      ),
+    ).toHaveLength(2)
+  })
+
+  it('rejects a quoted rule name in the comment audit too', async () => {
+    const reported = await lint(quoted, {}, () => ({
+      overrideConfig: createCommentAuditConfig(),
+      allowInlineConfig: false,
+    }))
+    expect(
+      reported['quoted.ts']?.filter(
+        (rule) => rule === '@eslint-community/eslint-comments/no-restricted-disable',
+      ),
+    ).toHaveLength(2)
+  })
+
   it('reports import cycles', async () => {
     const cycle = {
       'a.ts': "import { b } from './b.js'\n\nexport const a = (): number => b() + 1\n",

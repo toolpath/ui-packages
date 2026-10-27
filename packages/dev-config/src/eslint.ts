@@ -239,13 +239,24 @@ export const UNSUPPRESSIBLE: ReadonlyArray<string> = [
 ]
 
 /**
+ * ESLint strips quotes from a disabled rule's name (`"no-eval"`), but
+ * `no-restricted-disable` matches the name with its quotes, so a quoted name
+ * would slip past `UNSUPPRESSIBLE`. No rule may be disabled by a quoted name.
+ */
+const QUOTED_RULE_NAMES = ['"*', "'*"]
+
+/**
  * Suppression discipline: every directive says why, none is file-wide or
  * unlimited, the rules above cannot be suppressed, and no comment may change
  * rule configuration (`/* eslint rule: "off" *\/`), only disable it.
  */
 const commentRules: Linter.RulesRecord = {
   '@eslint-community/eslint-comments/require-description': 'error',
-  '@eslint-community/eslint-comments/no-restricted-disable': ['error', ...UNSUPPRESSIBLE],
+  '@eslint-community/eslint-comments/no-restricted-disable': [
+    'error',
+    ...UNSUPPRESSIBLE,
+    ...QUOTED_RULE_NAMES,
+  ],
   '@eslint-community/eslint-comments/no-use': [
     'error',
     {
