@@ -334,8 +334,11 @@ const Pieces = ({
     }
   }
   const hoverLive = visible && hover && !engaged
+  // Updated after each render, before the effects below call it.
   const dropHoverRef = useRef(dropHover)
-  dropHoverRef.current = dropHover
+  useLayoutEffect(() => {
+    dropHoverRef.current = dropHover
+  })
   useLayoutEffect(() => {
     if (!hoverLive) {
       dropHoverRef.current()
@@ -457,9 +460,6 @@ export const ExplodedPart = (props: ExplodedPartProps) => {
   useLayoutEffect(() => {
     setClick((current) => settleClick(current, selection))
   }, [click, selection])
-  // Read by a click, for the selection it lands on.
-  const selectionAtClick = useRef(selection)
-  selectionAtClick.current = selection
   const ownSelected = props.selected
   const ownHovered = props.hovered
   const selected = useMemo(
@@ -478,25 +478,18 @@ export const ExplodedPart = (props: ExplodedPartProps) => {
       return unsubscribe
     }
   }, [amount, invalidate])
-  const onPickRef = useRef(props.onPick)
-  onPickRef.current = props.onPick
-  const onHoverRef = useRef(props.onHover)
-  onHoverRef.current = props.onHover
-  const handlers = useMemo(
-    () => ({
-      onPick: (pick: ExplodePick) => {
-        if (!pick.modifiers.secondary) {
-          setClick({ id: pick.explodeGroupId, before: selectionAtClick.current, after: null })
-        }
-        onPickRef.current?.(pick)
-      },
-      onHover: (pick: ExplodePick | null) => {
-        setPointed(pick?.explodeGroupId ?? null)
-        onHoverRef.current?.(pick)
-      },
-    }),
-    [],
-  )
+  // New each render: the pieces' gestures read the latest at each event.
+  const onPick = (pick: ExplodePick) => {
+    if (!pick.modifiers.secondary) {
+      // The selection the click lands on.
+      setClick({ id: pick.explodeGroupId, before: selection, after: null })
+    }
+    props.onPick?.(pick)
+  }
+  const onHover = (pick: ExplodePick | null) => {
+    setPointed(pick?.explodeGroupId ?? null)
+    props.onHover?.(pick)
+  }
   // Nothing to draw, or more than the pieces' buffers are allowed: see `explodeFits`.
   return groups.length === 0 || !fits ? null : (
     <>
@@ -519,8 +512,8 @@ export const ExplodedPart = (props: ExplodedPartProps) => {
         visible={visible}
         appearance={appearance}
         onReady={props.onReady}
-        onPick={handlers.onPick}
-        onHover={handlers.onHover}
+        onPick={onPick}
+        onHover={onHover}
       />
     </>
   )
