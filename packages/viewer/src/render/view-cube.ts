@@ -6,6 +6,7 @@ import {
   Vector3,
 } from 'three'
 import type { Vec3 } from '../model/types.js'
+import type { ViewportSize } from './camera.js'
 
 /**
  * The 26 standard views: the six faces of the cube, the twelve edges between
@@ -401,3 +402,25 @@ export function labelTexture(label: string, color: number): CanvasTexture {
 
   return texture
 }
+
+/** Where `<ViewCube>` stands by default: CSS pixels in from the canvas's top right corner to its centre. */
+export const VIEW_CUBE_MARGIN: [number, number] = [80, 80]
+
+/**
+ * How far, CSS pixels, the cube reaches from its centre at any turn: its
+ * panels are drawn 38 pixels to a half side, and corner on, a cube reaches
+ * √3 of that.
+ */
+const VIEW_CUBE_REACH = 66
+
+/**
+ * Whether a point on the canvas, CSS pixels from its top left, is on a view
+ * cube in its top right corner, `margin` in. The cube's own clicks stop at
+ * the cube, but a tool that listens on the canvas hears them too, and must
+ * leave these alone.
+ */
+export const onViewCube = (
+  { x, y }: { x: number; y: number },
+  viewport: ViewportSize,
+  margin: readonly [number, number],
+): boolean => Math.hypot(x - (viewport.width - margin[0]), y - margin[1]) <= VIEW_CUBE_REACH

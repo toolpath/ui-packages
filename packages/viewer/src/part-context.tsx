@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react'
 import type { BufferGeometry } from 'three'
 import type { PartModel } from './model/types.js'
+import type { RegionHighlight } from './render/paint.js'
 
 /**
  * The part an overlay is drawn on: its model and the mesh `<PartMesh>` draws.
@@ -26,3 +27,13 @@ export const usePartContext = (): PartContextValue => {
   if (!part) throw new Error('usePartContext must be used inside <PartMesh> or <EnginePart>')
   return part
 }
+
+/**
+ * How a tool drawn inside `<PartMesh>` paints the part's faces, over the
+ * part's own `regionHighlights`: the measure tool's measured and hovered
+ * faces. Each call replaces what the tool painted last. Not exported from the
+ * package: a consumer paints through `regionHighlights`.
+ */
+export const PartPaintContext = createContext<(layer: readonly RegionHighlight[]) => void>(
+  () => undefined,
+)

@@ -14,14 +14,14 @@ import type { SectionOptions } from './section.js'
  * picks, so clicking a face to cut through it does not also select it, the
  * hover paint does not sit under the tool's own preview, and a cut part is
  * read as a cut rather than picked at. Unmounting the tool hands the pointer
- * back. `<MeasureTool>` engages it too — a click that puts a measurement point
- * on a face is not a request to select the face — which is why the flag is a
+ * back. `<MeasureTool>` engages it too — a click that measures a face is not
+ * a request to select the face — which is why the flag is a
  * count rather than a boolean: two tools up at once let go one at a time.
  *
  * And whether a tool is **picking** — `<SectionTool>` is up with no cut in
  * place, so the next click on the part chooses where the cut goes. That click
- * is the section tool's alone: `<MeasureTool>` beside it offers no snap and
- * places no point until the cut is chosen or the section tool is unmounted.
+ * is the section tool's alone: `<MeasureTool>` beside it shows and picks
+ * nothing until the cut is chosen or the section tool is unmounted.
  * Counted for the same reason as `engaged`.
  *
  * A subscription rather than React state, so a drag re-renders the two

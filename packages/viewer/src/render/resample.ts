@@ -10,7 +10,7 @@ import { type Plane, type Ray, Vector3 } from 'three'
  * trimmed to the half that is left, the outline where the plane passes
  * through solid material, and a test for whether a point on the plane is on
  * the capped face. It is rebuilt whenever the plane moves; see
- * `measure-tool.tsx`.
+ * `measure-under.ts`.
  *
  * Everything here is in one space — the mesh's own — and the plane is
  * expected in it too. Six floats per segment throughout, the layout
