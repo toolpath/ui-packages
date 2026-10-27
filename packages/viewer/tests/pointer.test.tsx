@@ -342,7 +342,10 @@ describe('<ExplodedPart> pointer', () => {
       })
       warmed.push(drawn && pieces.visible && pieces.layers.test(scene.camera.layers))
     })
-    await scene.settle()
+    await vi.waitFor(async () => {
+      await scene.settle()
+      expect(warmed.length).toBeGreaterThan(0)
+    })
     expect(warmed).toEqual([true])
     // Hidden again, and left out of framing.
     const group = scene.find('exploded-part')
