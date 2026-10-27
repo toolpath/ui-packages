@@ -97,8 +97,15 @@ export default createCommentAuditConfig()
 ```
 
 ```sh
-eslint --no-inline-config -c eslint.comments-audit.config.mjs . --max-warnings=0
+echo '{}' > eslint.comments-audit-suppressions.json   # once; commit it
+eslint --no-inline-config -c eslint.comments-audit.config.mjs \
+  --suppressions-location eslint.comments-audit-suppressions.json . --max-warnings=0
 ```
+
+The audit reads its own suppressions file, which stays empty. Without it, it reads the lint's
+`eslint-suppressions.json` (see [Adopting it](#adopting-it-in-an-existing-repository)): it fails on
+every entry for a rule it does not run, and it honours comment findings that `--suppress-all`
+recorded.
 
 An exception to a rule that cannot be disabled belongs in `eslint.config.mjs`, scoped to the files
 that need it, where review sees it:
@@ -341,7 +348,7 @@ as scripts, so CI and people run the same thing (a React Router app's `lint` als
 "scripts": {
   "format:check": "prettier --check .",
   "lint": "eslint . --max-warnings=0",
-  "lint:comments": "eslint --no-inline-config -c eslint.comments-audit.config.mjs . --max-warnings=0",
+  "lint:comments": "eslint --no-inline-config -c eslint.comments-audit.config.mjs --suppressions-location eslint.comments-audit-suppressions.json . --max-warnings=0",
   "check-types": "tsc --noEmit",
   "build": "vite build"
 }

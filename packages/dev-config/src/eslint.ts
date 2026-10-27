@@ -526,8 +526,9 @@ export const createEslintConfig = ({
 
 /**
  * The comment rules alone, for a CI step run with `--no-inline-config` so no
- * comment can switch them off:
- * `eslint --no-inline-config -c eslint.comments-audit.config.mjs . --max-warnings=0`.
+ * comment can switch them off, and with its own empty suppressions file so the
+ * lint's baseline neither fails it nor hides a comment finding:
+ * `eslint --no-inline-config -c eslint.comments-audit.config.mjs --suppressions-location eslint.comments-audit-suppressions.json . --max-warnings=0`.
  */
 export const createCommentAuditConfig = ({
   ignores = [],
