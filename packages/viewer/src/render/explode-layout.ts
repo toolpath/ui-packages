@@ -42,17 +42,8 @@ const project = (box: Box3, direction: Vector3): { min: number; max: number } =>
   return { min, max }
 }
 
-/**
- * Places each piece along its approach: clear of the part, and clear of earlier pieces that
- * share its surfaces and its approach, so two readings of one face never land on each other.
- * Pieces keep their order and identities; a piece with no approach stays where it is.
- * Reads each region's source triangles once, and never moves or copies the geometry.
- */
-export const explodeLayout = (
-  model: PartModel,
-  geometry: BufferGeometry,
-  assignments: ReadonlyArray<ExplodeAssignment>,
-): Array<ExplodeGroup> => {
+/** Each region's box in the source geometry. Regions with no triangles are left out. */
+const regionBounds = (model: PartModel, geometry: BufferGeometry): Map<number, Box3> => {
   const position = geometry.getAttribute('position')
   const point = new Vector3()
   const bounds = new Map<number, Box3>()
@@ -67,6 +58,21 @@ export const explodeLayout = (
     }
     bounds.set(region.idx, box)
   }
+  return bounds
+}
+
+/**
+ * Places each piece along its approach: clear of the part, and clear of earlier pieces that
+ * share its surfaces and its approach, so two readings of one face never land on each other.
+ * Pieces keep their order and identities; a piece with no approach stays where it is.
+ * Reads each region's source triangles once, and never moves or copies the geometry.
+ */
+export const explodeLayout = (
+  model: PartModel,
+  geometry: BufferGeometry,
+  assignments: ReadonlyArray<ExplodeAssignment>,
+): Array<ExplodeGroup> => {
+  const bounds = regionBounds(model, geometry)
   const whole = new Box3()
   for (const box of bounds.values()) {
     whole.union(box)
@@ -76,18 +82,18 @@ export const explodeLayout = (
   const groups: Array<ExplodeGroup> = []
   for (const assignment of assignments) {
     const regionIdxs = [...new Set(assignment.regionIdxs)].filter((region) => bounds.has(region))
-    const patch = new Box3()
+    const pieceBounds = new Box3()
     for (const region of regionIdxs) {
-      patch.union(bounds.get(region)!)
+      pieceBounds.union(bounds.get(region)!)
     }
-    if (patch.isEmpty()) {
+    if (pieceBounds.isEmpty()) {
       continue
     }
-    const way = assignment.direction
-    const direction = way ? new Vector3(way.x, way.y, way.z).normalize() : null
+    const approach = assignment.direction
+    const direction = approach ? new Vector3(approach.x, approach.y, approach.z).normalize() : null
     const offset = new Vector3()
     if (direction && Number.isFinite(direction.lengthSq()) && direction.lengthSq() > 0) {
-      const start = project(patch, direction).min
+      const start = project(pieceBounds, direction).min
       let travel = Math.max(
         diagonal * CLEARANCE,
         project(whole, direction).max - start + diagonal * BEYOND_PART,
@@ -101,11 +107,11 @@ export const explodeLayout = (
         }
       }
       offset.copy(direction).multiplyScalar(travel)
-      const copy = { direction, bounds: patch.clone().translate(offset) }
+      const placedPiece = { direction, bounds: pieceBounds.clone().translate(offset) }
       for (const region of regionIdxs) {
-        const copies = placed.get(region) ?? []
-        copies.push(copy)
-        placed.set(region, copies)
+        const pieces = placed.get(region) ?? []
+        pieces.push(placedPiece)
+        placed.set(region, pieces)
       }
     }
     groups.push({
@@ -113,7 +119,7 @@ export const explodeLayout = (
       regionIdxs,
       offset: { x: offset.x, y: offset.y, z: offset.z },
       color: assignment.color,
-      direction: way ?? null,
+      direction: approach ?? null,
       ...(assignment.featureTags ? { featureTags: assignment.featureTags } : {}),
     })
   }
