@@ -23,4 +23,38 @@ describe('createRayMask', () => {
     expect(mesh.layers.isEnabled(0)).toBe(false)
     expect(late.layers.mask).toBe(1)
   })
+
+  it('nests: an object two masks hold returns to its own layers only when both show it', () => {
+    // A hidden `<PartMesh>` inside a hidden `<VisibilityGroup>`: React runs the inner effect first.
+    const outerRoot = new Group()
+    const innerRoot = new Group()
+    const part = new Mesh()
+    part.layers.set(2)
+    innerRoot.add(part)
+    outerRoot.add(innerRoot)
+    const own = part.layers.mask
+    {
+      const inner = createRayMask()
+      const outer = createRayMask()
+      inner.hide(innerRoot)
+      outer.hide(outerRoot)
+      inner.show()
+      expect(part.layers.mask).toBe(0)
+      outer.show()
+      expect(part.layers.mask).toBe(own)
+    }
+    // The outer shown first leaves what the inner still hides out of raycasts.
+    const inner = createRayMask()
+    const outer = createRayMask()
+    outer.hide(outerRoot)
+    inner.hide(innerRoot)
+    outer.show()
+    expect(outerRoot.layers.mask).toBe(1)
+    expect(part.layers.mask).toBe(0)
+    inner.show()
+    expect(part.layers.mask).toBe(own)
+    // Showing again changes nothing.
+    inner.show()
+    expect(part.layers.mask).toBe(own)
+  })
 })
