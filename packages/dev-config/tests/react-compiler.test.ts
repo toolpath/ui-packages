@@ -7,6 +7,7 @@ import {
   reactCompilerEsbuildPlugin,
   reactCompilerGuard,
   reactCompilerOptions,
+  type ReactCompilerLogEvent,
   type ReactCompilerSkipAction,
 } from '../src/react-compiler.js'
 import { temporaryDirectory } from './helpers.js'
@@ -15,18 +16,24 @@ const COMPILED = 'import { c as _c } from "react/compiler-runtime"\nexport const
 const PLAIN = 'export const App = () => null\n'
 
 /** What the compiler logs for a component that reads a ref during render. */
-const REFS_ERROR = {
+const REFS_ERROR: ReactCompilerLogEvent = {
   kind: 'CompileError',
   fnLoc: { start: { line: 7, column: 0 } },
   detail: { reason: 'Cannot access refs during render', category: 'Refs' },
+}
+
+/** What the compiler logs for a component opted out with `'use no memo'`. */
+const OPTED_OUT: ReactCompilerLogEvent = {
+  kind: 'CompileSkip',
+  fnLoc: { start: { line: 3, column: 30 } },
 }
 
 interface GuardModule {
   id: string
   code: string
   ssr?: boolean
-  /** Skips the compiler logs while the React plugin transforms this module. */
-  logged?: Array<typeof REFS_ERROR>
+  /** Events the compiler logs while the React plugin transforms this module. */
+  logged?: Array<ReactCompilerLogEvent>
 }
 
 /** Runs the guard over `modules` the way a build does; returns what it raised and warned. */
@@ -101,6 +108,24 @@ describe('reactCompilerGuard', () => {
       [{ id: '/app/src/Reader.tsx', code: COMPILED, logged: [REFS_ERROR] }],
       'warn',
     )
+    expect(result.error).toBeUndefined()
+    expect(result.warnings).toEqual([expect.stringMatching(/React Compiler skipped 1 function/)])
+  })
+
+  // Neither module imports the runtime, but the compiler logged both, so it ran.
+  const allSkipped = [
+    { id: '/app/src/Reader.tsx', code: PLAIN, logged: [REFS_ERROR] },
+    { id: '/app/src/Legacy.tsx?v=1', code: PLAIN, logged: [OPTED_OUT] },
+  ]
+
+  it('reports the skips, not a missing compiler, when no component compiled', () => {
+    const { error } = guard(allSkipped)
+    expect(error).toMatch(/React Compiler skipped 1 function/)
+    expect(error).not.toMatch(/did not run/)
+  })
+
+  it('passes with onSkip: warn when every component was skipped or opted out', () => {
+    const result = guard(allSkipped, 'warn')
     expect(result.error).toBeUndefined()
     expect(result.warnings).toEqual([expect.stringMatching(/React Compiler skipped 1 function/)])
   })

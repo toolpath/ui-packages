@@ -274,8 +274,9 @@ export default defineConfig({
 ```
 
 `reactCompilerGuard()` checks production client builds. It counts the project's `.jsx` and `.tsx`
-modules and fails when none imports the compiler runtime, and reports the functions the logger in
-`reactCompilerOptions()` recorded as skipped. Server builds and dependencies are not counted.
+modules and fails when the compiler ran on none of them: none imports the compiler runtime, and the
+logger in `reactCompilerOptions()` saw none. It reports the functions that logger recorded as
+skipped. Server builds and dependencies are not counted.
 
 ### tsup and esbuild libraries
 
@@ -305,7 +306,8 @@ export default defineConfig({
 `reactCompilerEsbuildPlugin()` runs the compiler over each source file before esbuild lowers it,
 and reports each skipped function at its location as a build error (`{ onSkip: 'warn' }` for
 warnings; `{ target: '18' }` for React 17 or 18). `assertReactCompiled('dist')` throws unless the
-output imports the compiler runtime, which is why `react` stays external.
+output imports the compiler runtime, which is why `react` stays external. It reads only the output,
+so it also throws when the compiler skipped or opted out every function.
 
 ### Expo
 

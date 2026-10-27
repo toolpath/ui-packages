@@ -116,6 +116,9 @@ const isOptedOut = (filename: string, event: ReactCompilerLogEvent): boolean => 
   }
 }
 
+/** A module id without its query; Babel receives the bundler's id (`route.tsx?route-chunk=main`). */
+const withoutQuery = (id: string): string => id.split('?')[0] ?? id
+
 /** The functions a log event reports as skipped, keyed by `file:line`. */
 const recordSkip = (
   skips: Map<string, ReactCompilerSkip>,
@@ -125,8 +128,7 @@ const recordSkip = (
   if (filename === null || (event.kind !== 'CompileError' && event.kind !== 'PipelineError')) {
     return
   }
-  // Babel receives the bundler's module id, query included (`route.tsx?route-chunk=main`).
-  const file = filename.split('?')[0] ?? filename
+  const file = withoutQuery(filename)
   if (isOptedOut(file, event)) {
     return
   }
@@ -150,6 +152,14 @@ const recordSkip = (
 const pendingSkips = new Map<string, ReactCompilerSkip>()
 
 /**
+ * Files the compiler logged an event for in this process, claimed by
+ * `reactCompilerGuard()` like their skips. The compiler logs every function it
+ * compiles, skips or finds opted out, so a file here was compiled even when its
+ * output has no compiler runtime import.
+ */
+const pendingReached = new Set<string>()
+
+/**
  * The options every repository passes to `babel-plugin-react-compiler`: compile
  * what looks like a component or hook, and emit a function the compiler cannot
  * handle as written instead of failing the build. The logger records those
@@ -163,6 +173,9 @@ export const reactCompilerOptions = ({
   target,
   logger: {
     logEvent: (filename, event) => {
+      if (filename !== null) {
+        pendingReached.add(withoutQuery(filename))
+      }
       recordSkip(pendingSkips, filename, event)
     },
   },
@@ -199,7 +212,7 @@ export interface ReactCompilerGuardPlugin {
 
 /**
  * A Vite (or Rollup) plugin for production client builds. It fails the build
- * when React Compiler compiled none of the project's `.jsx` and `.tsx` modules
+ * when React Compiler ran on none of the project's `.jsx` and `.tsx` modules
  * (the compiler is installed but the build does not run it), and reports every
  * function the compiler skipped, as an error by default. It wires nothing
  * itself; put it after the React plugin, which must run the compiler with
@@ -209,7 +222,7 @@ export const reactCompilerGuard = ({
   onSkip = 'error',
 }: { onSkip?: ReactCompilerSkipAction } = {}): ReactCompilerGuardPlugin => {
   let modules = 0
-  let compiled = 0
+  let reached = 0
   const skips = new Map<string, ReactCompilerSkip>()
   return {
     name: 'toolpath:react-compiler-guard',
@@ -217,25 +230,27 @@ export const reactCompilerGuard = ({
     enforce: 'post',
     buildStart: () => {
       modules = 0
-      compiled = 0
+      reached = 0
       skips.clear()
     },
     transform: (code, id, options) => {
-      const file = id.split('?')[0] ?? id
-      // The compiler logged this module's skips during the React plugin's transform, just before.
-      const logged = [...pendingSkips.values()].filter((skip) => skip.file === file)
-      for (const skip of logged) {
+      const file = withoutQuery(id)
+      // The compiler logged this module during the React plugin's transform, just before.
+      const logged = pendingReached.delete(file)
+      const loggedSkips = [...pendingSkips.values()].filter((skip) => skip.file === file)
+      for (const skip of loggedSkips) {
         pendingSkips.delete(`${skip.file}:${String(skip.line)}`)
       }
       // Server builds may leave the compiler out on purpose; the client build is checked.
       if (options?.ssr !== true && !NODE_MODULES.test(file)) {
-        for (const skip of logged) {
+        for (const skip of loggedSkips) {
           skips.set(`${skip.file}:${String(skip.line)}`, skip)
         }
         if (COMPONENT_MODULE.test(id)) {
           modules += 1
-          if (COMPILER_RUNTIME.test(code)) {
-            compiled += 1
+          // A module whose functions were all skipped or opted out has no runtime import.
+          if (logged || COMPILER_RUNTIME.test(code)) {
+            reached += 1
           }
         }
       }
@@ -245,7 +260,7 @@ export const reactCompilerGuard = ({
       if (error !== undefined) {
         return
       }
-      if (modules > 0 && compiled === 0) {
+      if (modules > 0 && reached === 0) {
         this.error(
           `React Compiler did not run: none of ${String(modules)} .jsx/.tsx modules were compiled. ` +
             'Add babel-plugin-react-compiler to the React plugin with reactCompilerOptions() ' +
@@ -346,7 +361,9 @@ export const reactCompilerEsbuildPlugin = ({
 /**
  * Throws unless a library build in `directory` contains React Compiler output.
  * Keep `react` external so the runtime import survives bundling. Call it after
- * the build, for example from tsup's `onSuccess`.
+ * the build, for example from tsup's `onSuccess`. Output alone cannot show that
+ * the compiler ran, so a build in which it skipped or opted out every function
+ * fails too.
  */
 export const assertReactCompiled = (directory: string): void => {
   const files = readdirSync(directory, { recursive: true, encoding: 'utf8' }).filter((file) =>
@@ -354,8 +371,9 @@ export const assertReactCompiled = (directory: string): void => {
   )
   if (!files.some((file) => COMPILER_RUNTIME.test(readFileSync(join(directory, file), 'utf8')))) {
     throw new Error(
-      `React Compiler did not run: none of the ${String(files.length)} JavaScript files in ${directory} ` +
-        'imports its runtime. Add reactCompilerEsbuildPlugin() to the build and keep react external.',
+      `No React Compiler output: none of the ${String(files.length)} JavaScript files in ${directory} ` +
+        'imports its runtime. Add reactCompilerEsbuildPlugin() to the build and keep react external. ' +
+        'If the build reported every function as skipped or opted out, compile at least one.',
     )
   }
 }
