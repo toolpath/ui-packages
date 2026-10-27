@@ -119,11 +119,21 @@ describe('typing and reading values', () => {
     expect(fromField(metricInfo('zMin')!, '-12.5', 'mm')).toBe(-12.5)
   })
 
-  it('reads a lone decimal comma as a point', () => {
-    expect(fromField(metricInfo('ld')!, '2,5', 'mm')).toBe(2.5)
-    expect(fromField(metricInfo('zMin')!, '-2,5', 'mm')).toBe(-2.5)
-    expect(fromField(metricInfo('ld')!, '1,2,5', 'mm')).toBeNull()
-    expect(fromField(metricInfo('ld')!, '1.2,5', 'mm')).toBeNull()
+  it('reads a lone decimal comma as a point where the comma is the decimal', () => {
+    const comma = { decimalComma: true }
+    expect(fromField(metricInfo('ld')!, '2,5', 'mm', comma)).toBe(2.5)
+    expect(fromField(metricInfo('zMin')!, '-2,5', 'mm', comma)).toBe(-2.5)
+    expect(fromField(metricInfo('depthBelowTop')!, '1,000', 'mm', comma)).toBe(1)
+    expect(fromField(metricInfo('ld')!, '2.5', 'mm', comma)).toBe(2.5)
+    expect(fromField(metricInfo('ld')!, '1,2,5', 'mm', comma)).toBeNull()
+    expect(fromField(metricInfo('ld')!, '1.2,5', 'mm', comma)).toBeNull()
+  })
+
+  it('refuses a comma where the point is the decimal, rather than misreading a thousand', () => {
+    expect(fromField(metricInfo('depthBelowTop')!, '1,000', 'mm')).toBeNull()
+    expect(fromField(metricInfo('faceCount')!, '1,000', 'mm')).toBeNull()
+    expect(fromField(metricInfo('ld')!, '2,5', 'mm')).toBeNull()
+    expect(fromField(metricInfo('ld')!, '2,5', 'mm', { decimalComma: false })).toBeNull()
   })
 
   it('takes a count in whole numbers only', () => {

@@ -195,22 +195,36 @@ export const toField = (quantity: DfmQuantity, value: number, units: Units): str
       : trim(shown, 3)
 }
 
-/**
- * A decimal comma as a point: `2,5` is `2.5`. In a comma-decimal region a
- * phone's decimal keypad offers only the comma, so without this nothing but a
- * whole number could be typed. Only a lone comma with no point beside it.
- */
+/** How {@link fromField} reads what was typed. */
+export interface FieldOptions {
+  /**
+   * Whether the reader's decimal separator is the comma. In a comma-decimal
+   * region a phone's decimal keypad offers only the comma, so without this
+   * nothing but a whole number could be typed there. Off, a comma is not part
+   * of a number: `1,000` is refused rather than read as 1, since where the
+   * point is the decimal it means a thousand.
+   */
+  decimalComma?: boolean
+}
+
+/** A decimal comma as a point: `2,5` is `2.5`. Only a lone comma with no point beside it. */
 const decimalPoint = (text: string): string =>
   /^[^,.]*,[^,.]*$/.test(text) ? text.replace(',', '.') : text
 
 /**
  * What a field says, back to canonical — or null when it is not a number,
  * is below zero where the measure cannot be, or is a fraction of a count.
- * A decimal comma reads as a point.
+ * With `decimalComma`, a lone comma reads as a point.
  */
-export const fromField = (metric: DfmMetric, text: string, units: Units): number | null => {
-  const parsed = Number(decimalPoint(text.trim()))
-  if (text.trim() === '' || !Number.isFinite(parsed) || (parsed < 0 && !metric.signed)) return null
+export const fromField = (
+  metric: DfmMetric,
+  text: string,
+  units: Units,
+  { decimalComma = false }: FieldOptions = {},
+): number | null => {
+  const typed = text.trim()
+  const parsed = Number(decimalComma ? decimalPoint(typed) : typed)
+  if (typed === '' || !Number.isFinite(parsed) || (parsed < 0 && !metric.signed)) return null
   if (metric.quantity === 'count' && !Number.isInteger(parsed)) return null
   if (units !== 'inch') return parsed
   return metric.quantity === 'length'
