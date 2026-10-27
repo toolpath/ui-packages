@@ -175,12 +175,12 @@ echo 'pnpm exec lint-staged' > .husky/pre-commit
 { "extends": "@toolpath/dev-config/tsconfig/browser.json", "include": ["src", "tests"] }
 ```
 
-| Base           | For                                                         |
-| -------------- | ----------------------------------------------------------- |
-| `base.json`    | Strict checks shared by all the others (see below)          |
-| `browser.json` | Bundled browser code: `Bundler` resolution, DOM, React JSX  |
-| `node.json`    | Node programs and scripts: `NodeNext`, Node types           |
-| `library.json` | Published libraries for any renderer: `NodeNext`, React JSX |
+| Base           | For                                                                                 |
+| -------------- | ----------------------------------------------------------------------------------- |
+| `base.json`    | Strict checks shared by all the others (see below)                                  |
+| `browser.json` | Bundled browser code: `Bundler` resolution, DOM, React JSX                          |
+| `node.json`    | Node programs and scripts: `NodeNext`, Node types                                   |
+| `library.json` | Published libraries for any renderer: `NodeNext`, React JSX, no DOM or Node globals |
 
 `base.json` turns on `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
 `noImplicitOverride`, `noImplicitReturns`, `noFallthroughCasesInSwitch`,
@@ -189,19 +189,30 @@ properties) and `skipLibCheck: false`, and makes unreachable code and unused lab
 bases set `noEmit`; the build tool (Vite, tsup, esbuild) emits the JavaScript.
 
 - Include tests, specs and tool configs in the tsconfig that type-checks the project; lint reads
-  types from it.
+  types from it. A tsconfig split into project references (`"files": []` and `"references"`, as
+  create-vite writes it) is checked with `tsc -b`; `tsc --noEmit` on that root checks no file.
 - `node.json` and `library.json` need `"type": "module"` in `package.json`; `node.json` also
   needs `@types/node`.
 - Add ambient types the project uses: `"types": ["vite/client"]` for Vite apps, and
   `"vitest/globals"` for tests that use Vitest globals. React Router apps add
-  `"rootDirs": [".", "./.react-router/types"]`.
+  `"rootDirs": [".", "./.react-router/types"]` and `".react-router/types/**/*"` to `include`;
+  without the include, route types such as `href()` paths are not checked.
+- `library.json` declares no DOM or Node globals, so `console`, timers, `URL` and `fetch` are
+  unknown. A library that uses them adds `"types": ["node"]` or the `DOM` lib. Its tests usually
+  need a tsconfig of their own with those types, because Vitest's types use them.
+- Scripts run with Node's built-in TypeScript support (`node scripts/build.ts`) import each other by
+  their `.ts` name, which needs `"allowImportingTsExtensions": true`; the bases' `noEmit` allows it.
 - Never set `baseUrl` or `ignoreDeprecations`; TypeScript 6 stops type-checking at `baseUrl`, and
   `ignoreDeprecations` hides that. Write `paths` entries relative (`"./src/*"`), or use
   `package.json` `"imports"` (`#/…`).
 - `skipLibCheck: false` reports broken published types instead of turning them into `any`. Fix the
   dependency's version, add its missing `@types` package, or `pnpm patch` it. React Native and Expo
-  apps set `skipLibCheck: true`.
-- Generated code that uses enums sets `erasableSyntaxOnly: false` in its own tsconfig.
+  apps set `skipLibCheck: true`, and so does the tsconfig that checks `vite.config.ts` in a
+  `@vitejs/plugin-react` 6 React Compiler setup: `@rolldown/plugin-babel`'s published types fail lib
+  checking whichever Babel types are installed, and `babel-plugin-react-compiler`'s need the DOM lib.
+- TypeScript checks every file a project includes or imports under that project's options. Generated
+  code that uses enums needs `erasableSyntaxOnly: false` in each tsconfig whose files import it, not
+  only in its own.
 
 ## React Compiler
 
@@ -356,7 +367,8 @@ There is no build check for Metro, so skipped functions are not reported there.
 The checks hold only where CI runs them: the comment audit closes the inline-configuration
 loophole only in CI, and the React Compiler checks only fail a build that runs. Name the commands
 as scripts, so CI and people run the same thing (a React Router app's `lint` also runs
-`react-router typegen` first; a monorepo's scripts can call its task runner):
+`react-router typegen` first; a tsconfig split into references uses `tsc -b`; a monorepo's scripts
+can call its task runner):
 
 ```json
 // package.json
