@@ -23,17 +23,18 @@
   "exports": {
     "./eslint": {
       "types": "./dist/eslint.d.ts",
-      "import": "./dist/eslint.js"
+      "default": "./dist/eslint.js"
     },
     "./prettier": {
       "types": "./dist/prettier.d.ts",
-      "import": "./dist/prettier.js"
+      "default": "./dist/prettier.js"
     },
     "./react-compiler": {
       "types": "./dist/react-compiler.d.ts",
-      "import": "./dist/react-compiler.js"
+      "default": "./dist/react-compiler.js"
     },
     "./tsconfig/*.json": "./tsconfig/*.json",
+    "./tsconfig/*": "./tsconfig/*.json",
     "./package.json": "./package.json"
   },
   "files": [
@@ -63,7 +64,7 @@
     "typescript-eslint": "8.72.0"
   },
   "peerDependencies": {
-    "@babel/core": "^7.24.0",
+    "@babel/core": "^7.24.0 || ^8.0.0",
     "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^10.4.0",
     "prettier": "^3.0.0",
