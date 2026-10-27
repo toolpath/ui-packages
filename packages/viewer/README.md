@@ -494,7 +494,7 @@ A layout past `EXPLODE_LIMITS` (4096 pieces, one million copied triangles) draws
 `[0, 1]` are clamped and nonfinite amounts use zero. `createExplodeMotion(initial, options?)`
 returns an amount that animates itself: `moveTo(target)` eases over 1800 ms for a full move,
 in real elapsed time, pausing while the tab is hidden, and jumps instead where the person
-prefers reduced motion; `moveTo(target, { immediate: true })` jumps; `seek(amount)` jumps now
+prefers reduced motion; `moveTo(target, { immediate: true })` jumps; `set(amount)` jumps now
 and stops any move. A move waits until every `<ExplodedPart>` it drives has warmed its shaders
 and buffers, so it starts on prepared pieces; one motion can drive several parts. For React
 readouts, `getSnapshot()` returns `{ amount, mode, active, preparing }`, a new object at most

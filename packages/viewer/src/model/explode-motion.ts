@@ -24,8 +24,8 @@ export interface ExplodeMotionSnapshot {
 export interface ExplodeMotion extends ExplodeAmount {
   /** Ease to an amount; `immediate` jumps once attached pieces are warm. */
   moveTo: (target: number, options?: { readonly immediate?: boolean }) => void
-  /** Jump to an amount now, stopping any move. The same as `set`. */
-  seek: (amount: number) => void
+  /** Jump to an amount now, stopping any move. */
+  set: (amount: number) => void
   getSnapshot: () => ExplodeMotionSnapshot
   hold: () => () => void
 }
@@ -105,9 +105,13 @@ export const createExplodeMotion = (
     stopFrames()
     schedule()
   }
-  const settle = () => {
+  // Rest at `amount`: no frames, no visibility listener, and readouts told.
+  const finish = (amount: number) => {
+    value = amount
+    mode = 'idle'
     stopFrames()
     globalThis.document?.removeEventListener('visibilitychange', visibility)
+    notify(true)
   }
   const schedule = () => {
     if (frame === null && mode !== 'idle' && !(mode === 'waiting' && holds > 0) && !hidden()) {
@@ -121,10 +125,7 @@ export const createExplodeMotion = (
         return
       }
       if (immediate || reducedMotion()) {
-        value = to
-        mode = 'idle'
-        settle()
-        notify(true)
+        finish(to)
         return
       }
       mode = 'moving'
@@ -144,10 +145,7 @@ export const createExplodeMotion = (
     const progress = Math.min(1, elapsed / duration)
     value = from + (to - from) * ease(progress)
     if (progress === 1) {
-      value = to
-      mode = 'idle'
-      settle()
-      notify(true)
+      finish(to)
       return
     }
     const readout = timestamp - lastReadout >= READOUT_MS
@@ -157,22 +155,17 @@ export const createExplodeMotion = (
     notify(readout)
     schedule()
   }
-  const seek = (next: number) => {
-    const target = readExplodeAmount(next)
-    if (target === value && mode === 'idle') {
-      return
-    }
-    value = target
-    mode = 'idle'
-    settle()
-    notify(true)
-  }
   return {
     get value() {
       return value
     },
-    set: seek,
-    seek,
+    set: (next) => {
+      const target = readExplodeAmount(next)
+      if (target === value && mode === 'idle') {
+        return
+      }
+      finish(target)
+    },
     moveTo: (target, options = {}) => {
       to = readExplodeAmount(target)
       if (to === value && mode === 'idle') {

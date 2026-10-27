@@ -52,7 +52,7 @@ export const useExampleExplode = (
     setEnabled(next)
     const target = next && renderable ? 1 : 0
     if (immediate) {
-      motion.seek(target)
+      motion.set(target)
     } else {
       motion.moveTo(target)
     }
@@ -81,7 +81,7 @@ export const useExampleExplode = (
     },
     seek: (next: number) => {
       setEnabled(true)
-      motion.seek(next)
+      motion.set(next)
     },
   }
 }

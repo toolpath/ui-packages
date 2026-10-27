@@ -103,7 +103,7 @@ describe('createExplodeMotion', () => {
     expect(asked.getSnapshot()).toMatchObject({ amount: 0, mode: 'idle', active: false })
   })
 
-  it('stops for a seek, and reverses from where it is', () => {
+  it('stops for a set, and reverses from where it is', () => {
     const time = clock()
     const motion = createExplodeMotion(0, { ...time.options, durationMs: 1000 })
     motion.moveTo(1)
@@ -115,7 +115,7 @@ describe('createExplodeMotion', () => {
     time.tick(250)
     expect(motion.value).toBeLessThan(halfway)
     expect(motion.value).toBeGreaterThan(0)
-    motion.seek(0.3)
+    motion.set(0.3)
     expect(motion.getSnapshot()).toMatchObject({ amount: 0.3, mode: 'idle', active: true })
     expect(time.pending()).toBe(0)
     motion.set(2)
