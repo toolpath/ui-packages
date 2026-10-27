@@ -36,18 +36,17 @@ export interface EdgeSnaps {
   corners: readonly EdgeCorner[]
   lines: EdgeLines
   /**
-   * Each edge line in world space, made once when first snapped to, so a
-   * read along the same edge gives the same points and nothing is drawn
-   * again. The part does not move, so they hold for as long as it does.
+   * Each edge line as points, made once when first snapped to, so a read
+   * along the same edge gives the same points and nothing is drawn again.
    */
-  worldLines: Map<number, readonly Point[]>
+  linePoints: Map<number, readonly Point[]>
 }
 
 /** The snaps on edges given as segments, six floats each, the layout `regionEdgesGeometry` draws. */
 export const edgeSnaps = (positions: ArrayLike<number>): EdgeSnaps => ({
   corners: edgeCorners(positions),
   lines: edgeLines(positions),
-  worldLines: new Map(),
+  linePoints: new Map(),
 })
 
 /** Where a section plane passes through solid material, in the mesh's own space. */
@@ -169,6 +168,10 @@ export interface Found {
  * (`snapNear`). Null where the ray misses the part and nothing snaps. A face
  * a cut made is no face of the part's: where the ray meets one first, the
  * pointer is on the part but on no face, and the face behind it is not offered.
+ *
+ * Its points are in the mesh's own space, as the part's faces are
+ * (`surfaceFor`) and as the tool draws: the rays are cast in world space,
+ * and what they find is brought back.
  */
 export const underPointer = (part: PartAt, screen: ScreenAt, alt: AltSnap | null): Found | null => {
   const { surfaces, raycaster } = part
@@ -229,7 +232,8 @@ const faceAt = (hit: Intersection, { model, surfaceFor, holes }: PartAt): OnFace
   const found = hit.faceIndex == null ? null : model.regionIndex.regionForTriangle(hit.faceIndex)
   if (found === null) return null
   const region = holes.faceOf(found)
-  return { face: { kind: 'face', region, point: asPoint(hit.point) }, surface: surfaceFor(region) }
+  const point = asPoint(toMesh(hit.point, hit.object as Mesh))
+  return { face: { kind: 'face', region, point }, surface: surfaceFor(region) }
 }
 
 /** Where the pointer's ray lands on the part: on a face of its own, or on a face a cut made. */
@@ -238,13 +242,17 @@ interface Landing {
   surface: Mesh
 }
 
-/** How many of the edges in reach are looked past for one the camera can see: each look is a ray. */
+/**
+ * How many of the corners, and of the edges, in reach are looked past for
+ * one the camera can see: each look casts rays at the whole part.
+ */
+const CORNERS_TRIED = 8
 const EDGES_TRIED = 4
 
 /**
  * Where an Alt point snaps. A corner or a straight edge's middle within
  * reach comes first, on the part or just off its outline, if the camera can
- * see it (`canSee`): every one in reach is tried, nearest first, as the
+ * see it (`canSee`): the nearest few are tried, nearest first, as the
  * nearest may be round the back. Then the nearest point on an edge within
  * reach, the edge whole (`edgesNear`). Then the face under the pointer.
  * On a cut part, the edges are those the cut left, with its faces' outlines.
@@ -257,36 +265,40 @@ const snapNear = (
 ): { snap: Snapped; line: number | null } | null => {
   const { surfaces, raycaster } = part
   const surface = landing?.surface ?? surfaces[0]
-  const onFace = landing ? { snap: faceSnap(landing.point), line: null } : null
+  const onFace = landing
+    ? { snap: faceSnap(toMesh(landing.point, landing.surface)), line: null }
+    : null
   const snaps = surface ? (part.cut(surface)?.snaps ?? part.snaps) : null
   if (!snaps || !surface) return onFace
   // Taken before `canSee` aims the raycaster elsewhere.
   const ray = raycaster.ray.clone()
   const visible = (point: Vector3): boolean => canSee(point, part, screen.camera, surface)
-  const corner = cornersNear(snaps.corners, surface.matrixWorld, screen, reach).find((each) =>
-    visible(each.point),
-  )
+  const corner = cornersNear(snaps.corners, surface.matrixWorld, screen, reach)
+    .slice(0, CORNERS_TRIED)
+    .find((each) => visible(each.point))
   if (corner) {
-    const edge = corner.edge ? corner.edge.map(asPoint) : null
-    return { snap: { kind: corner.kind, point: asPoint(corner.point), edge }, line: null }
+    const inMesh = (point: Vector3): Point => asPoint(toMesh(point, surface))
+    const edge = corner.edge ? corner.edge.map(inMesh) : null
+    return { snap: { kind: corner.kind, point: inMesh(corner.point), edge }, line: null }
   }
   const edge = edgesNear(snaps.lines, surface.matrixWorld, ray, screen, reach.edge, heldLine)
     .slice(0, EDGES_TRIED)
     .find((each) => visible(each.point))
   if (!edge) return onFace
-  const line = worldLine(snaps, edge.line, surface)
-  return { snap: { kind: 'edge', point: asPoint(edge.point), edge: line }, line: edge.line }
+  const point = asPoint(toMesh(edge.point, surface))
+  return { snap: { kind: 'edge', point, edge: linePoints(snaps, edge.line) }, line: edge.line }
 }
 
-const worldLine = (snaps: EdgeSnaps, line: number, surface: Mesh): readonly Point[] => {
-  const known = snaps.worldLines.get(line)
+const linePoints = (snaps: EdgeSnaps, line: number): readonly Point[] => {
+  const known = snaps.linePoints.get(line)
   if (known) return known
-  const points = (snaps.lines.lines[line] ?? []).map((point) =>
-    asPoint(point.clone().applyMatrix4(surface.matrixWorld)),
-  )
-  snaps.worldLines.set(line, points)
+  const points = (snaps.lines.lines[line] ?? []).map(asPoint)
+  snaps.linePoints.set(line, points)
   return points
 }
+
+/** Brings a point in world space into the mesh's own space. */
+const toMesh = (point: Vector3, surface: Mesh): Vector3 => surface.worldToLocal(point.clone())
 
 const faceSnap = (point: Vector3): Snapped => ({ kind: 'face', point: asPoint(point), edge: null })
 
@@ -343,9 +355,16 @@ const toDevice = ({ x, y }: ScreenAt['pointer'], viewport: ViewportSize): Vector
 
 const asPoint = ({ x, y, z }: Vector3): Point => [x, y, z]
 
-/** Where a point on the part is on the canvas, CSS pixels from its top left. */
-export const onCanvas = (point: Point, camera: ViewerCamera, viewport: ViewportSize): Vector2 =>
-  screenPoint(camera, toVector(point), viewport)
+/**
+ * Where a point on the part, in the mesh's own space, is on the canvas, CSS
+ * pixels from its top left. `meshToWorld` is the mesh's `matrixWorld`.
+ */
+export const onCanvas = (
+  point: Point,
+  meshToWorld: Matrix4,
+  camera: ViewerCamera,
+  viewport: ViewportSize,
+): Vector2 => screenPoint(camera, toVector(point).applyMatrix4(meshToWorld), viewport)
 
 /** The part's bounding sphere in world space, for how big it is on screen. */
 export const partSphere = (geometry: BufferGeometry, surfaces: readonly Mesh[]): Sphere => {

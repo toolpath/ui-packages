@@ -776,9 +776,9 @@ and a caption beside the pointer says what a click there takes.
 The tool measures the part as a section cut leaves it. The cut face is solid to the
 tool: an Alt point lands on it and snaps to its outline's corners, and nothing behind
 it is offered. If a mounted SectionTool has no cut yet, measuring waits so its first
-placement click is not also a pick. `viewCubeMargin` names the `ViewCube`'s margin
-when it is not the default, so clicks on the cube are left to it; pass `null` when
-there is no cube.
+placement click is not also a pick. `viewCube` names the `ViewCube`'s `alignment`
+and `margin` when they are not the defaults, so clicks on the cube are left to it;
+pass `null` when there is no cube.
 
 Labels are unstyled DOM overlays with class `toolpath-measure-label`
 (`MEASURE_LABEL_CLASS`); add CSS such as:

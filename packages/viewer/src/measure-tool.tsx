@@ -25,7 +25,7 @@ import {
 import { formatMillimetres } from './render/measure.js'
 import { clickPick, dropLastPick, isFace, type MeasureGroup } from './render/measure-picks.js'
 import { HOVER_WEIGHT, type RegionHighlight } from './render/paint.js'
-import { VIEW_CUBE_MARGIN } from './render/view-cube.js'
+import type { ViewCubeProps } from './primitives.js'
 import { useSectionStore } from './viewer.js'
 
 export interface MeasureToolProps {
@@ -46,13 +46,16 @@ export interface MeasureToolProps {
   /** Added to every label's `className`, beside {@link MEASURE_LABEL_CLASS}. */
   labelClassName?: string
   /**
-   * The `margin` of the `<ViewCube>` beside the part, whose clicks are its
-   * own. `<ViewCube>`'s default unless told; null where there is no cube.
+   * The `alignment` and `margin` of the `<ViewCube>` beside the part, whose
+   * clicks are its own. `<ViewCube>`'s defaults unless told; null where there
+   * is no cube.
    */
-  viewCubeMargin?: readonly [number, number] | null
+  viewCube?: Pick<ViewCubeProps, 'alignment' | 'margin'> | null
 }
 
 const NONE: readonly MeasureGroup[] = []
+// `<ViewCube>`'s own place, the one object for every render.
+const CUBE_AS_DRAWN = {}
 
 /**
  * Measure the part by what is clicked. Mount it inside `<PartMesh>` or
@@ -89,7 +92,7 @@ export const MeasureTool = ({
   onChange,
   format = formatMillimetres,
   labelClassName,
-  viewCubeMargin = VIEW_CUBE_MARGIN,
+  viewCube = CUBE_AS_DRAWN,
 }: MeasureToolProps) => {
   const { model, geometry } = usePartContext()
   const store = useSectionStore()
@@ -121,10 +124,10 @@ export const MeasureTool = ({
     onPick: (pick, keep, pairs) => commit(clickPick(latest.current.groups, pick, keep, pairs)),
     onClear: () => commit(NONE),
     format,
-    viewCubeMargin,
+    viewCube,
   })
   handlers.current.format = format
-  handlers.current.viewCubeMargin = viewCubeMargin
+  handlers.current.viewCube = viewCube
 
   const part = useMemo(
     () => ({ model, geometry, surfaceFor, holes }),

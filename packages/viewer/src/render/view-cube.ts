@@ -413,14 +413,25 @@ export const VIEW_CUBE_MARGIN: [number, number] = [80, 80]
  */
 const VIEW_CUBE_REACH = 66
 
+/** Where a `<ViewCube>` stands: the corner of the canvas, and CSS pixels in from it to its centre. */
+export interface ViewCubePlace {
+  alignment?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+  margin?: readonly [number, number]
+}
+
 /**
  * Whether a point on the canvas, CSS pixels from its top left, is on a view
- * cube in its top right corner, `margin` in. The cube's own clicks stop at
- * the cube, but a tool that listens on the canvas hears them too, and must
- * leave these alone.
+ * cube standing at `place`, by default as `<ViewCube>` does. The cube's own
+ * clicks stop at the cube, but a tool that listens on the canvas hears them
+ * too, and must leave these alone.
  */
 export const onViewCube = (
   { x, y }: { x: number; y: number },
   viewport: ViewportSize,
-  margin: readonly [number, number],
-): boolean => Math.hypot(x - (viewport.width - margin[0]), y - margin[1]) <= VIEW_CUBE_REACH
+  { alignment = 'top-right', margin = VIEW_CUBE_MARGIN }: ViewCubePlace,
+): boolean => {
+  const [across, down] = margin
+  const centreX = alignment.endsWith('left') ? across : viewport.width - across
+  const centreY = alignment.startsWith('top') ? down : viewport.height - down
+  return Math.hypot(x - centreX, y - centreY) <= VIEW_CUBE_REACH
+}

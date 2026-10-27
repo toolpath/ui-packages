@@ -9,7 +9,11 @@ beside them in `Viewer`. Mounted outside one it throws when it renders, which a 
 not catch. It has no `mode` and no `showDeltas`. `measurements` and `onChange` are
 `readonly MeasureGroup[]`, each one pick or two, not `Measurement[]`. Labels have
 `data-measure-label` `face` or `delta`; `distance`, `angle`, `live` and `data-measurement-id` are
-gone. The `measureSnap` theme colour is unused and deprecated.
+gone. It has no `theme` prop: its colours are its own, one per measurement for the readouts and a
+fixed blue for the hover tint and snap ring. The `measure` theme colour now colours only
+`ToolMarks`, and the `measureSnap` theme colour is unused and deprecated. A `ViewCube` that is not
+at its default place is named by the new `viewCube` prop (`alignment` and `margin`, or `null` for
+no cube), so the tool leaves its clicks alone.
 
 A click on a face takes the whole face, and on a hole the whole hole. With Alt (Option) held, a
 click places a point, snapped to a corner, the middle of a straight edge, or an edge. A second pick

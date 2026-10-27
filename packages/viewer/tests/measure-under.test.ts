@@ -1,6 +1,8 @@
 import {
   BoxGeometry,
   DoubleSide,
+  Group,
+  Matrix4,
   Mesh,
   MeshBasicMaterial,
   OrthographicCamera,
@@ -55,7 +57,8 @@ const cubeModel = (): PartModel => {
 
 const BOTTOM = 5
 
-const cutCube = (): PartAt => {
+/** The cube, cut, in a group `shift` mm along x: the part need not sit at the world's origin. */
+const cutCube = (shift = 0): PartAt => {
   const model = cubeModel()
   const geometry = new BoxGeometry(10, 10, 10).toNonIndexed()
   const plane = new Plane(new Vector3(0, 0, -1), 0)
@@ -63,7 +66,10 @@ const cutCube = (): PartAt => {
     geometry,
     new MeshBasicMaterial({ side: DoubleSide, clippingPlanes: [plane] }),
   )
-  surface.updateMatrixWorld()
+  const group = new Group()
+  group.position.x = shift
+  group.add(surface)
+  group.updateMatrixWorld()
   const edges = regionEdgesGeometry(geometry, model).getAttribute('position').array
   const surfaceFor = surfaceCache(model, geometry)
   return {
@@ -101,10 +107,10 @@ const cameraTilted = (): PerspectiveCamera => {
   return camera
 }
 
-/** The pointer a few pixels off the point `(x, y, z)`, seen by the tilted camera. */
+/** The pointer a few pixels off the world point `(x, y, z)`, seen by the tilted camera. */
 const near = (x: number, y: number, z: number) => {
   const camera = cameraTilted()
-  const at = onCanvas([x, y, z], camera, VIEWPORT)
+  const at = onCanvas([x, y, z], new Matrix4(), camera, VIEWPORT)
   return { camera, viewport: VIEWPORT, pointer: { x: at.x + 6, y: at.y - 6 } }
 }
 
@@ -141,5 +147,31 @@ describe('underPointer on a cut part', () => {
   it('does not offer a corner the cut face hides', () => {
     const snap = underPointer(cutCube(), near(-5, 5, -5), withAlt)?.under.snap
     expect(snap?.point).not.toEqual([-5, 5, -5])
+  })
+})
+
+describe('underPointer on a part away from the origin', () => {
+  const SHIFT = 3
+
+  it('gives a face picked in mesh space', () => {
+    const point = underPointer(cutCube(SHIFT), near(SHIFT + 5, 1, -2), null)?.under.on?.face.point
+    expect(point?.[0]).toBeCloseTo(5, 6)
+  })
+
+  it('gives an Alt point on the cut face in mesh space', () => {
+    const snap = underPointer(cutCube(SHIFT), over(SHIFT + 1, 2), withAlt)?.under.snap
+    expect(snap?.point[0]).toBeCloseTo(1, 6)
+    expect(snap?.point[1]).toBeCloseTo(2, 6)
+  })
+
+  it('snaps an Alt point to a corner in mesh space', () => {
+    const snap = underPointer(cutCube(SHIFT), near(SHIFT + 5, -5, 0), withAlt)?.under.snap
+    expect(snap?.kind).toBe('vertex')
+    expect(snap?.point[0]).toBeCloseTo(5, 6)
+  })
+
+  it('gives an edge in mesh space', () => {
+    const snap = underPointer(cutCube(SHIFT), near(SHIFT + 5, 0, -5), withAlt)?.under.snap
+    expect(snap?.edge?.every(([x]) => Math.abs(x - 5) < 1e-6)).toBe(true)
   })
 })

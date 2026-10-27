@@ -1,6 +1,6 @@
 import { useThree } from '@react-three/fiber'
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
-import { Raycaster, type BufferGeometry } from 'three'
+import { Matrix4, Raycaster, type BufferGeometry } from 'three'
 import { createMeasureHint, type CanvasSpot } from './measure-hint.js'
 import type { PartModel } from './model/types.js'
 import type { ViewerCamera } from './render/camera.js'
@@ -31,7 +31,7 @@ import {
 } from './render/measure-under.js'
 import { partSurfaces } from './render/part-surfaces.js'
 import { TAP_SLOP } from './render/tap.js'
-import { onViewCube } from './render/view-cube.js'
+import { onViewCube, type ViewCubePlace } from './render/view-cube.js'
 
 /** The part measured, and what the tool already knows of it. */
 export interface MeasuredPart {
@@ -47,7 +47,7 @@ export interface PointerHandlers {
   onClear: () => void
   format: (mm: number) => string
   /** Where a view cube stands, whose clicks are its own; null for none. */
-  viewCubeMargin: readonly [number, number] | null
+  viewCube: ViewCubePlace | null
 }
 
 /** What the part paints for the pointer: the face it is on (no Alt), and the edge an Alt point is on. */
@@ -64,6 +64,9 @@ interface ClientSpot {
 
 /** How long after the last turn of the wheel the view is read again, ms: a zoom glides on a little. */
 const WHEEL_SETTLE_MS = 120
+
+/** Where no mesh is found, its space is taken as the world's. */
+const NO_MOVE = new Matrix4()
 
 /**
  * The measure tool's pointer: what is under it, shown before a click, and
@@ -139,21 +142,22 @@ export const useMeasurePointer = (
       const box = canvas.getBoundingClientRect()
       return { x: at.clientX - box.left, y: at.clientY - box.top }
     }
-    const spotOf = (point: Point): CanvasSpot => {
-      const { x, y } = onCanvas(point, view, size)
+    const spotOf = (point: Point, meshToWorld: Matrix4): CanvasSpot => {
+      const { x, y } = onCanvas(point, meshToWorld, view, size)
       return { x, y }
     }
     const onCube = (pointer: CanvasSpot): boolean => {
-      const margin = handlers.current.viewCubeMargin
-      return margin !== null && onViewCube(pointer, size, margin)
+      const { viewCube } = handlers.current
+      return viewCube !== null && onViewCube(pointer, size, viewCube)
     }
     // A corner the pointer had holds it a little past its reach (`stickySnap`).
     const holdCorner = (
       snap: Snapped | null,
       pointer: CanvasSpot,
       reach: SnapReach,
+      meshToWorld: Matrix4,
     ): Snapped | null => {
-      const held = heldCorner && spotOf(heldCorner.point)
+      const held = heldCorner && spotOf(heldCorner.point, meshToWorld)
       const fromHeld = held ? Math.hypot(held.x - pointer.x, held.y - pointer.y) : Infinity
       const kept = stickySnap(heldCorner, snap, fromHeld, reach)
       heldCorner = kept && isPointSnap(kept.kind) ? kept : null
@@ -169,12 +173,14 @@ export const useMeasurePointer = (
       }
       const screen: ScreenAt = { camera: view, viewport: size, pointer }
       const surfaces = partSurfaces(scene, geometry)
+      // The tool draws in the mesh's space, so its points are in it (`underPointer`).
+      const meshToWorld = surfaces[0]?.matrixWorld ?? NO_MOVE
       const reach = alt ? zoomedReach(SNAP_REACH, partSphere(geometry, surfaces), view, size) : null
       const at3d = { model, surfaceFor, holes, snaps, cut, surfaces, raycaster }
       const found = underPointer(at3d, screen, reach && { reach, heldLine })
       onPart = found !== null
       if (!reach) heldCorner = null
-      const snap = reach ? holdCorner(found?.under.snap ?? null, pointer, reach) : null
+      const snap = reach ? holdCorner(found?.under.snap ?? null, pointer, reach, meshToWorld) : null
       heldLine = snap?.kind === 'edge' ? (found?.line ?? null) : null
       const on = found?.under.on ?? null
       under = on || snap ? { on, snap } : null
@@ -182,7 +188,9 @@ export const useMeasurePointer = (
         letGo()
         return
       }
-      const ring = snap ? { ...spotOf(snap.point), corner: snap.kind === 'vertex' } : null
+      const ring = snap
+        ? { ...spotOf(snap.point, meshToWorld), corner: snap.kind === 'vertex' }
+        : null
       hint.show(hoverCaption(under, holes, handlers.current.format), pointer, ring)
       show({ region: snap ? null : (on?.face.region ?? null), edge: snap?.edge ?? null })
     }
