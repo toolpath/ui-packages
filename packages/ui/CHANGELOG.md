@@ -1,5 +1,12 @@
 # @toolpath/ui
 
+## 1.3.0
+
+### Minor Changes
+
+- 682f4da: `ToolDock.LayoutToggle` shows the dock's gray focus ring, not the kit's blue one. `Combobox.Button`
+  takes a `className`, after its own classes, so an app can give it the same ring in a dock menu.
+
 ## 1.2.0
 
 ### Minor Changes
