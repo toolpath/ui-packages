@@ -12,9 +12,8 @@ import { ignoreRay, viewDirection, type PickModifiers } from './render/picking.j
 import { readTarget } from './render/orbit-target.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
 import { regionEdgesGeometry } from './render/edges.js'
-import { trackDoubleTaps } from './render/tap.js'
-import { useTapGuard } from './tap.js'
-import { useOptionalSectionStore, useRetarget } from './viewer.js'
+import { usePickGestures } from './pick-gestures.js'
+import { useOptionalSectionStore } from './viewer.js'
 import { PartContext } from './part-context.js'
 import type { FeatureTag, PartModel } from './model/types.js'
 import {
@@ -218,9 +217,6 @@ const Pieces = ({
   const controls = useThree((state) => state.controls)
   const gl = useThree((state) => state.gl)
   const scene = useThree((state) => state.scene)
-  const isTap = useTapGuard()
-  const retarget = useRetarget()
-  const doubles = useMemo(() => trackDoubleTaps(), [])
   // While a `<SectionTool>` is mounted the pointer is its, as on `<PartMesh>`.
   const store = useOptionalSectionStore()
   const engaged = useSyncExternalStore(
@@ -228,7 +224,6 @@ const Pieces = ({
     store?.isEngaged ?? NOT_ENGAGED,
     store?.isEngaged ?? NOT_ENGAGED,
   )
-  const pressedWhileEngaged = useRef(false)
   const ready = useRef(onReady)
   useLayoutEffect(() => {
     ready.current = onReady
@@ -347,7 +342,7 @@ const Pieces = ({
     }
   }, [hoverLive])
 
-  const pick = (event: ThreeEvent<MouseEvent>, doubled = false): ExplodePick | null =>
+  const pick = (event: ThreeEvent<MouseEvent>, doubled: boolean): ExplodePick | null =>
     resources.current?.pick(event, {
       ...pointerOf(event.nativeEvent),
       activeDirection,
@@ -355,74 +350,42 @@ const Pieces = ({
       viewDirection: viewDirection(camera, readTarget(controls)),
       doubled,
     }) ?? null
-  const clickable = () => visible && !engaged && !pressedWhileEngaged.current
+  // A pick claims its event; a press that picks nothing passes to what is behind.
+  const gestures = usePickGestures<ExplodePick>({
+    visible,
+    engaged,
+    hover,
+    claim: true,
+    pick,
+    onPick,
+    onMove: (event) => {
+      const hit = pick(event, false)
+      if (!hit) {
+        dropHover()
+        return
+      }
+      event.stopPropagation()
+      const at = hovering.current
+      if (at?.group === hit.explodeGroupId && at.region === hit.region) {
+        return
+      }
+      hovering.current = { group: hit.explodeGroupId, region: hit.region }
+      onHover(hit)
+    },
+    onLeave: dropHover,
+  })
+  /*
+   * Hidden as `<VisibilityGroup>` hides, but kept in rays: the batch is added by an effect here,
+   * after a group's ray mask would have run, and the warm-up draws the pieces while hidden,
+   * which a mask would stop. The gesture rules take no hover or pick while hidden instead.
+   */
   return (
     <group
       ref={root}
       name="exploded-part"
       visible={visible}
       userData={{ [EXCLUDE_FROM_FRAME]: !visible }}
-      onPointerDown={() => {
-        pressedWhileEngaged.current = engaged
-      }}
-      onPointerMove={(event) => {
-        if (!hoverLive) {
-          return
-        }
-        const hit = pick(event)
-        if (!hit) {
-          dropHover()
-          return
-        }
-        event.stopPropagation()
-        const at = hovering.current
-        if (at?.group === hit.explodeGroupId && at.region === hit.region) {
-          return
-        }
-        hovering.current = { group: hit.explodeGroupId, region: hit.region }
-        onHover(hit)
-      }}
-      onPointerOut={() => {
-        dropHover()
-        // Leaving the pieces breaks a double-click pair, as on `<PartMesh>`.
-        doubles.reset()
-      }}
-      onClick={(event) => {
-        if (!clickable()) {
-          return
-        }
-        if (!isTap(event.nativeEvent)) {
-          doubles.reset()
-          return
-        }
-        // Paired before the pick is built, and the orbit re-aimed after: see `<PartMesh>`.
-        const doubled = doubles.isDouble(event.nativeEvent)
-        const hit = pick(event, doubled)
-        if (!hit) {
-          return
-        }
-        event.stopPropagation()
-        if (doubled && retarget) {
-          retarget(event.point)
-        }
-        onPick(hit)
-      }}
-      // The right button is judged on release, where a pan has shown itself: see `<PartMesh>`.
-      onPointerUp={(event) => {
-        if (event.nativeEvent.button !== 2 || !clickable() || !isTap(event.nativeEvent)) {
-          return
-        }
-        const hit = pick(event)
-        if (hit) {
-          event.stopPropagation()
-          onPick(hit)
-        }
-      }}
-      onContextMenu={(event) => {
-        if (visible && pick(event)) {
-          event.nativeEvent.preventDefault()
-        }
-      }}
+      {...gestures}
     />
   )
 }

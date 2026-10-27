@@ -27,15 +27,14 @@ import {
   sectionOffset,
   sectionOptionsFromState,
 } from './render/section.js'
-import { useTapGuard } from './tap.js'
+import { usePickGestures } from './pick-gestures.js'
 import { createPart, type PartDisplay } from './render/part.js'
 import { type SharpCornerOptions, sharpCornerKey } from './render/sharp-corners.js'
 import { type ThreadOptions, threadKey } from './render/threads.js'
 import { regionAdjacency } from './render/adjacency.js'
 import { type PartPick, buildPick, viewDirection } from './render/picking.js'
 import { readTarget } from './render/orbit-target.js'
-import { trackDoubleTaps } from './render/tap.js'
-import { useRetarget, useSectionStore, useViewerControls } from './viewer.js'
+import { useSectionStore, useViewerControls } from './viewer.js'
 import { SectionView, resolveSectionPlane } from './section-view.js'
 import { useContentBox } from './content-box.js'
 import { CollectionSectionsContext } from './collection-context.js'
@@ -259,13 +258,6 @@ export const PartMesh = ({
   // While a `<SectionTool>` is mounted the pointer is its, not the part's: no
   // hover, no pick. See `render/section-store.ts`.
   const engaged = useSyncExternalStore(store.subscribe, store.isEngaged, store.isEngaged)
-  /*
-   * A click is judged by what was true when the press began, not when the
-   * click arrives. A tool that lets go on `pointerup` has already let go by
-   * the time the browser's `click` comes — so the press that ended it reached
-   * `onClick` with nothing engaged and selected the face under it.
-   */
-  const pressedWhileEngaged = useRef(false)
 
   // Every layer the paint reads, held so a pointer move can repaint without a
   // render. Refreshed here because a render is exactly when the props are new.
@@ -419,12 +411,6 @@ export const PartMesh = ({
     repaint()
   }, [layerKey, repaint])
 
-  const isTap = useTapGuard()
-  const retarget = useRetarget()
-  // One tracker for the life of the mesh: pairing is a property of the pointer,
-  // not of any render.
-  const doubles = useMemo(() => trackDoubleTaps(), [])
-
   const pickFor = (
     event: ThreeEvent<PointerEvent | MouseEvent>,
     doubled = false,
@@ -528,6 +514,43 @@ export const PartMesh = ({
   }, [cut, geometry, handleColor, onDrag, part, resolved, sections, showHandle, visible])
   useLayoutEffect(() => () => sections?.set(part, null), [part, sections])
 
+  // A press over the part is the part's, and still reaches what is behind it. Hidden, the part
+  // takes no rays.
+  const gestures = usePickGestures<PartPick>({
+    visible,
+    engaged,
+    hover,
+    claim: false,
+    pick: pickFor,
+    onPick: (pick) => onPick?.(pick),
+    onMove: (event) => emitHover(pickFor(event)),
+    onLeave: () => emitHover(null),
+  })
+  // In a collection the nearest body answers, and the bodies behind it do not.
+  const handlers = useMemo(
+    () =>
+      sections
+        ? {
+            ...gestures,
+            onPointerMove: (event: ThreeEvent<MouseEvent>) => {
+              event.stopPropagation()
+              gestures.onPointerMove(event)
+            },
+            onClick: (event: ThreeEvent<MouseEvent>) => {
+              event.stopPropagation()
+              gestures.onClick(event)
+            },
+            onPointerUp: (event: ThreeEvent<MouseEvent>) => {
+              if (event.nativeEvent.button === 2) {
+                event.stopPropagation()
+              }
+              gestures.onPointerUp(event)
+            },
+          }
+        : gestures,
+    [gestures, sections],
+  )
+
   // Last, so what this render's effects added to the part is hidden with it.
   const shown = useRef<Group>(null)
   useHiddenFromRays(shown, !visible)
@@ -540,124 +563,7 @@ export const PartMesh = ({
         // A collection frames its shared bounds, hidden items included.
         userData={{ [EXCLUDE_FROM_FRAME]: !visible && !sections }}
       >
-        <primitive
-          object={part.object}
-          onPointerDown={() => {
-            pressedWhileEngaged.current = engaged
-          }}
-          onPointerMove={(event: ThreeEvent<PointerEvent>) => {
-            // In a collection the nearest body answers, and the bodies behind it
-            // do not. A lone part passes the pointer on to whatever is behind it.
-            if (sections) {
-              event.stopPropagation()
-            }
-            if (visible && !engaged && hover) emitHover(pickFor(event))
-          }}
-          onPointerOut={() => {
-            emitHover(null)
-            /*
-             * The pointer leaving the part breaks the double-click pair.
-             *
-             * Time and distance cannot tell "clicked this face twice" from
-             * "clicked it, pressed something in a panel, clicked it again" — the
-             * second is three gestures and lands well inside the window, and it
-             * is an ordinary way to work: read a face, act on it, read it again.
-             * Without this that second click was swallowed and the view re-aimed
-             * instead, which is the wrong answer twice over.
-             */
-            doubles.reset()
-          }}
-          onClick={(event: ThreeEvent<MouseEvent>) => {
-            if (sections) {
-              event.stopPropagation()
-            }
-            if (!visible || engaged || pressedWhileEngaged.current) return
-            /*
-             * The end of an orbit is not a request to select whatever it ended
-             * over — and it usually ends over the part, since that is what was
-             * being orbited.
-             *
-             * It breaks the double-click pair as well as being swallowed. The
-             * `onPointerOut` reset cannot cover this: an orbit over a part that
-             * fills the viewport never leaves the mesh, so a click, an orbit
-             * released over the part, and a third click inside
-             * the double-tap window of the *first* one paired those two and
-             * re-aimed the view — with a whole drag in between.
-             */
-            if (!isTap(event.nativeEvent)) {
-              doubles.reset()
-              return
-            }
-
-            /*
-             * A double click re-aims the orbit at what was clicked — and the
-             * click is still a click.
-             *
-             * Withholding the second pick was tried and is wrong. It stops a
-             * double click walking a face's readings, which is worth something,
-             * but it also silently takes the gesture away from an app that had
-             * given it a meaning: an editor where clicking a face puts it in and
-             * clicking it again takes it out is an ordinary thing to build, and
-             * this is not the layer that can tell the two apart. `doubled` on the
-             * pick reports the fact and leaves the decision where the knowledge
-             * is — the same bargain `modifiers` makes.
-             *
-             * Paired by hand rather than read off `dblclick`, which fires for the
-             * primary button only after both clicks and would arrive too late to
-             * mark the second one. `event.point` is this raycast's own hit, so
-             * the pivot lands exactly where the pick did.
-             */
-            const doubled = doubles.isDouble(event.nativeEvent)
-
-            /*
-             * The pick is built **before** the re-target, and the order is load
-             * bearing.
-             *
-             * `retarget` calls `setLookAt`, which writes the controls' *end*
-             * target — and `readTarget` reads that same end value back. Re-aiming
-             * first therefore handed the pick a target that was already the point
-             * just clicked, so its view direction came out as
-             * `camera.position - hitPoint` rather than `camera.position -
-             * orbitTarget`. On a face near the edge of a framed part that is
-             * degrees away from the direction the eye is actually looking along,
-             * and the ranking it feeds can name a different owner than a single
-             * click on the very same face.
-             */
-            const pick = pickFor(event, doubled)
-            if (doubled && retarget) retarget(event.point)
-            if (pick) onPick?.(pick)
-          }}
-          /*
-           * The right button is judged on **release**, not on `contextmenu`.
-           *
-           * `contextmenu` fires on right *mouse-down*, so the tap guard sees a
-           * gesture that has not moved yet and lets every one of them through —
-           * and right-drag is how the camera pans. Every pan therefore emitted a
-           * pick at the point it started from, which reads as the part answering
-           * a question nobody asked.
-           *
-           * `pointerup` is where the gesture has actually finished and the guard
-           * can do its job. `contextmenu` is left with the one thing it is still
-           * needed for: suppressing the browser's own menu over geometry.
-           */
-          onPointerUp={(event: ThreeEvent<PointerEvent>) => {
-            if (event.nativeEvent.button !== 2) return
-            // In a collection the nearest part answers, as it does for a left click.
-            if (sections) {
-              event.stopPropagation()
-            }
-            if (!visible || engaged || pressedWhileEngaged.current) return
-            if (!isTap(event.nativeEvent)) return
-
-            const pick = pickFor(event)
-            if (pick) onPick?.(pick)
-          }}
-          onContextMenu={(event: ThreeEvent<MouseEvent>) => {
-            // Only over geometry, so a right click that hits nothing still gets
-            // the browser's own menu.
-            if (visible && pickFor(event)) event.nativeEvent.preventDefault()
-          }}
-        />
+        <primitive object={part.object} {...handlers} />
         {cut && !sections ? (
           <SectionView
             geometry={geometry}
