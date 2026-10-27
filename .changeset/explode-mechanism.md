@@ -23,8 +23,18 @@ and picking. Everything added is optional; existing layouts and controllers keep
   while a `<SectionTool>` holds the pointer, and a pick that finds nothing passes through.
 - `ViewerToolbar` gains an `explode` control and `ExplodeButton`, and every control a
   `disabled` flag.
+- `applyHighlightLayers` takes a `PaintTarget`, now exported: the part's `model` and its paint
+  methods. A `PartObject` still fits.
 
-Changed defaults: without a theme, pieces use the part's edge color and opacity and tint toward
-the viewer's selection and hover colors (toward blue where the pieces' own colors are mostly
-warm), rather than toward white. The piece under the pointer is tinted when `hovered` is not
-given. Pass `theme` or `hovered` to keep the earlier look.
+Changed defaults:
+
+- Without a theme, pieces use the part's edge color and opacity and tint toward the viewer's
+  selection and hover colors (toward blue where the pieces' own colors are mostly warm), rather
+  than toward white. The piece under the pointer is tinted when `hovered` is not given. Pass
+  `theme` or `hovered` to keep the earlier look.
+- The ghost of the assembled part is outlined in `DEFAULT_THEME.edge` (black) rather than pale
+  blue `0xa5b7d1`. `theme.edge` sets it, and the piece edges with it: `theme={{ edge: 0xa5b7d1 }}`
+  brings the pale outline back, on the pieces too.
+- `<PartMesh>` puts the part, and its section, inside one more `<group>`, which hides them. Code
+  that walks the scene graph and expects the part's mesh as a direct child of where `<PartMesh>`
+  is placed should search its descendants instead, for example with `traverse`.
