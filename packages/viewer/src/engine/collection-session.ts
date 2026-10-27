@@ -1,3 +1,4 @@
+import type { BufferGeometry } from 'three'
 import type { PartModel } from '../model/types.js'
 import { createPartCollectionLoader, type LoadedCollectionItem } from './collection.js'
 import type { LoadPartGeometryOptions } from './geometry.js'
@@ -5,13 +6,16 @@ import type { LoadPartGeometryOptions } from './geometry.js'
 /**
  * A body to show: its model, kept the same object while it is unchanged, or a
  * `key` and a function that builds the model, called only when the key changes.
+ * With `geometry`, such as a body of `useFileMesh`, nothing is loaded: the body
+ * is shown as given, and the caller frees the geometry.
  */
 export type PartCollectionModel =
-  | { id: string; model: PartModel; key?: unknown }
-  | { id: string; key: unknown; model: () => PartModel }
+  | { id: string; model: PartModel; key?: unknown; geometry?: undefined }
+  | { id: string; key: unknown; model: () => PartModel; geometry?: undefined }
+  | { id: string; model: PartModel; geometry: BufferGeometry; key?: unknown }
 
-/** What identifies a body's model: its key, or the model object itself. */
-const keyOf = (model: PartCollectionModel): unknown => model.key ?? model.model
+/** What identifies a body's model: its key, else its geometry, else the model object itself. */
+const keyOf = (model: PartCollectionModel): unknown => model.key ?? model.geometry ?? model.model
 
 export interface PartCollectionState {
   /** One item per model, in order, once every model has loaded; `null` until then. */
@@ -76,6 +80,8 @@ export const createPartCollectionSession = (
   // Each id's key and builder as last given, and the model built for that key.
   const keys = new Map<string, unknown>()
   const builders = new Map<string, () => PartModel>()
+  // The geometry given with a model, which is shown as it is.
+  const given = new Map<string, BufferGeometry>()
   const requested = new Map<string, PartModel>()
   const shown = new Map<string, LoadedCollectionItem>()
   // The key each shown item was built for.
@@ -140,6 +146,15 @@ export const createPartCollectionSession = (
     // Back to the key on screen: that item is the model, with nothing to build or load.
     if (shown.has(id) && shownKeys.get(id) === keys.get(id)) {
       requested.set(id, shown.get(id)!.model)
+      failed.delete(id)
+      return
+    }
+    const geometry = given.get(id)
+    if (geometry) {
+      const model = builders.get(id)!()
+      requested.set(id, model)
+      shown.set(id, { id, model, geometry })
+      shownKeys.set(id, keys.get(id))
       failed.delete(id)
       return
     }
@@ -209,17 +224,22 @@ export const createPartCollectionSession = (
       }
       let changed = ids.length !== order.length || ids.some((id, index) => id !== order[index])
       order = ids
-      for (const map of [keys, builders, requested, shown, shownKeys, failed]) {
+      for (const map of [keys, builders, given, requested, shown, shownKeys, failed]) {
         for (const id of map.keys()) {
           if (!ids.includes(id)) {
             map.delete(id)
           }
         }
       }
-      for (const { id, key, model } of models) {
-        const builder = typeof model === 'function' ? model : () => model
-        builders.set(id, builder)
-        const next = keyOf({ id, key, model } as PartCollectionModel)
+      for (const entry of models) {
+        const { id, model, geometry } = entry
+        builders.set(id, typeof model === 'function' ? model : () => model)
+        if (geometry) {
+          given.set(id, geometry)
+        } else {
+          given.delete(id)
+        }
+        const next = keyOf(entry)
         if (keys.has(id) && keys.get(id) === next) {
           continue
         }

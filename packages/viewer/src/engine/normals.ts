@@ -1,6 +1,7 @@
 import { Float32BufferAttribute, type BufferGeometry } from 'three'
 import type { PartModelRegion } from '../model/types.js'
 import { visualSurfaces } from '../model/surfaces.js'
+import { WHOLE_BODY } from './display-mesh.js'
 
 /**
  * Shades each region smoothly and every boundary between them hard.
@@ -44,7 +45,9 @@ export function smoothRegionNormals(
   for (const region of regions) {
     const end = Math.min(region.triangles.end, triangleCount)
     for (let triangle = region.triangles.start; triangle < end; triangle += 1) {
-      regionOf[triangle] = surfaces.get(region.idx) ?? region.idx
+      // A whole body whose faces are not known: each triangle on its own, so no edge is smoothed.
+      regionOf[triangle] =
+        region.shapeKind === WHOLE_BODY ? -2 - triangle : (surfaces.get(region.idx) ?? region.idx)
     }
   }
 

@@ -73,6 +73,15 @@ describe('smoothRegionNormals', () => {
     expect(normalAt(geometry, 3).toArray()).toEqual([0, 1, 0])
   })
 
+  it('shades a whole body whose faces are not known flat, smoothing no edge', () => {
+    const geometry = roof()
+
+    smoothRegionNormals(geometry, [{ ...region(0, 0, 2), shapeKind: 'Body' }])
+
+    expect(normalAt(geometry, 0).toArray()).toEqual([0, 0, 1])
+    expect(normalAt(geometry, 3).toArray()).toEqual([0, 1, 0])
+  })
+
   it('weights a facet by its area, so a sliver does not steer its neighbour', () => {
     const geometry = roof()
     const position = geometry.getAttribute('position')

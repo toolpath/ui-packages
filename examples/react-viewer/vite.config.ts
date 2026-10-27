@@ -8,6 +8,7 @@ export default defineConfig({
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         collection: fileURLToPath(new URL('./tests/fixtures/collection.html', import.meta.url)),
         enginePart: fileURLToPath(new URL('./tests/fixtures/engine-part.html', import.meta.url)),
+        fileMesh: fileURLToPath(new URL('./tests/fixtures/file-mesh.html', import.meta.url)),
         explodePolicy: fileURLToPath(
           new URL('./tests/fixtures/explode-policy.html', import.meta.url),
         ),
