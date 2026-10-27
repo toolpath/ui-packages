@@ -407,17 +407,19 @@ canvas. The application chooses the pieces and the approach each one moves out a
 viewer spaces them, animates them, and draws, paints and picks them. It reads no planning data
 and makes no API requests.
 
-Place it inside the part it stands in for, and hide that part while it is apart. A child of
-`<PartMesh>` or `<EnginePart>` reads the part's model and mesh, and stays drawn while
-`visible={false}` hides the part:
+Place it inside the part it stands in for, and hide that part while the pieces are apart. A
+child of `<PartMesh>` or `<EnginePart>` reads the part's model and mesh, and stays drawn while
+`visible={false}` hides the part. Past `EXPLODE_LIMITS` the pieces draw nothing, so hide the
+part only when `explodeFits(model, groups)`:
 
 ```tsx
-import { useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import {
   EnginePart,
   ExplodedPart,
   Viewer,
   createExplodeMotion,
+  explodeFits,
   explodeLayout,
   usePartContext,
   type ExplodeAssignment,
@@ -428,21 +430,25 @@ import {
 const Pieces = ({
   assignments,
   motion,
-  active,
+  shown,
   selection,
+  onFits,
 }: {
   assignments: readonly ExplodeAssignment[]
   motion: ExplodeMotion
-  active: boolean
+  shown: boolean
   selection: readonly string[]
+  onFits: (fits: boolean) => void
 }) => {
   const { model, geometry } = usePartContext()
   const groups = useMemo(
     () => explodeLayout(model, geometry, assignments),
     [model, geometry, assignments],
   )
+  const fits = groups.length > 0 && explodeFits(model, groups)
+  useEffect(() => onFits(fits), [fits, onFits])
   const explode = useMemo(() => ({ groups, amount: motion }), [groups, motion])
-  return <ExplodedPart explode={explode} visible={active} selectedFeatures={selection} />
+  return <ExplodedPart explode={explode} visible={shown} selectedFeatures={selection} />
 }
 
 const ExplodingPart = ({
@@ -455,15 +461,24 @@ const ExplodingPart = ({
   selection: readonly string[]
 }) => {
   const [motion] = useState(() => createExplodeMotion(0))
+  const [fits, setFits] = useState(false)
   const active = useSyncExternalStore(motion.subscribe, () => motion.getSnapshot().active)
+  // The pieces stand in for the part only when they draw.
+  const shown = active && fits
   return (
     <>
-      <button onClick={() => motion.moveTo(active ? 0 : 1)}>
+      <button disabled={!fits} onClick={() => motion.moveTo(active ? 0 : 1)}>
         {active ? 'Collapse' : 'Explode'}
       </button>
       <Viewer>
-        <EnginePart report={report} visible={!active} selection={selection}>
-          <Pieces assignments={assignments} motion={motion} active={active} selection={selection} />
+        <EnginePart report={report} visible={!shown} selection={selection}>
+          <Pieces
+            assignments={assignments}
+            motion={motion}
+            shown={shown}
+            selection={selection}
+            onFits={setFits}
+          />
         </EnginePart>
       </Viewer>
     </>
@@ -472,7 +487,7 @@ const ExplodingPart = ({
 ```
 
 Hide what else is drawn with the part, such as stock or direction arrows, in a
-`<VisibilityGroup visible={!active}>`: kept mounted, and left out of drawing, Fit and every
+`<VisibilityGroup visible={!shown}>`: kept mounted, and left out of drawing, Fit and every
 raycast, which three.js would otherwise still run against hidden objects.
 
 `explodeLayout(model, geometry, assignments)` places pieces. Each `ExplodeAssignment` has a
