@@ -39,8 +39,14 @@ afterEach(async () => {
   viewer.retarget.mockClear()
 })
 
-/** An R3F root on a stand-in canvas and renderer; `press` starts a gesture, as a pointerdown. */
-const mount = async (element: ReactNode) => {
+/**
+ * An R3F root on a stand-in canvas and renderer; `press` starts a gesture, as a pointerdown.
+ * `onRender` runs inside each render the renderer is asked for, from the mount on.
+ */
+const mount = async (
+  element: ReactNode,
+  onRender?: (scene: Object3D, camera: THREE.Camera) => void,
+) => {
   const presses = new Set<(event: { clientX: number; clientY: number }) => void>()
   const canvas = {
     addEventListener: (
@@ -59,14 +65,9 @@ const mount = async (element: ReactNode) => {
     },
     style: {},
   }
-  const renders: Array<() => void> = []
   const gl = {
     domElement: canvas,
-    render: () => {
-      for (const render of renders) {
-        render()
-      }
-    },
+    render: (scene: Object3D, camera: THREE.Camera) => onRender?.(scene, camera),
     setSize: () => undefined,
     setPixelRatio: () => undefined,
     getScissor: (into: unknown) => into,
@@ -93,8 +94,6 @@ const mount = async (element: ReactNode) => {
   return {
     scene,
     camera: store!.getState().camera,
-    /** Runs `check` inside each render the renderer is asked for. */
-    onRender: (check: () => void) => renders.push(check),
     press: (clientX: number, clientY = 0) => {
       for (const listener of presses) {
         listener({ clientX, clientY })
@@ -242,7 +241,10 @@ describe('<ExplodedPart> pointer', () => {
     return ray.intersectObject(scene.find('explode-surfaces'))[0]!
   }
 
-  const render = async (props: Partial<Parameters<typeof ExplodedPart>[0]> = {}) => {
+  const render = async (
+    props: Partial<Parameters<typeof ExplodedPart>[0]> = {},
+    onRender?: Parameters<typeof mount>[1],
+  ) => {
     const onPick = vi.fn<(pick: ExplodePick) => void>()
     const onHover = vi.fn<(pick: ExplodePick | null) => void>()
     const groups = layout()
@@ -257,7 +259,7 @@ describe('<ExplodedPart> pointer', () => {
         {...overrides}
       />
     )
-    const scene = await mount(element())
+    const scene = await mount(element(), onRender)
     const handlers = () => scene.handlersOf(scene.find('exploded-part'))
     return { scene, handlers, onPick, onHover, element }
   }
@@ -332,16 +334,19 @@ describe('<ExplodedPart> pointer', () => {
   })
 
   it('neither hovers nor picks while hidden, and warms its pieces all the same', async () => {
-    const { scene, handlers, onPick, onHover } = await render({ visible: false })
-    const pieces = scene.find('explode-surfaces')
+    // Watched from the mount on: the warm-up may run as soon as the mount has settled.
     const warmed: Array<boolean> = []
-    scene.onRender(() => {
-      let drawn = true
-      pieces.traverseAncestors((object) => {
-        drawn &&= object.visible
-      })
-      warmed.push(drawn && pieces.visible && pieces.layers.test(scene.camera.layers))
-    })
+    const { scene, handlers, onPick, onHover } = await render(
+      { visible: false },
+      (drawn, camera) => {
+        const pieces = drawn.getObjectByName('explode-surfaces')!
+        let shown = pieces.visible
+        pieces.traverseAncestors((object) => {
+          shown &&= object.visible
+        })
+        warmed.push(shown && pieces.layers.test(camera.layers))
+      },
+    )
     await vi.waitFor(async () => {
       await scene.settle()
       expect(warmed.length).toBeGreaterThan(0)
