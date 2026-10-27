@@ -194,6 +194,13 @@ const skipReport = (skips: ReadonlyArray<ReactCompilerSkip>): string =>
  * to a pre-bundled path such as `react_compiler-runtime.js`.
  */
 const COMPILER_RUNTIME = /react[/_-]compiler-runtime/
+
+/**
+ * A library's import of the compiler runtime, minified or not, ESM or CommonJS.
+ * A build that bundles react names the runtime only in path comments and module
+ * keys, which this does not match.
+ */
+const RUNTIME_IMPORT = /(?:from|import|require)\s*\(?\s*["'](?:react\/|react-)compiler-runtime["']/
 const COMPONENT_MODULE = /\.[jt]sx(?:$|\?)/
 const NODE_MODULES = /[\\/]node_modules[\\/]/
 
@@ -369,7 +376,7 @@ export const assertReactCompiled = (directory: string): void => {
   const files = readdirSync(directory, { recursive: true, encoding: 'utf8' }).filter((file) =>
     /\.[cm]?js$/.test(file),
   )
-  if (!files.some((file) => COMPILER_RUNTIME.test(readFileSync(join(directory, file), 'utf8')))) {
+  if (!files.some((file) => RUNTIME_IMPORT.test(readFileSync(join(directory, file), 'utf8')))) {
     throw new Error(
       `No React Compiler output: none of the ${String(files.length)} JavaScript files in ${directory} ` +
         'imports its runtime. Add reactCompilerEsbuildPlugin() to the build and keep react external. ' +

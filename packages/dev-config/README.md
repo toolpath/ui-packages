@@ -328,6 +328,7 @@ export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm'],
   dts: true,
+  clean: true,
   external: ['react'],
   esbuildPlugins: [reactCompilerEsbuildPlugin()],
   onSuccess: async () => {
@@ -339,8 +340,9 @@ export default defineConfig({
 `reactCompilerEsbuildPlugin()` runs the compiler over each source file before esbuild lowers it,
 and reports each skipped function at its location as a build error (`{ onSkip: 'warn' }` for
 warnings; `{ target: '18' }` for React 17 or 18). `assertReactCompiled('dist')` throws unless the
-output imports the compiler runtime, which is why `react` stays external. It reads only the output,
-so it also throws when the compiler skipped or opted out every function.
+output imports the compiler runtime, which is why `react` stays external; a bundled copy of react
+does not count. It reads only the output, so it also throws when the compiler skipped or opted out
+every function, and `clean: true` keeps an earlier build's files from passing it.
 
 ### Expo
 

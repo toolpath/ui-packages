@@ -203,4 +203,33 @@ describe('reactCompilerEsbuildPlugin and assertReactCompiled', () => {
       assertReactCompiled(join(root, 'dist'))
     }).toThrow(/none of the 2 JavaScript files/)
   })
+
+  it.each([
+    ['minified ESM', 'import{c as e}from"react/compiler-runtime";export const App=()=>e(1);\n'],
+    ['CommonJS', 'var e = require("react/compiler-runtime");\nexports.App = () => e.c(1);\n'],
+    [
+      'React 18',
+      "import { c as _c } from 'react-compiler-runtime'\nexport const App = () => _c(1)\n",
+    ],
+  ])('accept a runtime import in %s output', (_format, code) => {
+    const root = temporaryDirectory({ 'dist/index.js': code })
+    expect(() => {
+      assertReactCompiled(join(root, 'dist'))
+    }).not.toThrow()
+  })
+
+  it('reject output that bundled react instead of importing its runtime', () => {
+    // What esbuild leaves of the runtime when react is not external.
+    const bundled = [
+      '// node_modules/react/cjs/react-compiler-runtime.production.js',
+      'var require_react_compiler_runtime_production = __commonJS({',
+      '  "node_modules/react/cjs/react-compiler-runtime.production.js"(exports) {}',
+      '});',
+      '',
+    ].join('\n')
+    const root = temporaryDirectory({ 'dist/index.js': bundled })
+    expect(() => {
+      assertReactCompiled(join(root, 'dist'))
+    }).toThrow(/No React Compiler output/)
+  })
 })
