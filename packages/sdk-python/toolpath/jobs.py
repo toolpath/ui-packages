@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import AsyncIterator, Callable
+import time
+from asyncio import sleep
+from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import aclosing
+from dataclasses import dataclass
+from email.utils import parsedate_to_datetime
 from uuid import UUID
 
 import httpx
@@ -34,6 +38,24 @@ class JobFailedError(RuntimeError):
     def __init__(self, job: JobDetail) -> None:
         super().__init__(job.error or f"Job {job.job_uuid} failed")
         self.job = job
+
+
+class _StreamEnded(RuntimeError):
+    """The stream ended, or its connection was lost, before the job was final."""
+
+
+@dataclass(frozen=True)
+class Reconnect:
+    """How ``wait_for_job`` opens the job's stream again.
+
+    ``delays`` are the seconds to wait before each new stream; the last repeats, and a stream that
+    sent the job starts them over. ``give_up_after`` is how many seconds may pass without the job
+    being sent before the wait gives up, raising the error that ended the last stream; ``None`` waits
+    until the job is final.
+    """
+
+    delays: Sequence[float] = (1.0, 2.0, 4.0, 8.0)
+    give_up_after: float | None = None
 
 
 async def _job_events(response: httpx.Response, job_id: str | UUID) -> AsyncIterator[JobDetail]:
@@ -78,7 +100,31 @@ async def _job_events(response: httpx.Response, job_id: str | UUID) -> AsyncIter
                     elif field == "data":
                         data.append(value)
     except httpx.TransportError as error:
-        raise RuntimeError(f"The event stream for job {job_id} was lost before the job finished") from error
+        raise _StreamEnded(f"The event stream for job {job_id} was lost before the job finished") from error
+
+
+def _reopens(error: Exception) -> bool:
+    """Whether a stream that ended in ``error`` is worth opening again."""
+    if isinstance(error, httpx.HTTPStatusError):
+        return error.response.status_code == 429 or error.response.status_code >= 500
+    # A stream that ended early, or a connection that failed or dropped.
+    return isinstance(error, (_StreamEnded, httpx.TransportError))
+
+
+def _retry_after(error: Exception) -> float | None:
+    """A 429's or 503's ``Retry-After``, in seconds: delay-seconds or an HTTP date."""
+    header = error.response.headers.get("Retry-After") if isinstance(error, httpx.HTTPStatusError) else None
+    if not header:
+        return None
+    try:
+        return max(0.0, float(header))
+    except ValueError:
+        pass
+    try:
+        at = parsedate_to_datetime(header)
+    except (TypeError, ValueError):
+        return None
+    return max(0.0, at.timestamp() - time.time())
 
 
 async def wait_for_job(
@@ -86,6 +132,7 @@ async def wait_for_job(
     job_id: str | UUID,
     *,
     on_update: Callable[[JobDetail], None] | None = None,
+    reconnect: bool | Reconnect = False,
 ) -> JobDetail:
     """Wait for a job on the job event stream (``GET /v1/jobs/{id}/events``), not by polling.
 
@@ -101,7 +148,56 @@ async def wait_for_job(
     is safe, since a new stream starts with the job as it is now, and ``get_job`` says which it was. Errors before the stream opens
     are httpx's own: ``httpx.HTTPStatusError`` for an error response — an unknown job, an expired one,
     a refused key — and ``httpx.TransportError`` when no response arrives.
+
+    With ``reconnect`` it opens the stream again itself instead: when it ends before the job is
+    final, when the connection fails, and on a 429 — after its ``Retry-After`` — or a 5xx response.
+    Every other error response raises as without it: a refused key (401, 403) or a job the key
+    cannot reach (404, 410) will not change by asking again, and a job the server can no longer find
+    answers the new stream with one of those. ``True`` uses ``Reconnect()``'s delays. An error
+    ``on_update`` raises ends the wait.
     """
+    if not reconnect:
+        return await _stream_job(client, job_id, on_update)
+    policy = Reconnect() if reconnect is True else reconnect
+    attempts = 0
+    heard = time.monotonic()
+    while True:
+        sent = False
+        caller_error: Exception | None = None
+
+        def update(job: JobDetail) -> None:
+            nonlocal sent, heard, caller_error
+            sent = True
+            heard = time.monotonic()
+            if on_update is not None:
+                try:
+                    on_update(job)
+                except Exception as error:
+                    caller_error = error
+                    raise
+
+        try:
+            return await _stream_job(client, job_id, update)
+        except Exception as error:
+            if error is caller_error or not _reopens(error):
+                raise
+            if sent:
+                attempts = 0
+            wait = _retry_after(error)
+            if wait is None:
+                wait = policy.delays[min(attempts, len(policy.delays) - 1)] if policy.delays else 1.0
+            attempts += 1
+            if policy.give_up_after is not None and time.monotonic() + wait - heard > policy.give_up_after:
+                raise
+            await sleep(wait)
+
+
+async def _stream_job(
+    client: AuthenticatedClient,
+    job_id: str | UUID,
+    on_update: Callable[[JobDetail], None] | None,
+) -> JobDetail:
+    """One stream of the job's events, read until the job is final or the stream ends."""
     httpx_client = client.get_async_httpx_client()
     timeout = httpx_client.timeout
     async with httpx_client.stream(
@@ -123,4 +219,4 @@ async def wait_for_job(
                     return job
                 if job.status is JobDetailStatus.FAILED:
                     raise JobFailedError(job)
-    raise RuntimeError(f"The event stream for job {job_id} ended before the job finished")
+    raise _StreamEnded(f"The event stream for job {job_id} ended before the job finished")

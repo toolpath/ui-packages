@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 import pytest
 
-from toolpath import AuthenticatedClient, JobFailedError, wait_for_job
+from toolpath import AuthenticatedClient, JobFailedError, Reconnect, wait_for_job
 from toolpath.generated.models import JobDetail, JobDetailStatus
 
 JOB_ID = "0195f02d-6c1a-7b3e-9f00-000000000001"
@@ -297,3 +297,123 @@ def test_replaces_only_the_read_timeout_keeping_the_clients_others() -> None:
     wait(client)
 
     assert requests[0].extensions["timeout"] == {"connect": 3.0, "read": 60.0, "write": 3.0, "pool": 7.0}
+
+
+def answering(*results: str | int | Exception, requests: list[httpx.Request] | None = None) -> AuthenticatedClient:
+    """A client whose server answers each request with the next result: a stream's text, a status, or
+    an exception raised as the transport's."""
+    remaining = list(results)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if requests is not None:
+            requests.append(request)
+        result = remaining.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        if isinstance(result, int):
+            headers = {"Retry-After": "2"} if result == 429 else {}
+            return httpx.Response(result, headers=headers, json={"status": result})
+        return httpx.Response(200, headers={"Content-Type": "text/event-stream"}, stream=EventStream([result], None))
+
+    return client_with(handler)
+
+
+@pytest.fixture
+def waits(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """The seconds each reconnect waited, recorded instead of slept."""
+    recorded: list[float] = []
+
+    async def record(seconds: float) -> None:
+        recorded.append(seconds)
+
+    monkeypatch.setattr("toolpath.jobs.sleep", record)
+    return recorded
+
+
+def wait_reconnecting(
+    client: AuthenticatedClient,
+    reconnect: bool | Reconnect,
+    on_update: Callable[[JobDetail], None] | None = None,
+) -> JobDetail:
+    async def run() -> JobDetail:
+        async with client:
+            return await wait_for_job(client, JOB_ID, on_update=on_update, reconnect=reconnect)
+
+    return asyncio.run(run())
+
+
+def test_reconnect_opens_the_stream_again_when_it_ends_early(waits: list[float]) -> None:
+    requests: list[httpx.Request] = []
+    client = answering(
+        job_event("running", progress=10),
+        job_event("running", progress=60) + job_event("succeeded"),
+        requests=requests,
+    )
+    updates: list[JobDetail] = []
+
+    finished = wait_reconnecting(client, Reconnect(delays=(0.5,)), updates.append)
+
+    assert finished.status is JobDetailStatus.SUCCEEDED
+    assert [update.progress for update in updates] == [10, 60, None]
+    assert len(requests) == 2
+    assert waits == [0.5]
+
+
+def test_reconnect_opens_it_again_when_the_connection_fails_and_on_a_5xx(waits: list[float]) -> None:
+    requests: list[httpx.Request] = []
+    client = answering(httpx.ConnectError("refused"), 503, job_event("succeeded"), requests=requests)
+
+    assert wait_reconnecting(client, True).status is JobDetailStatus.SUCCEEDED
+    assert len(requests) == 3
+    assert waits == [1.0, 2.0]
+
+
+@pytest.mark.parametrize("status", [401, 403, 404, 410])
+def test_reconnect_raises_at_once_for_a_refusal_asking_again_will_not_change(status: int, waits: list[float]) -> None:
+    requests: list[httpx.Request] = []
+
+    with pytest.raises(httpx.HTTPStatusError) as raised:
+        wait_reconnecting(answering(status, requests=requests), True)
+
+    assert raised.value.response.status_code == status
+    assert len(requests) == 1
+    assert waits == []
+
+
+def test_reconnect_waits_for_a_429s_retry_after(waits: list[float]) -> None:
+    client = answering(429, job_event("succeeded"))
+
+    assert wait_reconnecting(client, Reconnect(delays=(0.1,))).status is JobDetailStatus.SUCCEEDED
+    assert waits == [2.0]
+
+
+def test_reconnect_starts_the_delays_over_after_a_stream_that_sent_the_job(waits: list[float]) -> None:
+    client = answering("", job_event("running"), job_event("succeeded"))
+
+    wait_reconnecting(client, Reconnect(delays=(0.1, 1.0)))
+
+    assert waits == [0.1, 0.1]
+
+
+def test_reconnect_gives_up_once_give_up_after_would_pass_without_word_of_the_job(waits: list[float]) -> None:
+    requests: list[httpx.Request] = []
+
+    with pytest.raises(RuntimeError, match="ended before the job finished"):
+        wait_reconnecting(answering("", requests=requests), Reconnect(delays=(10.0,), give_up_after=0))
+
+    assert len(requests) == 1
+    assert waits == []
+
+
+def test_reconnect_ends_the_wait_with_an_error_on_update_raises(waits: list[float]) -> None:
+    requests: list[httpx.Request] = []
+    mistake = ValueError("The caller could not handle the update")
+
+    def fail(_: JobDetail) -> None:
+        raise mistake
+
+    with pytest.raises(ValueError) as raised:
+        wait_reconnecting(answering(job_event("running"), requests=requests), Reconnect(delays=(0.1,)), fail)
+
+    assert raised.value is mistake
+    assert len(requests) == 1

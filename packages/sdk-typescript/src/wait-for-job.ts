@@ -6,6 +6,19 @@ import {
   type JobDetail,
 } from './generated/index.js'
 
+export interface WaitForJobReconnect {
+  /**
+   * How long to wait before each new stream, in milliseconds; the last repeats. A stream that sent
+   * the job starts them over. 1, 2, 4 and 8 seconds by default.
+   */
+  delaysMs?: ReadonlyArray<number>
+  /**
+   * Gives up once this long has passed, in milliseconds, without the job being sent, rejecting with
+   * the error that ended the last stream. Unset, it waits until the job is final or `signal` aborts.
+   */
+  giveUpAfterMs?: number
+}
+
 export interface WaitForJobOptions {
   /** Called with the job each time the stream sends it: once on connecting, then on every change. */
   onUpdate?: (job: JobDetail) => void
@@ -14,7 +27,17 @@ export interface WaitForJobOptions {
    * signal's reason, whether or not the response has arrived.
    */
   signal?: AbortSignal
+  /**
+   * Opens the stream again, rather than rejecting, when it ends before the job is final, when the
+   * connection fails, and on a 429 — after its `Retry-After` — or a 5xx response. Every other
+   * error response rejects as without it: a refused key (401, 403) or a job the key cannot reach
+   * (404, 410) will not change by asking again. `true` uses the default delays.
+   */
+  reconnect?: boolean | WaitForJobReconnect
 }
+
+/** The waits before each new stream when `reconnect` names none, in milliseconds. */
+const RECONNECT_DELAYS_MS: ReadonlyArray<number> = [1_000, 2_000, 4_000, 8_000]
 
 /** Thrown by {@link waitForJob} when the job fails. `failed` is final: the job will not run again. */
 export class JobFailedError extends Error {
@@ -116,11 +139,112 @@ const withBufferedBody = async (error: ResponseError): Promise<ResponseError> =>
  * `client.jobs.getJob()` says which it was. An error response rejects with the generated client's
  * `ResponseError`: an unknown job, an expired one, a refused key. Its body has been read and is
  * kept on `error.response`, so the problem `code` is still readable there.
+ *
+ * With `reconnect` it opens the stream again itself instead, until the job is final, an error
+ * response says asking again will not help, `giveUpAfterMs` passes without word of the job, or
+ * `signal` aborts. A job the server can no longer find answers the new stream with a 404 or 410,
+ * which ends the wait.
  */
 export const waitForJob = async (
   client: Pick<ToolpathClient, 'jobs'>,
   jobId: string,
-  { onUpdate, signal }: WaitForJobOptions = {},
+  { onUpdate, signal, reconnect }: WaitForJobOptions = {},
+): Promise<JobDetail> => {
+  if (!reconnect) {
+    return streamJob(client, jobId, onUpdate, signal)
+  }
+  const { delaysMs = RECONNECT_DELAYS_MS, giveUpAfterMs } = reconnect === true ? {} : reconnect
+  let attempts = 0
+  let heard = Date.now()
+  for (;;) {
+    let sent = false
+    // An error the caller's `onUpdate` threw is theirs: it ends the wait rather than a stream.
+    let callerError: { error: unknown } | null = null
+    try {
+      return await streamJob(
+        client,
+        jobId,
+        (job) => {
+          sent = true
+          heard = Date.now()
+          try {
+            onUpdate?.(job)
+          } catch (error) {
+            callerError = { error }
+            throw error
+          }
+        },
+        signal,
+      )
+    } catch (error) {
+      signal?.throwIfAborted()
+      if (callerError || !reopens(error)) {
+        throw error
+      }
+      if (sent) {
+        attempts = 0
+      }
+      const wait =
+        retryAfterMs(error) ??
+        delaysMs[Math.min(attempts, delaysMs.length - 1)] ??
+        RECONNECT_DELAYS_MS[0]!
+      attempts += 1
+      if (giveUpAfterMs !== undefined && Date.now() + wait - heard > giveUpAfterMs) {
+        throw error
+      }
+      await sleep(wait, signal)
+    }
+  }
+}
+
+/** Whether a stream that ended in `error` is worth opening again. */
+const reopens = (error: unknown): boolean => {
+  // A job that failed, or an event that was not one: a stream sending it would send it again.
+  if (error instanceof JobFailedError || error instanceof SyntaxError) {
+    return false
+  }
+  if (error instanceof ResponseError) {
+    return error.response.status === 429 || error.response.status >= 500
+  }
+  // A stream that ended early, or a connection that failed or dropped.
+  return true
+}
+
+/** A 429's or 503's `Retry-After`, in milliseconds: delay-seconds or an HTTP date. */
+const retryAfterMs = (error: unknown): number | undefined => {
+  const header = error instanceof ResponseError ? error.response.headers.get('Retry-After') : null
+  if (!header) {
+    return undefined
+  }
+  const seconds = Number(header)
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, seconds * 1_000)
+  }
+  const at = Date.parse(header)
+  return Number.isNaN(at) ? undefined : Math.max(0, at - Date.now())
+}
+
+/** Resolves after `ms`, or rejects with `signal`'s reason as soon as it aborts. */
+const sleep = (ms: number, signal: AbortSignal | undefined): Promise<void> =>
+  new Promise((resolve, reject) => {
+    signal?.throwIfAborted()
+    const stop = (): void => {
+      clearTimeout(timer)
+      reject(signal?.reason)
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', stop)
+      resolve()
+    }, ms)
+    signal?.addEventListener('abort', stop, { once: true })
+  })
+
+/** One stream of the job's events, read until the job is final or the stream ends. */
+const streamJob = async (
+  client: Pick<ToolpathClient, 'jobs'>,
+  jobId: string,
+  onUpdate: ((job: JobDetail) => void) | undefined,
+  signal: AbortSignal | undefined,
 ): Promise<JobDetail> => {
   signal?.throwIfAborted()
   try {

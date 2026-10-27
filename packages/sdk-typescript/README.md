@@ -37,6 +37,17 @@ starts with the job as it is now, and `client.jobs.getJob()` says which it was. 
 rejects with `ResponseError`, whose `response` still holds the problem details. `onUpdate` receives
 every job the stream sends, and an `AbortSignal` passed as `signal` stops waiting.
 
+Pass `reconnect` to have it open the stream again itself instead: when the stream ends early, when
+the connection fails, and on a 429, after its `Retry-After`, or a 5xx. Other error responses still
+reject at once, since a refused key (401, 403) or an unreachable job (404, 410) will not change by
+asking again. `reconnect: true` waits 1, 2, 4, then every 8 seconds between streams, starting over
+after a stream that sent the job; `{ delaysMs, giveUpAfterMs }` sets the waits and gives up once
+that long passes without word of the job.
+
+```ts
+const job = await waitForJob(client, jobId, { reconnect: { giveUpAfterMs: 10 * 60_000 }, signal })
+```
+
 The generated `client.jobs.streamJobEvents()` is not a substitute: it resolves only once the stream
 has closed, with the raw event text.
 
