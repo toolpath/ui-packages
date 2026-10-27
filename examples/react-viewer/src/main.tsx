@@ -21,6 +21,7 @@ import {
   ExplodedPart,
   SectionTool,
   Viewer,
+  VisibilityGroup,
   CONTROL_SCHEME_OPTIONS,
   sharpCornerPositions,
   surfaceCreases,
@@ -923,29 +924,32 @@ const App = () => {
               ) : null}
               {measuring ? <MeasureTool measurements={measured} onChange={setMeasured} /> : null}
             </PartMesh>
-            {showStock && stockSource === 'geometry' && stockShape === 'cylinder' ? (
-              <Stock
-                cylinder={{
-                  partGeometry: part.geometry,
-                  ...stockCylinder,
-                  position: stockPosition,
-                  positionOffset: stockPositionOffset,
-                }}
-              />
-            ) : null}
-            {showStock && stockSource === 'glb' ? (
-              <Stock glb={stockMeshSize === '40' ? STOCK_GLB_BYTES : LARGE_STOCK_GLB_BYTES} />
-            ) : null}
-            {showStock && stockSource === 'geometry' && stockShape === 'box' ? (
-              <Stock
-                box={{
-                  partGeometry: part.geometry,
-                  dimensions: stockDimensions,
-                  position: stockPosition,
-                  positionOffset: stockPositionOffset,
-                }}
-              />
-            ) : null}
+            {/* Hidden, and out of picking and Fit, while the exploded pieces stand in for the part. */}
+            <VisibilityGroup visible={!explode.visible}>
+              {showStock && stockSource === 'geometry' && stockShape === 'cylinder' ? (
+                <Stock
+                  cylinder={{
+                    partGeometry: part.geometry,
+                    ...stockCylinder,
+                    position: stockPosition,
+                    positionOffset: stockPositionOffset,
+                  }}
+                />
+              ) : null}
+              {showStock && stockSource === 'glb' ? (
+                <Stock glb={stockMeshSize === '40' ? STOCK_GLB_BYTES : LARGE_STOCK_GLB_BYTES} />
+              ) : null}
+              {showStock && stockSource === 'geometry' && stockShape === 'box' ? (
+                <Stock
+                  box={{
+                    partGeometry: part.geometry,
+                    dimensions: stockDimensions,
+                    position: stockPosition,
+                    positionOffset: stockPositionOffset,
+                  }}
+                />
+              ) : null}
+            </VisibilityGroup>
             <DirectionArrows
               visible={showDirections && !sectioning && !measuring}
               directions={part.model.candidateDirections}
