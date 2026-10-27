@@ -3,6 +3,7 @@
 // re-exports the adapter's entry points for callers that only ever render a
 // report.
 export { EnginePart, normalizePartReport, smoothRegionNormals } from './engine/index.js'
+export type { NormalizePartReportOptions } from './engine/index.js'
 export { regionAdjacency } from './render/adjacency.js'
 export { featureTriangles } from './render/feature-triangles.js'
 export { PartMesh } from './part-mesh.js'
@@ -183,6 +184,7 @@ export { CONTROL_SCHEME_OPTIONS } from './render/control-schemes.js'
 export { useRetarget, useSectionStore, useViewerControls, Viewer } from './viewer.js'
 export { PartReportFormatError, UnsupportedKernelVersionError } from './model/errors.js'
 export { buildRegionIndex } from './model/region-index.js'
+export { withoutFeatures } from './model/without-features.js'
 export {
   directionIndexOf,
   directionLabel,

@@ -250,6 +250,13 @@ describe('featureMeasurements: an undercut', () => {
     expect(byKey(rows, 'undercutDepth')).toBeUndefined()
   })
 
+  it('offers no cutter for one the Engine found invalid, and says so', () => {
+    const rows = rowsOf(tslot, {
+      t: { ...tslotSheet, invalidGeometry: true, undercut: { maxEntry: 0, unmeasured: true } },
+    })
+    expect(byKey(rows, 'undercutCutter')).toMatchObject({ value: 'None fits', milling: true })
+  })
+
   it('offers no cutter for one the Engine could not measure', () => {
     const rows = rowsOf(tslot, {
       t: { ...tslotSheet, undercut: { maxEntry: 0, unmeasured: true } },

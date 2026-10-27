@@ -569,11 +569,19 @@ const undercutRows = (
     ...(alt !== undefined ? { alt } : {}),
     derivation,
   })
+  if (sheet.invalidGeometry) {
+    return [
+      ...rows,
+      cutter('None fits', [
+        'The Engine measured the groove and found no disc cutter can cut it (facts.isInvalidGeometry), so its figures offer no cutter.',
+      ]),
+    ]
+  }
   if (undercut.unmeasured) {
     return [
       ...rows,
       cutter('Not measured', [
-        'The Engine could not measure the groove (facts.isInvalidGeometry or facts.cd.measurementFailed), so its figures offer no cutter.',
+        'The Engine could not measure the groove (facts.cd.measurementFailed), so its figures offer no cutter.',
       ]),
     ]
   }

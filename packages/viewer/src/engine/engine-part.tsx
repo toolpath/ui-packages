@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import type { PartModel } from '../model/types.js'
+import type { FeatureTag, PartModel } from '../model/types.js'
+import { withoutFeatures } from '../model/without-features.js'
 import { PartMesh, type PartMeshProps } from '../part-mesh.js'
 import { type EngineGeometryResource, engineGeometryCache } from './geometry-cache.js'
 import { normalizePartReport } from './normalize.js'
@@ -21,6 +22,20 @@ const modelForReport = (report: unknown): PartModel => {
   return model
 }
 
+// The last model each report's was cut down to, by the tags left out: a list made again each
+// render, holding the same tags, keeps the model and so the part.
+const cutDown = new WeakMap<PartModel, { key: string; model: PartModel }>()
+
+const modelWithout = (model: PartModel, tags: readonly FeatureTag[] | undefined): PartModel => {
+  if (!tags || tags.length === 0) return model
+  const key = [...new Set(tags.map((tag) => tag.toLowerCase()))].sort().join(',')
+  const held = cutDown.get(model)
+  if (held?.key === key) return held.model
+  const cut = withoutFeatures(model, tags)
+  cutDown.set(model, { key, model: cut })
+  return cut
+}
+
 export interface EnginePartProps extends Omit<PartMeshProps, 'model' | 'geometry'> {
   /**
    * A Toolpath Engine part report, exactly as the API returned it.
@@ -32,6 +47,13 @@ export interface EnginePartProps extends Omit<PartMeshProps, 'model' | 'geometry
    * since neither is a state the viewport can render.
    */
   report: unknown
+  /**
+   * Features to leave out of the part, by tag, as `withoutFeatures` does: for the ones whose
+   * geometry the Engine says is invalid, `@toolpath/dfm`'s `invalidFeatureTags`. Read by its tags,
+   * so a new list holding the same ones changes nothing; a change rebuilds the part's paint against
+   * the mesh already loaded.
+   */
+  withoutFeatures?: readonly FeatureTag[]
 }
 
 /**
@@ -41,9 +63,10 @@ export interface EnginePartProps extends Omit<PartMeshProps, 'model' | 'geometry
  * `<Suspense>` and an error boundary rather than threading loading state
  * through props.
  */
-export const EnginePart = ({ report, ...props }: EnginePartProps) => {
-  const model = modelForReport(report)
-  const resource = useGeometryResource(model)
+export const EnginePart = ({ report, withoutFeatures: leftOut, ...props }: EnginePartProps) => {
+  const reported = modelForReport(report)
+  const model = modelWithout(reported, leftOut)
+  const resource = useGeometryResource(reported)
 
   useEffect(() => {
     engineGeometryCache.retain(resource)

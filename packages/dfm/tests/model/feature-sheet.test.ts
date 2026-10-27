@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   featureSheet,
+  invalidFeatureTags,
   isCutterlessTslot,
   isNoReading,
   isSharpCorneredFillet,
+  unplannableFeatureTags,
 } from '../../src/model/feature-sheet.js'
 import { clearanceFit, readPinch } from '../../src/model/pinch.js'
 
@@ -261,5 +263,92 @@ describe('readings the analysis leaves out', () => {
       false,
     )
     expect(isNoReading('inner_fillet', { facts: { hasSharpCorner: true } })).toBe(true)
+  })
+})
+
+/** A regime as the Engine sends one that admits no tool: both bounds zero. */
+const none = { min: 0, max: 0 }
+
+/** A T-slot as the Engine sends one, its blend 0.5 mm, which the band's corner radius keeps. */
+const slot = (cd: Record<string, unknown>, facts: Record<string, unknown> = {}) => ({
+  facts: {
+    kind: 'Tslot',
+    isExternal: false,
+    isClosed: false,
+    maxEntryCd: 0,
+    filletRadius: 0.5,
+    cd: { ignore: none, deviate: none, effectiveAdaptive: none, terminalCornerRadius: 0.5, ...cd },
+    ...facts,
+  },
+})
+
+describe('features nothing machines', () => {
+  it('reads a T-slot the Engine says is invalid, its blend and all', () => {
+    const invalid = slot({ measurementFailed: false }, { isInvalidGeometry: true })
+    expect(isCutterlessTslot(invalid)).toBe(true)
+    expect(isNoReading('undercut_tslot', invalid)).toBe(true)
+    expect(featureSheet(invalid)).toMatchObject({
+      invalidGeometry: true,
+      unplannable: true,
+      undercut: { maxEntry: 0, unmeasured: true },
+    })
+  })
+
+  it('tells a slot whose measurement failed from an invalid one, though both read zero', () => {
+    const failed = slot({ measurementFailed: true }, { isInvalidGeometry: false })
+    expect(isCutterlessTslot(failed)).toBe(false)
+    const sheet = featureSheet(failed)
+    expect(sheet.invalidGeometry).toBeUndefined()
+    expect(sheet.unplannable).toBe(true)
+  })
+
+  it('reads a zero band as invalid on a T-slot from before the Engine said so', () => {
+    expect(featureSheet(slot({})).invalidGeometry).toBe(true)
+  })
+
+  it('keeps a T-slot a tool fits', () => {
+    const sheet = featureSheet(
+      slot(
+        { ignore: { min: 4, max: 6 }, deviate: { min: 4, max: 6 } },
+        { isInvalidGeometry: false },
+      ),
+    )
+    expect(sheet.invalidGeometry).toBeUndefined()
+    expect(sheet.unplannable).toBeUndefined()
+  })
+
+  it("never reads a dovetail's deprecated flag as invalid geometry, only as a failed measurement", () => {
+    const sheet = featureSheet({
+      facts: { kind: 'Dovetail', isInvalidGeometry: true, cd: { ignore: { min: 0, max: 8 } } },
+    })
+    expect(sheet.invalidGeometry).toBeUndefined()
+    expect(sheet.unplannable).toBe(true)
+  })
+
+  it('reads any other kind that carries the flag as invalid', () => {
+    const sheet = featureSheet({
+      facts: { kind: 'Pocket', isInvalidGeometry: true, cd: { ignore: { min: 1, max: 4 } } },
+    })
+    expect(sheet.invalidGeometry).toBe(true)
+  })
+
+  it('finds no pass for any kind whose clearance admits no tool, but a chamfer', () => {
+    const cramped = { ignore: none, deviate: none, effectiveAdaptive: { min: 0, max: '-inf' } }
+    expect(featureSheet({ facts: { kind: 'Pocket', cd: cramped } }).unplannable).toBe(true)
+    expect(featureSheet(pocket()).unplannable).toBeUndefined()
+    const chamfer = featureSheet({
+      facts: { kind: 'Chamfer', cd: { ...cramped, measurementFailed: true } },
+    })
+    expect(chamfer.unplannable).toBeUndefined()
+  })
+
+  it('lists the tags of each, in the order of the sheets', () => {
+    const sheets = {
+      a1: featureSheet(slot({}, { isInvalidGeometry: true })),
+      b2: featureSheet(pocket()),
+      c3: featureSheet(slot({ measurementFailed: true }, { isInvalidGeometry: false })),
+    }
+    expect(invalidFeatureTags(sheets)).toEqual(['a1'])
+    expect(unplannableFeatureTags(sheets)).toEqual(['a1', 'c3'])
   })
 })

@@ -1185,6 +1185,13 @@ export interface PlanRules {
   regionsOf: (tag: string) => ReadonlyArray<number>
   /** The kernel the part's faces are numbered by. */
   kernel: string | null
+  /**
+   * Whether Toolpath plans no pass for a feature whatever its tools, by tag in lower case: from its
+   * datasheet, `@toolpath/dfm`'s `unplannableFeatureTags`. Toolpath takes a pin of one and plans
+   * nothing for it, so a pin that adds one is refused and not offered. One pinned already can still
+   * be let go or moved. Left out, as before its datasheets are read, every feature can be pinned.
+   */
+  unplannable?: (tag: string) => boolean
 }
 
 /* ---------- What Toolpath is told ---------- */

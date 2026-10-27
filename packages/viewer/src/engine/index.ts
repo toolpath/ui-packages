@@ -19,6 +19,7 @@ export {
 } from './normalize.js'
 export { threadMark } from './threads.js'
 export type { EnginePartProps } from './engine-part.js'
+export type { NormalizePartReportOptions } from './normalize.js'
 export type {
   CacheablePart,
   EngineGeometryCache,

@@ -368,9 +368,49 @@ pinch/pan, and three-finger pan; Fusion/Inventor use their CAD scroll behavior.
 
 ### `<EnginePart>`
 
-`report` is its only additional prop. It inherits `PartMeshProps` except `model`
-and `geometry`, which it creates. Mesh loading prefers GLB and tries STL if GLB
-fails or is absent. It does not fetch a report or start an Engine job.
+`report` is its one required additional prop. It inherits `PartMeshProps` except
+`model` and `geometry`, which it creates. Mesh loading prefers GLB and tries STL if
+GLB fails or is absent. It does not fetch a report or start an Engine job.
+
+`withoutFeatures` leaves features out of the part by tag, as `withoutFeatures(model,
+tags)` does; see "Leaving features out".
+
+### Leaving features out
+
+Some features the Engine reports are ones nothing machines: a T-slot whose
+datasheet says no disc cutter can cut it, for one. `withoutFeatures(model, tags)`
+leaves them out as if the report never listed them: out of `model.features` and
+of the region index, so no pick resolves to them, `directionHighlights` paints
+by the faces' other owners, and a face only they held is owned by nothing. The
+faces stay drawn. Tags compare in any case; with none left out the model itself
+comes back.
+
+The tags come from the features' datasheets, which the report does not carry:
+`@toolpath/dfm`'s `invalidFeatureTags(sheets)`. Until they are read, pass none,
+and the part shows every feature.
+
+```tsx
+import { useMemo } from 'react'
+import { invalidFeatureTags, type FeatureSheets } from '@toolpath/dfm'
+import { directionHighlights } from '@toolpath/viewer'
+import { EnginePart, normalizePartReport } from '@toolpath/viewer/engine'
+
+export const Part = ({ report, sheets }: { report: unknown; sheets: FeatureSheets }) => {
+  const leftOut = useMemo(() => invalidFeatureTags(sheets), [sheets])
+  // Any model the app builds beside the part leaves out the same features.
+  const wash = useMemo(
+    () => directionHighlights(normalizePartReport(report, { withoutFeatures: leftOut })),
+    [report, leftOut],
+  )
+  return <EnginePart report={report} withoutFeatures={leftOut} regionHighlights={wash} />
+}
+```
+
+Build every model the app reads from the same list, so the part, its own
+direction wash and a plan editor's readings agree. `EnginePart` reads the list
+by its tags, so a new array holding the same ones keeps the part; a change
+rebuilds the part's paint against the mesh already loaded. A selection naming a
+tag left out paints nothing; clear it in the app.
 
 ### `<PartMesh>`
 

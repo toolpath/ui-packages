@@ -70,7 +70,9 @@ export {
 export {
   PINCH_TOOL_MM,
   featureSheet,
+  invalidFeatureTags,
   isNoReading,
+  unplannableFeatureTags,
   type FeatureSheet,
   type FeatureSheets,
   type FeatureThreading,
