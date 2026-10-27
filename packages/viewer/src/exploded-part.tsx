@@ -29,12 +29,12 @@ import {
 import { createExplodeBatch } from './render/explode.js'
 import { readExplodeAmount } from './model/explode-amount.js'
 import type {
-  ExplodeGroup,
   ExplodeGroupIds,
   ExplodeInput,
   ExplodePick,
   ExplodeRegionColors,
 } from './model/explode.js'
+import { type PieceClick, piecesFor, settleClick } from './model/explode-selection.js'
 import { edgeOpacityScale, resolveExplodeTheme, type ExplodeTheme } from './render/explode-theme.js'
 import { explodeRegionColors, explodeTint } from './render/explode-paint.js'
 import { explodeFits } from './render/explode-layout.js'
@@ -59,7 +59,8 @@ export interface ExplodedPartProps {
   hovered?: ExplodeGroupIds
   /**
    * The features being read, as `<PartMesh selection>` takes them: every piece standing for one
-   * of them (its `featureTags`) is selected, or only the piece clicked when it is one of those.
+   * of them (its `featureTags`) is selected, or only the piece clicked when it is one of those,
+   * until the selection that click produced changes.
    */
   selectedFeatures?: readonly FeatureTag[]
   /**
@@ -418,27 +419,6 @@ const Pieces = ({
   )
 }
 
-const lowerCase = (tag: string): string => tag.toLowerCase()
-
-/**
- * The pieces standing for any of `tags`, or the one `preferred` among them: a clicked piece
- * keeps its selection to itself rather than lighting every copy of its feature.
- */
-const piecesFor = (
-  groups: ReadonlyArray<ExplodeGroup>,
-  tags: readonly FeatureTag[] | undefined,
-  preferred: string | null,
-): ExplodeGroupIds => {
-  if (!tags?.length) {
-    return null
-  }
-  const wanted = new Set(tags.map(lowerCase))
-  const ids = groups
-    .filter((group) => group.featureTags?.some((tag) => wanted.has(lowerCase(tag))))
-    .map((group) => group.id)
-  return preferred !== null && ids.includes(preferred) ? preferred : ids
-}
-
 /**
  * `value`, with an identity that changes only when `key` does. Callers pass inline arrays, as
  * they do to `<PartMesh>`, and a fresh array with the same contents is not a change.
@@ -474,10 +454,8 @@ export const ExplodedPart = (props: ExplodedPartProps) => {
   const fits = useMemo(() => explodeFits(model, groups), [model, groups])
   const highlights = useByContent(props.highlights, paintKey(props.highlights))
   const regionHighlights = useByContent(props.regionHighlights, paintKey(props.regionHighlights))
-  const selectedFeatures = useByContent(
-    props.selectedFeatures,
-    props.selectedFeatures?.join('\n') ?? '',
-  )
+  const selectionKey = props.selectedFeatures?.join('\n') ?? ''
+  const selectedFeatures = useByContent(props.selectedFeatures, selectionKey)
   const hoveredFeatures = useByContent(
     props.hoveredFeatures,
     props.hoveredFeatures?.join('\n') ?? '',
@@ -509,12 +487,20 @@ export const ExplodedPart = (props: ExplodedPartProps) => {
     [ghost, partEmissive, edge, edgeOpacity, highlight, hoverColor, picked, tint],
   )
   // The piece last clicked, and the piece under the pointer.
-  const [clicked, setClicked] = useState<string | null>(null)
+  const [click, setClick] = useState<PieceClick | null>(null)
   const [pointed, setPointed] = useState<string | null>(null)
   useLayoutEffect(() => {
-    setClicked(null)
+    setClick(null)
     setPointed(null)
   }, [groups, visible])
+  // A click keeps the selection it produced, and lets go once the selection moves on.
+  const clicked = settleClick(click, selectionKey)?.id ?? null
+  useLayoutEffect(() => {
+    setClick((current) => settleClick(current, selectionKey))
+  }, [click, selectionKey])
+  // Read by a click, for the selection it lands on.
+  const selectionAtClick = useRef(selectionKey)
+  selectionAtClick.current = selectionKey
   const ownSelected = props.selected
   const ownHovered = props.hovered
   const selected = useMemo(
@@ -546,7 +532,7 @@ export const ExplodedPart = (props: ExplodedPartProps) => {
     () => ({
       onPick: (pick: ExplodePick) => {
         if (!pick.modifiers.secondary) {
-          setClicked(pick.explodeGroupId)
+          setClick({ id: pick.explodeGroupId, before: selectionAtClick.current, after: null })
         }
         onPickRef.current?.(pick)
       },
