@@ -72,6 +72,7 @@ export {
   withOp,
   withSubject,
   type DfmRule,
+  type FieldOptions,
   type RangeHigh,
   type RangeLow,
 } from './dfm-rules.js'

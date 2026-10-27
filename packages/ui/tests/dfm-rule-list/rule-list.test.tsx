@@ -53,6 +53,17 @@ describe('RuleList', () => {
     expect(screen.queryByRole('button', { name: /^Features:/ })).toBeNull()
     expect(screen.getByRole('button', { name: 'New rule' })).toBeInTheDocument()
   })
+
+  it('refuses a comma in a value, rather than reading 1,000 as 1', () => {
+    const rules = fakeRules([makeRule(QUICK_SUBJECTS[0] ?? 'any', 'depthBelowTop', 'mm')])
+    renderList(rules)
+    const value = screen.getByLabelText('Value')
+
+    fireEvent.change(value, { target: { value: '1,000' } })
+
+    expect(value).toHaveAttribute('aria-invalid', 'true')
+    expect(rules.update).not.toHaveBeenCalled()
+  })
 })
 
 describe('RuleList dimming', () => {
