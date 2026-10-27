@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import json
+import math
 import re
-import time
 from asyncio import sleep
 from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import aclosing
 from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
-from time import monotonic
+from time import monotonic, time
 from uuid import UUID
 
 import httpx
@@ -32,6 +32,9 @@ _KNOWN_STATUSES = frozenset(status.value for status in JobDetailStatus)
 # also break at U+2028, U+0085 and the like, which JSON leaves unescaped inside a string.
 _LINE_END = re.compile(r"\r\n|\n|\r")
 
+# The seconds ``wait_for_job`` waits before each new stream when ``reconnect`` names none.
+_RECONNECT_DELAYS = (1.0, 2.0, 4.0, 8.0)
+
 
 class JobFailedError(RuntimeError):
     """Raised by ``wait_for_job`` when the job fails. ``failed`` is final: the job will not run again."""
@@ -46,17 +49,18 @@ class _StreamEnded(RuntimeError):
 
 
 @dataclass(frozen=True)
-class Reconnect:
+class WaitForJobReconnect:
     """How ``wait_for_job`` opens the job's stream again.
 
     ``delays`` are the seconds to wait before each new stream; the last repeats, and a stream that
     sent the job starts them over. ``give_up_after`` is how many seconds reconnecting may fail for,
     counted from when the last stream that sent the job ended, or from the start: one last stream is
     opened at that time, and the wait then raises the error that ended it. A quiet job on an open
-    stream never counts against it. ``None`` waits until the job is final.
+    stream never counts against it. A 429 or 503 whose ``Retry-After`` falls past that time raises
+    at once, without the last stream. ``None`` waits until the job is final.
     """
 
-    delays: Sequence[float] = (1.0, 2.0, 4.0, 8.0)
+    delays: Sequence[float] = _RECONNECT_DELAYS
     give_up_after: float | None = None
 
 
@@ -109,8 +113,15 @@ def _reopens(error: Exception) -> bool:
     """Whether a stream that ended in ``error`` is worth opening again."""
     if isinstance(error, httpx.HTTPStatusError):
         return error.response.status_code == 429 or error.response.status_code >= 500
-    # A stream that ended early, or a connection that failed or dropped.
-    return isinstance(error, (_StreamEnded, httpx.TransportError))
+    # A stream that ended early, a connection that failed, timed out, or that the server closed before
+    # it answered, or a proxy that could not reach the server: it answers a CONNECT with a 502 or 503
+    # while the Engine API is down. httpx's other transport errors — a URL without ``http://`` or
+    # ``https://``, a request it would not send — are the caller's set-up, and every try would raise
+    # them again.
+    return isinstance(
+        error,
+        (_StreamEnded, httpx.NetworkError, httpx.TimeoutException, httpx.RemoteProtocolError, httpx.ProxyError),
+    )
 
 
 def _retry_after(error: Exception) -> float | None:
@@ -119,14 +130,37 @@ def _retry_after(error: Exception) -> float | None:
     if not header:
         return None
     try:
-        return max(0.0, float(header))
+        seconds = float(header)
     except ValueError:
         pass
+    else:
+        # ``float`` also reads ``nan`` and ``inf``, which are no delay.
+        if math.isfinite(seconds):
+            return max(0.0, seconds)
     try:
         at = parsedate_to_datetime(header)
     except (TypeError, ValueError):
         return None
-    return max(0.0, at.timestamp() - time.time())
+    return max(0.0, at.timestamp() - time())
+
+
+def _reconnect_delay(error: Exception, attempts: int, since_good: float, policy: WaitForJobReconnect) -> float | None:
+    """How many seconds to wait before opening the stream again after ``error``, or ``None`` to give
+    up. ``attempts`` streams have failed since the last that sent the job, which ended
+    ``since_good`` seconds ago."""
+    if not _reopens(error):
+        return None
+    retry_after = _retry_after(error)
+    wait = retry_after
+    if wait is None:
+        wait = policy.delays[min(attempts, len(policy.delays) - 1)] if policy.delays else _RECONNECT_DELAYS[0]
+    if policy.give_up_after is None:
+        return wait
+    left = policy.give_up_after - since_good
+    # A server's ``Retry-After`` past the deadline is respected by not asking again at all.
+    if left <= 0 or (retry_after is not None and retry_after > left):
+        return None
+    return min(wait, left)
 
 
 async def wait_for_job(
@@ -134,7 +168,7 @@ async def wait_for_job(
     job_id: str | UUID,
     *,
     on_update: Callable[[JobDetail], None] | None = None,
-    reconnect: bool | Reconnect = False,
+    reconnect: bool | WaitForJobReconnect = False,
 ) -> JobDetail:
     """Wait for a job on the job event stream (``GET /v1/jobs/{id}/events``), not by polling.
 
@@ -155,15 +189,16 @@ async def wait_for_job(
     final, when the connection fails, and on a 429 — after its ``Retry-After`` — or a 5xx response.
     Every other error response raises as without it: a refused key (401, 403) or a job the key
     cannot reach (404, 410) will not change by asking again, and a job the server can no longer find
-    answers the new stream with one of those. ``True`` uses ``Reconnect()``'s delays. An error
-    ``on_update`` raises ends the wait.
+    answers the new stream with one of those. So does a mistake in the set-up: a URL without
+    ``http://`` or ``https://``, or a request httpx would not send. ``True`` uses
+    ``WaitForJobReconnect()``'s delays. An error ``on_update`` raises ends the wait.
     """
     if not reconnect:
         return await _stream_job(client, job_id, on_update)
-    policy = Reconnect() if reconnect is True else reconnect
+    policy = WaitForJobReconnect() if reconnect is True else reconnect
     attempts = 0
     # When the connection was last known good: the start, or the end of a stream that sent the job.
-    connected = monotonic()
+    last_good_at = monotonic()
     while True:
         sent = False
         caller_error: Exception | None = None
@@ -181,22 +216,15 @@ async def wait_for_job(
         try:
             return await _stream_job(client, job_id, update)
         except Exception as error:
-            if error is caller_error or not _reopens(error):
+            if error is caller_error:
                 raise
             if sent:
                 attempts = 0
-                connected = monotonic()
-            retry_after = _retry_after(error)
-            wait = retry_after
+                last_good_at = monotonic()
+            wait = _reconnect_delay(error, attempts, monotonic() - last_good_at, policy)
             if wait is None:
-                wait = policy.delays[min(attempts, len(policy.delays) - 1)] if policy.delays else 1.0
+                raise
             attempts += 1
-            if policy.give_up_after is not None:
-                left = connected + policy.give_up_after - monotonic()
-                # A server's ``Retry-After`` past the deadline is respected by not asking again at all.
-                if left <= 0 or (retry_after is not None and retry_after > left):
-                    raise
-                wait = min(wait, left)
             await sleep(wait)
 
 

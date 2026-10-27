@@ -44,14 +44,15 @@ Pass `reconnect` to have it open the stream again itself instead: when the strea
 the connection fails, and on a 429, after its `Retry-After`, or a 5xx. Other error responses still
 raise at once, since a refused key (401, 403) or an unreachable job (404, 410) will not change by
 asking again. `reconnect=True` waits 1, 2, 4, then every 8 seconds between streams, starting over
-after a stream that sent the job; `Reconnect(delays=..., give_up_after=...)` sets the waits, in
-seconds, and gives up once reconnecting has failed for that long, after one last attempt. A quiet
-job on an open stream does not count against it.
+after a stream that sent the job; `WaitForJobReconnect(delays=..., give_up_after=...)` sets the
+waits, in seconds, and gives up once reconnecting has failed for that long, after one last attempt.
+A 429 or 503 whose `Retry-After` falls past that time raises at once instead. A quiet job on an open
+stream does not count against it.
 
 ```python
-from toolpath import Reconnect
+from toolpath import WaitForJobReconnect
 
-job = await wait_for_job(client, job_id, reconnect=Reconnect(give_up_after=600))
+job = await wait_for_job(client, job_id, reconnect=WaitForJobReconnect(give_up_after=600))
 ```
 
 ## License

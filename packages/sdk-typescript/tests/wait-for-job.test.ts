@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createToolpathClient } from '../src/client.js'
-import { RequiredError, ResponseError, type JobDetail } from '../src/generated/index.js'
+import { FetchError, RequiredError, ResponseError, type JobDetail } from '../src/generated/index.js'
 import { JobFailedError, waitForJob } from '../src/wait-for-job.js'
 
 const job = (status: string, extra: Record<string, unknown> = {}): string =>
@@ -284,7 +284,7 @@ describe('waitForJob with reconnect', () => {
   )
 
   it("waits for a 429's Retry-After before opening the stream again", async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'] })
     const { client, fetch } = clientAnswering(
       problem(429, { 'Retry-After': '2' }),
       streamResponse([jobEvent('succeeded')]).response,
@@ -299,8 +299,42 @@ describe('waitForJob with reconnect', () => {
     expect(fetch).toHaveBeenCalledTimes(2)
   })
 
+  it('reads a Retry-After given as an HTTP date', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'] })
+    vi.setSystemTime(new Date('2026-10-27T12:00:00.000Z'))
+    const { client, fetch } = clientAnswering(
+      problem(503, { 'Retry-After': 'Tue, 27 Oct 2026 12:00:03 GMT' }),
+      streamResponse([jobEvent('succeeded')]).response,
+    )
+
+    const waiting = waitForJob(client, 'job-1', { reconnect: { delaysMs: [0] } })
+    await vi.advanceTimersByTimeAsync(2_999)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+
+    await expect(waiting).resolves.toMatchObject({ status: 'succeeded' })
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('waits as long as a timer can for a Retry-After past that, rather than asking again at once', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'] })
+    const { client, fetch } = clientAnswering(
+      problem(429, { 'Retry-After': String(30 * 24 * 60 * 60) }),
+      streamResponse([jobEvent('succeeded')]).response,
+    )
+
+    const waiting = waitForJob(client, 'job-1', { reconnect: true })
+    // `setTimeout` fires at once for a delay past 2^31-1 ms, about 24.8 days.
+    await vi.advanceTimersByTimeAsync(2 ** 31 - 2)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+
+    await expect(waiting).resolves.toMatchObject({ status: 'succeeded' })
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
   it('starts the delays over after a stream that sent the job', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'] })
     const { client, fetch } = clientAnswering(
       streamResponse([]).response,
       streamResponse([jobEvent('running')]).response,
@@ -326,8 +360,20 @@ describe('waitForJob with reconnect', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 
+  it('gives up at once when a Retry-After falls past giveUpAfterMs, without a last stream', async () => {
+    const { client, fetch } = clientAnswering(problem(429, { 'Retry-After': '120' }))
+
+    const failure = await waitForJob(client, 'job-1', {
+      reconnect: { giveUpAfterMs: 60_000 },
+    }).catch((error: unknown) => error)
+
+    expect(failure).toBeInstanceOf(ResponseError)
+    expect((failure as ResponseError).response.status).toBe(429)
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
   it('does not count a quiet job on an open stream against giveUpAfterMs', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'] })
     const encoder = new TextEncoder()
     let drop = (): void => undefined
     const quiet = new Response(
@@ -357,7 +403,7 @@ describe('waitForJob with reconnect', () => {
   })
 
   it('opens one last stream at the deadline before giving up', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'] })
     const { client, fetch } = clientAnswering(
       ...Array.from({ length: 5 }, () => streamResponse([]).response),
     )
@@ -403,6 +449,17 @@ describe('waitForJob with reconnect', () => {
       waitForJob(client, undefined as unknown as string, { reconnect: true }),
     ).rejects.toBeInstanceOf(RequiredError)
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('rejects a baseUrl fetch cannot parse at once, rather than retrying it', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>((url, init) => globalThis.fetch(url, init))
+    // No scheme, so Node's `fetch` refuses it before any connection.
+    const client = createToolpathClient({ apiKey: 'tp_test', baseUrl: 'api.example.test', fetch })
+
+    await expect(waitForJob(client, 'job-1', { reconnect: true })).rejects.toBeInstanceOf(
+      FetchError,
+    )
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 
   it('ends the wait with an error onUpdate throws, rather than opening another stream', async () => {

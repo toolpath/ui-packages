@@ -17,7 +17,8 @@ export interface WaitForJobReconnect {
    * Gives up once reconnecting has failed for this long, in milliseconds, counted from when the
    * last stream that sent the job ended, or from the start. One last stream is opened at that
    * time; the wait then rejects with the error that ended it. A quiet job on an open stream never
-   * counts against it. Unset, it waits until the job is final or `signal` aborts.
+   * counts against it. A 429 or 503 whose `Retry-After` falls past that time rejects at once,
+   * without the last stream. Unset, it waits until the job is final or `signal` aborts.
    */
   giveUpAfterMs?: number
 }
@@ -34,7 +35,8 @@ export interface WaitForJobOptions {
    * Opens the stream again, rather than rejecting, when it ends before the job is final, when the
    * connection fails, and on a 429 — after its `Retry-After` — or a 5xx response. Every other
    * error response rejects as without it: a refused key (401, 403) or a job the key cannot reach
-   * (404, 410) will not change by asking again. `true` uses the default delays.
+   * (404, 410) will not change by asking again, and neither will a URL `fetch` cannot parse. `true`
+   * uses the default delays.
    */
   reconnect?: boolean | WaitForJobReconnect
 }
@@ -42,12 +44,15 @@ export interface WaitForJobOptions {
 /** The waits before each new stream when `reconnect` names none, in milliseconds. */
 const RECONNECT_DELAYS_MS: ReadonlyArray<number> = [1_000, 2_000, 4_000, 8_000]
 
+/** The longest `setTimeout` waits; past it, a timer fires at once. About 24.8 days. */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1
+
 /**
  * The errors that ended a stream before the job was final: it closed early, or its connection
  * dropped while it was read. Marked rather than wrapped, so a wait without `reconnect` rejects with
  * the very errors it always has.
  */
-const lostStreams = new WeakSet<object>()
+const streamLossErrors = new WeakSet<object>()
 
 /** Thrown by {@link waitForJob} when the job fails. `failed` is final: the job will not run again. */
 export class JobFailedError extends Error {
@@ -84,7 +89,7 @@ async function* readJobEvents(
     for (;;) {
       const { done, value } = await reader.read().catch((error: unknown) => {
         if (typeof error === 'object' && error !== null) {
-          lostStreams.add(error)
+          streamLossErrors.add(error)
         }
         throw error
       })
@@ -168,10 +173,10 @@ export const waitForJob = async (
   if (!reconnect) {
     return streamJob(client, jobId, onUpdate, signal)
   }
-  const { delaysMs = RECONNECT_DELAYS_MS, giveUpAfterMs } = reconnect === true ? {} : reconnect
+  const policy = reconnect === true ? {} : reconnect
   let attempts = 0
   // When the connection was last known good: the start, or the end of a stream that sent the job.
-  let connected = Date.now()
+  let lastGoodAt = performance.now()
   for (;;) {
     let sent = false
     // An error the caller's `onUpdate` threw is theirs: it ends the wait rather than a stream.
@@ -193,28 +198,49 @@ export const waitForJob = async (
       )
     } catch (error) {
       signal?.throwIfAborted()
-      if (callerError || !reopens(error)) {
+      if (callerError) {
         throw error
       }
       if (sent) {
         attempts = 0
-        connected = Date.now()
+        lastGoodAt = performance.now()
       }
-      const retryAfter = retryAfterMs(error)
-      let wait =
-        retryAfter ?? delaysMs[Math.min(attempts, delaysMs.length - 1)] ?? RECONNECT_DELAYS_MS[0]!
+      const wait = reconnectDelay(error, attempts, performance.now() - lastGoodAt, policy)
+      if (wait === undefined) {
+        throw error
+      }
       attempts += 1
-      if (giveUpAfterMs !== undefined) {
-        const left = connected + giveUpAfterMs - Date.now()
-        // A server's `Retry-After` past the deadline is respected by not asking again at all.
-        if (left <= 0 || (retryAfter !== undefined && retryAfter > left)) {
-          throw error
-        }
-        wait = Math.min(wait, left)
-      }
       await sleep(wait, signal)
     }
   }
+}
+
+/**
+ * How long to wait before opening the stream again after `error`, in milliseconds, or `undefined`
+ * to give up. `attempts` streams have failed since the last that sent the job, which ended
+ * `sinceGoodMs` ago.
+ */
+const reconnectDelay = (
+  error: unknown,
+  attempts: number,
+  sinceGoodMs: number,
+  { delaysMs = RECONNECT_DELAYS_MS, giveUpAfterMs }: WaitForJobReconnect,
+): number | undefined => {
+  if (!reopens(error)) {
+    return undefined
+  }
+  const retryAfter = retryAfterMs(error)
+  const wait =
+    retryAfter ?? delaysMs[Math.min(attempts, delaysMs.length - 1)] ?? RECONNECT_DELAYS_MS[0]!
+  if (giveUpAfterMs === undefined) {
+    return wait
+  }
+  const left = giveUpAfterMs - sinceGoodMs
+  // A server's `Retry-After` past the deadline is respected by not asking again at all.
+  if (left <= 0 || (retryAfter !== undefined && retryAfter > left)) {
+    return undefined
+  }
+  return Math.min(wait, left)
 }
 
 /**
@@ -226,9 +252,26 @@ const reopens = (error: unknown): boolean => {
   if (error instanceof ResponseError) {
     return error.response.status === 429 || error.response.status >= 500
   }
-  return (
-    error instanceof FetchError ||
-    (typeof error === 'object' && error !== null && lostStreams.has(error))
+  if (error instanceof FetchError) {
+    return !refusedUrl(error)
+  }
+  return typeof error === 'object' && error !== null && streamLossErrors.has(error)
+}
+
+/**
+ * Whether `fetch` could not parse the request's URL — a `baseUrl` without its scheme, say — which
+ * no new try will change. Node marks it with a code, on the error or on the one it wraps; a browser
+ * resolves such a `baseUrl` against the page instead, and the 404 that comes back ends the wait.
+ * Other rejections are left to retry: a runtime words a dropped connection and a request it would
+ * not send alike, as a `TypeError`.
+ */
+const refusedUrl = ({ cause }: FetchError): boolean => {
+  const wrapped: unknown = cause.cause
+  return [cause, wrapped].some(
+    (error) =>
+      typeof error === 'object' &&
+      error !== null &&
+      (error as { code?: unknown }).code === 'ERR_INVALID_URL',
   )
 }
 
@@ -246,7 +289,10 @@ const retryAfterMs = (error: unknown): number | undefined => {
   return Number.isNaN(at) ? undefined : Math.max(0, at - Date.now())
 }
 
-/** Resolves after `ms`, or rejects with `signal`'s reason as soon as it aborts. */
+/**
+ * Resolves after `ms`, at most {@link MAX_TIMEOUT_MS}, or rejects with `signal`'s reason as soon as
+ * it aborts.
+ */
 const sleep = (ms: number, signal: AbortSignal | undefined): Promise<void> =>
   new Promise((resolve, reject) => {
     signal?.throwIfAborted()
@@ -254,10 +300,13 @@ const sleep = (ms: number, signal: AbortSignal | undefined): Promise<void> =>
       clearTimeout(timer)
       reject(signal?.reason)
     }
-    const timer = setTimeout(() => {
-      signal?.removeEventListener('abort', stop)
-      resolve()
-    }, ms)
+    const timer = setTimeout(
+      () => {
+        signal?.removeEventListener('abort', stop)
+        resolve()
+      },
+      Math.min(ms, MAX_TIMEOUT_MS),
+    )
     signal?.addEventListener('abort', stop, { once: true })
   })
 
@@ -297,6 +346,6 @@ const streamJob = async (
   }
   signal?.throwIfAborted()
   const ended = new Error(`The event stream for job ${jobId} ended before the job finished`)
-  lostStreams.add(ended)
+  streamLossErrors.add(ended)
   throw ended
 }
