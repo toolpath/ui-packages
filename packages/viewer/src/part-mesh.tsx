@@ -157,6 +157,12 @@ export interface PartMeshProps {
   /** Wireframe shows region boundaries and any hovered/painted faces, with no triangle diagonals. */
   display?: PartDisplay
   /**
+   * The whole part's opacity, 0–1. Below 1 it is see-through: drawn after the
+   * solid parts and writing no depth, so it never hides one, with its edges
+   * faded alike. It still takes the pointer. 1 by default.
+   */
+  opacity?: number
+  /**
    * Objects drawn on the part, such as `<ToolMarks>`. They can read its model
    * and mesh with `usePartContext`.
    */
@@ -196,6 +202,7 @@ export const PartMesh = ({
   sharpCorners = null,
   threads = null,
   display = 'solid',
+  opacity = 1,
   children,
 }: PartMeshProps) => {
   const { camera, controls, invalidate, size } = useThree()
@@ -313,6 +320,11 @@ export const PartMesh = ({
     part.setDisplay(display, showEdges)
     invalidate()
   }, [display, invalidate, part, showEdges])
+
+  useLayoutEffect(() => {
+    part.setOpacity(opacity)
+    invalidate()
+  }, [invalidate, opacity, part])
 
   useLayoutEffect(() => {
     part.setClippingPlanes(cut ? [cut.plane] : null)

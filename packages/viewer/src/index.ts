@@ -305,3 +305,4 @@ export type {
   CollectionPick,
 } from './part-collection.js'
 export { collectionBounds } from './model/collection.js'
+export { BODY_PALETTE, bodyColors } from './render/body-colors.js'

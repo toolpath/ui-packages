@@ -383,6 +383,7 @@ fails or is absent. It does not fetch a report or start an Engine job.
 | `focus`, `focusFeature`              | Selection X-ray rendering versus camera framing.                                                                      |
 | `activeDirection`                    | Candidate-direction index; `null`/omitted means all directions.                                                       |
 | `display`, `showEdges`               | `solid` or `wireframe`; outlines default on. Wireframe always shows semantic face boundaries, not triangle diagonals. |
+| `opacity`                            | 0–1, default 1. Below 1 the part is see-through, drawn after solid parts; it still takes the pointer.                 |
 | `sharpCorners`                       | `{ features: tags }` for externally flagged features, or `null`.                                                      |
 | `threads`                            | `{ threads: marks }` to draw threads in their holes, or `null`. See "Showing threads".                                |
 | `section`, `onSectionChange`         | Controlled section options and change reporting. Omit `section` to follow the viewer's section store.                 |
@@ -1102,15 +1103,18 @@ part, so a part behind it, or a handler on a parent group, no longer receives
 them. Its props are otherwise unchanged.
 
 In React, load the meshes with `usePartCollection(models, { concurrency? })`
-from `/engine`. Pass `{ id, model }` for every body, keeping each model object
-the same while it is unchanged, as `PartMesh` needs anyway. `items` is `null`
-until every body has loaded, so the scene appears complete. `failures` lists the
-bodies whose latest load failed, and `retry(id?)` loads them again, reusing the
-meshes that loaded. A new model for a body, such as its DFM analysis, loads
-while the body's current mesh stays on screen and replaces it once ready. The
-hook frees meshes the scene stops showing, drops results for models since
-replaced, and aborts loading on unmount. Geometry stays in CAD coordinates, and
-normals are smoothed within regions.
+from `/engine`. Pass every body as `{ id, model }`, keeping each model object the
+same while it is unchanged, or as `{ id, key, model: () => PartModel }`, which
+builds the model only when the key changes, such as a report's job id. A builder
+that throws is that body's failure. `items` is `null` until every body has
+loaded, so the scene appears complete. `failures` lists the bodies whose latest
+build or load failed, with `kind` saying which, and `retry(id?)` tries them
+again, reusing the meshes that loaded. A new model for a body, such as its DFM analysis, loads while the body's
+current mesh stays on screen, listed in `waiting`, and replaces it once ready;
+paint the analysis's features only once the body has left `waiting`. The hook
+frees meshes the scene stops showing, drops results for models since replaced,
+and aborts loading on unmount. Geometry stays in CAD coordinates, and normals
+are smoothed within regions.
 
 ```tsx
 import { Grid, PartCollection, SectionTool, Viewer, ViewCube } from '@toolpath/viewer'
@@ -1146,6 +1150,16 @@ pass everything it shows to `keep(items)`: meshes it showed before and no
 longer does are freed, and meshes a load returned that it has not shown yet are
 held for it. Call `dispose()` after unmounting the collection. The loader owns
 geometry; `PartCollection` does not.
+
+Each item takes the `PartMesh` props, so bodies can look different:
+`theme={{ part, partEmissive, hover }}` colours one, and an `opacity` below 1
+draws it see-through, for stock or a body that is not quoted. `bodyColors(ids)`
+gives each id a colour from `BODY_PALETTE`, distinct for the first sixteen and
+apart from the default hover; give copies of one body the same id to share one.
+To show a whole file and also one body as a part, switch between
+`<PartCollection>` and `<EnginePart>` inside one `<Viewer>`, and call
+`ViewerHandle.fit()` after switching, since the viewer frames its first content
+only.
 
 `renderItem` can supply an application's existing part renderer while retaining
 shared bounds and the single section. It receives each item with `onPick` and

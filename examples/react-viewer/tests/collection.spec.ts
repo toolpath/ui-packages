@@ -64,3 +64,18 @@ test('moving onto a body in front of the hovered one hovers the body in front', 
   await canvas.hover({ position: scene.covered })
   await expect(page.getByTestId('hover')).toHaveText('right')
 })
+test('a see-through body draws over the one behind it and still takes the pointer', async ({
+  page,
+}) => {
+  await page.goto('/tests/fixtures/collection.html')
+  await expect(page.getByTestId('scene')).not.toHaveText('')
+  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Stagger', exact: true }).click()
+  await page.getByRole('button', { name: 'Ghost', exact: true }).click()
+  await expect
+    .poll(async () => JSON.parse((await page.getByTestId('scene').textContent())!).ghosts)
+    .toBe(1)
+  const scene = JSON.parse((await page.getByTestId('scene').textContent())!)
+  await page.locator('canvas').hover({ position: scene.covered })
+  await expect(page.getByTestId('hover')).toHaveText('right')
+})

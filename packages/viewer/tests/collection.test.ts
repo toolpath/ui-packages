@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { collectionBounds } from '../src/model/collection.js'
 import { createPartCollectionLoader } from '../src/engine/collection.js'
 import { createCollectionSections } from '../src/render/collection-sections.js'
+import { BODY_PALETTE, bodyColors } from '../src/render/body-colors.js'
 import { resolveTheme } from '../src/render/theme.js'
 import { cubeModel, loadMeshFixture } from './fixtures.js'
 
@@ -36,6 +37,17 @@ describe('complete collections', () => {
     ).toThrow(/Duplicate/)
     first.dispose()
     second.dispose()
+  })
+  it('colours each body apart, sharing a colour only between copies', () => {
+    const ids = Array.from({ length: 17 }, (_, index) => `body-${index}`)
+    const colors = bodyColors([...ids.slice(0, 2), 'body-0', ...ids.slice(2)])
+    expect(colors.size).toBe(17)
+    expect(colors.get('body-0')).toBe(BODY_PALETTE[0])
+    expect(colors.get('body-1')).toBe(BODY_PALETTE[1])
+    expect(new Set(ids.slice(0, 16).map((id) => colors.get(id))).size).toBe(16)
+    // The second round is the palette lightened, so it stays in the same hue.
+    const lighter = colors.get(`body-${BODY_PALETTE.length}`)!
+    expect(lighter & 0xff).toBeGreaterThan(BODY_PALETTE[0]! & 0xff)
   })
   it('draws one section for the items a plane cuts, and drags them together', () => {
     const sections = createCollectionSections()

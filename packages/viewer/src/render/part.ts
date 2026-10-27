@@ -97,6 +97,8 @@ export interface PartObject {
   setTheme(theme: ViewerTheme): void
   /** Semantic edges only in wireframe; painted faces remain visible for interaction. */
   setDisplay(display: PartDisplay, showEdges?: boolean): void
+  /** The whole part's opacity, 0–1: below 1 it is see-through, and its edges fade with it. */
+  setOpacity(opacity: number): void
   /**
    * Draws the sharp corners of the features the DFM rules flag, bold and
    * through the part — see `render/sharp-corners.ts`. `null` hides them. Setting what is already drawn
@@ -236,6 +238,7 @@ export function createPart(
   const wireframe = { value: false }
   let focused = false
   let currentTheme = theme
+  let partOpacity = 1
   let clipping: Plane[] | null = null
 
   // Found and built on first use: most parts are never asked for them, and
@@ -409,13 +412,25 @@ export function createPart(
   focusMesh.visible = false
   focusMesh.raycast = () => {}
 
+  const edgeOpacity = () => (wireframe.value ? 1 : currentTheme.edgeOpacity) * partOpacity
+
   const syncTransparency = () => {
-    const transparent = wireframe.value || focused
+    const seeThrough = partOpacity < 1
+    const transparent = wireframe.value || focused || seeThrough
+    material.opacity = partOpacity
     if (material.transparent !== transparent || material.depthWrite !== !transparent) {
       material.transparent = transparent
       material.depthWrite = !transparent
       material.needsUpdate = true
     }
+    // The x-ray's solid pass fades with the rest, so a see-through part stays see-through.
+    focusMaterial.opacity = partOpacity
+    if (focusMaterial.transparent !== seeThrough) {
+      focusMaterial.transparent = seeThrough
+      focusMaterial.depthWrite = !seeThrough
+      focusMaterial.needsUpdate = true
+    }
+    edgeMaterial.opacity = edgeOpacity()
     focusState.value = focused
     focusMesh.visible = focused
     // A part writing no depth of its own leaves the corners none to be hidden by.
@@ -542,7 +557,7 @@ export function createPart(
       focusMaterial.color.setHex(next.part)
       focusMaterial.emissive.setHex(next.partEmissive)
       edgeMaterial.color.setHex(wireframe.value ? next.part : next.edge)
-      edgeMaterial.opacity = wireframe.value ? 1 : next.edgeOpacity
+      edgeMaterial.opacity = edgeOpacity()
       sharpLines?.setTheme(next)
     },
 
@@ -554,7 +569,14 @@ export function createPart(
       }
       edges.visible = enabled || showEdges
       edgeMaterial.color.setHex(enabled ? currentTheme.part : currentTheme.edge)
-      edgeMaterial.opacity = enabled ? 1 : currentTheme.edgeOpacity
+      edgeMaterial.opacity = edgeOpacity()
+    },
+
+    setOpacity(opacity) {
+      const next = Math.min(Math.max(opacity, 0), 1)
+      if (next === partOpacity) return
+      partOpacity = next
+      syncTransparency()
     },
 
     setSharpCorners(options) {

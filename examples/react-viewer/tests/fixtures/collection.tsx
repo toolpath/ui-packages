@@ -20,9 +20,18 @@ const Probe = ({ report }: { report: (value: string) => void }) => {
   useFrame(() => {
     // Section caps are the only shader materials that sample a mask.
     let caps = 0
+    let ghosts = 0
     root.traverse((object) => {
       const material = (object as Mesh).material as ShaderMaterial | undefined
       if (material?.uniforms?.uMask) caps++
+      // A part drawn see-through: its surface, not the edges or a section's passes.
+      if (
+        (object as Mesh).isMesh &&
+        object.visible &&
+        material?.transparent &&
+        material.opacity < 1
+      )
+        ghosts++
     })
     const toScreen = (x: number, z: number) => {
       const point = new Vector3(x, 0, z).project(camera)
@@ -33,7 +42,14 @@ const Probe = ({ report }: { report: (value: string) => void }) => {
     const alone = toScreen(-42, 12.7)
     const covered = toScreen(-28, 22.7)
     report(
-      JSON.stringify({ width: bounds.getSize(new Vector3()).x, centers, alone, covered, caps }),
+      JSON.stringify({
+        width: bounds.getSize(new Vector3()).x,
+        centers,
+        alone,
+        covered,
+        caps,
+        ghosts,
+      }),
     )
   })
   return null
@@ -41,6 +57,7 @@ const Probe = ({ report }: { report: (value: string) => void }) => {
 const App = () => {
   const viewer = useRef<ViewerHandle>(null)
   const [layout, setLayout] = useState<'apart' | 'overlap' | 'stagger'>('apart')
+  const [ghost, setGhost] = useState(false)
   const [pick, setPick] = useState<CollectionPick | null>(null)
   const [picks, setPicks] = useState<Array<string>>([])
   const [hover, setHover] = useState<string | null>(null)
@@ -66,18 +83,20 @@ const App = () => {
         id: index === 0 ? 'left' : 'right',
         model: cube.model,
         geometry: mesh,
+        opacity: index === 1 && ghost ? 0.3 : 1,
         onSectionChange: (section: { enabled: boolean; constant?: number }) => {
           if (section.enabled)
             setCuts((old) => ({ ...old, [index === 0 ? 'left' : 'right']: section.constant ?? 0 }))
         },
       })),
-    [geometry],
+    [geometry, ghost],
   )
   return (
     <>
       <Button onClick={() => viewer.current?.setView('top')}>Top</Button>
       <Button onClick={() => setLayout('overlap')}>Overlap</Button>
       <Button onClick={() => setLayout('stagger')}>Stagger</Button>
+      <Button onClick={() => setGhost(true)}>Ghost</Button>
       <Button
         onClick={() =>
           viewer.current?.setSection({ enabled: true, normal: { x: 0, y: 0, z: 1 }, offset: 0.5 })

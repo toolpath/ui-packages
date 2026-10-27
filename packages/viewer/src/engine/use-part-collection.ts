@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
-import type { CollectionModel } from './collection.js'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import {
   createPartCollectionSession,
+  type PartCollectionModel,
   type PartCollectionOptions,
   type PartCollectionSession,
+  type PartCollectionSnapshot,
   type PartCollectionState,
+  waitingFor,
 } from './collection-session.js'
 
 export interface PartCollection extends PartCollectionState {
@@ -12,23 +14,24 @@ export interface PartCollection extends PartCollectionState {
   retry: (id?: string) => void
 }
 
-const NOTHING: PartCollectionState = { items: null, failures: [] }
+const NOTHING: PartCollectionSnapshot = { items: null, failures: [], shown: new Map() }
 const subscribeToNothing = () => () => {}
 const getNothing = () => NOTHING
 
 /**
  * The meshes for a collection's models, ready for `<PartCollection items>`.
  *
- * Pass every model the scene should show, keeping each model object the same
- * while it is unchanged, as `PartMesh` needs anyway. `items` stays `null` until
- * every model has loaded. Afterwards a model that changes — a body's analysis
- * replacing its display mesh — loads while its current item stays shown, and
- * replaces it once ready. Meshes the scene stops showing are freed, results
- * for models since replaced are dropped, and unmounting aborts what is loading.
- * `options` are read once.
+ * Pass every body the scene should show: `{ id, model }`, the model kept the
+ * same object while it is unchanged, or `{ id, key, model: () => PartModel }`,
+ * built only when its key changes; a builder that throws is that body's
+ * failure. `items` stays `null` until every body has loaded. Afterwards a body
+ * whose model changes — its analysis replacing its display mesh — keeps its
+ * current item, listed in `waiting`, until the new one has loaded. Meshes the
+ * scene stops showing are freed, results for models since replaced are
+ * dropped, and unmounting aborts what is loading. `options` are read once.
  */
 export const usePartCollection = (
-  models: ReadonlyArray<CollectionModel>,
+  models: ReadonlyArray<PartCollectionModel>,
   options?: PartCollectionOptions,
 ): PartCollection => {
   const [initial] = useState(options)
@@ -52,6 +55,7 @@ export const usePartCollection = (
       session?.keep(state.items)
     }
   }, [session, state.items])
+  const waiting = useMemo(() => waitingFor(models, state), [models, state])
   const retry = useCallback((id?: string) => session?.retry(id), [session])
-  return { ...state, retry }
+  return { items: state.items, failures: state.failures, waiting, retry }
 }
