@@ -115,6 +115,11 @@ export interface PartObject {
    */
   setDepthLayer(layer: number): void
   /**
+   * Hides the part and takes it out of picking, so it neither draws nor stands
+   * between the pointer and a part behind it. Nothing is rebuilt to show it again.
+   */
+  setVisible(visible: boolean): void
+  /**
    * Draws the sharp corners of the features the DFM rules flag, bold and
    * through the part — see `render/sharp-corners.ts`. `null` hides them. Setting what is already drawn
    * costs a string comparison, so a caller may pass a fresh object each render.
@@ -254,6 +259,8 @@ export function createPart(
   let focused = false
   let currentTheme = theme
   let partOpacity = 1
+  // What a shown part picks with, kept while it is hidden.
+  let shownRaycast: Mesh['raycast'] = () => {}
   let clipping: Plane[] | null = null
 
   // Found and built on first use: most parts are never asked for them, and
@@ -592,6 +599,17 @@ export function createPart(
       if (next === partOpacity) return
       partOpacity = next
       syncTransparency()
+    },
+
+    setVisible(visible) {
+      if (visible === object.visible) return
+      object.visible = visible
+      if (visible) {
+        mesh.raycast = shownRaycast
+      } else {
+        shownRaycast = mesh.raycast
+        mesh.raycast = () => {}
+      }
     },
 
     setDepthLayer(layer) {

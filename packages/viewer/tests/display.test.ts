@@ -81,3 +81,20 @@ describe('part depth layers', () => {
     part.dispose()
   })
 })
+
+describe('hidden parts', () => {
+  it('draw nothing and take no ray, and take it again once shown', async () => {
+    const model = cubeModel()
+    const geometry = await parsePartGeometry(loadMeshFixture('local-0.3.0-cube'), model.mesh)
+    const part = createPart(model, geometry, DEFAULT_THEME)
+    part.object.updateMatrixWorld(true)
+    const ray = new Raycaster(new Vector3(0, 0, 100), new Vector3(0, 0, -1))
+    part.setVisible(false)
+    expect(part.object.visible).toBe(false)
+    expect(hitUnderRay(ray, part.object)).toBeNull()
+    part.setVisible(true)
+    expect(part.object.visible).toBe(true)
+    expect(hitUnderRay(ray, part.object)?.object).toBe(part.mesh)
+    part.dispose()
+  })
+})

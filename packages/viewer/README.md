@@ -1166,7 +1166,10 @@ apart from the default hover; give copies of one body the same id to share one.
 Bodies saved one on another, as successive stages of one part often are, share
 surfaces. Where they do, the item earlier in `items` is drawn, rather than the
 two fighting over each pixel; set an item's `depthLayer` (0 to 63, lower in
-front) to put another body there, such as the one being pointed at.
+front) to put another body there, such as the one being pointed at. To show
+one body at a time, as when stepping through a list of them, set the others'
+`visible` to false: a hidden item draws nothing and lets the pointer through,
+and showing it again rebuilds nothing.
 To show a whole file and also one body as a part, switch between
 `<PartCollection>` and `<EnginePart>` inside one `<Viewer>`, and call
 `ViewerHandle.fit()` after switching, since the viewer frames its first content

@@ -170,6 +170,12 @@ export interface PartMeshProps {
    */
   depthLayer?: number
   /**
+   * False hides the part without unmounting it: it draws nothing, takes no
+   * pointer events, so a part behind it takes them, and is not cut by a
+   * section. Showing it again is immediate. True by default.
+   */
+  visible?: boolean
+  /**
    * Objects drawn on the part, such as `<ToolMarks>`. They can read its model
    * and mesh with `usePartContext`.
    */
@@ -211,6 +217,7 @@ export const PartMesh = ({
   display = 'solid',
   opacity = 1,
   depthLayer = 0,
+  visible = true,
   children,
 }: PartMeshProps) => {
   const { camera, controls, invalidate, size } = useThree()
@@ -338,6 +345,11 @@ export const PartMesh = ({
     part.setDepthLayer(depthLayer)
     invalidate()
   }, [depthLayer, invalidate, part])
+
+  useLayoutEffect(() => {
+    part.setVisible(visible)
+    invalidate()
+  }, [invalidate, part, visible])
 
   useLayoutEffect(() => {
     part.setClippingPlanes(cut ? [cut.plane] : null)
@@ -496,9 +508,11 @@ export const PartMesh = ({
   useLayoutEffect(() => {
     sections?.set(
       part,
-      cut ? { geometry, plane: cut.plane, theme: resolved, handleColor, showHandle, onDrag } : null,
+      cut && visible
+        ? { geometry, plane: cut.plane, theme: resolved, handleColor, showHandle, onDrag }
+        : null,
     )
-  }, [cut, geometry, handleColor, onDrag, part, resolved, sections, showHandle])
+  }, [cut, geometry, handleColor, onDrag, part, resolved, sections, showHandle, visible])
   useLayoutEffect(() => () => sections?.set(part, null), [part, sections])
 
   return (
@@ -613,7 +627,7 @@ export const PartMesh = ({
           if (pickFor(event)) event.nativeEvent.preventDefault()
         }}
       />
-      {cut && !sections ? (
+      {cut && visible && !sections ? (
         <SectionView
           geometry={geometry}
           box={box}
