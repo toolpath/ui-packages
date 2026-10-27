@@ -228,6 +228,13 @@ describe('ToolDock', () => {
     expect(screen.getByRole('switch', { name: 'Toolbar layout' })).not.toHaveClass(
       'dark:bg-zinc-900',
     )
+    // The bar's focus ring, not the kit's blue one.
+    expect(screen.getByRole('switch', { name: 'Toolbar layout' })).toHaveClass(
+      'focus-visible:ring-zinc-300',
+    )
+    expect(screen.getByRole('switch', { name: 'Toolbar layout' })).not.toHaveClass(
+      'focus-visible:ring-info/75',
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Grouped' }))
 
     expect(onLayoutChange).toHaveBeenCalledWith('grouped')

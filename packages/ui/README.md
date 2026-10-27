@@ -278,8 +278,9 @@ export const MaterialSelect = () => {
 ```
 
 `Combobox.Button` is the styled convenience trigger with a value, placeholder,
-and caret. Use `Combobox.Trigger` when you need custom trigger attributes or
-rendering. Keep the input beside the trigger; it appears while the popup is open.
+and caret. Its `className` goes after its own classes, so where yours and one
+of its own set the same thing, such as the ring color, yours is used. Use
+`Combobox.Trigger` when you need custom trigger attributes or rendering. Keep the input beside the trigger; it appears while the popup is open.
 
 ### Menus
 
@@ -337,6 +338,10 @@ Every menu and panel from the bar opens 4px above it. A popup of your own
 there can do the same with `ToolDock.useBarPopout()`: put its `trigger` ref on
 the button, and its `anchor` and `sideOffset` on the popup. `useToolDock()`
 also gives the bar.
+
+The dock's focus ring is gray (`focus-visible:ring-zinc-300`), and
+`LayoutToggle` has it too. Give a kit control of your own in a dock menu the
+same ring, such as `<Combobox.Button className="ring-zinc-300 focus-visible:border-zinc-300" />`.
 
 ```tsx
 import { Menu, ToolDock, type DockGroup } from '@toolpath/ui'
