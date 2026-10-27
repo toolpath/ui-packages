@@ -1,10 +1,26 @@
+import type { FeatureHighlight, RegionHighlight } from '../render/paint.js'
 import type { ExplodeGroup, ExplodeGroupIds } from './explode.js'
 import type { FeatureTag } from './types.js'
+
+/** A feature selection's key: its tags joined, so a fresh array with the same tags is no change. */
+export const selectionKey = (tags: readonly FeatureTag[] | undefined): string =>
+  tags?.join('\n') ?? ''
+
+/** A paint layer's key: each entry's target, color and weight, so a fresh array is no change. */
+export const paintKey = (
+  layer: ReadonlyArray<FeatureHighlight | RegionHighlight> | undefined,
+): string =>
+  (layer ?? [])
+    .map(
+      (entry) =>
+        `${'tag' in entry ? entry.tag : entry.region}:${entry.color}:${entry.weight ?? ''}`,
+    )
+    .join(' ')
 
 /**
  * A primary click on a piece, and the feature selection it produced. While that selection
  * stands, the clicked piece keeps it to itself; once the selection moves on, so does the click.
- * Selections are compared by key: their feature tags joined.
+ * Selections are compared by `selectionKey`.
  */
 export interface PieceClick {
   readonly id: string
@@ -62,4 +78,31 @@ export const piecesFor = (
     )
     .map((group) => group.id)
   return ids.length === 1 ? clicked.id : ids
+}
+
+/**
+ * The pieces shown as hovered: the application's own `hovered` when given, else the piece under
+ * the pointer while hover is on, else the pieces standing for `hoveredFeatures`.
+ */
+export const hoveredPieces = (
+  groups: ReadonlyArray<ExplodeGroup>,
+  {
+    hovered,
+    hover,
+    pointed,
+    hoveredFeatures,
+  }: {
+    readonly hovered: ExplodeGroupIds | undefined
+    readonly hover: boolean
+    readonly pointed: string | null
+    readonly hoveredFeatures: readonly FeatureTag[] | undefined
+  },
+): ExplodeGroupIds => {
+  if (hovered !== undefined) {
+    return hovered
+  }
+  if (hover && pointed !== null) {
+    return pointed
+  }
+  return piecesFor(groups, hoveredFeatures, null)
 }

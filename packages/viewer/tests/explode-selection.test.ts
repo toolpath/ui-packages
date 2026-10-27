@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { ExplodeGroup } from '../src/model/explode.js'
-import { piecesFor, settleClick, type PieceClick } from '../src/model/explode-selection.js'
+import {
+  hoveredPieces,
+  paintKey,
+  piecesFor,
+  selectionKey,
+  settleClick,
+  type PieceClick,
+} from '../src/model/explode-selection.js'
 
 const piece = (id: string, featureTags: Array<string>): ExplodeGroup => ({
   id,
@@ -41,6 +48,50 @@ describe('piecesFor', () => {
     expect(piecesFor(groups, ['g', 'F'], 'face-1')).toEqual(['face-1', 'face-2'])
     // A click on `face-2` stands for both `f` and `g`, so it keeps both to itself.
     expect(piecesFor(groups, ['f', 'g', 'h'], 'face-2')).toEqual(['face-2', 'face-3'])
+  })
+})
+
+describe('selectionKey and paintKey', () => {
+  it('key a fresh array by its contents', () => {
+    expect(selectionKey(['f', 'g'])).toBe(selectionKey(['f', 'g']))
+    expect(selectionKey(['f', 'g'])).not.toBe(selectionKey(['g', 'f']))
+    expect(selectionKey(undefined)).toBe('')
+    expect(selectionKey([])).toBe('')
+  })
+
+  it('tell paint entries apart by target, color and weight', () => {
+    const layer = [{ tag: 'f', color: 0xff0000 }]
+    expect(paintKey(layer)).toBe(paintKey([{ tag: 'f', color: 0xff0000 }]))
+    expect(paintKey(layer)).not.toBe(paintKey([{ tag: 'f', color: 0xff0000, weight: 1 }]))
+    expect(paintKey(layer)).not.toBe(paintKey([{ tag: 'f', color: 0x00ff00 }]))
+    expect(paintKey([{ region: 2, color: 1 }])).not.toBe(paintKey([{ region: 3, color: 1 }]))
+    expect(paintKey(undefined)).toBe(paintKey([]))
+  })
+})
+
+describe('hoveredPieces', () => {
+  const base = { hovered: undefined, hover: true, pointed: null, hoveredFeatures: undefined }
+
+  it('takes the application’s own hovered pieces over everything else', () => {
+    const own = { ...base, pointed: 'face-1', hoveredFeatures: ['h'] }
+    expect(hoveredPieces(groups, { ...own, hovered: 'face-3' })).toBe('face-3')
+    expect(hoveredPieces(groups, { ...own, hovered: null })).toBeNull()
+  })
+
+  it('lights the piece under the pointer while hover is on', () => {
+    expect(hoveredPieces(groups, { ...base, pointed: 'face-2', hoveredFeatures: ['h'] })).toBe(
+      'face-2',
+    )
+  })
+
+  it('falls back to the hovered features, every piece of them', () => {
+    const listed = { ...base, hoveredFeatures: ['f'] }
+    expect(hoveredPieces(groups, listed)).toEqual(['face-1', 'face-2'])
+    expect(hoveredPieces(groups, { ...listed, hover: false, pointed: 'face-3' })).toEqual([
+      'face-1',
+      'face-2',
+    ])
+    expect(hoveredPieces(groups, base)).toBeNull()
   })
 })
 

@@ -34,7 +34,14 @@ import type {
   ExplodePick,
   ExplodeRegionColors,
 } from './model/explode.js'
-import { type PieceClick, piecesFor, settleClick } from './model/explode-selection.js'
+import {
+  type PieceClick,
+  hoveredPieces,
+  paintKey,
+  piecesFor,
+  selectionKey,
+  settleClick,
+} from './model/explode-selection.js'
 import { edgeOpacityScale, resolveExplodeTheme, type ExplodeTheme } from './render/explode-theme.js'
 import { explodeRegionColors, explodeTint } from './render/explode-paint.js'
 import { explodeFits } from './render/explode-layout.js'
@@ -432,14 +439,6 @@ const useByContent = <T,>(value: T, key: string): T => {
   return held.current.value
 }
 
-const paintKey = (layer: ReadonlyArray<FeatureHighlight | RegionHighlight> | undefined): string =>
-  (layer ?? [])
-    .map(
-      (entry) =>
-        `${'tag' in entry ? entry.tag : entry.region}:${entry.color}:${entry.weight ?? ''}`,
-    )
-    .join(' ')
-
 /** GPU batching preserves each piece's pick map, source highlight, and connector. */
 export const ExplodedPart = (props: ExplodedPartProps) => {
   const part = useContext(PartContext)
@@ -455,12 +454,9 @@ export const ExplodedPart = (props: ExplodedPartProps) => {
   const fits = useMemo(() => explodeFits(model, groups), [model, groups])
   const highlights = useByContent(props.highlights, paintKey(props.highlights))
   const regionHighlights = useByContent(props.regionHighlights, paintKey(props.regionHighlights))
-  const selectionKey = props.selectedFeatures?.join('\n') ?? ''
-  const selectedFeatures = useByContent(props.selectedFeatures, selectionKey)
-  const hoveredFeatures = useByContent(
-    props.hoveredFeatures,
-    props.hoveredFeatures?.join('\n') ?? '',
-  )
+  const selection = selectionKey(props.selectedFeatures)
+  const selectedFeatures = useByContent(props.selectedFeatures, selection)
+  const hoveredFeatures = useByContent(props.hoveredFeatures, selectionKey(props.hoveredFeatures))
   const regionColors = useMemo(
     () => explodeRegionColors(model, groups, { highlights, regionHighlights }, ownRegionColors),
     [model, groups, highlights, regionHighlights, ownRegionColors],
@@ -495,13 +491,13 @@ export const ExplodedPart = (props: ExplodedPartProps) => {
     setPointed(null)
   }, [groups, visible])
   // A click keeps the selection it produced, and lets go once the selection moves on.
-  const clicked = settleClick(click, selectionKey)?.id ?? null
+  const clicked = settleClick(click, selection)?.id ?? null
   useLayoutEffect(() => {
-    setClick((current) => settleClick(current, selectionKey))
-  }, [click, selectionKey])
+    setClick((current) => settleClick(current, selection))
+  }, [click, selection])
   // Read by a click, for the selection it lands on.
-  const selectionAtClick = useRef(selectionKey)
-  selectionAtClick.current = selectionKey
+  const selectionAtClick = useRef(selection)
+  selectionAtClick.current = selection
   const ownSelected = props.selected
   const ownHovered = props.hovered
   const selected = useMemo(
@@ -509,12 +505,7 @@ export const ExplodedPart = (props: ExplodedPartProps) => {
     [ownSelected, groups, selectedFeatures, clicked],
   )
   const hovered = useMemo(
-    () =>
-      ownHovered !== undefined
-        ? ownHovered
-        : hover && pointed !== null
-          ? pointed
-          : piecesFor(groups, hoveredFeatures, null),
+    () => hoveredPieces(groups, { hovered: ownHovered, hover, pointed, hoveredFeatures }),
     [ownHovered, hover, pointed, groups, hoveredFeatures],
   )
   const invalidate = useThree((state) => state.invalidate)
