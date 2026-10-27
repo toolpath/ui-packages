@@ -21,6 +21,7 @@ import {
   type PlanSetupView,
 } from '../src/plan-view'
 import { addFolder, moveFolder, moveWithin, type DraftSetup } from '../src/plan-draft'
+import { trimmedFeature } from './trimmed-feature'
 
 const up = { x: 0, y: 0, z: 1 }
 const down = { x: 0, y: 0, z: -1 }
@@ -51,6 +52,7 @@ const plan = (overrides: Partial<EnginePlan> = {}): EnginePlan => ({
     { idx: 1, direction: side, unmachined: [], actions: [] },
   ],
   setupPlan: null,
+  trimmedFeatures: [],
   ...overrides,
 })
 
@@ -331,6 +333,25 @@ describe('featureTypeLabel', () => {
 })
 
 describe('draftView', () => {
+  it('labels a pinned trimmed tag from the latest plan, and as the part does with no plan', () => {
+    const draft = {
+      setups: [{ id: 's-up', name: 'Top', direction: up, features: ["Y'", 'x'], folders: [] }],
+    }
+    const trimmedFeatures = [
+      trimmedFeature({ featureTag: "y'", regionIdxs: [2], fromFeatureTag: 'y' }),
+      // Not pinned: never a row of the constraints.
+      trimmedFeature({ featureTag: "w'", regionIdxs: [3], fromFeatureTag: 'w' }),
+    ]
+    const rows = (plan: Parameters<typeof draftView>[2]) =>
+      draftView(draft, part, plan).flatMap(rowsOf)
+    expect(rows({ trimmedFeatures })).toEqual([
+      { tag: "Y'", label: 'Pocket y (trimmed)', type: 'pocket', trimmed: true },
+      { tag: 'x', label: 'Pocket x', type: undefined },
+    ])
+    expect(rows(null)).toEqual(draftView(draft, part).flatMap(rowsOf))
+    expect(rows(null)[0]).toEqual({ tag: "Y'", label: "Pocket Y'", type: undefined })
+  })
+
   it('lays the draft out in its order, each folder listing its pins in the order pinned', () => {
     const setups = draftView(
       {

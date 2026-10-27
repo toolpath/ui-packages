@@ -1,10 +1,13 @@
-import { tagKey, type Coverage, type Face } from './coverage'
+import { tagKey, unlistedTrimmedFeatures, type Coverage, type Face } from './coverage'
 import {
   featureTypeLabel,
   notMachinedOf,
+  trimmedFeatureLabel,
   type EnginePlan,
   type EnginePlanSetup,
   type PlanDirection,
+  type TrimmedFeature,
+  type WithTrimmedFeatures,
 } from './engine-plan'
 import { notFinishedIn } from './not-machined'
 import { placedFolders, sameDirection, type Constraints, type PlacedFolder } from './plan-draft'
@@ -36,6 +39,8 @@ export interface PlanFeatureRow {
   type?: string
   /** A hole's bore, once its sheet is in: what holes of a type are grouped by. */
   bore?: FeatureBore
+  /** A feature a statement trimmed (`TrimmedFeature`), which the part's report does not list. */
+  trimmed?: true
 }
 
 /** A hole's bore: its diameter in millimetres, and as the page says it (`⌀6.35 mm`). */
@@ -276,8 +281,41 @@ export interface PlanPart {
 
 export { featureTypeLabel }
 
-/** A tag's row, as the part reads it. */
-const featureRow = (part: PlanPart, tag: string): PlanFeatureRow => {
+/** A plan's trimmed features, by tag (lower case). */
+type TrimmedByTag = ReadonlyMap<string, TrimmedFeature>
+
+/**
+ * A plan's trimmed features by tag (lower case), but any whose tag the part's report lists — one
+ * the part has a type for (`featureType`) — as `planFeaturesOf` leaves them out. None with no plan.
+ */
+const trimmedByTag = (plan: WithTrimmedFeatures, part: PlanPart): TrimmedByTag =>
+  new Map(
+    unlistedTrimmedFeatures(plan, (key) => part.featureType?.(key) !== undefined).map((feature) => [
+      tagKey(feature.featureTag),
+      feature,
+    ]),
+  )
+
+/**
+ * A tag's row, as the part reads it. A trimmed tag reads as what it was trimmed from, with its own
+ * type (`trimmedFeatureLabel`), and that feature's bore where the trimming left its type as it was.
+ */
+const featureRow = (part: PlanPart, trimmedFeatures: TrimmedByTag, tag: string): PlanFeatureRow => {
+  const trimmedFeature = trimmedFeatures.get(tagKey(tag))
+  if (trimmedFeature) {
+    const origin = trimmedFeature.fromFeatureTag
+    const bore =
+      origin && part.featureType?.(origin) === trimmedFeature.featureType
+        ? part.featureBore?.(origin)
+        : undefined
+    return {
+      tag,
+      label: trimmedFeatureLabel(trimmedFeature, part.featureLabel),
+      type: trimmedFeature.featureType,
+      trimmed: true,
+      ...(bore ? { bore } : {}),
+    }
+  }
   const bore = part.featureBore?.(tag)
   return {
     tag,
@@ -296,14 +334,29 @@ const unique = (tags: Iterable<string>): Array<string> => [...new Set(tags)]
  * The plan's own statement (`setupPlan`) says both, and is what a plan is edited from. An Engine
  * that does not serve one (before API 1.19) gives each setup only its first direction, so the
  * features are read off its passes instead: every tag an action cuts, in machining order.
+ *
+ * A tag the plan's statements trimmed (`trimmedFeatures`) is a row of its own, marked `trimmed`:
+ * `Pocket (trimmed)`, from the label of the feature it was trimmed from.
  */
 export const planView = (
-  plan: Pick<EnginePlan, 'setups' | 'setupPlan'>,
+  plan: Pick<EnginePlan, 'setups' | 'setupPlan' | 'trimmedFeatures'>,
   part: PlanPart,
-): Array<PlannedSetupView> =>
-  plan.setups.map((setup, index) =>
-    plannedSetupView(setup, index, plannedDirections(plan, setup, index), part),
+): Array<PlannedSetupView> => {
+  const trimmedFeatures = trimmedByTag(plan, part)
+  const reading: SetupReading = {
+    directionIndex: (direction) => part.directionIndex(direction),
+    row: (tag) => featureRow(part, trimmedFeatures, tag),
+  }
+  return plan.setups.map((setup, index) =>
+    plannedSetupView(setup, index, plannedDirections(plan, setup, index), reading),
   )
+}
+
+/** What a planned setup's view reads of the part: each direction's place, and each tag's row. */
+interface SetupReading {
+  directionIndex: (direction: PlanDirection) => number
+  row: (tag: string) => PlanFeatureRow
+}
 
 /** One direction a planned setup is machined from, and the tags it takes. */
 interface PlannedDirection {
@@ -343,24 +396,22 @@ const plannedSetupView = (
   setup: EnginePlanSetup,
   index: number,
   directions: ReadonlyArray<PlannedDirection>,
-  part: PlanPart,
-): PlannedSetupView => {
-  const row = (tag: string): PlanFeatureRow => featureRow(part, tag)
-  return flatView({
+  { directionIndex, row }: SetupReading,
+): PlannedSetupView =>
+  flatView({
     id: `setup-${setup.idx}`,
     name: `Setup ${index + 1}`,
     process: directions.length > 1 ? '3+2' : '3axis',
     orientations: directions.map(({ direction, tags }, at) => ({
       id: `setup-${setup.idx}-${at}`,
       direction,
-      directionIndex: part.directionIndex(direction),
+      directionIndex: directionIndex(direction),
       features: tags.map(row),
     })),
     notMachined: unique(notMachinedOf(setup)).map(row),
     notFinished: notFinishedIn(setup),
     operations: setup.actions.length,
   })
-}
 
 /**
  * A plan's count of holds and of the directions they are machined from (FLD60): a setup is one
@@ -564,12 +615,15 @@ export const planHatch = (input: PlanPaintInput): Array<FaceHatch> => {
 /**
  * The draft as the page lays it out: its folders, in its order and with its names, each listing
  * what is pinned in it in the order it was pinned (MP-5). Nothing of Toolpath's: the constraints,
- * and only those.
+ * and only those. A pinned tag the latest plan (`plan`) trimmed reads as `planView` reads it,
+ * `Pocket (trimmed)`; with no plan, as the part labels it.
  */
 export const draftView = (
   draft: Pick<Constraints, 'setups'>,
   part: PlanPart,
+  plan: WithTrimmedFeatures = null,
 ): Array<PlanSetupView> => {
+  const trimmedFeatures = trimmedByTag(plan, part)
   const placed = placedFolders(draft.setups)
   const view = (here: PlacedFolder): PlanSetupView => ({
     id: here.folder.id,
@@ -580,7 +634,7 @@ export const draftView = (
         id: `${here.folder.id}-0`,
         direction: here.direction,
         directionIndex: part.directionIndex(here.direction),
-        features: unique(here.folder.features).map((tag) => featureRow(part, tag)),
+        features: unique(here.folder.features).map((tag) => featureRow(part, trimmedFeatures, tag)),
       },
     ],
     depth: here.depth,

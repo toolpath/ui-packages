@@ -642,6 +642,26 @@ describe('the app’s clicks, as actions', () => {
     expect(pinned).toMatchObject({ facts: { unignored: [1, 4] } })
   })
 
+  it('un-ignores nothing for a trimmed feature it pins: no ignored face is its own', () => {
+    // c' is what ignoring face 9 left of a feature; the rules read its faces through
+    // `planFeaturesOf`.
+    const trimmedRules: PlanRules = {
+      regionsOf: (tag) => ({ "c'": [7, 8] })[tag] ?? [],
+      kernel: 'k1',
+    }
+    const empty = { ...draft, setups: [], done: [9], doneKernel: 'k1' }
+    const trimmed: Array<PlannedSetup> = [
+      { orientations: [{ direction: up, features: [{ tag: "c'" }] }], rows: [{ tag: "c'" }] },
+    ]
+    const pinned = applyDraftAction(
+      empty,
+      { kind: 'fromPlan', planned: trimmed, pins: true, idSeed: 'a' },
+      trimmedRules,
+    )
+    expect(made(pinned)).toMatchObject({ done: [9], setups: [{ features: ["c'"] }] })
+    expect(pinned).toMatchObject({ facts: { unignored: [] } })
+  })
+
   it('starts from Toolpath’s plan only on a plan with no folders', () => {
     expect(apply({ kind: 'fromPlan', planned, pins: true, idSeed: 'a' })).toEqual({
       refused: 'Start from Toolpath’s plan while the plan holds no folders.',

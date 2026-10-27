@@ -57,6 +57,34 @@ export interface PlanIssue {
   regionCount: number
 }
 
+/**
+ * What is left of a part's feature once a statement keeps some of its regions away: ignored
+ * regions (from API 1.30.0) or, from the Engine release that plans with tp-kernel 0.29, a pinned
+ * feature sharing faces with it, maybe from another direction. A plan's tags can name it, and a
+ * draft can pin it; the part's report does not list it.
+ */
+export interface TrimmedFeature {
+  featureTag: string
+  /** As on a part feature, in snake case: `open_pocket`. */
+  featureType: string
+  machiningDirection: PlanDirection
+  regionIdxs: Array<number>
+  /** The report feature it was trimmed from, or null where Toolpath does not say. */
+  fromFeatureTag: string | null
+}
+
+/**
+ * A trimmed feature as a person says it: its origin's label (`labelOf`), else its type's, with
+ * ` (trimmed)` after it — `Pocket (trimmed)`.
+ */
+export const trimmedFeatureLabel = (
+  feature: Pick<TrimmedFeature, 'featureType' | 'fromFeatureTag'>,
+  labelOf: (tag: string) => string,
+): string => {
+  const origin = feature.fromFeatureTag
+  return `${origin ? labelOf(origin) : featureTypeLabel(feature.featureType)} (trimmed)`
+}
+
 export interface EnginePlan {
   planId: string
   /**
@@ -75,7 +103,19 @@ export interface EnginePlan {
   setups: Array<EnginePlanSetup>
   /** Null from an Engine that does not serve it (before API 1.19), or for a plan with no setup. */
   setupPlan: SetupPlan | null
+  /**
+   * The features the plan's tags can name that the part's report does not list (`TrimmedFeature`).
+   * Null or absent from an Engine that does not serve it (before API 1.30.0): none.
+   */
+  trimmedFeatures?: ReadonlyArray<TrimmedFeature> | null
 }
+
+/** What reads a plan's trimmed features takes: the plan, or as little of it, or none. */
+export type WithTrimmedFeatures = Pick<EnginePlan, 'trimmedFeatures'> | null
+
+/** A plan's trimmed features: none with no plan, or from an Engine that does not serve them. */
+export const trimmedFeaturesOf = (plan: WithTrimmedFeatures): ReadonlyArray<TrimmedFeature> =>
+  plan?.trimmedFeatures ?? []
 
 /**
  * Which run of a plan this is: its id and the job that made it. What the Plan page stamps a taken-out
