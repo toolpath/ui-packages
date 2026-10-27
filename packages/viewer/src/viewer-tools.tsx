@@ -33,6 +33,8 @@ export interface ViewerToolGroup {
 }
 
 export interface ViewerToolGroupOptions {
+  /** A name of your own for a tool, in place of the standard one. */
+  labels?: Partial<Record<ViewerAction, string>>
   /** A line of your own for a tool, in place of the standard one. */
   notes?: Partial<Record<ViewerAction, string>>
   /** Why a tool cannot work yet; leave a tool out, or give `null`, once it can. */
@@ -139,7 +141,7 @@ const GROUPS: ReadonlyArray<GroupEntry> = [
  */
 export const viewerToolGroups = (
   controls: ViewerToolbarControls,
-  { notes = {}, gates = {} }: ViewerToolGroupOptions = {},
+  { labels = {}, notes = {}, gates = {} }: ViewerToolGroupOptions = {},
 ): Array<ViewerToolGroup> =>
   GROUPS.map(({ id, label, title, icon, tools }) => ({
     id,
@@ -154,7 +156,7 @@ export const viewerToolGroups = (
       return [
         {
           id: action,
-          label: toolLabel,
+          label: labels[action] ?? toolLabel,
           note: notes[action] ?? note,
           icon: <ToolbarIcon name={action} />,
           on: isAction ? undefined : (control.pressed ?? false),

@@ -32,19 +32,22 @@ describe('viewerToolGroups', () => {
     expect(onClick).toHaveBeenCalledOnce()
   })
 
-  it("takes the app's notes and gates in place of the standard ones", () => {
+  it("takes the app's labels, notes and gates in place of the standard ones", () => {
     const [scene, dfm] = viewerToolGroups(
       {
         stock: { onClick: () => {} },
+        tools: { onClick: () => {} },
         directions: { onClick: () => {} },
         hover: { onClick: () => {} },
       },
       {
+        labels: { tools: 'Largest cutter' },
         notes: { stock: 'The smallest round bar the part fits in' },
         gates: { directions: 'Waits for the DFM check', hover: null },
       },
     )
 
+    expect(scene?.tools.map((tool) => tool.label)).toEqual(['Stock', 'Largest cutter'])
     expect(scene?.tools[0]?.note).toBe('The smallest round bar the part fits in')
     expect(dfm?.tools.map((tool) => tool.gate)).toEqual(['Waits for the DFM check', null])
   })

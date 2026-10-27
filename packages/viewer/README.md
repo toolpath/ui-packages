@@ -600,8 +600,8 @@ that groups, explains and pins its tools, such as `@toolpath/ui`'s `ToolDock`. I
 puts them in four groups (`scene`, `dfm`, `tools`, `view`), each tool with its
 label, a line on what it does, its icon, whether it is on, and its `onClick`. A
 control you did not supply is left out, and so is a group left with none.
-`options.notes` replaces a tool's line, and `options.gates` says why a tool cannot
-work yet:
+`options.labels` renames a tool, `options.notes` replaces its line, and
+`options.gates` says why a tool cannot work yet:
 
 ```tsx
 import { ToolDock } from '@toolpath/ui'
