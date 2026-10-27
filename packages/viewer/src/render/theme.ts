@@ -47,11 +47,11 @@ export interface ViewerTheme {
   readonly sectionHandle: number
   readonly sectionHandleOutline: number
   /**
-   * A measurement: its lines, end markers, arc and label border, as
-   * `<MeasureTool>` draws them. The indicator that shows where the pointer
-   * will snap takes {@link ViewerTheme.measureSnap}.
+   * The lines `<ToolMarks>` draws. `<MeasureTool>` gives each measurement a
+   * colour of its own instead.
    */
   readonly measure: number
+  /** @deprecated Unused since `<MeasureTool>` stopped drawing its own snap indicator. */
   readonly measureSnap: number
   /**
    * The view cube's panels, the lines between them, and its face names. A

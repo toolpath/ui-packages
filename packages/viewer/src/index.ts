@@ -53,7 +53,9 @@ export { Axes, Grid, ViewCube } from './primitives.js'
 export { DirectionArrows } from './direction-arrows.js'
 export { SectionView, resolveSectionPlane } from './section-view.js'
 export { SectionTool } from './section-tool.js'
-export { MEASURE_LABEL_CLASS, MeasureTool } from './measure-tool.js'
+export { MeasureTool } from './measure-tool.js'
+export { MEASURE_LABEL_CLASS } from './measure-labels.js'
+export { MEASURE_HINT_CLASS } from './measure-hint.js'
 export { ToolMarks } from './tool-marks.js'
 export {
   ANGLE_ARC_FRACTION,
@@ -275,7 +277,10 @@ export type {
 export type { SectionStore } from './render/section-store.js'
 export type { CapMaterial, CapUniforms } from './render/section-cap.js'
 export type { SectionToolProps } from './section-tool.js'
-export type { MeasureLabelKind, MeasureToolProps } from './measure-tool.js'
+export type { MeasureToolProps } from './measure-tool.js'
+export type { MeasureLabelKind } from './measure-labels.js'
+export type { MeasureGroup, MeasurePick, MeasuredPoint } from './render/measure-picks.js'
+export type { MeasuredFace } from './render/face-measure.js'
 export type { ToolMarksProps } from './tool-marks.js'
 export type { ToolMark, ToolProfilePoint } from './render/tool-marks.js'
 export type {

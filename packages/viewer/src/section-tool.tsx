@@ -66,7 +66,7 @@ export interface SectionToolProps {
  * without also selecting it, and a cut part is looked at rather than picked
  * at. Unmounting it hands the pointer back. While it is offering a cut — up,
  * with none placed yet — a `<MeasureTool>` beside it waits too, so the click
- * that chooses the cut does not also place a measurement point.
+ * that chooses the cut does not also pick for a measurement.
  */
 export const SectionTool = ({ theme }: SectionToolProps) => {
   const store = useSectionStore()

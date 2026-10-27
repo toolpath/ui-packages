@@ -1,15 +1,13 @@
-import { AngleIcon, RulerIcon, TrashIcon } from '@phosphor-icons/react'
-import type { MeasureMode, SectionState } from '@toolpath/viewer'
+import { TrashIcon } from '@phosphor-icons/react'
+import type { SectionState } from '@toolpath/viewer'
 
 interface AnalysisOptionsProps {
   sectioning: boolean
   measuring: boolean
   cut: SectionState | null
   offset: number
-  measureMode: MeasureMode
   onOffsetChange: (offset: number) => void
   onClearCut: () => void
-  onMeasureModeChange: (mode: MeasureMode) => void
   onClearMeasurements: () => void
 }
 
@@ -19,10 +17,8 @@ export const AnalysisOptions = ({
   measuring,
   cut,
   offset,
-  measureMode,
   onOffsetChange,
   onClearCut,
-  onMeasureModeChange,
   onClearMeasurements,
 }: AnalysisOptionsProps) => {
   if (!sectioning && !measuring) return null
@@ -61,34 +57,14 @@ export const AnalysisOptions = ({
       ) : null}
       {sectioning && measuring ? <span className="analysis-divider" aria-hidden="true" /> : null}
       {measuring ? (
-        <>
-          <div className="measure-mode-toggle" role="group" aria-label="Measurement type">
-            <button
-              type="button"
-              aria-label="Distance"
-              aria-pressed={measureMode === 'distance'}
-              onClick={() => onMeasureModeChange('distance')}
-            >
-              <RulerIcon className="viewer-tool-icon" size={23} weight="regular" />
-            </button>
-            <button
-              type="button"
-              aria-label="Angle"
-              aria-pressed={measureMode === 'angle'}
-              onClick={() => onMeasureModeChange('angle')}
-            >
-              <AngleIcon className="viewer-tool-icon" size={23} weight="regular" />
-            </button>
-          </div>
-          <button
-            className="tool-icon-button"
-            type="button"
-            aria-label="Clear measurements"
-            onClick={onClearMeasurements}
-          >
-            <TrashIcon className="viewer-tool-icon" size={23} weight="regular" />
-          </button>
-        </>
+        <button
+          className="tool-icon-button"
+          type="button"
+          aria-label="Clear measurements"
+          onClick={onClearMeasurements}
+        >
+          <TrashIcon className="viewer-tool-icon" size={23} weight="regular" />
+        </button>
       ) : null}
     </div>
   )

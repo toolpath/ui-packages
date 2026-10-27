@@ -1,7 +1,7 @@
 import { Html, Line } from '@react-three/drei'
 import { useMemo } from 'react'
 import { DoubleSide } from 'three'
-import { MEASURE_LABEL_CLASS } from './measure-tool.js'
+import { MEASURE_LABEL_CLASS } from './measure-labels.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
 import { MEASURE_LINE_PIXELS, MEASURE_RENDER_ORDER } from './render/measure.js'
 import { ignoreRay } from './render/picking.js'

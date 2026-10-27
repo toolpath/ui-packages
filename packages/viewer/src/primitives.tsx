@@ -14,6 +14,7 @@ import {
   labelGeometry,
   labelTexture,
   panelGeometry,
+  VIEW_CUBE_MARGIN,
   viewVector,
 } from './render/view-cube.js'
 import { useViewerControls } from './viewer.js'
@@ -82,7 +83,7 @@ export interface ViewCubeProps {
  */
 export const ViewCube = ({
   alignment = 'top-right',
-  margin = [80, 80],
+  margin = VIEW_CUBE_MARGIN,
   theme,
   onViewChange,
 }: ViewCubeProps) => {
