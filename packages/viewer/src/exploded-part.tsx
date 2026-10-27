@@ -425,8 +425,10 @@ export const ExplodedPart = (props: ExplodedPartProps) => {
   const selection = selectionKey(props.selectedFeatures)
   const selectedFeatures = useByContent(props.selectedFeatures, selection)
   const hoveredFeatures = useByContent(props.hoveredFeatures, selectionKey(props.hoveredFeatures))
+  // Inline theme objects must not repaint the batch when their colors are unchanged.
+  const theme = useByContent(props.theme, Object.entries(props.theme ?? {}).join(' '))
   // Paint covers the part's own color, as on `<PartMesh>`.
-  const partColor = props.theme?.part ?? DEFAULT_THEME.part
+  const partColor = theme?.part ?? DEFAULT_THEME.part
   const regionColors = useMemo(
     () =>
       explodeRegionColors(
@@ -442,24 +444,7 @@ export const ExplodedPart = (props: ExplodedPartProps) => {
     () => explodeTint(groups, colors, regionColors),
     [groups, colors, regionColors],
   )
-  const {
-    part: ghost,
-    partEmissive,
-    edge,
-    edgeOpacity,
-    highlight,
-    hover: hoverColor,
-    picked,
-  } = props.theme ?? {}
-  // Inline theme objects must not repaint the batch when their colors are unchanged.
-  const appearance = useMemo(
-    () =>
-      resolveExplodeTheme(
-        { part: ghost, partEmissive, edge, edgeOpacity, highlight, hover: hoverColor, picked },
-        tint,
-      ),
-    [ghost, partEmissive, edge, edgeOpacity, highlight, hoverColor, picked, tint],
-  )
+  const appearance = useMemo(() => resolveExplodeTheme(theme, tint), [theme, tint])
   // The piece last clicked, and the piece under the pointer.
   const [click, setClick] = useState<PieceClick | null>(null)
   const [pointed, setPointed] = useState<string | null>(null)
