@@ -285,10 +285,44 @@ export const reactCompilerGuard = ({
   }
 }
 
-/** A build message located at a skipped function; assignable to esbuild's `PartialMessage`. */
+/** A build message located in a source file; assignable to esbuild's `PartialMessage`. */
 interface SkipMessage {
   text: string
-  location: { file: string; line: number }
+  location: { file: string; line: number; column?: number }
+}
+
+/** Where Babel's parser failed, when `error` is a parse error. */
+const syntaxErrorLocation = (error: unknown): { line: number; column: number } | undefined => {
+  if (typeof error !== 'object' || error === null || !('code' in error) || !('loc' in error)) {
+    return undefined
+  }
+  const { code, loc } = error
+  // `@babel/core` reports a parse error as BABEL_PARSE_ERROR, its parser as BABEL_PARSER_SYNTAX_ERROR.
+  if (
+    (code !== 'BABEL_PARSE_ERROR' && code !== 'BABEL_PARSER_SYNTAX_ERROR') ||
+    typeof loc !== 'object' ||
+    loc === null ||
+    !('line' in loc) ||
+    !('column' in loc) ||
+    typeof loc.line !== 'number' ||
+    typeof loc.column !== 'number'
+  ) {
+    return undefined
+  }
+  return { line: loc.line, column: loc.column }
+}
+
+/**
+ * The compiler plugin as this package resolves it, its optional peer, so the
+ * build does not depend on the working directory; Babel resolves the bare name
+ * from the working directory otherwise.
+ */
+const compilerPlugin = (): string => {
+  try {
+    return createRequire(import.meta.url).resolve('babel-plugin-react-compiler')
+  } catch {
+    return 'babel-plugin-react-compiler'
+  }
 }
 
 /** The parts of an esbuild plugin this one uses; assignable to esbuild's and tsup's `Plugin`. */
@@ -341,14 +375,37 @@ export const reactCompilerEsbuildPlugin = ({
         },
       }
       const { transformAsync } = await import('@babel/core')
-      const result = await transformAsync(await readFile(path, 'utf8'), {
-        filename: path,
-        babelrc: false,
-        configFile: false,
-        sourceMaps: 'inline',
-        parserOpts: { plugins: parserPlugins(path) },
-        plugins: [['babel-plugin-react-compiler', options]],
-      })
+      let result: Awaited<ReturnType<typeof transformAsync>>
+      try {
+        result = await transformAsync(await readFile(path, 'utf8'), {
+          filename: path,
+          babelrc: false,
+          configFile: false,
+          sourceMaps: 'inline',
+          // esbuild reports its own diagnostics at lines of this output; keep them the source's.
+          retainLines: true,
+          parserOpts: { plugins: parserPlugins(path) },
+          plugins: [[compilerPlugin(), options]],
+        })
+      } catch (error) {
+        const location = syntaxErrorLocation(error)
+        if (location === undefined) {
+          throw error
+        }
+        // Reported in the file that failed to parse, not at the import that loaded it.
+        const reason = error instanceof Error ? error.message.split('\n')[0] : undefined
+        return {
+          contents: '',
+          loader,
+          errors: [
+            {
+              text: `Babel could not parse this file for React Compiler: ${(reason ?? '').replace(`${path}: `, '')}`,
+              location: { file: path, ...location },
+            },
+          ],
+          warnings: [],
+        }
+      }
       const messages = [...skips.values()].map(
         (skip): SkipMessage => ({
           text: `React Compiler skipped this function, which runs uncompiled: ${skip.reason}. Fix it, or opt it out with a 'use no memo' directive and a comment saying why.`,

@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { build } from 'esbuild'
+import { build, type BuildFailure, type Message } from 'esbuild'
 import { describe, expect, it, vi } from 'vitest'
 import {
   assertReactCompiled,
@@ -231,5 +231,74 @@ describe('reactCompilerEsbuildPlugin and assertReactCompiled', () => {
     expect(() => {
       assertReactCompiled(join(root, 'dist'))
     }).toThrow(/No React Compiler output/)
+  })
+})
+
+describe('reactCompilerEsbuildPlugin diagnostics', () => {
+  /** Builds `entry` from a directory holding `files`; returns the build's messages either way. */
+  const diagnose = async (
+    files: Record<string, string>,
+    entry: string,
+  ): Promise<{ errors: Array<Message>; warnings: Array<Message> }> => {
+    const root = temporaryDirectory(files)
+    try {
+      const result = await build({
+        entryPoints: [join(root, entry)],
+        outdir: join(root, 'dist'),
+        bundle: true,
+        format: 'esm',
+        jsx: 'automatic',
+        external: ['react', 'react/*'],
+        logLevel: 'silent',
+        plugins: [reactCompilerEsbuildPlugin()],
+      })
+      return { errors: [], warnings: result.warnings }
+    } catch (failure) {
+      return {
+        errors: (failure as BuildFailure).errors,
+        warnings: (failure as BuildFailure).warnings,
+      }
+    }
+  }
+
+  it("reports esbuild's own warnings at the source line of a compiled file", async () => {
+    const { warnings } = await diagnose(
+      {
+        'src/Counter.tsx': [
+          "import { useState } from 'react'",
+          '',
+          'export const Counter = ({ label }: { label: string }) => {',
+          '  const [count, setCount] = useState(0)',
+          '  return <button onClick={() => setCount(count + 1)}>{label}: {count}</button>',
+          '}',
+          '',
+          'export const settings = { size: 1, size: 2 }',
+          '',
+        ].join('\n'),
+      },
+      'src/Counter.tsx',
+    )
+    expect(warnings).toEqual([
+      expect.objectContaining({
+        text: expect.stringMatching(/Duplicate key "size"/),
+        location: expect.objectContaining({ line: 8 }),
+      }),
+    ])
+  })
+
+  it('reports a parse error in the file that failed, not at its import', async () => {
+    const { errors } = await diagnose(
+      {
+        'src/index.ts': "import { value } from './broken.js'\n\nexport const copy = value\n",
+        'src/broken.ts': 'export const value = 1\nexport const other = (\n',
+      },
+      'src/index.ts',
+    )
+    expect(errors).toEqual([
+      expect.objectContaining({
+        text: expect.stringMatching(/^Babel could not parse this file for React Compiler: /),
+        location: expect.objectContaining({ file: expect.stringMatching(/broken\.ts$/), line: 3 }),
+      }),
+    ])
   })
 })
