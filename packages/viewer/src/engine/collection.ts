@@ -22,10 +22,10 @@ export interface PartCollectionLoader {
   /** Resolves after every requested item succeeds or fails; successful geometry survives retry. */
   load(items: ReadonlyArray<CollectionModel>): Promise<CollectionLoadResult>
   /**
-   * Releases items a load returned, once each, after the renderer has committed their replacements.
-   * A mesh that a later load also returned stays loaded until every item holding it is released.
+   * Call with every item the scene shows, after it has rendered them. Meshes shown before and
+   * missing now are freed; meshes a load returned that have not been shown yet are held for it.
    */
-  release(items: ReadonlyArray<LoadedCollectionItem>): void
+  keep(items: ReadonlyArray<LoadedCollectionItem>): void
   /** Aborts pending reads and disposes this session's geometry. Call after unmounting its meshes. */
   dispose(): void
 }
@@ -44,9 +44,9 @@ export const createPartCollectionLoader = (
   } else {
     options.signal?.addEventListener('abort', abort, { once: true })
   }
-  // One reference per item handed out: a retry or replacement can return a mesh an earlier
-  // result already holds, and releasing that earlier item must not free it.
-  const held = new Map<BufferGeometry, { resource: EngineGeometryResource; count: number }>()
+  // Every mesh a load has returned, with whether the scene has shown it. One cache reference
+  // each, however many results returned it: what frees a mesh is the scene no longer showing it.
+  const held = new Map<BufferGeometry, { resource: EngineGeometryResource; shown: boolean }>()
   const cache = createEngineGeometryCache(async (part) => {
     const geometry = await loadPartMesh(part.mesh, {
       fetch: options.fetch,
@@ -76,6 +76,8 @@ export const createPartCollectionLoader = (
           const item = items[next++]!
           // A new request object permits retrying a failed URL; fulfilled artifacts are reused.
           const resource = cache.get({ ...item.model })
+          // Held while this load waits, so a `keep` meanwhile cannot evict it.
+          cache.retain(resource)
           try {
             await resource.promise
             controller.signal.throwIfAborted()
@@ -85,15 +87,14 @@ export const createPartCollectionLoader = (
             if (!resource.geometry) {
               throw new Error('The mesh loaded without geometry.')
             }
-            const entry = held.get(resource.geometry)
-            if (entry) {
-              entry.count += 1
+            if (held.has(resource.geometry)) {
+              cache.release(resource)
             } else {
-              held.set(resource.geometry, { resource, count: 1 })
+              held.set(resource.geometry, { resource, shown: false })
             }
-            cache.retain(resource)
             loaded.set(item.id, { ...item, geometry: resource.geometry })
           } catch (error) {
+            cache.release(resource)
             controller.signal.throwIfAborted()
             failed.set(item.id, error instanceof Error ? error : new Error(String(error)))
           }
@@ -107,17 +108,15 @@ export const createPartCollectionLoader = (
         ),
       }
     },
-    release(items) {
-      for (const item of items) {
-        const entry = held.get(item.geometry)
-        if (!entry) {
-          continue
+    keep(items) {
+      const shown = new Set(items.map((item) => item.geometry))
+      for (const [geometry, entry] of held) {
+        if (shown.has(geometry)) {
+          entry.shown = true
+        } else if (entry.shown) {
+          held.delete(geometry)
+          cache.release(entry.resource)
         }
-        entry.count -= 1
-        if (entry.count === 0) {
-          held.delete(item.geometry)
-        }
-        cache.release(entry.resource)
       }
     },
     dispose() {

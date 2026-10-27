@@ -123,34 +123,54 @@ describe('complete collections', () => {
     ])
     loader.dispose()
   })
-  it('keeps meshes a retry returned again when the superseded result is released', async () => {
+  it('frees only the meshes the scene stops showing, after a retry and a replacement', async () => {
     let broken = true
     const request = vi.fn(async (url: string) =>
       url.endsWith('/9.glb') && broken
         ? new Response(null, { status: 500 })
         : new Response(loadMeshFixture('local-0.3.0-cube')),
     )
-    // More bodies than the cache keeps unreferenced, so a dropped reference is evicted at once.
+    // More bodies than the cache keeps unreferenced, so a freed mesh is evicted at once.
     const loader = createPartCollectionLoader({ fetch: request })
+    // A partial result the scene never shows: its meshes are held for the retry.
     const first = await loader.load(models(10))
+    expect(first.failures.map((failure) => failure.id)).toEqual(['9'])
     broken = false
     const again = await loader.load(models(10))
     expect(again.items[0]!.geometry).toBe(first.items[0]!.geometry)
-    const disposed = vi.fn()
-    again.items[0]!.geometry.addEventListener('dispose', disposed)
-    loader.release(first.items)
-    expect(disposed).not.toHaveBeenCalled()
+    loader.keep(again.items)
+    const replaced = vi.fn()
+    again.items[0]!.geometry.addEventListener('dispose', replaced)
+    const kept = vi.fn()
+    again.items[1]!.geometry.addEventListener('dispose', kept)
+    const [display] = models(1)
+    const [analysis] = (
+      await loader.load([
+        {
+          ...display!,
+          model: {
+            ...display!.model,
+            mesh: { ...display!.model.mesh, glbUrl: 'https://test/analysis.glb' },
+          },
+        },
+      ])
+    ).items
+    expect(replaced).not.toHaveBeenCalled()
+    loader.keep([analysis!, ...again.items.slice(1)])
+    expect(replaced).toHaveBeenCalledTimes(1)
+    expect(kept).not.toHaveBeenCalled()
     const fetched = request.mock.calls.length
-    await loader.load(models(10))
+    await loader.load(models(10).slice(1))
     expect(request.mock.calls.length).toBe(fetched)
     loader.dispose()
-    expect(disposed).toHaveBeenCalledTimes(1)
+    expect(kept).toHaveBeenCalledTimes(1)
   })
   it('prepares a replacement model and geometry while preserving the visible artifact', async () => {
     const request = vi.fn(async () => new Response(loadMeshFixture('local-0.3.0-cube')))
     const loader = createPartCollectionLoader({ fetch: request })
     const [display] = models(1)
     const original = (await loader.load([display!])).items[0]!
+    loader.keep([original])
     const disposed = vi.fn()
     original.geometry.addEventListener('dispose', disposed)
     const analysis = {
@@ -164,7 +184,7 @@ describe('complete collections', () => {
     expect(replacement.model).toBe(analysis.model)
     expect(replacement.geometry).not.toBe(original.geometry)
     expect(disposed).not.toHaveBeenCalled()
-    loader.release([original])
+    loader.keep([replacement])
     expect(replacement.geometry.getAttribute('position').count).toBeGreaterThan(0)
     loader.dispose()
     expect(disposed).toHaveBeenCalledTimes(1)

@@ -49,3 +49,18 @@ test('overlapping opaque bodies pick the nearest body once, with either button',
     true,
   )
 })
+test('moving onto a body in front of the hovered one hovers the body in front', async ({
+  page,
+}) => {
+  await page.goto('/tests/fixtures/collection.html')
+  await expect(page.getByTestId('scene')).not.toHaveText('')
+  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Stagger', exact: true }).click()
+  const scene = JSON.parse((await page.getByTestId('scene').textContent())!)
+  const canvas = page.locator('canvas')
+  await canvas.hover({ position: scene.alone })
+  await expect(page.getByTestId('hover')).toHaveText('left')
+  // One move, which reports the body behind as left before the body in front as entered.
+  await canvas.hover({ position: scene.covered })
+  await expect(page.getByTestId('hover')).toHaveText('right')
+})

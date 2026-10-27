@@ -298,5 +298,10 @@ export type { ExtendedCameraControlsOptions } from './render/controls.js'
 export type { ControlScheme, ControlSchemeOption } from './render/control-schemes.js'
 export type { Retarget, ViewerProps } from './viewer.js'
 export { PartCollection } from './part-collection.js'
-export type { PartCollectionItem, PartCollectionProps, CollectionPick } from './part-collection.js'
+export type {
+  PartCollectionItem,
+  PartCollectionProps,
+  PartCollectionRenderItem,
+  CollectionPick,
+} from './part-collection.js'
 export { collectionBounds } from './model/collection.js'

@@ -1090,7 +1090,8 @@ for repo workflows and published changes.
 
 Use `PartCollection` for meshes in a shared CAD coordinate frame. Each item has a
 caller-owned `id` plus the existing `PartMesh` props. Pick callbacks receive
-`{ id, pick }`; hover callbacks receive `(id, pick)`. Feature tags and region
+`{ id, pick }`; hover callbacks receive `(id, pick)`, and an item's leave is
+reported before the next item's entry. Feature tags and region
 numbers remain local to their item. Put scene tools inside the collection so
 sections and grids use its combined bounds. Selection and visibility remain
 controlled by the application. The collection draws one section cap and handle
@@ -1105,10 +1106,11 @@ Prepare the complete initial set before mounting `Viewer`. `/engine` exports
 method accepts `{ id, model }` items and returns ordered `items` and `failures`
 after all requests finish. It preserves CAD coordinates, validates meshes, and
 smooths normals within regions. Successful items remain cached for retries.
-Call `release(oldItems)` once for each result after committing its replacement;
-a mesh a newer result also returned stays loaded until every item holding it is
-released. Call `dispose()` after unmounting the collection. The loader owns
-geometry; `PartCollection` does not.
+After the scene renders a result, pass everything it shows to `keep(items)`:
+meshes it showed before and no longer does are freed, and meshes a load returned
+that it has not shown yet are held for it, such as a failed attempt's successes
+that a retry returns again. Call `dispose()` after unmounting the collection.
+The loader owns geometry; `PartCollection` does not.
 
 ```tsx
 import { Grid, PartCollection, SectionTool, Viewer, ViewCube } from '@toolpath/viewer'
@@ -1119,6 +1121,8 @@ const loader = createPartCollectionLoader({ concurrency: 3 })
 const prepared = await loader.load(models)
 // Handle failures before mounting the scene; retry with the same loader.
 if (prepared.failures.length) throw new AggregateError(prepared.failures.map(({ error }) => error))
+// Once the scene below has rendered, and again after any replacement:
+loader.keep(prepared.items)
 
 const scene = (
   <Viewer>
@@ -1133,4 +1137,7 @@ const scene = (
 ```
 
 `renderItem` can supply an application's existing part renderer while retaining
-shared bounds. The collection never uploads files or starts Engine analysis.
+shared bounds and the single section. It receives each item with `onPick` and
+`onHover` already reporting to the collection, so `<PartMesh {...item} />`
+behaves as the default renderer does. The collection never uploads files or
+starts Engine analysis.

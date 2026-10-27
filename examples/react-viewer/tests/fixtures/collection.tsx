@@ -24,17 +24,23 @@ const Probe = ({ report }: { report: (value: string) => void }) => {
       const material = (object as Mesh).material as ShaderMaterial | undefined
       if (material?.uniforms?.uMask) caps++
     })
-    const centers = [-35, 35].map((x) => {
-      const point = new Vector3(x, 0, 0).project(camera)
+    const toScreen = (x: number, z: number) => {
+      const point = new Vector3(x, 0, z).project(camera)
       return { x: ((point.x + 1) * size.width) / 2, y: ((1 - point.y) * size.height) / 2 }
-    })
-    report(JSON.stringify({ width: bounds.getSize(new Vector3()).x, centers, caps }))
+    }
+    const centers = [-35, 35].map((x) => toScreen(x, 0))
+    // In the staggered layout: on the left body alone, and where the right one covers it.
+    const alone = toScreen(-42, 12.7)
+    const covered = toScreen(-28, 22.7)
+    report(
+      JSON.stringify({ width: bounds.getSize(new Vector3()).x, centers, alone, covered, caps }),
+    )
   })
   return null
 }
 const App = () => {
   const viewer = useRef<ViewerHandle>(null)
-  const [overlap, setOverlap] = useState(false)
+  const [layout, setLayout] = useState<'apart' | 'overlap' | 'stagger'>('apart')
   const [pick, setPick] = useState<CollectionPick | null>(null)
   const [picks, setPicks] = useState<Array<string>>([])
   const [hover, setHover] = useState<string | null>(null)
@@ -43,9 +49,11 @@ const App = () => {
   const geometry = useMemo(
     () => [
       cube.geometry.clone().translate(-35, 0, 0),
-      cube.geometry.clone().translate(overlap ? -35 : 35, 0, overlap ? 10 : 0),
+      layout === 'apart'
+        ? cube.geometry.clone().translate(35, 0, 0)
+        : cube.geometry.clone().translate(layout === 'overlap' ? -35 : -22.3, 0, 10),
     ],
-    [overlap],
+    [layout],
   )
   useEffect(() => () => geometry.forEach((item) => item.dispose()), [geometry])
   const report = useCallback(
@@ -68,7 +76,8 @@ const App = () => {
   return (
     <>
       <Button onClick={() => viewer.current?.setView('top')}>Top</Button>
-      <Button onClick={() => setOverlap(true)}>Overlap</Button>
+      <Button onClick={() => setLayout('overlap')}>Overlap</Button>
+      <Button onClick={() => setLayout('stagger')}>Stagger</Button>
       <Button
         onClick={() =>
           viewer.current?.setSection({ enabled: true, normal: { x: 0, y: 0, z: 1 }, offset: 0.5 })
