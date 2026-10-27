@@ -63,3 +63,21 @@ describe('part opacity', () => {
     part.dispose()
   })
 })
+
+describe('part depth layers', () => {
+  it('pushes the surface back a step per layer, past the step for its own edges, and no further than 63', async () => {
+    const model = cubeModel()
+    const geometry = await parsePartGeometry(loadMeshFixture('local-0.3.0-cube'), model.mesh)
+    const part = createPart(model, geometry, DEFAULT_THEME)
+    const material = part.mesh.material as MeshLambertMaterial
+    expect(material.polygonOffsetUnits).toBe(1)
+    part.setDepthLayer(2)
+    expect(material.polygonOffset).toBe(true)
+    expect(material.polygonOffsetUnits).toBe(9)
+    part.setDepthLayer(1000)
+    expect(material.polygonOffsetUnits).toBe(1 + 4 * 63)
+    part.setDepthLayer(-3)
+    expect(material.polygonOffsetUnits).toBe(1)
+    part.dispose()
+  })
+})

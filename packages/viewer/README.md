@@ -1163,6 +1163,10 @@ Each item takes the `PartMesh` props, so bodies can look different:
 draws it see-through, for stock or a body that is not quoted. `bodyColors(ids)`
 gives each id a colour from `BODY_PALETTE`, distinct for the first sixteen and
 apart from the default hover; give copies of one body the same id to share one.
+Bodies saved one on another, as successive stages of one part often are, share
+surfaces. Where they do, the item earlier in `items` is drawn, rather than the
+two fighting over each pixel; set an item's `depthLayer` (0 to 63, lower in
+front) to put another body there, such as the one being pointed at.
 To show a whole file and also one body as a part, switch between
 `<PartCollection>` and `<EnginePart>` inside one `<Viewer>`, and call
 `ViewerHandle.fit()` after switching, since the viewer frames its first content

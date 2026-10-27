@@ -56,8 +56,11 @@ const Probe = ({ report }: { report: (value: string) => void }) => {
 }
 const App = () => {
   const viewer = useRef<ViewerHandle>(null)
-  const [layout, setLayout] = useState<'apart' | 'overlap' | 'stagger'>('apart')
+  const [layout, setLayout] = useState<'apart' | 'overlap' | 'stagger' | 'stack'>('apart')
   const [ghost, setGhost] = useState(false)
+  // The right body in red, and on the lower depth layer, for bodies that lie on one another.
+  const [tint, setTint] = useState(false)
+  const [raised, setRaised] = useState(false)
   const [pick, setPick] = useState<CollectionPick | null>(null)
   const [picks, setPicks] = useState<Array<string>>([])
   const [hover, setHover] = useState<string | null>(null)
@@ -68,7 +71,13 @@ const App = () => {
       cube.geometry.clone().translate(-35, 0, 0),
       layout === 'apart'
         ? cube.geometry.clone().translate(35, 0, 0)
-        : cube.geometry.clone().translate(layout === 'overlap' ? -35 : -22.3, 0, 10),
+        : layout === 'stack'
+          ? // The same cube a quarter turn round, so its faces are cut along the other diagonal.
+            cube.geometry
+              .clone()
+              .rotateZ(Math.PI / 2)
+              .translate(-35, 0, 0)
+          : cube.geometry.clone().translate(layout === 'overlap' ? -35 : -22.3, 0, 10),
     ],
     [layout],
   )
@@ -84,12 +93,14 @@ const App = () => {
         model: cube.model,
         geometry: mesh,
         opacity: index === 1 && ghost ? 0.3 : 1,
+        ...(index === 1 && tint ? { theme: { part: 0xff0000, hover: 0xff0000 } } : {}),
+        ...(raised ? { depthLayer: index === 1 ? 0 : 1 } : {}),
         onSectionChange: (section: { enabled: boolean; constant?: number }) => {
           if (section.enabled)
             setCuts((old) => ({ ...old, [index === 0 ? 'left' : 'right']: section.constant ?? 0 }))
         },
       })),
-    [geometry, ghost],
+    [geometry, ghost, tint, raised],
   )
   return (
     <>
@@ -97,6 +108,9 @@ const App = () => {
       <Button onClick={() => setLayout('overlap')}>Overlap</Button>
       <Button onClick={() => setLayout('stagger')}>Stagger</Button>
       <Button onClick={() => setGhost(true)}>Ghost</Button>
+      <Button onClick={() => setLayout('stack')}>Stack</Button>
+      <Button onClick={() => setTint(true)}>Tint</Button>
+      <Button onClick={() => setRaised(true)}>Raise</Button>
       <Button
         onClick={() =>
           viewer.current?.setSection({ enabled: true, normal: { x: 0, y: 0, z: 1 }, offset: 0.5 })

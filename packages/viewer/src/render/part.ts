@@ -35,6 +35,15 @@ import {
 import type { ViewerTheme } from './theme.js'
 import { THREAD_TEXTURE_ROWS, type ThreadOptions, threadKey, writeThreadTexels } from './threads.js'
 
+/**
+ * Depth-buffer steps between two depth layers. Two coplanar surfaces
+ * triangulated differently still interpolate the same plane to within a step or
+ * two, so four always settles which is in front.
+ */
+const DEPTH_LAYER_UNITS = 4
+/** Layers past this share it: 63 × 4 steps is still well under any visible gap. */
+const MAX_DEPTH_LAYER = 63
+
 /** The vertex attribute carrying each vertex's column in the state texture. */
 export const REGION_ATTRIBUTE = 'aRegion'
 
@@ -99,6 +108,12 @@ export interface PartObject {
   setDisplay(display: PartDisplay, showEdges?: boolean): void
   /** The whole part's opacity, 0–1: below 1 it is see-through, and its edges fade with it. */
   setOpacity(opacity: number): void
+  /**
+   * Pushes the surface back by `layer` depth steps, 0 to 63, so that where it
+   * lies on another part's surface the part on the lower layer is drawn,
+   * rather than the two fighting over each pixel.
+   */
+  setDepthLayer(layer: number): void
   /**
    * Draws the sharp corners of the features the DFM rules flag, bold and
    * through the part — see `render/sharp-corners.ts`. `null` hides them. Setting what is already drawn
@@ -577,6 +592,12 @@ export function createPart(
       if (next === partOpacity) return
       partOpacity = next
       syncTransparency()
+    },
+
+    setDepthLayer(layer) {
+      const steps = Math.min(Math.max(Math.round(layer), 0), MAX_DEPTH_LAYER)
+      // On top of the step every part takes for its own edges.
+      material.polygonOffsetUnits = 1 + DEPTH_LAYER_UNITS * steps
     },
 
     setSharpCorners(options) {

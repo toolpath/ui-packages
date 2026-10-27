@@ -163,6 +163,13 @@ export interface PartMeshProps {
    */
   opacity?: number
   /**
+   * Where this part's surface lies on another part's, as the bodies of a file
+   * saved one on another do, the part on the lower layer is drawn rather than
+   * the two fighting over each pixel. 0 to 63, 0 by default; `PartCollection`
+   * gives each item its position in `items` unless it sets one.
+   */
+  depthLayer?: number
+  /**
    * Objects drawn on the part, such as `<ToolMarks>`. They can read its model
    * and mesh with `usePartContext`.
    */
@@ -203,6 +210,7 @@ export const PartMesh = ({
   threads = null,
   display = 'solid',
   opacity = 1,
+  depthLayer = 0,
   children,
 }: PartMeshProps) => {
   const { camera, controls, invalidate, size } = useThree()
@@ -325,6 +333,11 @@ export const PartMesh = ({
     part.setOpacity(opacity)
     invalidate()
   }, [invalidate, opacity, part])
+
+  useLayoutEffect(() => {
+    part.setDepthLayer(depthLayer)
+    invalidate()
+  }, [depthLayer, invalidate, part])
 
   useLayoutEffect(() => {
     part.setClippingPlanes(cut ? [cut.plane] : null)

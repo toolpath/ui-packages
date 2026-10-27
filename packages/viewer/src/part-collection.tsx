@@ -46,7 +46,9 @@ export const PartCollection = ({
   return (
     <CollectionBoundsContext.Provider value={bounds}>
       <CollectionSectionsContext.Provider value={sections}>
-        {items.map(({ id, ...props }) => {
+        {items.map(({ id, ...item }, index) => {
+          // Bodies that lie on one another settle in list order rather than fighting over pixels.
+          const props = { ...item, depthLayer: item.depthLayer ?? index }
           const events: Pick<PartMeshProps, 'onPick' | 'onHover'> = {
             onPick: onPick ? (pick) => onPick({ id, pick }) : undefined,
             onHover: onHover ? (pick) => onHover(id, pick) : undefined,

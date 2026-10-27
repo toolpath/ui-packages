@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 test('a complete collection scopes duplicate feature tags, hover, and sections to the correct bodies', async ({
   page,
 }) => {
@@ -78,4 +78,50 @@ test('a see-through body draws over the one behind it and still takes the pointe
   const scene = JSON.parse((await page.getByTestId('scene').textContent())!)
   await page.locator('canvas').hover({ position: scene.covered })
   await expect(page.getByTestId('hover')).toHaveText('right')
+})
+
+/** The share of a square patch of the canvas, centred on `at`, that is red. */
+const redShare = async (page: Page, at: { x: number; y: number }) => {
+  const png = (await page.locator('canvas').screenshot()).toString('base64')
+  return page.evaluate(
+    async ({ png, at }) => {
+      const image = new Image()
+      image.src = `data:image/png;base64,${png}`
+      await image.decode()
+      const canvas = document.createElement('canvas')
+      canvas.width = image.width
+      canvas.height = image.height
+      const context = canvas.getContext('2d')!
+      context.drawImage(image, 0, 0)
+      // Screenshot pixels are device pixels; `at` is in CSS pixels.
+      const scale = image.width / document.querySelector('canvas')!.clientWidth
+      const side = Math.round(30 * scale)
+      const { data } = context.getImageData(
+        Math.round(at.x * scale) - side / 2,
+        Math.round(at.y * scale) - side / 2,
+        side,
+        side,
+      )
+      let red = 0
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i]! > 150 && data[i + 1]! < 110 && data[i + 2]! < 110) red++
+      }
+      return red / (data.length / 4)
+    },
+    { png, at },
+  )
+}
+test('bodies that lie on one another draw one surface, in list order, not a mix of both', async ({
+  page,
+}) => {
+  await page.goto('/tests/fixtures/collection.html')
+  await expect(page.getByTestId('scene')).not.toHaveText('')
+  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Stack', exact: true }).click()
+  await page.getByRole('button', { name: 'Tint', exact: true }).click()
+  const scene = JSON.parse((await page.getByTestId('scene').textContent())!)
+  // The red body is second in the list, so the first is drawn where they coincide.
+  await expect.poll(() => redShare(page, scene.centers[0])).toBe(0)
+  await page.getByRole('button', { name: 'Raise', exact: true }).click()
+  await expect.poll(() => redShare(page, scene.centers[0])).toBe(1)
 })
