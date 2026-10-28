@@ -20,7 +20,7 @@
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { dirname, extname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import ts from 'typescript'
@@ -72,10 +72,27 @@ const sources = (dir: string): string[] =>
       return /\.tsx?$/.test(entry) && !entry.endsWith('.d.ts') ? [path] : []
     })
 
-/** Whether this identifier is something that runs, rather than a name in a declaration or a member. */
+/** The objects a DOM global is also a property of: `globalThis.document`, `window.navigator`. */
+const GLOBAL_OBJECTS = new Set(['globalThis', 'self', 'window'])
+
+/** Whether an expression is the global object: `globalThis`, `self.window` and the like. */
+const isGlobalObject = (node: ts.Expression): boolean =>
+  ts.isIdentifier(node)
+    ? GLOBAL_OBJECTS.has(node.text)
+    : ts.isPropertyAccessExpression(node) &&
+      GLOBAL_OBJECTS.has(node.name.text) &&
+      isGlobalObject(node.expression)
+
+/**
+ * Whether this identifier is something that runs, rather than a name in a
+ * declaration or a member. A member counts when it is a DOM global read off
+ * the global object.
+ */
 const isExpression = (node: ts.Identifier): boolean => {
   const parent = node.parent
-  if (ts.isPropertyAccessExpression(parent) && parent.name === node) return false
+  if (ts.isPropertyAccessExpression(parent) && parent.name === node) {
+    return isGlobalObject(parent.expression)
+  }
   if (ts.isQualifiedName(parent)) return false
   if (
     (ts.isPropertyAssignment(parent) ||
@@ -99,8 +116,7 @@ const isExpression = (node: ts.Identifier): boolean => {
 }
 
 /** Every DOM use in one file, as `line: what`. */
-const domUses = (path: string): string[] => {
-  const text = readFileSync(path, 'utf8')
+const domUses = (path: string, text = readFileSync(path, 'utf8')): string[] => {
   const kind = path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
   const file = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, kind)
   const found: string[] = []
@@ -200,10 +216,13 @@ const isNative = (file: string) => file.startsWith('native/')
 /** Whether `src/native/` holds a replacement for this file. */
 const hasNativeSibling = (file: string) => NAMES.has(`native/${file}`)
 
-/** The source a relative `./x.js` specifier in `file` names, if it is one. */
+/** The source a relative `./x.js` or `./x` specifier in `file` names, if it is one. */
 const resolveRelative = (file: string, from: string): string | null => {
-  if (!from.startsWith('.') || !from.endsWith('.js')) return null
-  const base = join(dirname(file), from.slice(0, -'.js'.length)).split(sep).join('/')
+  if (!from.startsWith('.')) return null
+  const extension = extname(from)
+  if (extension !== '' && extension !== '.js') return null
+  const specifier = extension === '.js' ? from.slice(0, -'.js'.length) : from
+  const base = join(dirname(file), specifier).split(sep).join('/')
   for (const extension of ['.ts', '.tsx']) if (NAMES.has(base + extension)) return base + extension
   return null
 }
@@ -282,6 +301,9 @@ describe('the DOM stays in the web-only files', () => {
 
   it('finds an import where there is one', () => {
     // The import rules checked, on files where each kind is known to be.
+    expect(resolveRelative('viewer-toolbar.tsx', './toolbar-icons')).toBe('toolbar-icons.tsx')
+    expect(resolveRelative('viewer-toolbar.tsx', './toolbar-icons.js')).toBe('toolbar-icons.tsx')
+    expect(resolveRelative('render/view-cube-glyph-label.ts', './view-cube-glyphs.json')).toBeNull()
     expect(webOnlyImports(join(SRC, 'viewer-toolbar.tsx'))).toContainEqual(
       expect.stringMatching(/imports toolbar-icons\.tsx$/),
     )
@@ -303,5 +325,9 @@ describe('the DOM stays in the web-only files', () => {
     expect(domUses(join(SRC, 'scene-label.tsx'))).toContainEqual(
       expect.stringMatching(/imports Html from drei$/),
     )
+    // A DOM global read off the global object, which a member name alone is not.
+    expect(domUses('probe.ts', 'globalThis.document?.title')).toEqual(['1: document'])
+    expect(domUses('probe.ts', 'self.window.navigator')).toEqual(['1: window', '1: navigator'])
+    expect(domUses('probe.ts', 'part.document; options.window')).toEqual([])
   })
 })

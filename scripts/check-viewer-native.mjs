@@ -34,8 +34,17 @@ const REQUIRED = [
   'THIRD-PARTY-NOTICES',
 ]
 
-/** What only a browser has: the DOM, `import.meta` (Metro has none), and the web halves of the renderers. */
-const FORBIDDEN = ['document.', 'window.addEventListener', 'import.meta', 'react-dom', 'drei/web']
+/**
+ * What only a browser has: the DOM, `import.meta` (Metro has none), and the
+ * web halves of the renderers. A pattern, so `document?.` and `window.x` count.
+ */
+const FORBIDDEN = [
+  /\bdocument\s*\??\./,
+  /\bwindow\s*\??\./,
+  /\bimport\.meta\b/,
+  /\breact-dom\b/,
+  /\bdrei\/web\b/,
+]
 
 /** A DOM element made by the JSX runtime: `jsx("div", …)` and the like. */
 const DOM_JSX =
@@ -63,11 +72,11 @@ const files = existsSync(native)
   : []
 for (const path of files) {
   const source = await readFile(path, 'utf8')
-  for (const needle of FORBIDDEN) {
-    const at = source.indexOf(needle)
-    if (at === -1) continue
-    const line = source.slice(0, at).split('\n').length
-    failures.push(`${relative(viewer, path)}:${line} contains ${needle}`)
+  for (const pattern of FORBIDDEN) {
+    const match = pattern.exec(source)
+    if (!match) continue
+    const line = source.slice(0, match.index).split('\n').length
+    failures.push(`${relative(viewer, path)}:${line} contains ${match[0]}`)
   }
 }
 
