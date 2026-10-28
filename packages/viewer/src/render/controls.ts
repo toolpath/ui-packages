@@ -517,7 +517,10 @@ export class ExtendedCameraControls extends CameraControls {
   }
 
   #onPointerDown = (event: PointerEvent): void => {
-    if (event.pointerType === 'touch') {
+    // Like the base class, hear nothing while disabled: a finger that lands
+    // during a section-handle drag would otherwise stay in the map and halve
+    // the next one-finger orbit, and its own moves would turn the view.
+    if (event.pointerType === 'touch' && this.enabled) {
       this.#touches.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY })
     }
   }

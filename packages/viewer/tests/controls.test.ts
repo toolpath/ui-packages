@@ -316,6 +316,30 @@ describe('ExtendedCameraControls.orbitBy', () => {
     controls.dispose()
   })
 
+  it('ignores a finger that went down while the controls were off', () => {
+    const { controls, element } = createControls()
+    const before = controls.azimuthAngle
+    const stray = { pointerId: 1, pointerType: 'touch', buttons: 1 }
+    const touch = { pointerId: 2, pointerType: 'touch', buttons: 1 }
+
+    // A section-handle drag turns the controls off; a second finger lands in it.
+    controls.enabled = false
+    element.dispatchEvent(pointerEvent('pointerdown', { ...stray, clientX: 100, clientY: 200 }))
+    controls.enabled = true
+
+    element.dispatchEvent(pointerEvent('pointerdown', { ...touch, clientX: 300, clientY: 200 }))
+    element.ownerDocument.dispatchEvent(
+      pointerEvent('pointermove', { ...stray, clientX: 140, clientY: 200 }),
+    )
+    expect(controls.azimuthAngle).toBe(before)
+
+    element.ownerDocument.dispatchEvent(
+      pointerEvent('pointermove', { ...touch, clientX: 340, clientY: 200 }),
+    )
+    expect(before - controls.azimuthAngle).toBeCloseTo(Math.PI / 10, 6)
+    controls.dispose()
+  })
+
   it('turns the camera with two fingers by their centroid, as far as one finger', () => {
     const { controls, element } = createControls()
     controls.touches.two = CameraControls.ACTION.TOUCH_ROTATE
