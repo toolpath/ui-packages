@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { BoxGeometry, DataTexture, Mesh, MeshBasicMaterial, Scene, ShaderMaterial } from 'three'
 import {
+  RELEASE_FALLBACK_MS,
   createPresenter,
   createRelease,
   createSceneRelease,
+  createUnmountRelease,
   disposeTree,
 } from '../src/render/native-gl.js'
 
@@ -90,6 +92,24 @@ describe('createRelease', () => {
     expect(dispose).toHaveBeenCalledOnce()
     expect(destroy).toHaveBeenCalledOnce()
   })
+
+  it('destroys the context when a dispose throws', () => {
+    const destroy = vi.fn()
+    const release = createRelease({
+      gl: {
+        dispose: () => {
+          throw new Error('dispose failed')
+        },
+      },
+      scene: new Scene(),
+      stopPresenting: () => {},
+      destroy,
+    })
+
+    expect(release).toThrow('dispose failed')
+    release()
+    expect(destroy).toHaveBeenCalledOnce()
+  })
 })
 
 describe('disposeTree', () => {
@@ -145,5 +165,49 @@ describe('createSceneRelease', () => {
     release.gone()
 
     expect(disposed).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('createUnmountRelease', () => {
+  const lifetime = () => {
+    const gone = vi.fn()
+    const forceContextLoss = vi.fn()
+    return { gone, forceContextLoss, release: createUnmountRelease({ gone }, forceContextLoss) }
+  }
+
+  it('frees nothing when StrictMode runs the effect again', () => {
+    vi.useFakeTimers()
+    try {
+      const { gone, forceContextLoss, release } = lifetime()
+      release.mounted()
+
+      release.unmounted()
+      release.mounted()
+      vi.advanceTimersByTime(RELEASE_FALLBACK_MS * 2)
+
+      expect(gone).not.toHaveBeenCalled()
+      expect(forceContextLoss).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('frees the scene on the next task, and the context after the fallback', () => {
+    vi.useFakeTimers()
+    try {
+      const { gone, forceContextLoss, release } = lifetime()
+      release.mounted()
+
+      release.unmounted()
+      expect(gone).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(0)
+      expect(gone).toHaveBeenCalledOnce()
+      expect(forceContextLoss).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(RELEASE_FALLBACK_MS)
+      expect(forceContextLoss).toHaveBeenCalledOnce()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

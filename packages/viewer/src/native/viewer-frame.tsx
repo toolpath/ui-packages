@@ -20,7 +20,12 @@ import {
 import { SceneLabelStoreContext } from '../label-context.js'
 import { LabelOverlay } from '../label-overlay.js'
 import { type LabelStore, createLabelStore } from '../render/label-store.js'
-import { createPresenter, createRelease, createSceneRelease } from '../render/native-gl.js'
+import {
+  createPresenter,
+  createRelease,
+  createSceneRelease,
+  createUnmountRelease,
+} from '../render/native-gl.js'
 import type { ViewportSize } from '../render/camera.js'
 import { pauseWhileInactive } from '../render/pause-inactive.js'
 import {
@@ -245,9 +250,6 @@ const releaseWithTheCanvas = ({ gl, scene }: RootState) => {
   })
 }
 
-/** Fiber's root teardown is done well within this, and calls `forceContextLoss` itself when it is. */
-const RELEASE_FALLBACK_MS = 2000
-
 /**
  * Disposes what the scene holds while it still holds it, and makes sure the
  * context goes.
@@ -258,14 +260,18 @@ const RELEASE_FALLBACK_MS = 2000
  * GPU, and a context's destruction is not guaranteed to free them. A layout
  * effect's cleanup on the canvas's first child runs before anything after it
  * leaves the scene, so it reads what to free there, and the passive cleanup
- * frees it (see `createSceneRelease`). Disposing only frees GPU memory: a
- * geometry kept for reuse uploads again the next time it is drawn.
+ * has it freed (see `createSceneRelease`) on the next task, which a StrictMode
+ * re-run cancels (see `createUnmountRelease`). Disposing only frees GPU
+ * memory: a geometry kept for reuse uploads again the next time it is drawn.
  */
 const ReleaseOnUnmount = () => {
   const gl = useThree((state) => state.gl)
   const scene = useThree((state) => state.scene)
   const release = useMemo(() => createSceneRelease(scene), [scene])
-  const pending = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lifetime = useMemo(
+    () => createUnmountRelease(release, () => gl.forceContextLoss()),
+    [gl, release],
+  )
 
   useLayoutEffect(() => {
     release.shown()
@@ -273,14 +279,8 @@ const ReleaseOnUnmount = () => {
   }, [release])
 
   useEffect(() => {
-    // An effect run again without an unmount between — React's StrictMode
-    // does this — is still the same live canvas.
-    if (pending.current) clearTimeout(pending.current)
-    pending.current = null
-    return () => {
-      release.gone()
-      pending.current = setTimeout(() => gl.forceContextLoss(), RELEASE_FALLBACK_MS)
-    }
-  }, [gl, release])
+    lifetime.mounted()
+    return lifetime.unmounted
+  }, [lifetime])
   return null
 }
