@@ -11,6 +11,11 @@
     "moduleSuffixes": [".native", ""],
     "customConditions": ["react-native"]
   },
-  "include": ["src/index.native.ts", "src/engine/index.ts", "src/assets.d.ts"],
+  "include": [
+    "src/index.native.ts",
+    "src/engine/index.ts",
+    "src/banana/index.ts",
+    "src/assets.d.ts"
+  ],
   "exclude": []
 }

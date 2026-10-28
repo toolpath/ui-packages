@@ -22,8 +22,6 @@ export { ViewerToolbarProvider, useViewerToolbar } from './viewer-toolbar-contex
 export type { ViewerToolbarControl, ViewerToolbarControls } from './viewer-toolbar-context.js'
 export { Stock } from './stock.js'
 export type { StockProps, StockSource, StockAppearanceProps } from './stock.js'
-export { Banana } from './banana.js'
-export { BANANA_MODEL_URL } from './banana-asset.js'
 export { boxStockBounds, fixedBoxStockBounds } from './render/stock.js'
 export type {
   CylinderStockFigure,
@@ -248,7 +246,6 @@ export type { ViewerTheme } from './render/theme.js'
 export type { PartMeshProps } from './part-mesh.js'
 export type { PartContextValue } from './part-context.js'
 export type { FeatureTriangles } from './render/feature-triangles.js'
-export type { BananaProps } from './banana.js'
 export type { AxesProps, GridProps, ViewCubeProps } from './primitives.js'
 export type { CubeZone, ViewKind, ViewName } from './render/view-cube.js'
 export type { DirectionArrowsProps, NamedDirection } from './direction-arrows.js'

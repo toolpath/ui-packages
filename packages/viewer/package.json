@@ -40,6 +40,14 @@
       "types": "./dist/engine/index.d.ts",
       "import": "./dist/engine/index.js"
     },
+    "./banana": {
+      "react-native": {
+        "types": "./dist/native/banana.d.ts",
+        "default": "./dist/native/banana.js"
+      },
+      "types": "./dist/banana.d.ts",
+      "import": "./dist/banana.js"
+    },
     "./toolbar.css": "./dist/toolbar.css"
   },
   "files": [
