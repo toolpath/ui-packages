@@ -1005,10 +1005,12 @@ under Hermes.
 2. In `metro.config.js`, give the app one copy of three.js and let Metro bundle
    GLB models. Fiber's native build `require`s three, which would otherwise
    resolve to `three.cjs` beside the `three.module.js` that ESM imports get, and
-   `instanceof` checks between the two copies fail. The GLB step is needed even
-   by an app that never shows `Banana`: Metro bundles everything a package can
-   reach, so `BANANA_MODEL_URL`'s model (about 760 KB) always ships with the
-   app:
+   `instanceof` checks between the two copies fail. From three 0.186,
+   `three.cjs` also calls `process.emitWarning`, which React Native does not
+   have, so without this step the app crashes as it starts. The GLB step is
+   needed even by an app that never shows `Banana`: Metro bundles everything a
+   package can reach, so `BANANA_MODEL_URL`'s model (about 760 KB) always ships
+   with the app:
 
    ```js
    const path = require('node:path')
@@ -1035,6 +1037,26 @@ under Hermes.
    ```json
    {
      "expo": { "autolinking": { "include": ["three", "@react-three/fiber", "@react-three/drei"] } }
+   }
+   ```
+
+4. If your Android release build is minified (`expo-build-properties`'
+   `enableMinifyInReleaseBuilds`, `enableProguardInReleaseBuilds` before Expo
+   SDK 54), keep expo-gl's classes. expo-gl's native code finds its Java
+   methods by name, so once R8 renames them the app crashes as soon as a canvas
+   mounts. Install the plugin with `npx expo install expo-build-properties` and
+   add the rule in `app.json`:
+
+   ```json
+   {
+     "expo": {
+       "plugins": [
+         [
+           "expo-build-properties",
+           { "android": { "extraProguardRules": "-keep class expo.modules.gl.** { *; }" } }
+         ]
+       ]
+     }
    }
    ```
 
