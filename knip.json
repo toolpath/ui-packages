@@ -15,7 +15,7 @@
       "project": ["src/**/*.ts", "tests/**/*.ts"]
     },
     "packages/plan": {
-      "entry": ["src/index.ts", "tests/**/*.test.ts"],
+      "entry": ["src/index.ts", "src/clicks/index.ts", "src/parts/index.ts", "tests/**/*.test.ts"],
       "project": ["src/**/*.ts", "tests/**/*.ts"]
     },
     "packages/quoting": {
