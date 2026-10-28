@@ -72,7 +72,11 @@ const external = ['react', 'react-dom', 'three', '@react-three/fiber', '@react-t
 export default defineConfig([
   // The web build: what `import` resolves to.
   {
-    entry: ['src/index.ts', 'src/engine/index.ts'],
+    entry: {
+      index: 'src/index.ts',
+      'engine/index': 'src/engine/index.ts',
+      banana: 'src/banana/index.ts',
+    },
     format: ['esm'],
     dts: true,
     // Everything in `dist/` but the native build, which the other configuration
@@ -86,7 +90,11 @@ export default defineConfig([
   // own root entry, with each import resolved to its `.native` file where
   // there is one.
   {
-    entry: { index: 'src/index.native.ts', 'engine/index': 'src/engine/index.ts' },
+    entry: {
+      index: 'src/index.native.ts',
+      'engine/index': 'src/engine/index.ts',
+      banana: 'src/banana/index.ts',
+    },
     format: ['esm'],
     // Declarations from the same graph, so a React Native app reads its own
     // props: `style` as a `View`'s, and no web-only exports.

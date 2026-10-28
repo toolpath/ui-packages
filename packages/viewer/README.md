@@ -313,24 +313,24 @@ the part opaque. For multiselection, update your own tag array and avoid duplica
 
 ## Components
 
-| Component                    | Purpose                                                                              |
-| ---------------------------- | ------------------------------------------------------------------------------------ |
-| `Viewer`                     | Canvas, camera, lighting, controls, initial framing, and viewer-owned section state. |
-| `EnginePart`                 | Validated Engine report plus cached mesh loading; imports from `/engine`.            |
-| `PartMesh`                   | Your normalized model and prepared geometry; selection, paint, picking, sections.    |
-| `ExplodedPart`               | Supplied surface groups, translations, colors, and controlled explosion amount.      |
-| `ViewCube`                   | 26 orientation targets: faces, edges, and corners.                                   |
-| `Grid`, `Axes`               | Reference geometry excluded from camera framing.                                     |
-| `DirectionArrows`            | Candidate and optional named/preview machining directions.                           |
-| `Stock`                      | Geometry, GLB bytes, box, or cylinder stock.                                         |
-| `SectionTool`, `SectionView` | Interactive section placement or a supplied section visualization.                   |
-| `MeasureTool`                | Measures faces, holes and points by what is clicked, with labels.                    |
-| `ToolMarks`                  | Supplied cutter/profile geometry and labels; no datasheet inference.                 |
-| `Banana`                     | Optional bundled 154 mm scale reference; loads its GLB on mount and suspends.        |
-| `CadCameraControls`          | Lower-level camera controls for custom R3F scenes. `Viewer` already installs them.   |
-| `ViewerToolbar`              | DOM controls configured through `ViewerToolbarProvider`.                             |
-| `viewerToolGroups`           | The toolbar controls in groups, with labels, notes and icons, for `ToolDock`.        |
-| `HoverCard`                  | Cursor-following DOM content for a pick.                                             |
+| Component                    | Purpose                                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `Viewer`                     | Canvas, camera, lighting, controls, initial framing, and viewer-owned section state.                          |
+| `EnginePart`                 | Validated Engine report plus cached mesh loading; imports from `/engine`.                                     |
+| `PartMesh`                   | Your normalized model and prepared geometry; selection, paint, picking, sections.                             |
+| `ExplodedPart`               | Supplied surface groups, translations, colors, and controlled explosion amount.                               |
+| `ViewCube`                   | 26 orientation targets: faces, edges, and corners.                                                            |
+| `Grid`, `Axes`               | Reference geometry excluded from camera framing.                                                              |
+| `DirectionArrows`            | Candidate and optional named/preview machining directions.                                                    |
+| `Stock`                      | Geometry, GLB bytes, box, or cylinder stock.                                                                  |
+| `SectionTool`, `SectionView` | Interactive section placement or a supplied section visualization.                                            |
+| `MeasureTool`                | Measures faces, holes and points by what is clicked, with labels.                                             |
+| `ToolMarks`                  | Supplied cutter/profile geometry and labels; no datasheet inference.                                          |
+| `Banana`                     | Optional bundled 154 mm scale reference; loads its GLB on mount and suspends. Also `@toolpath/viewer/banana`. |
+| `CadCameraControls`          | Lower-level camera controls for custom R3F scenes. `Viewer` already installs them.                            |
+| `ViewerToolbar`              | DOM controls configured through `ViewerToolbarProvider`.                                                      |
+| `viewerToolGroups`           | The toolbar controls in groups, with labels, notes and icons, for `ToolDock`.                                 |
+| `HoverCard`                  | Cursor-following DOM content for a pick.                                                                      |
 
 ### `<Viewer>`
 
@@ -965,12 +965,13 @@ Its `react-native` export condition gives Metro a native build of both
 `.native` files where it has them. The native root leaves out the web-only
 exports.
 
-| Export                                                                                                                                                        | Web | React Native                 |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ---------------------------- |
-| `Viewer`, `PartMesh`, `EnginePart`, `Stock`, `DirectionArrows`, `SectionView`, `SectionTool`, `ToolMarks`, `Axes`, `Grid`, `ViewCube`, `Banana`, `SceneLabel` | yes | yes                          |
-| Every pure function, constant and type from the models, rendering helpers and Engine adapter                                                                  | yes | yes                          |
-| `MeasureTool`, `HoverCard`, `ViewerToolbar`, `viewerToolGroups`, `labelTexture`                                                                               | yes | no: not exported             |
-| `ViewerToolbarProvider`, `useViewerToolbar`                                                                                                                   | yes | yes (the context has no DOM) |
+| Export                                                                                                                                              | Web | React Native                        |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ----------------------------------- |
+| `Viewer`, `PartMesh`, `EnginePart`, `Stock`, `DirectionArrows`, `SectionView`, `SectionTool`, `ToolMarks`, `Axes`, `Grid`, `ViewCube`, `SceneLabel` | yes | yes                                 |
+| `Banana`, `BANANA_MODEL_URL`                                                                                                                        | yes | from `@toolpath/viewer/banana` only |
+| Every pure function, constant and type from the models, rendering helpers and Engine adapter                                                        | yes | yes                                 |
+| `MeasureTool`, `HoverCard`, `ViewerToolbar`, `viewerToolGroups`, `labelTexture`                                                                     | yes | no: not exported                    |
+| `ViewerToolbarProvider`, `useViewerToolbar`                                                                                                         | yes | yes (the context has no DOM)        |
 
 On React Native, one finger orbits, two fingers pinch to zoom and pan, and a tap
 picks, as on the web; double tap re-targets. A tap on a face with `SectionTool`
@@ -1009,9 +1010,8 @@ under Hermes.
    `instanceof` checks between the two copies fail. From three 0.186,
    `three.cjs` also calls `process.emitWarning`, which React Native does not
    have, so without this step the app crashes as it starts. The GLB step is
-   needed even by an app that never shows `Banana`: Metro bundles everything a
-   package can reach, so `BANANA_MODEL_URL`'s model (about 760 KB) always ships
-   with the app:
+   for `@toolpath/viewer/banana`, whose model (about 760 KB) ships only with an
+   app that imports it:
 
    ```js
    const path = require('node:path')
@@ -1249,9 +1249,10 @@ Do not disable validation to render an unrelated mesh against a report's regions
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@toolpath/viewer`             | Components, hooks, models, geometry/camera/selection helpers, and types. Also re-exports `EnginePart`, `normalizePartReport`, and `smoothRegionNormals`. |
 | `@toolpath/viewer/engine`      | Engine loading/normalization, geometry cache, `PartMeshError`, and adapter types.                                                                        |
+| `@toolpath/viewer/banana`      | `Banana`, `BananaProps` and `BANANA_MODEL_URL` alone. The root has them too on the web; on React Native only this entry does.                            |
 | `@toolpath/viewer/toolbar.css` | Optional toolbar stylesheet.                                                                                                                             |
 
-Both JavaScript entries carry a `react-native` condition, which Metro picks; see
+Each JavaScript entry carries a `react-native` condition, which Metro picks; see
 [React Native (Expo)](#react-native-expo).
 
 Other source/dist subpaths are not public imports. The complete signatures for an
@@ -1313,7 +1314,7 @@ pnpm --filter @toolpath/example-react-viewer test
 The example imports built packages. `build:watch` on `@toolpath/viewer` refreshes
 that output during development. Browser tests need Chromium installed. When
 changing exports/assets, pack the viewer and test that artifact in a clean consumer;
-check both JS entries, declarations, toolbar CSS, and the bundled banana asset.
+check each JS entry, declarations, toolbar CSS, and the bundled banana asset.
 Fixture URLs are redacted test data, not working download links. Keep retained
 fixtures unchanged and use a fixture copy when adapting URLs for a local test.
 

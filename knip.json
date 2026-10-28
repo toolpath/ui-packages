@@ -72,6 +72,7 @@
       "entry": [
         "src/index.ts",
         "src/engine/index.ts",
+        "src/banana/index.ts",
         "src/**/*.native.{ts,tsx}",
         "tests/**/*.test.{ts,tsx}"
       ],
