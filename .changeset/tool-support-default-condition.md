@@ -4,4 +4,5 @@
 
 Every entry point gains a `default` export condition beside `import`, so a resolver that asks for
 `require`, such as Jest under `jest-expo`, finds the package, including when it reaches it through
-`@toolpath/dfm`.
+`@toolpath/dfm`. The files stay ES modules: a plain Node `require()` of them needs Node 20.19+ or
+22.12+.

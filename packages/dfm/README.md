@@ -39,7 +39,9 @@ npm install @toolpath/dfm
 
 Both are ES modules. A resolver that asks for `require` rather than `import`
 gets the same files through the `default` condition, as it does for the one
-package dfm imports, `@toolpath/tool-support`.
+package dfm imports, `@toolpath/tool-support`. The files are still ESM-only: a
+plain Node `require()` of them needs Node 20.19+ or 22.12+; earlier Node uses
+`import`, or a resolver that transforms them, as the Jest setup below does.
 
 ### Testing with Jest
 

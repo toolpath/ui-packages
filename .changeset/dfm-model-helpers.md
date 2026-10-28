@@ -30,4 +30,5 @@ point, so `2,5` is 2.5, for a comma-decimal region, where a phone's decimal keyp
 comma. Without it a comma is refused as before, so `1,000` is not read as 1.
 
 Both entry points gain a `default` export condition beside `import`, so a resolver that asks for
-`require`, such as Jest under `jest-expo`, finds them. The README says how to test with Jest.
+`require`, such as Jest under `jest-expo`, finds them. They stay ES modules: a plain Node
+`require()` of them needs Node 20.19+ or 22.12+. The README says how to test with Jest.
