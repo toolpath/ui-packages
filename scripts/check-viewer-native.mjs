@@ -1,18 +1,20 @@
 /**
- * What the viewer's two builds ship holds together: what types cannot say.
+ * What the viewer's builds ship holds together: what types cannot say.
  *
  * Metro picks `dist/native/` through the `react-native` export condition, and
  * nothing in the web build, its tests or a browser ever loads it. So this
- * builds the viewer, every time, and checks the output: both builds' entries
- * and the assets are there, each model the native build imports is where that
- * import points (the native build has no copy of its own), the React Native
- * peer admits only a Metro that reads the exports map, and the web build
- * imports nothing only a phone has. `tests/platform-boundary.test.ts` keeps
- * the DOM out of what the native build runs.
+ * builds the viewer, every time, and checks the output: the entries and the
+ * assets are there, each model the native build imports is where that import
+ * points (the native build has no copy of its own), the React Native peer
+ * admits only a Metro that reads the exports map, the Metro helper loads as
+ * CommonJS, and the web build imports nothing only a phone has.
+ * `tests/platform-boundary.test.ts` keeps the DOM out of what the native build
+ * runs.
  */
 
 import { existsSync } from 'node:fs'
 import { readFile, readdir } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { dirname, join, relative, resolve } from 'node:path'
 import { repositoryRoot, run } from './lib.mjs'
 
@@ -29,6 +31,8 @@ const REQUIRED = [
   'dist/native/banana.d.ts',
   'dist/index.js',
   'dist/banana.js',
+  'dist/metro/index.cjs',
+  'dist/metro/index.d.cts',
   'dist/assets/banana.glb',
   'dist/toolbar.css',
   'THIRD-PARTY-NOTICES',
@@ -71,6 +75,15 @@ const reactNative = peerDependencies?.['react-native'] ?? ''
 const floor = /^>=0\.(\d+)$/.exec(reactNative)
 if (!floor || Number(floor[1]) < 79) {
   failures.push(`peer react-native "${reactNative}" admits a Metro that ignores the exports map`)
+}
+
+// `metro.config.js` is CommonJS, which `require`s the helper.
+const metro = join(viewer, 'dist/metro/index.cjs')
+if (
+  existsSync(metro) &&
+  typeof createRequire(import.meta.url)(metro).withToolpathViewer !== 'function'
+) {
+  failures.push('dist/metro/index.cjs does not export withToolpathViewer to require')
 }
 
 // The web build: everything in `dist/` but the native build.

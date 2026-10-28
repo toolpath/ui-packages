@@ -4,10 +4,9 @@ import { fileURLToPath } from 'node:url'
 /**
  * Copies the assets into `dist/`, beside the web build.
  *
- * The web build's tsup configuration runs this when it succeeds, so a watch
- * rebuild, which cleans its output first, puts them back. The React Native
- * build has no copy of its own: it keeps its import of the model as written,
- * `../assets/banana.glb`, which from `dist/native/` is this one.
+ * The web build's tsup configuration runs this when it succeeds. The React Native
+ * build has no copy of its own: it imports this one, `../assets/banana.glb` from
+ * `dist/native/`.
  */
 const path = (relative) => fileURLToPath(new URL(relative, import.meta.url))
 

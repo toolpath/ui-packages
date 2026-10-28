@@ -1,8 +1,14 @@
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, rmSync } from 'node:fs'
 import { extname, join, relative, resolve, sep } from 'node:path'
 import { defineConfig, type Options } from 'tsup'
 
 const SRC = resolve(import.meta.dirname, 'src')
+
+// One clean of `dist/` for the three builds, before any of them writes. tsup's
+// own `clean` deletes every declaration under its `outDir` once it has emitted
+// its own, which for the web build's `dist/` would take the native build's and
+// the Metro helper's with it whenever they were written first.
+rmSync(join(import.meta.dirname, 'dist'), { recursive: true, force: true })
 
 type Plugin = NonNullable<Options['esbuildPlugins']>[number]
 
@@ -79,9 +85,6 @@ export default defineConfig([
     },
     format: ['esm'],
     dts: true,
-    // Everything in `dist/` but the native build, which the other configuration
-    // writes at the same time.
-    clean: ['!native', '!native/**'],
     external,
     outDir: 'dist',
     onSuccess: 'node scripts/copy-assets.mjs',
@@ -100,9 +103,16 @@ export default defineConfig([
     // props: `style` as a `View`'s, and no web-only exports.
     dts: true,
     tsconfig: 'tsconfig.native.json',
-    clean: true,
     external: [...external, 'react-native', 'expo-asset', 'expo-gl'],
     outDir: 'dist/native',
     esbuildPlugins: [platformFiles, webAssets],
+  },
+  // `withToolpathViewer`, for an app's `metro.config.js`, which Node loads as CommonJS.
+  {
+    entry: { index: 'src/metro/index.ts' },
+    format: ['cjs'],
+    dts: true,
+    platform: 'node',
+    outDir: 'dist/metro',
   },
 ] satisfies Options[])
