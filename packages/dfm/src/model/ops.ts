@@ -10,7 +10,7 @@ import {
 } from './dfm-rules.js'
 import type { ChoiceGroup, Choices } from './view-types.js'
 
-export const OP_TITLES: Record<DfmOp, string> = {
+export const OP_TITLES = {
   gte: 'at least',
   gt: 'more than',
   lte: 'at most',
@@ -18,13 +18,13 @@ export const OP_TITLES: Record<DfmOp, string> = {
   eq: 'equal to',
   ne: 'not equal to',
   between: 'a range, between two numbers',
-}
+} as const satisfies Record<DfmOp, string>
 
 /** A range's low end, read from the number toward the measure: `6 < L/D` is above 6. */
-export const LOW_SYMBOLS: Record<RangeLow, string> = { gte: '≤', gt: '<' }
+export const LOW_SYMBOLS = { gte: '≤', gt: '<' } as const satisfies Record<RangeLow, string>
 
 /** A range's low end in words, read the same way as {@link LOW_SYMBOLS}: `6 ≤ L/D` is 6 at most L/D. */
-const LOW_TITLES: Record<RangeLow, string> = { gte: 'at most', gt: 'less than' }
+const LOW_TITLES = { gte: 'at most', gt: 'less than' } as const satisfies Record<RangeLow, string>
 
 /** The one-sided comparisons, offered from a range to leave it: their values marked apart from its ends'. */
 const ONE_SIDED = 'one:'
