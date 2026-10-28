@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createPartCollectionSession, waitingFor } from '../src/engine/collection-session.js'
+import type * as Geometry from '../src/engine/geometry.js'
 import type { PartModel } from '../src/model/types.js'
 import { cubeModel, loadMeshFixture } from './fixtures.js'
 
@@ -13,6 +14,21 @@ const bodies = (count: number) =>
     model: modelAt(`https://test/${index}.glb`),
   }))
 const cube = () => new Response(loadMeshFixture('local-0.3.0-cube'))
+/** Every mesh loaded, by URL, and whether it has been disposed. */
+const meshes = vi.hoisted(() => new Map<string, { disposed: boolean }>())
+vi.mock('../src/engine/geometry.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof Geometry>()
+  return {
+    ...actual,
+    loadPartMesh: async (...args: Parameters<typeof actual.loadPartMesh>) => {
+      const geometry = await actual.loadPartMesh(...args)
+      const mesh = { disposed: false }
+      geometry.addEventListener('dispose', () => (mesh.disposed = true))
+      meshes.set(args[0].glbUrl ?? '', mesh)
+      return geometry
+    },
+  }
+})
 /** Resolves once the session has published a state that passes `test`. */
 const settled = (
   session: ReturnType<typeof createPartCollectionSession>,
@@ -119,6 +135,9 @@ describe('collection sessions', () => {
     waiting.get('https://test/older.glb')!()
     await new Promise((resolve) => setTimeout(resolve, 5))
     expect(session.get().items![0]!.model).toBe(first[0]!.model)
+    // Its mesh is freed now, not held until the session ends.
+    expect(meshes.get('https://test/older.glb')?.disposed).toBe(true)
+    expect(meshes.get('https://test/0.glb')?.disposed).toBe(false)
     await vi.waitFor(() => expect(waiting.has('https://test/newer.glb')).toBe(true))
     waiting.get('https://test/newer.glb')!()
     const { items } = await settled(session, (state) => state.items?.[0]?.model === newer)
@@ -178,6 +197,20 @@ describe('collection sessions', () => {
     release()
     const { items } = await settled(session, (state) => waitingFor(analysed, state).length === 0)
     expect(items![0]!.model.mesh.glbUrl).toBe('https://test/analysis.glb')
+    session.dispose()
+  })
+
+  it('shows a new key that builds the model already on screen without loading it again', async () => {
+    const request = vi.fn(async () => cube())
+    const session = createPartCollectionSession({ fetch: request })
+    const model = modelAt('https://test/0.glb')
+    session.show([{ id: '0', key: 'display', model: () => model }])
+    const before = (await settled(session, (state) => state.items !== null)).items!
+    const renamed = [{ id: '0', key: 'job-1', model: () => model }]
+    session.show(renamed)
+    expect(waitingFor(renamed, session.get())).toEqual([])
+    expect(session.get().items).toBe(before)
+    expect(request).toHaveBeenCalledTimes(1)
     session.dispose()
   })
 

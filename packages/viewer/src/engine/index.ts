@@ -38,7 +38,7 @@ export type {
   CollectionLoadResult,
   PartCollectionLoader,
 } from './collection.js'
-export { usePartCollection, type PartCollection } from './use-part-collection.js'
+export { usePartCollection, type UsePartCollectionResult } from './use-part-collection.js'
 export { displayMeshModel, type DisplayMesh } from './display-mesh.js'
 export type {
   PartCollectionModel,

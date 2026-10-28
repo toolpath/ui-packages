@@ -173,7 +173,9 @@ export interface PartMeshProps {
   /**
    * False hides the part without unmounting it: it draws nothing, takes no
    * pointer events, so a part behind it takes them, and is not cut by a
-   * section. Showing it again is immediate. True by default.
+   * section. Its `children` unmount while it is hidden. Showing it again is
+   * immediate. In a `PartCollection` a hidden item still counts toward the
+   * shared bounds, so the frame, grid and section do not jump. True by default.
    */
   visible?: boolean
   /**
@@ -530,7 +532,11 @@ export const PartMesh = ({
           pressedWhileEngaged.current = engaged
         }}
         onPointerMove={(event: ThreeEvent<PointerEvent>) => {
-          event.stopPropagation()
+          // In a collection the nearest body answers, and the bodies behind it
+          // do not. A lone part passes the pointer on to whatever is behind it.
+          if (sections) {
+            event.stopPropagation()
+          }
           if (!engaged && hover) emitHover(pickFor(event))
         }}
         onPointerOut={() => {
@@ -548,7 +554,9 @@ export const PartMesh = ({
           doubles.reset()
         }}
         onClick={(event: ThreeEvent<MouseEvent>) => {
-          event.stopPropagation()
+          if (sections) {
+            event.stopPropagation()
+          }
           if (engaged || pressedWhileEngaged.current) return
           /*
            * The end of an orbit is not a request to select whatever it ended
@@ -620,8 +628,10 @@ export const PartMesh = ({
          */
         onPointerUp={(event: ThreeEvent<PointerEvent>) => {
           if (event.nativeEvent.button !== 2) return
-          // The nearest part answers, as it does for a left click.
-          event.stopPropagation()
+          // In a collection the nearest part answers, as it does for a left click.
+          if (sections) {
+            event.stopPropagation()
+          }
           if (engaged || pressedWhileEngaged.current) return
           if (!isTap(event.nativeEvent)) return
 
@@ -645,7 +655,7 @@ export const PartMesh = ({
           onDrag={onDrag}
         />
       ) : null}
-      {children ? (
+      {children && visible ? (
         <PartContext.Provider value={context}>
           <PartPaintContext.Provider value={setToolPaint}>{children}</PartPaintContext.Provider>
         </PartContext.Provider>

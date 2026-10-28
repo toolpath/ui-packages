@@ -14,6 +14,9 @@ export default defineConfig({
         explodePrimitives: fileURLToPath(
           new URL('./tests/fixtures/explode-primitives.html', import.meta.url),
         ),
+        usePartCollection: fileURLToPath(
+          new URL('./tests/fixtures/use-part-collection.html', import.meta.url),
+        ),
       },
     },
   },

@@ -2,6 +2,7 @@ import type { BufferGeometry } from 'three'
 import type { PartModel } from '../model/types.js'
 import { createEngineGeometryCache, type EngineGeometryResource } from './geometry-cache.js'
 import { loadPartMesh, type LoadPartGeometryOptions } from './geometry.js'
+import { toError } from './guards.js'
 import { smoothRegionNormals } from './normals.js'
 
 export interface CollectionModel {
@@ -26,6 +27,11 @@ export interface PartCollectionLoader {
    * missing now are freed; meshes a load returned that have not been shown yet are held for it.
    */
   keep(items: ReadonlyArray<LoadedCollectionItem>): void
+  /**
+   * Frees the mesh of an item a load returned that will never be shown, such as a result for a
+   * model replaced while it loaded. Does nothing for a mesh the scene has shown.
+   */
+  discard(item: LoadedCollectionItem): void
   /** Aborts pending reads and disposes this session's geometry. Call after unmounting its meshes. */
   dispose(): void
 }
@@ -47,6 +53,7 @@ export const createPartCollectionLoader = (
   // Every mesh a load has returned, with whether the scene has shown it. One cache reference
   // each, however many results returned it: what frees a mesh is the scene no longer showing it.
   const held = new Map<BufferGeometry, { resource: EngineGeometryResource; shown: boolean }>()
+  // Keeps nothing released: a mesh the scene stops showing is disposed at once.
   const cache = createEngineGeometryCache(async (part) => {
     const geometry = await loadPartMesh(part.mesh, {
       fetch: options.fetch,
@@ -60,7 +67,7 @@ export const createPartCollectionLoader = (
       smoothRegionNormals(geometry, part.regions)
     }
     return geometry
-  })
+  }, 0)
   return {
     async load(items) {
       const ids = items.map((item) => item.id)
@@ -96,7 +103,7 @@ export const createPartCollectionLoader = (
           } catch (error) {
             cache.release(resource)
             controller.signal.throwIfAborted()
-            failed.set(item.id, error instanceof Error ? error : new Error(String(error)))
+            failed.set(item.id, toError(error))
           }
         }
       }
@@ -117,6 +124,13 @@ export const createPartCollectionLoader = (
           held.delete(geometry)
           cache.release(entry.resource)
         }
+      }
+    },
+    discard(item) {
+      const entry = held.get(item.geometry)
+      if (entry && !entry.shown) {
+        held.delete(item.geometry)
+        cache.release(entry.resource)
       }
     },
     dispose() {

@@ -9,7 +9,7 @@ import {
   waitingFor,
 } from './collection-session.js'
 
-export interface PartCollection extends PartCollectionState {
+export interface UsePartCollectionResult extends PartCollectionState {
   /** Loads every failed model again, or only `id`'s. Meshes that loaded are reused. */
   retry: (id?: string) => void
 }
@@ -33,7 +33,7 @@ const getNothing = () => NOTHING
 export const usePartCollection = (
   models: ReadonlyArray<PartCollectionModel>,
   options?: PartCollectionOptions,
-): PartCollection => {
+): UsePartCollectionResult => {
   const [initial] = useState(options)
   const [session, setSession] = useState<PartCollectionSession | null>(null)
   useEffect(() => {

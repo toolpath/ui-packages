@@ -138,17 +138,16 @@ describe('complete collections', () => {
   it('frees only the meshes the scene stops showing, after a retry and a replacement', async () => {
     let broken = true
     const request = vi.fn(async (url: string) =>
-      url.endsWith('/9.glb') && broken
+      url.endsWith('/1.glb') && broken
         ? new Response(null, { status: 500 })
         : new Response(loadMeshFixture('local-0.3.0-cube')),
     )
-    // More bodies than the cache keeps unreferenced, so a freed mesh is evicted at once.
     const loader = createPartCollectionLoader({ fetch: request })
     // A partial result the scene never shows: its meshes are held for the retry.
-    const first = await loader.load(models(10))
-    expect(first.failures.map((failure) => failure.id)).toEqual(['9'])
+    const first = await loader.load(models(2))
+    expect(first.failures.map((failure) => failure.id)).toEqual(['1'])
     broken = false
-    const again = await loader.load(models(10))
+    const again = await loader.load(models(2))
     expect(again.items[0]!.geometry).toBe(first.items[0]!.geometry)
     loader.keep(again.items)
     const replaced = vi.fn()
@@ -172,8 +171,24 @@ describe('complete collections', () => {
     expect(replaced).toHaveBeenCalledTimes(1)
     expect(kept).not.toHaveBeenCalled()
     const fetched = request.mock.calls.length
-    await loader.load(models(10).slice(1))
+    await loader.load(models(2).slice(1))
     expect(request.mock.calls.length).toBe(fetched)
+    loader.dispose()
+    expect(kept).toHaveBeenCalledTimes(1)
+  })
+  it('frees a loaded mesh that is discarded before it is shown, and never one that was shown', async () => {
+    const request = vi.fn(async () => new Response(loadMeshFixture('local-0.3.0-cube')))
+    const loader = createPartCollectionLoader({ fetch: request })
+    const [shown, dropped] = (await loader.load(models(2))).items
+    loader.keep([shown!])
+    const freed = vi.fn()
+    dropped!.geometry.addEventListener('dispose', freed)
+    const kept = vi.fn()
+    shown!.geometry.addEventListener('dispose', kept)
+    loader.discard(dropped!)
+    loader.discard(shown!)
+    expect(freed).toHaveBeenCalledTimes(1)
+    expect(kept).not.toHaveBeenCalled()
     loader.dispose()
     expect(kept).toHaveBeenCalledTimes(1)
   })

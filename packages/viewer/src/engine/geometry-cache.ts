@@ -1,6 +1,7 @@
 import type { BufferGeometry } from 'three'
 import type { PartMeshRefs, PartModel } from '../model/types.js'
 import { loadPartMesh } from './geometry.js'
+import { toError } from './guards.js'
 import { smoothRegionNormals } from './normals.js'
 
 /** What the cache needs of a part: the artifact to fetch, and how to shade it. */
@@ -127,7 +128,7 @@ export function createEngineGeometryCache(
         },
         (error: unknown) => {
           resource.status = 'rejected'
-          resource.error = error instanceof Error ? error : new Error(String(error))
+          resource.error = toError(error)
           if (resources.get(key) === resource) resources.delete(key)
         },
       )

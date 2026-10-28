@@ -323,6 +323,30 @@ test('measures on the cut face of a cut part', async ({ page }) => {
 })
 
 /**
+ * A cut half way through puts the handle inside the part, behind faces the cut
+ * has taken away. The raycast still meets those faces, so the part must pass
+ * the pointer on for the handle to light up under it.
+ */
+test('hovers the section handle behind the part the cut took away', async ({ page }) => {
+  const { canvas, box } = await openViewer(page)
+  const cut = page.locator('p', { hasText: 'Cut:' })
+
+  await page.getByRole('button', { name: 'Section' }).click()
+  await canvas.click({ position: on(box, CENTRE) })
+  await expect(cut).toContainText('Part surface')
+  await page.getByRole('slider').fill('0.5')
+
+  // The handle, dead centre under this camera.
+  const handle = at(box, CENTRE)
+  const clip = { x: handle.x - 20, y: handle.y - 20, width: 40, height: 40 }
+  await page.mouse.move(box.x + 5, box.y + 5)
+  await page.waitForTimeout(200)
+  const before = await page.screenshot({ clip })
+  await page.mouse.move(handle.x, handle.y)
+  await expect.poll(async () => Buffer.compare(before, await page.screenshot({ clip }))).not.toBe(0)
+})
+
+/**
  * A section tool with no cut yet owns the next click on the part. The measure
  * tool mounted beside it takes nothing until the cut is chosen, and again
  * takes nothing once Escape has cleared it, so the click that picks a cut is

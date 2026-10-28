@@ -46,6 +46,7 @@ import {
 } from './render/section-cap.js'
 import { EXCLUDE_FROM_FRAME, type ViewerCamera, screenLength } from './render/camera.js'
 import type { ViewerTheme } from './render/theme.js'
+import { useStableList } from './stable-list.js'
 
 export type { SectionOptions, SectionState }
 
@@ -420,14 +421,5 @@ export const SectionView = ({
 function useGeometryList(
   geometry: BufferGeometry | ReadonlyArray<BufferGeometry>,
 ): ReadonlyArray<BufferGeometry> {
-  const next = 'isBufferGeometry' in geometry ? [geometry] : geometry
-  const held = useRef<ReadonlyArray<BufferGeometry> | null>(null)
-  if (
-    held.current === null ||
-    held.current.length !== next.length ||
-    held.current.some((each, index) => each !== next[index])
-  ) {
-    held.current = next
-  }
-  return held.current
+  return useStableList('isBufferGeometry' in geometry ? [geometry] : geometry)
 }

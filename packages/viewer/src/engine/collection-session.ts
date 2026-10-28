@@ -1,6 +1,7 @@
 import type { PartModel } from '../model/types.js'
 import { createPartCollectionLoader, type LoadedCollectionItem } from './collection.js'
 import type { LoadPartGeometryOptions } from './geometry.js'
+import { toError } from './guards.js'
 
 /**
  * A body to show: its model, kept the same object while it is unchanged, or a
@@ -147,10 +148,7 @@ export const createPartCollectionSession = (
       requested.set(id, builders.get(id)!())
     } catch (error) {
       requested.delete(id)
-      failed.set(id, {
-        error: error instanceof Error ? error : new Error(String(error)),
-        kind: 'build',
-      })
+      failed.set(id, { error: toError(error), kind: 'build' })
       return
     }
     failed.delete(id)
@@ -163,7 +161,16 @@ export const createPartCollectionSession = (
       const id = queue.shift()!
       const model = requested.get(id)
       const key = keys.get(id)
-      if (!model || shown.get(id)?.model === model) {
+      if (!model) {
+        continue
+      }
+      // A new key that built the model already on screen: nothing to load, but it is shown now.
+      if (shown.get(id)?.model === model) {
+        if (shownKeys.get(id) !== key) {
+          shownKeys.set(id, key)
+          failed.delete(id)
+          publish()
+        }
         continue
       }
       running += 1
@@ -171,7 +178,14 @@ export const createPartCollectionSession = (
         .load([{ id, model }])
         .then(
           ({ items: [item], failures: [failure] }) => {
-            if (disposed || requested.get(id) !== model) {
+            if (disposed) {
+              return
+            }
+            if (requested.get(id) !== model) {
+              // Dropped, and its mesh freed unless an item on screen draws the same one.
+              if (item && ![...shown.values()].some((each) => each.geometry === item.geometry)) {
+                loader.discard(item)
+              }
               return
             }
             if (item) {
@@ -187,10 +201,7 @@ export const createPartCollectionSession = (
             if (disposed || requested.get(id) !== model) {
               return
             }
-            failed.set(id, {
-              error: error instanceof Error ? error : new Error(String(error)),
-              kind: 'load',
-            })
+            failed.set(id, { error: toError(error), kind: 'load' })
             publish()
           },
         )

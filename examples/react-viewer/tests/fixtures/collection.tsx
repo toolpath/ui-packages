@@ -7,7 +7,7 @@ import {
   PartCollection,
   Viewer,
   useContentBox,
-  type CollectionPick,
+  type PartPick,
   type ViewerHandle,
 } from '@toolpath/viewer'
 import { MODELS } from '../../src/models'
@@ -62,7 +62,7 @@ const App = () => {
   const [tint, setTint] = useState(false)
   const [raised, setRaised] = useState(false)
   const [hidden, setHidden] = useState(false)
-  const [pick, setPick] = useState<CollectionPick | null>(null)
+  const [pick, setPick] = useState<{ id: string; pick: PartPick } | null>(null)
   const [picks, setPicks] = useState<Array<string>>([])
   const [hover, setHover] = useState<string | null>(null)
   const [scene, setScene] = useState('')
@@ -125,9 +125,9 @@ const App = () => {
         <Viewer ref={viewer}>
           <PartCollection
             items={items}
-            onPick={(event) => {
-              setPick(event)
-              setPicks((old) => [...old, event.id])
+            onPick={(id, value) => {
+              setPick({ id, pick: value })
+              setPicks((old) => [...old, id])
             }}
             onHover={(id, value) => setHover(value ? id : null)}
           >
