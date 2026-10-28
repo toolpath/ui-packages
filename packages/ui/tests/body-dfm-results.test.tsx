@@ -60,7 +60,12 @@ describe('combined body results', () => {
       />,
     )
     expect(screen.getByRole('status')).toHaveTextContent('2 of 3 bodies checked · 1 failed')
-    fireEvent.click(screen.getAllByRole('button', { name: 'Through hole 1' })[1]!)
+    // By body, then by type, then the feature: body b's copy of the shared tag.
+    const bodies = screen.getByRole('list', { name: 'Features by body' })
+    expect(within(bodies).getByRole('button', { name: /^Body c/ })).toBeDisabled()
+    fireEvent.click(within(bodies).getByRole('button', { name: /^Body b/ }))
+    fireEvent.click(within(bodies).getByRole('button', { name: /^Through hole/ }))
+    fireEvent.click(within(bodies).getByRole('button', { name: /Through hole 1/ }))
     expect(inspect).toHaveBeenCalledWith('b', 'duplicate')
     fireEvent.click(screen.getByRole('button', { name: 'Retry Body c' }))
     expect(retry).toHaveBeenCalledWith('c')
@@ -153,5 +158,67 @@ describe('combined body results', () => {
     fireEvent.click(bodyA)
     fireEvent.click(screen.getByRole('button', { name: /Blind hole 2/ }))
     expect(inspect).toHaveBeenCalledWith('a', 'h2')
+  })
+
+  it("takes an application's own feature groups, with their flags, and reports what the pointer is on", () => {
+    const summary = combineBodyChecks(
+      ['a', 'b'].map((id) => ({
+        id,
+        label: `Body ${id}`,
+        status: 'ready' as const,
+        check: null,
+        features: [],
+      })),
+      [],
+    )
+    const holes = {
+      key: 'holes',
+      label: 'Holes',
+      color: 0x8b5cf6,
+      rows: [
+        {
+          tag: 'h1',
+          label: 'Blind hole',
+          facts: ['⌀ 6 mm', 'depth 12 mm'],
+          severity: 'critical' as const,
+        },
+        { tag: 'h2', label: 'Through hole', facts: ['⌀ 3 mm'], severity: 'warning' as const },
+        { tag: 'h3', label: 'Through hole', facts: [], severity: null },
+      ],
+    }
+    const focus = vi.fn()
+    const inspect = vi.fn()
+    render(
+      <BodyDfmResults
+        summary={summary}
+        tab="features"
+        units="mm"
+        onInspect={inspect}
+        featureGroups={new Map([['a', [holes]]])}
+        bodyColors={new Map([['a', 0x4e79a7]])}
+        onHoverFeatures={focus}
+      />,
+    )
+    const bodies = screen.getByRole('list', { name: 'Features by body' })
+    const bodyA = within(bodies).getByRole('button', { name: /^Body a/ })
+    expect(bodyA).toHaveTextContent('3 features')
+    expect(within(bodyA).getByTitle('1 breaking a critical rule')).toBeVisible()
+    expect(within(bodyA).getByTitle('1 breaking a rule')).toBeVisible()
+    fireEvent.pointerMove(bodyA)
+    expect(focus).toHaveBeenLastCalledWith({ bodyId: 'a', group: null, tag: null })
+    fireEvent.click(bodyA)
+    const group = within(bodies).getByRole('button', { name: /^Holes/ })
+    fireEvent.pointerMove(group)
+    expect(focus).toHaveBeenLastCalledWith({ bodyId: 'a', group: 'holes', tag: null })
+    fireEvent.click(group)
+    const hole = within(bodies).getByRole('button', { name: /Blind hole/ })
+    expect(within(hole).getByLabelText('Critical flag')).toBeInTheDocument()
+    expect(hole).toHaveTextContent('⌀ 6 mm · depth 12 mm')
+    fireEvent.pointerMove(hole)
+    expect(focus).toHaveBeenLastCalledWith({ bodyId: 'a', group: 'holes', tag: 'h1' })
+    fireEvent.click(hole)
+    expect(inspect).toHaveBeenCalledWith('a', 'h1')
+    fireEvent.pointerLeave(bodies)
+    expect(focus).toHaveBeenLastCalledWith(null)
   })
 })

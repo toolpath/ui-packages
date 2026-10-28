@@ -5,7 +5,6 @@ import {
   hitFigure,
   describeRule,
   type BodyDfmSummary,
-  type BodyDfmFeature,
   type DfmRule,
   type Units,
   type RuleVocabulary,
@@ -13,7 +12,7 @@ import {
 import { Button } from '../button'
 import { cn } from '../common'
 import { Swatch } from '../dfm-rule-list'
-import { Table } from '../table'
+import { FeaturesByBody, type BodyFeatureFocus, type BodyFeatureGroup } from './features-by-body'
 import { ScrollArea } from '../scroll-area'
 
 export interface BodyDfmResultsProps {
@@ -31,6 +30,14 @@ export interface BodyDfmResultsProps {
   onRetry?: (bodyId: string) => void
   /** Each body's colour on the model, by id, for the dot beside its name. */
   bodyColors?: ReadonlyMap<string, number>
+  /**
+   * The Features tab's groups for each body, by id: the application's own kinds
+   * of feature, colours and measurements. A body with none here is grouped by
+   * feature type.
+   */
+  featureGroups?: ReadonlyMap<string, ReadonlyArray<BodyFeatureGroup>>
+  /** The body, group or feature the pointer is on in the Features tab; null once it leaves. */
+  onHoverFeatures?: (focus: BodyFeatureFocus | null) => void
 }
 
 /** A failed body never finishes, so only a pending one is worth waiting for. */
@@ -56,8 +63,9 @@ export const BodyDfmResults = ({
   onHoverRule,
   onRetry,
   bodyColors,
+  featureGroups,
+  onHoverFeatures,
 }: BodyDfmResultsProps) => {
-  const rows: Array<BodyDfmFeature> = summary.features
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
       <p role="status" className="shrink-0 px-3 text-xs text-gray-500 dark:text-zinc-400">
@@ -112,40 +120,21 @@ export const BodyDfmResults = ({
             onHoverRule={onHoverRule}
           />
         </>
-      ) : rows.length > 0 ? (
-        <Table
-          data={rows}
-          virtualized={false}
-          scrollable
-          header={
-            <Table.HeaderRow>
-              <Table.HeaderCell>Body</Table.HeaderCell>
-              <Table.HeaderCell>Feature</Table.HeaderCell>
-            </Table.HeaderRow>
-          }
-        >
-          {(row) => (
-            <Table.Row
-              onMouseEnter={() => onHover?.(row.bodyId, row.feature.tag)}
-              onMouseLeave={() => onHover?.(row.bodyId, null)}
-            >
-              <Table.Cell>{row.bodyLabel}</Table.Cell>
-              <Table.Cell>
-                <Button
-                  size="sm"
-                  variant="muted"
-                  onClick={() => onInspect(row.bodyId, row.feature.tag)}
-                >
-                  {featureTypeLabel(row.feature.featureType)} {row.feature.number}
-                </Button>
-              </Table.Cell>
-            </Table.Row>
-          )}
-        </Table>
       ) : (
-        <p className="px-3 text-sm text-gray-500 dark:text-zinc-400">
-          {emptyMessage(summary, tab)}
-        </p>
+        <>
+          {summary.features.length === 0 ? (
+            <p className="px-3 text-sm text-gray-500 dark:text-zinc-400">
+              {emptyMessage(summary, tab)}
+            </p>
+          ) : null}
+          <FeaturesByBody
+            summary={summary}
+            featureGroups={featureGroups}
+            bodyColors={bodyColors}
+            onInspect={onInspect}
+            onHoverFeatures={onHoverFeatures}
+          />
+        </>
       )}
     </div>
   )

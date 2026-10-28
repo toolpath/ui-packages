@@ -705,8 +705,13 @@ for published changes.
 Pass `tab="rules"` or `tab="features"`, `units`, and
 `onInspect(bodyId, featureTag)`. The Rules tab lists every rule as the rule list
 does, with how many features break it in all bodies together, and opens into the
-bodies that break it and then their features. Optional `onHover(bodyId,
-featureTag | null)`, `onHoverRule(ruleId | null, bodyId | null)` and
+bodies that break it and then their features. The Features tab lists each body
+with how many features of each kind it has and how many break a rule, and opens
+into its groups and then their features, each marked with `SeverityIcon`. Pass
+`featureGroups` (each body's `BodyFeatureGroup`s, by id) for an application's
+own kinds of feature, colours and measurements; a body without them is grouped
+by feature type. Optional `onHover(bodyId, featureTag | null)`,
+`onHoverRule(ruleId | null, bodyId | null)`, `onHoverFeatures(focus | null)` and
 `onRetry(bodyId)` connect the rows to an application's viewer and retries, and
 `bodyColors` puts each body's colour beside its name. Pending and failed checks
 remain explicit alongside available results; the application owns analysis and
