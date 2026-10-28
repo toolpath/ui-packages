@@ -968,7 +968,7 @@ are swapped for native ones.
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | --------------------------------------------------------------------------------------------------- |
 | `Viewer`, `PartMesh`, `EnginePart`, `Stock`, `DirectionArrows`, `SectionView`, `SectionTool`, `ToolMarks`, `Axes`, `Grid`, `ViewCube`, `Banana`, `SceneLabel` | yes | yes                                                                                                 |
 | Every pure function, constant and type from the models, rendering helpers and Engine adapter                                                                  | yes | yes                                                                                                 |
-| `MeasureTool`, `HoverCard`, `ViewerToolbar`, `labelTexture`                                                                                                   | yes | throw `Error('@toolpath/viewer: <Name> is not available on React Native.')` when called or rendered |
+| `MeasureTool`, `HoverCard`, `ViewerToolbar`, `viewerToolGroups`, `labelTexture`                                                                               | yes | throw `Error('@toolpath/viewer: <Name> is not available on React Native.')` when called or rendered |
 | `ViewerToolbarProvider`, `useViewerToolbar`                                                                                                                   | yes | yes (the context has no DOM)                                                                        |
 
 On React Native, one finger orbits, two fingers pinch to zoom and pan, and a tap

@@ -7,8 +7,8 @@ the same way: the `react-native` export condition gives Metro a native build of 
 `@toolpath/viewer` and `@toolpath/viewer/engine`. See the README's "React Native (Expo)" section for
 the app setup.
 
-- `MeasureTool`, `HoverCard`, `ViewerToolbar` and `labelTexture` are web-only and throw when used on
-  React Native.
+- `MeasureTool`, `HoverCard`, `ViewerToolbar`, `viewerToolGroups` and `labelTexture` are web-only
+  and throw when used on React Native.
 - `SceneLabel`s are drawn as views over the canvas. `ViewerTheme.labels` styles them; each has the
   `testID` `scene-label-<kind>`, and a pressable one is announced as a button, with the new
   `accessibilityHint` saying what pressing it does. A pressable label's touch target is at least 44

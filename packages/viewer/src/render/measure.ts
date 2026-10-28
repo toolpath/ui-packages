@@ -21,6 +21,13 @@ import { type ViewerCamera, type ViewportSize, screenLength } from './camera.js'
  */
 export const MEASURE_LABEL_CLASS = 'toolpath-measure-label'
 
+/**
+ * The class the measure tool's hover caption carries, for a stylesheet to
+ * find. It ships placed but bare, as the labels do: a `<div>` just off the
+ * pointer whose text says what a click there picks.
+ */
+export const MEASURE_HINT_CLASS = 'toolpath-measure-hint'
+
 /** Draws over the part and the section cap, under nothing. */
 export const MEASURE_RENDER_ORDER = 7
 

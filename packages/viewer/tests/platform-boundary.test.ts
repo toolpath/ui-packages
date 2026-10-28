@@ -6,8 +6,8 @@
  * other file ships to a phone, where it throws the first time it runs — and
  * nothing in the web build, its tests or its types would notice. So the uses
  * are found in the source, with TypeScript's own parser, and allowed only in
- * the web halves of the platform files and the four components that are
- * web-only outright.
+ * the web halves of the platform files and the components that are web-only
+ * outright, with the files only they import.
  *
  * Found by syntax, not by name, so that a type annotation — `HTMLElement` as a
  * parameter type, a `Pick<HTMLCanvasElement, ...>` cast — is not a use: only
@@ -37,8 +37,14 @@ const WEB_FILES = new Set([
   'banana-asset.ts',
   'render/keys.ts',
   'measure-tool.tsx',
+  // The measure tool's parts: only `measure-tool.tsx` imports them.
+  'measure-hint.ts',
+  'measure-labels.tsx',
+  'measure-pointer.ts',
+  'measure-readout.tsx',
   'hover-card.tsx',
   'viewer-toolbar.tsx',
+  'viewer-tools.tsx',
   'toolbar-icons.tsx',
   // The WebGL check and its alert: only the web frame imports them.
   'render/webgl.ts',
@@ -282,7 +288,7 @@ describe('the DOM stays in the web-only files', () => {
     expect(nativeImports(join(SRC, 'native/viewer-frame.tsx'))).toContainEqual(
       expect.stringMatching(/imports react-native$/),
     )
-    expect(dreiRootImports(join(SRC, 'measure-tool.tsx'))).toContainEqual(
+    expect(dreiRootImports(join(SRC, 'scene-label.tsx'))).toContainEqual(
       expect.stringMatching(/imports @react-three\/drei$/),
     )
   })
