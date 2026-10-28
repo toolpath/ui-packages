@@ -1,19 +1,14 @@
 /**
- * The React Native build of `@toolpath/viewer` is there, and holds nothing a
- * phone cannot run.
+ * What the viewer's two builds ship holds together: what types cannot say.
  *
  * Metro picks `dist/native/` through the `react-native` export condition, and
- * nothing in the web build, its tests or a browser ever loads it — so a
- * missing entry or a `document` that crept in through a new import would ship
- * unnoticed until an app crashed on start. `platform-boundary.test.ts` holds
- * the line in the source; this checks what the build actually emitted, the
- * `.native` files included.
- *
- * It builds the viewer first, every time, so it never checks a stale build or
- * skips for want of one. The assets are checked too: the native build keeps
- * its import of the model as written and has no copy of its own, so each one
- * it imports must be where that import points, and a rebuild that cleaned
- * them away would ship without.
+ * nothing in the web build, its tests or a browser ever loads it. So this
+ * builds the viewer, every time, and checks the output: both builds' entries
+ * and the assets are there, each model the native build imports is where that
+ * import points (the native build has no copy of its own), the React Native
+ * peer admits only a Metro that reads the exports map, and the web build
+ * imports nothing only a phone has. `tests/platform-boundary.test.ts` keeps
+ * the DOM out of what the native build runs.
  */
 
 import { existsSync } from 'node:fs'
@@ -27,28 +22,14 @@ const native = join(viewer, 'dist/native')
 /** Under the package. The notices cover the font outlines `dist/native` bundles. */
 const REQUIRED = [
   'dist/native/index.js',
+  'dist/native/index.d.ts',
   'dist/native/engine/index.js',
+  'dist/native/engine/index.d.ts',
   'dist/index.js',
   'dist/assets/banana.glb',
   'dist/toolbar.css',
   'THIRD-PARTY-NOTICES',
 ]
-
-/**
- * What only a browser has: the DOM, `import.meta` (Metro has none), and the
- * web halves of the renderers. A pattern, so `document?.` and `window.x` count.
- */
-const FORBIDDEN = [
-  /\bdocument\s*\??\./,
-  /\bwindow\s*\??\./,
-  /\bimport\.meta\b/,
-  /\breact-dom\b/,
-  /\bdrei\/web\b/,
-]
-
-/** A DOM element made by the JSX runtime: `jsx("div", …)` and the like. */
-const DOM_JSX =
-  /\bjsx\w*\(\s*"(a|button|canvas|div|g|img|input|label|li|p|path|section|span|svg|ul)"/
 
 /** An asset the native build imports, which Metro bundles from where the import points. */
 const ASSET_SPECIFIER = /from\s*"(\.\.?\/[^"]*\.glb)"/g
@@ -72,29 +53,11 @@ const files = existsSync(native)
   : []
 for (const path of files) {
   const source = await readFile(path, 'utf8')
-  for (const pattern of FORBIDDEN) {
-    const match = pattern.exec(source)
-    if (!match) continue
-    const line = source.slice(0, match.index).split('\n').length
-    failures.push(`${relative(viewer, path)}:${line} contains ${match[0]}`)
-  }
-}
-
-for (const path of files) {
-  const source = await readFile(path, 'utf8')
   for (const match of source.matchAll(ASSET_SPECIFIER)) {
     if (existsSync(resolve(dirname(path), match[1]))) continue
     const line = source.slice(0, match.index).split('\n').length
     failures.push(`${relative(viewer, path)}:${line} imports ${match[1]}, which is missing`)
   }
-}
-
-for (const path of files) {
-  const source = await readFile(path, 'utf8')
-  const match = DOM_JSX.exec(source)
-  if (!match) continue
-  const line = source.slice(0, match.index).split('\n').length
-  failures.push(`${relative(viewer, path)}:${line} makes a <${match[1]}>`)
 }
 
 // `./engine` reaches the native build only through the exports map, which
@@ -125,5 +88,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Verified the viewer's React Native build: ${files.length} scripts, no DOM; and the web build: ${web.length} scripts, nothing native`,
+  `Verified the viewer's React Native build: ${files.length} scripts, its assets in place; and the web build: ${web.length} scripts, nothing native`,
 )
