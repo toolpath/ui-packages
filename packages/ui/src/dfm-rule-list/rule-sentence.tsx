@@ -2,9 +2,9 @@ import { useState, type FC, type ReactElement } from 'react'
 import {
   type DfmRule,
   lowOf,
+  LOW_TITLES,
   metricChoices,
   metricInfo,
-  OP_TITLES,
   quantityUnit,
   rangeEnd,
   type RangeLow,
@@ -86,7 +86,7 @@ export const RuleSentence: FC<SentenceProps> = ({
             </span>{' '}
             <Picker
               label="Low end"
-              title={OP_TITLES[lowOf(rule)]}
+              title={LOW_TITLES[lowOf(rule)]}
               value={lowOf(rule)}
               choices={RANGE_LOW}
               onChange={(value) =>

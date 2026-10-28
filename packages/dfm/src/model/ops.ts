@@ -24,8 +24,11 @@ export const OP_TITLES = {
 /** A range's low end, read from the number toward the measure: `6 < L/D` is above 6. */
 const LOW_SYMBOLS = { gte: '≤', gt: '<' } as const satisfies Record<RangeLow, string>
 
-/** A range's low end in words, read the same way as {@link LOW_SYMBOLS}: `6 ≤ L/D` is 6 at most L/D. */
-const LOW_TITLES = { gte: 'at most', gt: 'less than' } as const satisfies Record<RangeLow, string>
+/** A range's low end in words, read the same way as {@link LOW_SYMBOLS}: `6 ≤ L/D` is 6 at most L/D. A low end's tooltip is this, not `OP_TITLES[op]`. */
+export const LOW_TITLES = { gte: 'at most', gt: 'less than' } as const satisfies Record<
+  RangeLow,
+  string
+>
 
 /** The one-sided comparisons, offered from a range to leave it: their values marked apart from its ends'. */
 const ONE_SIDED = 'one:'
