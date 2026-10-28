@@ -46,10 +46,16 @@ plain Node `require()` of them needs Node 20.19+ or 22.12+; earlier Node uses
 ### Testing with Jest
 
 Jest runs CommonJS, so an app's Jest (`jest-expo`, say) must transform the
-package: add `@toolpath` to the packages `transformIgnorePatterns` lets through.
+package. A `transformIgnorePatterns` setting replaces jest-expo's own list
+rather than adding to it, so this one starts from jest-expo 58's (copy it from
+your version's `jest-preset.js`) and adds `@toolpath`:
 
 ```js
-transformIgnorePatterns: ['node_modules/(?!((jest-)?react-native|@react-native|expo|@toolpath)/)']
+transformIgnorePatterns: [
+  '/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|standard-navigation|@toolpath))',
+  '/node_modules/react-native-reanimated/plugin/',
+  '/node_modules/@react-native/babel-preset/',
+],
 ```
 
 ## The rules are an input
