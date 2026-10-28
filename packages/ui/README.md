@@ -729,8 +729,9 @@ both ends", "Machined from both ends" — with its considerations under
 - **The look** differs where apps want it to: `look.rules`, `look.selected` and
   `look.muted`. Left out, it is the CAD viewer's.
 - **Folds** are kept in the app's `FoldStore`; `storageFolds(storage, prefix)`
-  builds one over a `Storage`. Without one, a section remembers only while it
-  is mounted.
+  builds one over a `Storage`, and a third argument, `{ shutAtFirst }`, names
+  the sections that start shut until someone opens them. Without a store, a
+  section remembers only while it is mounted.
 - **Pop-outs** need `PopOut`, the app's window component: the panel decides
   what is open and fills it, and the app draws the frame. Define it at module
   level, and render it through a portal to the page's body: the panel's blur
