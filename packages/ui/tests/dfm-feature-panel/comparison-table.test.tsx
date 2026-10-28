@@ -104,4 +104,19 @@ describe('ComparisonTable: a face no feature owns', () => {
     )
     expect(screen.getByRole('button', { name: /No feature/ })).toBeDisabled()
   })
+
+  it('still draws its measurement, with the hover that explains it', () => {
+    const noFeature: ComparedFace = {
+      feature: null,
+      directionColor: '#000',
+      rules: [],
+      measurements: [
+        { key: 'diameter', label: 'Diameter', value: '6 mm', alt: '0.24 in', derivation: [] },
+      ],
+    }
+    render(<ComparisonTable faces={[faces[0]!, noFeature]} active={0} onSelect={vi.fn()} />)
+    const [, second] = within(rowOf('Diameter')).getAllByRole('cell')
+    expect(second).toHaveTextContent('6 mm')
+    expect(second!.querySelector('[title]')).toHaveAttribute('title', '0.24 in')
+  })
 })
