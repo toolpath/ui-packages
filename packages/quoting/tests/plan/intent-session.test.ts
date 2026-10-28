@@ -1,7 +1,16 @@
 import { planSession, startSession, type SessionEvent } from '@toolpath/plan'
 import { describe, expect, it } from 'vitest'
 
-import { intentOf, intentSessionRules, rebaseIntent, sameIntent, type Intent } from '../../src/plan'
+import {
+  intentOf,
+  intentSessionRules,
+  quotingPlan,
+  rebaseIntent,
+  sameIntent,
+  type Intent,
+  type IntentRules,
+  type PlanDraft,
+} from '../../src/plan'
 
 const up = { x: 0, y: 0, z: 1 }
 
@@ -119,5 +128,93 @@ describe('the quoting app’s session rules', () => {
     )
     expect(session.draft.inputs).toMatchObject({ materialId: 'steel', machineProfileId: 'mill' })
     expect(session.draft.done).toEqual([])
+  })
+})
+
+describe('the quoting app’s session', () => {
+  const part: IntentRules = { regionsOf: () => [], kernel: 'k1' }
+
+  const saved = (version: number, intent: Intent = applied): PlanDraft => ({
+    ...intent,
+    kernelVersion: 'k1',
+    editedAt: 'then',
+    version,
+    changed: false,
+  })
+
+  const withRuleSets = (dfmRuleSetIds: Array<string>): Intent => ({
+    ...applied,
+    inputs: { ...applied.inputs, dfmRuleSetIds },
+  })
+
+  it('starts on the plan as saved, its stamps left out and its version kept', () => {
+    const session = quotingPlan.start(saved(3))
+    expect(session.saved).toEqual(applied)
+    expect(session.version).toBe(3)
+    expect(quotingPlan.hasEdits(session)).toBe(false)
+  })
+
+  it('starts with the edits kept from before a reload', () => {
+    const kept = withRuleSets(['mine'])
+    expect(quotingPlan.start(saved(3), kept).draft).toBe(kept)
+  })
+
+  it('holds no edits when only the order of the DFM rule sets differs', () => {
+    const session = quotingPlan.start(saved(1, withRuleSets(['a', 'b'])), withRuleSets(['b', 'a']))
+    expect(quotingPlan.hasEdits(session)).toBe(false)
+  })
+
+  it('changes nothing while the plan is locked', () => {
+    const session = quotingPlan.start(saved(1))
+    const next = quotingPlan.update(session, withInputs({ materialId: 'steel' }), {
+      ...part,
+      locked: true,
+    })
+    expect(next).toBe(session)
+  })
+
+  it('keeps the inputs edited here when the plan is read again', () => {
+    const now = { ...applied, inputs: { ...applied.inputs, machineProfileId: 'lathe' } }
+    const edited = quotingPlan.update(
+      quotingPlan.start(saved(1)),
+      withInputs({ materialId: 'steel' }),
+      part,
+    )
+    const read = quotingPlan.update(edited, quotingPlan.read(saved(2, now)), part)
+    expect(read.draft.inputs).toMatchObject({ materialId: 'steel', machineProfileId: 'lathe' })
+    expect(read.version).toBe(2)
+  })
+
+  it('takes an Apply as the plan as applied, even while the plan is locked', () => {
+    const edited = quotingPlan.update(
+      quotingPlan.start(saved(1)),
+      withInputs({ materialId: 'steel' }),
+      part,
+    )
+    const applied = quotingPlan.update(
+      edited,
+      { type: 'applied', sent: edited.draft },
+      { ...part, locked: true },
+    )
+    expect(quotingPlan.hasEdits(applied)).toBe(false)
+  })
+
+  it('takes an edit back with Undo', () => {
+    const edited = quotingPlan.update(
+      quotingPlan.start(saved(1)),
+      withInputs({ materialId: 'steel' }),
+      part,
+    )
+    expect(quotingPlan.hasEdits(quotingPlan.update(edited, { type: 'undo' }, part))).toBe(false)
+  })
+
+  it('does not take a plan older than the one it has', () => {
+    const session = quotingPlan.start(saved(4))
+    const read = quotingPlan.update(
+      session,
+      quotingPlan.read(saved(3, withRuleSets(['old']))),
+      part,
+    )
+    expect(read.saved).toEqual(applied)
   })
 })
