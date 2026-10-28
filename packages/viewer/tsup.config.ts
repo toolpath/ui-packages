@@ -1,5 +1,5 @@
-import { existsSync } from 'node:fs'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { existsSync, readdirSync } from 'node:fs'
+import { dirname, extname, join, relative, resolve, sep } from 'node:path'
 import { defineConfig, type Options } from 'tsup'
 
 const SRC = resolve(import.meta.dirname, 'src')
@@ -7,26 +7,55 @@ const NATIVE = join(SRC, 'native')
 
 type Plugin = NonNullable<Options['esbuildPlugins']>[number]
 
+/** Every `.ts` and `.tsx` file under `src/native/`. */
+const nativeFiles = (): Array<string> =>
+  readdirSync(NATIVE, { recursive: true, encoding: 'utf8' })
+    .filter((file) => /\.tsx?$/.test(file))
+    .map((file) => join(NATIVE, file))
+
 /**
  * An import of a file under `src/` to the file at the same path under
  * `src/native/`, where one exists.
  *
  * The sources import each other with `.js` specifiers, as Node's ESM
- * resolution wants. esbuild maps those to `.ts` and `.tsx` itself, but never
- * to a native replacement.
+ * resolution wants, and an extensionless one resolves the same way. esbuild
+ * maps both to `.ts` and `.tsx` itself, but never to a native replacement. A
+ * specifier with any other extension (`.json`, `.glb`) is left to esbuild.
+ *
+ * A native file that no import was swapped to fails the build: its web
+ * sibling shipped in its place.
  */
 const nativeSiblings: Plugin = {
   name: 'native-siblings',
   setup(build) {
-    build.onResolve({ filter: /^\.\.?\/.*\.js$/ }, (args) => {
-      const base = resolve(dirname(args.importer), args.path.slice(0, -'.js'.length))
+    const swapped = new Set<string>()
+    build.onStart(() => {
+      swapped.clear()
+    })
+    build.onResolve({ filter: /^\.\.?\// }, (args) => {
+      const extension = extname(args.path)
+      if (extension !== '' && extension !== '.js') return undefined
+      const specifier = extension === '.js' ? args.path.slice(0, -'.js'.length) : args.path
+      const base = resolve(dirname(args.importer), specifier)
       const inSource = relative(SRC, base)
       if (inSource.startsWith('..') || inSource.startsWith(`native${sep}`)) return undefined
-      for (const extension of ['.tsx', '.ts']) {
-        const replacement = join(NATIVE, inSource + extension)
-        if (existsSync(replacement)) return { path: replacement }
+      for (const candidate of ['.tsx', '.ts']) {
+        const replacement = join(NATIVE, inSource + candidate)
+        if (existsSync(replacement)) {
+          swapped.add(replacement)
+          return { path: replacement }
+        }
       }
       return undefined
+    })
+    build.onEnd((result) => {
+      if (result.errors.length > 0) return undefined
+      const unused = nativeFiles().filter((file) => !swapped.has(file))
+      return {
+        errors: unused.map((file) => ({
+          text: `${relative(import.meta.dirname, file)} was never swapped in: no import of its web sibling reached it`,
+        })),
+      }
     })
   },
 }

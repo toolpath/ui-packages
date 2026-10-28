@@ -3,7 +3,7 @@
  * under `src/`.
  *
  * The React Native build swaps `src/native/x.ts(x)` in for `src/x.ts(x)`
- * wherever the package imports `./x.js`, so the two must export exactly the same names: a
+ * wherever the package imports `./x.js` or `./x`, so the two must export exactly the same names: a
  * name only the web file has is `undefined` on a phone, imported by code that
  * type-checked against the web file. Read with the type checker, so a
  * re-exported type counts as an export just as it does for an importer.
@@ -73,15 +73,48 @@ const exportsOf = (path: string): string[] => {
 
 const name = (path: string) => relative(SRC, path).split(sep).join('/')
 
+/**
+ * Every native file, so that one deleted fails here rather than shipping its
+ * web sibling to a phone.
+ */
+const EXPECTED = [
+  'native/banana-asset.ts',
+  'native/cube-label.tsx',
+  'native/hover-card.tsx',
+  'native/label-overlay.tsx',
+  'native/measure-tool.tsx',
+  'native/render/keys.ts',
+  'native/render/label-texture.ts',
+  'native/render/part-picking.ts',
+  'native/render/pointer-hover.ts',
+  'native/scene-label.tsx',
+  'native/viewer-frame.tsx',
+  'native/viewer-toolbar.tsx',
+  'native/viewer-tools.tsx',
+]
+
+/**
+ * Every `export *` in a file. The program reads no imports, so it cannot see
+ * the names one brings in, and two files could differ there unnoticed.
+ */
+const exportStars = (path: string): Array<string> => {
+  const file = program.getSourceFile(path)
+  if (!file) throw new Error(`${path} was not read`)
+  return file.statements
+    .filter((statement) => ts.isExportDeclaration(statement) && !statement.exportClause)
+    .map((statement) => statement.getText(file))
+}
+
 describe('native files and their web siblings', () => {
-  it('has pairs to check', () => {
-    expect(PAIRS.length).toBeGreaterThanOrEqual(10)
+  it('pairs every native file', () => {
+    expect(NATIVE.map(name)).toEqual(EXPECTED)
   })
 
   it.each(PAIRS.map(({ native, web }) => [name(native), native, web] as const))(
     '%s exports what its sibling does',
     (_file, native, web) => {
       expect(web, 'a src/native file replaces the web file at the same path').not.toBeNull()
+      expect([...exportStars(native), ...exportStars(web!)]).toEqual([])
       expect(exportsOf(native)).toEqual(exportsOf(web!))
     },
   )
