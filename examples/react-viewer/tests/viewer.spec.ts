@@ -220,21 +220,19 @@ test('selects a feature and responds to CAD camera navigation', async ({ page })
 })
 
 /**
- * The measure tool, driven the way somebody would drive it: two clicks on the
- * part make a distance, and the label it puts on the page is text a person
- * could read. The snap arithmetic is unit tested; what this covers is that a
- * click places a point rather than selecting a face, that the measurement is
- * reported and drawn, and that leaving the tool hands the pointer back.
+ * The measure tool, driven the way somebody would drive it: a click takes the
+ * face under it, a second face is read with the first, and Alt places points
+ * instead. The readouts are unit tested; what this covers is that a click
+ * measures rather than selects, that the labels are on the page, and that
+ * leaving the tool hands the pointer back.
  */
-test('measures a distance between two clicks, without selecting either face', async ({ page }) => {
+test('measures what is clicked, without selecting it', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
   await page.getByRole('button', { name: 'Enable feature hover' }).click()
 
   const measured = page.locator('p', { hasText: 'Measured:' })
   const hovered = page.locator('p', { hasText: 'Hovered:' })
   const selected = page.locator('p', { hasText: 'Selected:' })
-  // Visible ones: the live readout that follows the pointer is a label too,
-  // hidden between measurements rather than removed.
   const labels = page.locator('.toolpath-measure-label').filter({ visible: true })
 
   await canvas.click({ position: on(box, CENTRE) })
@@ -243,48 +241,38 @@ test('measures a distance between two clicks, without selecting either face', as
   await expect(measured).toContainText('none')
   await expect(selected).toContainText('none')
 
-  // The pointer is the tool's: the face under it is not hovered, and the two
-  // clicks that measure do not select what they land on.
+  // The pointer is the tool's: the face under it is not hovered, the caption
+  // says what a click there takes, and the clicks that measure do not select
+  // what they land on.
   await canvas.hover({ position: on(box, CENTRE) })
   await expect(hovered).toContainText('none')
+  await expect(page.locator('.toolpath-measure-hint')).toHaveText('Face')
   await canvas.click({ position: on(box, CENTRE) })
-  await expect(measured).toContainText('none')
+  await expect(measured).toHaveText(/1 measurement, last face$/)
   await canvas.click({ position: on(box, ONE) })
-  await expect(measured).toContainText('1 measurement, last')
-  await expect(measured).toContainText('mm')
+  await expect(measured).toHaveText(/1 measurement, last face and face$/)
   await expect(selected).toContainText('none')
+  // Two faces of a cube meet square.
+  await expect(labels.filter({ hasText: '90' })).toHaveCount(1)
 
-  // The label is on the page, and says what the readout says.
-  const readout = (await measured.textContent()) ?? ''
-  const value = /last (\d+\.\d+ mm)/.exec(readout)?.[1]
-  expect(value, readout).toBeDefined()
-  await expect(labels.filter({ hasText: value! })).toHaveCount(1)
-  // Two points on two faces of a cube are not on one axis, so the distance is
-  // broken into its parts, each with a label of its own.
+  // Delete takes the last pick away, then the one before it.
+  await page.keyboard.press('Delete')
+  await expect(measured).toHaveText(/1 measurement, last face$/)
+  await page.keyboard.press('Delete')
+  await expect(measured).toContainText('none')
+  await expect(labels).toHaveCount(0)
+
+  // Alt places points. Two points on two faces of a cube are not on one axis,
+  // so the distance is broken into its parts, each with a label of its own.
+  await canvas.click({ position: on(box, CENTRE), modifiers: ['Alt'] })
+  await canvas.click({ position: on(box, ONE), modifiers: ['Alt'] })
+  await expect(measured).toHaveText(/1 measurement, last point and point$/)
+  await expect(labels.filter({ hasText: 'mm' })).not.toHaveCount(0)
   expect(await labels.count()).toBeGreaterThan(1)
 
-  // Delete takes the last measurement, and its labels, away.
-  await page.keyboard.press('Delete')
-  await expect(measured).toContainText('none')
-  await expect(labels).toHaveCount(0)
-
-  // The same two clicks with Shift held on the second: the point is held to
-  // one axis through the first, so the distance runs square and has no parts
-  // to break into — one label, not three.
-  await canvas.click({ position: on(box, CENTRE) })
-  await canvas.click({ position: on(box, ONE), modifiers: ['Shift'] })
-  await expect(measured).toContainText('1 measurement, last')
-  await expect(labels).toHaveCount(1)
-  await page.keyboard.press('Delete')
-  await expect(labels).toHaveCount(0)
-
-  // An angle is three clicks, and a mode change does not need a re-mount.
-  await page.getByRole('button', { name: 'Angle' }).click()
-  await canvas.click({ position: on(box, ONE) })
-  await canvas.click({ position: on(box, CENTRE) })
-  await expect(measured).toContainText('none')
-  await canvas.click({ position: on(box, OTHER) })
-  await expect(measured).toContainText('°')
+  // Shift keeps what is measured and starts another.
+  await canvas.click({ position: on(box, OTHER), modifiers: ['Shift'] })
+  await expect(measured).toHaveText(/2 measurements, last face$/)
 
   await page.getByRole('button', { name: 'Clear measurements' }).click()
   await expect(measured).toContainText('none')
@@ -303,12 +291,12 @@ test('measures a distance between two clicks, without selecting either face', as
 })
 
 /**
- * A cut part is measured as it is seen. The first click lands on the capped
- * face — there is no geometry there, only a stencil, and the face behind it
- * has been clipped away — so without re-sampling the click places nothing and
- * the measurement never completes.
+ * A cut part is measured as it is seen. The cut face is drawn by a stencil,
+ * with no geometry there, and the face behind it has been clipped away: an
+ * Alt point must land on the cut face all the same, and a plain click there
+ * takes nothing, as there is no face of the part to take.
  */
-test('measures on the capped face of a cut part', async ({ page }) => {
+test('measures on the cut face of a cut part', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
 
   const cut = page.locator('p', { hasText: 'Cut:' })
@@ -319,15 +307,15 @@ test('measures on the capped face of a cut part', async ({ page }) => {
   await expect(cut).toContainText('Part surface')
 
   await page.getByRole('button', { name: 'Measure', exact: true }).click()
+  await canvas.click({ position: on(box, CENTRE), modifiers: ['Alt'] })
+  await expect(measured).toHaveText(/1 measurement, last point$/)
   await canvas.click({ position: on(box, CENTRE) })
-  await canvas.click({ position: on(box, ONE) })
-  await expect(measured).toContainText('1 measurement, last')
+  await expect(measured).toHaveText(/1 measurement, last point$/)
 
-  // Deeper, and the cap is still where the pointer lands.
+  // Deeper, and the cut face is still where the pointer lands.
   await page.getByRole('slider').fill('0.5')
-  await canvas.click({ position: on(box, CENTRE) })
-  await canvas.click({ position: on(box, ONE) })
-  await expect(measured).toContainText('2 measurements, last')
+  await canvas.click({ position: on(box, CENTRE), modifiers: ['Alt', 'Shift'] })
+  await expect(measured).toHaveText(/1 measurement, last point and point$/)
 
   await page.getByRole('button', { name: 'Exit measure' }).click()
   await page.getByRole('button', { name: 'Exit section' }).click()
@@ -336,14 +324,10 @@ test('measures on the capped face of a cut part', async ({ page }) => {
 
 /**
  * A section tool with no cut yet owns the next click on the part. The measure
- * tool mounted beside it places nothing until the cut is chosen, and again
- * places nothing once Escape has cleared it, so the click that picks a cut is
- * never also the first point of a measurement. Leaving section mode hands the
- * click back to the measure tool.
- *
- * A stray first point would not show in the count on its own — a draft is not
- * a measurement — so each cut is followed by one click and a check that the
- * count has not moved, before the click that would finish a measurement.
+ * tool mounted beside it takes nothing until the cut is chosen, and again
+ * takes nothing once Escape has cleared it, so the click that picks a cut is
+ * never also a pick. Leaving section mode hands the click back to the measure
+ * tool.
  */
 test('waits for a cut to be chosen before measuring beside the section tool', async ({ page }) => {
   const { canvas, box } = await openViewer(page)
@@ -359,14 +343,12 @@ test('waits for a cut to be chosen before measuring beside the section tool', as
   await expect(cut).toContainText('none')
   await expect(measured).toContainText('none')
 
-  // The first click chooses the cut and is not a measurement point: the next
-  // is a first point, and only the one after that finishes a measurement.
+  // The first click chooses the cut and is not a pick.
   await canvas.click({ position: on(box, CENTRE) })
   await expect(cut).toContainText('Part surface')
-  await canvas.click({ position: on(box, ONE) })
   await expect(measured).toContainText('none')
-  await canvas.click({ position: on(box, CENTRE) })
-  await expect(measured).toContainText('1 measurement, last')
+  await canvas.click({ position: on(box, ONE) })
+  await expect(measured).toHaveText(/1 measurement, last face$/)
 
   // Clearing the cut puts the section tool back to offering one, and the
   // measure tool back to waiting: this click cuts, and does not measure.
@@ -374,17 +356,13 @@ test('waits for a cut to be chosen before measuring beside the section tool', as
   await expect(cut).toContainText('none')
   await canvas.click({ position: on(box, CENTRE) })
   await expect(cut).toContainText('Part surface')
-  await canvas.click({ position: on(box, ONE) })
-  await expect(measured).toContainText('1 measurement, last')
-  await canvas.click({ position: on(box, CENTRE) })
-  await expect(measured).toContainText('2 measurements, last')
+  await expect(measured).toHaveText(/1 measurement, last face$/)
 
   // With the section tool gone the measure tool has every click.
   await page.getByRole('button', { name: 'Exit section' }).click()
   await expect(cut).toContainText('off')
   await canvas.click({ position: on(box, CENTRE) })
-  await canvas.click({ position: on(box, ONE) })
-  await expect(measured).toContainText('3 measurements, last')
+  await expect(measured).toHaveText(/1 measurement, last face and face$/)
 
   await page.getByRole('button', { name: 'Exit measure' }).click()
   await expect(measured).toContainText('off')
@@ -399,7 +377,7 @@ test('merges the analysis panel regardless of which tool is entered first', asyn
   await expect(
     page.getByRole('group', { name: 'Section and measure options', exact: true }),
   ).toHaveCount(1)
-  await expect(page.getByRole('group', { name: 'Measurement type', exact: true })).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Clear measurements', exact: true })).toHaveCount(1)
   await expect(page.getByRole('button', { name: 'Exit measure', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',

@@ -47,7 +47,7 @@
   border-color: transparent;
   background: transparent;
 }
-.viewer-toolbar-icon {
+.viewer-toolbar-button .viewer-toolbar-icon {
   width: 1.3rem;
   height: 1.3rem;
 }

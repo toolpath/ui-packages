@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/plan",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Plan mode for Toolpath: the plan a person states (setups, folders, pinned features, ignored faces), every edit to it, and the plan Toolpath makes from it. Logic only; views belong in @toolpath/ui",
   "license": "MIT",
   "engines": {

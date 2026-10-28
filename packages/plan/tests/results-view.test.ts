@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { EnginePlan } from '../src/engine-plan'
-import type { DraftSetup } from '../src/plan-draft'
-import type { PlanPart } from '../src/plan-view'
+import { planFromResults, type DraftSetup } from '../src/plan-draft'
+import { classifyFaces, planFeaturesOf } from '../src/coverage'
+import { planView, rowsOf, type PlanPart } from '../src/plan-view'
 import { resultsView, setupOf } from '../src/results-view'
+import { trimmedFeature } from './trimmed-feature'
 
 const up = { x: 0, y: 0, z: 1 }
 const side = { x: 1, y: 0, z: 0 }
@@ -38,6 +40,7 @@ const plan = (overrides: Partial<EnginePlan> = {}): EnginePlan => ({
     },
   ],
   setupPlan: null,
+  trimmedFeatures: [],
   ...overrides,
 })
 
@@ -181,6 +184,131 @@ describe('resultsView', () => {
     const [only] = resultsView({ plan: stated, constraints: null, part }).setups
     expect(only!.orientations.map((o) => o.direction)).toEqual([up, side])
     expect(only!.process).toBe('3+2')
+  })
+})
+
+describe('resultsView, with trimmed features', () => {
+  // The part's report: a and b pockets, h a blind hole with its bore read.
+  const reported: Record<string, string> = { a: 'pocket', b: 'pocket', h: 'blind_hole' }
+  const bore = { diameter: 6, label: '⌀6 mm' }
+  const reportPart: PlanPart = {
+    ...part,
+    featureType: (tag) => reported[tag.toLowerCase()],
+    featureBore: (tag) => (tag.toLowerCase() === 'h' ? bore : undefined),
+  }
+  const cutting = (tags: Array<string>, trimmedFeatures: EnginePlan['trimmedFeatures']) =>
+    plan({
+      setups: [
+        {
+          idx: 0,
+          direction: up,
+          unmachined: [],
+          actions: [{ idx: 0, toolName: 'End mill', featureTags: tags }],
+        },
+      ],
+      trimmedFeatures,
+    })
+  const rowsCutting = (...args: Parameters<typeof cutting>) =>
+    resultsView({ plan: cutting(...args), constraints: null, part: reportPart }).setups[0]!.rows
+  // The plan cuts a' (a trimmed by an ignored face) and t (trimmed, its origin unsaid).
+  const trimmedPlan = cutting(
+    ["A'", 'b', 'T'],
+    [
+      trimmedFeature({ featureTag: "a'", regionIdxs: [1], fromFeatureTag: 'a' }),
+      trimmedFeature({ featureTag: 't', featureType: 'open_pocket', regionIdxs: [2] }),
+    ],
+  )
+
+  it('labels a trimmed row by its origin, else its type, and marks it trimmed', () => {
+    const [only] = resultsView({ plan: trimmedPlan, constraints: null, part: reportPart }).setups
+    expect(
+      only!.rows.map(({ tag, label, type, trimmed }) => ({ tag, label, type, trimmed })),
+    ).toEqual([
+      { tag: "A'", label: 'Feature a (trimmed)', type: 'pocket', trimmed: true },
+      { tag: 'b', label: 'Feature b', type: 'pocket', trimmed: undefined },
+      { tag: 'T', label: 'Open pocket (trimmed)', type: 'open_pocket', trimmed: true },
+    ])
+  })
+
+  it('reads a trimmed tag the report lists as the report’s feature, in its row and its faces', () => {
+    const clash = [trimmedFeature({ featureTag: 'B', featureType: 'wall', regionIdxs: [2] })]
+    expect(rowsCutting(['b'], clash)).toEqual([
+      { tag: 'b', label: 'Feature b', type: 'pocket', tool: 'End mill', mark: false },
+    ])
+    const features = planFeaturesOf(
+      [{ tag: 'b', featureType: 'pocket', regionIdxs: [1, 2] }],
+      cutting(['b'], clash),
+    )
+    expect(features).toEqual([
+      { tag: 'b', featureType: 'pocket', regionIdxs: [1, 2], fromFeatureTag: null },
+    ])
+    const regions = [1, 2, 3].map((idx) => ({ idx, area: 1 }))
+    const { faces } = classifyFaces({ regions, features, machined: new Set(['b']) })
+    expect(faces.machined.map((face) => face.region)).toEqual([1, 2])
+  })
+
+  it('takes its origin’s bore where the trimming kept its type, and none where it did not', () => {
+    const [kept, changed] = rowsCutting(
+      ["h'", 'h2'],
+      [
+        trimmedFeature({ featureTag: "h'", featureType: 'blind_hole', fromFeatureTag: 'h' }),
+        trimmedFeature({ featureTag: 'h2', featureType: 'pocket', fromFeatureTag: 'h' }),
+      ],
+    )
+    expect(kept).toMatchObject({ type: 'blind_hole', trimmed: true, bore })
+    expect(changed).toMatchObject({ type: 'pocket', trimmed: true })
+    expect(changed).not.toHaveProperty('bore')
+  })
+
+  it('pins its trimmed rows from the plan where they were planned, as the others', () => {
+    let count = 0
+    const { setups } = resultsView({ plan: trimmedPlan, constraints: null, part: reportPart })
+    expect(planFromResults(setups, () => `id-${(count += 1)}`)).toEqual([
+      { id: 'id-1', name: 'Folder 1', direction: up, features: ["A'", 'b', 'T'], folders: [] },
+    ])
+  })
+
+  it('labels and marks a trimmed tag only the unmachined list names', () => {
+    const left = plan({
+      setups: [{ idx: 0, direction: up, unmachined: ["X'"], actions: [] }],
+      trimmedFeatures: [
+        trimmedFeature({
+          featureTag: "x'",
+          featureType: 'boss',
+          regionIdxs: [3],
+          fromFeatureTag: 'x',
+        }),
+      ],
+    })
+    const [only] = resultsView({ plan: left, constraints: null, part: reportPart }).setups
+    expect(only!.notMachined).toEqual([
+      { tag: "X'", label: 'Feature x (trimmed)', type: 'boss', trimmed: true },
+    ])
+    expect(only!.rows).toEqual([
+      {
+        tag: "X'",
+        label: 'Feature x (trimmed)',
+        type: 'boss',
+        trimmed: true,
+        tool: null,
+        mark: 'notMachined',
+      },
+    ])
+  })
+
+  it('reads a plan without trimmed features as before', () => {
+    const { setups, setupPlan } = plan()
+    const views = planView({ setups, setupPlan, trimmedFeatures: [] }, part)
+    // A plan read without the field at all lays out the same.
+    expect(planView({ setups, setupPlan }, part)).toEqual(views)
+    expect(views.flatMap(rowsOf).some((row) => 'trimmed' in row)).toBe(false)
+    expect(resultsView({ plan: plan(), constraints: null, part }).setups[0]!.rows[0]).toEqual({
+      tag: 'a',
+      label: 'Feature a',
+      type: 'pocket',
+      tool: 'Face mill, End mill',
+      mark: false,
+    })
   })
 })
 

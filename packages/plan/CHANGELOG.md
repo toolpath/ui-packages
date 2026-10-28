@@ -1,5 +1,37 @@
 # @toolpath/plan
 
+## 0.3.0
+
+### Minor Changes
+
+- 979d260: Read the trimmed features Toolpath serves with a plan: what is left of a part's feature once ignored
+  faces (from Engine API 1.30.0) or a pinned feature sharing its faces (from the Engine release that
+  plans with tp-kernel 0.29) keep some of its faces away. A plan's tags can name them, a draft can pin
+  them, and the part's report does not list them.
+  - `EnginePlan` has an optional `trimmedFeatures`, a list of `TrimmedFeature`; null or absent from
+    an older Engine, read as none (`trimmedFeaturesOf`).
+  - `planFeaturesOf(reportFeatures, plan, pinned?)` joins plan tags to features: the report's, then
+    the trimmed ones shaped like them, each with `trimmed: true` and `fromFeatureTag`, less any whose
+    tag the report lists (`unlistedTrimmedFeatures`). Pass it to `classifyFaces` and `groupFaces` so
+    a trimmed feature's faces read as its own; in the constraints view pass the pins, so only pinned
+    trimmed features show.
+  - `planView` and `resultsView` mark a trimmed row `trimmed` and label it `Pocket (trimmed)`, from
+    the feature it was trimmed from or its own type (`trimmedFeatureLabel`). It takes its origin's
+    bore where its type is the origin's. A tag the report lists reads as the report's row.
+  - `draftView` takes the latest plan as an optional third argument, and labels a pinned trimmed tag
+    the same way.
+
+  Every addition is optional: a plan or an app that has no trimmed features reads as before.
+
+## 0.2.1
+
+### Patch Changes
+
+- e35f7bb: `groupFaces` ranks `circular_wall`, which Engine API 1.34.0 reports for a stud, a round boss or a
+  turned part's outline, with the bosses, as the viewer does. Among features that include equally
+  many faces still ungathered, a circular wall goes before a chamfer, fillet or wall, as a stud did
+  when it read as a `boss`. Unranked, it went after chamfers and fillets.
+
 ## 0.2.0
 
 ### Minor Changes

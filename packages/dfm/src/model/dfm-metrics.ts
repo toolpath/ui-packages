@@ -42,6 +42,7 @@ export type FactsKind =
   | 'Pocket'
   | 'Boss'
   | 'Wall'
+  | 'CircularWall'
   | 'Face'
   | 'Three'
   | 'Chamfer'
@@ -504,7 +505,7 @@ export const FEATURE_METRICS: readonly DfmMetric[] = [
     op: 'gte',
     start: { mm: 500, inch: 508 },
     path: ['facts.wallLength.length', 'facts.length'],
-    kinds: ['Pocket', 'Boss', 'Wall', 'Profile'],
+    kinds: ['Pocket', 'Boss', 'Wall', 'CircularWall', 'Profile'],
     hint: 'How far a pass around its outline travels, with a tool of no width',
   }),
 
@@ -1017,11 +1018,11 @@ const GROUP_SUBJECTS: readonly DfmSubject[] = [
   { value: 'pocket', label: 'Pockets', group: 'Groups', kinds: POCKET_KINDS },
   { value: 'slot', label: 'Slots', group: 'Groups', kinds: UNDERCUT_KINDS },
   { value: 'undercut', label: 'Undercuts', group: 'Groups', kinds: UNDERCUT_KINDS },
-  { value: 'boss', label: 'Bosses', group: 'Groups', kinds: ['Boss'] },
+  { value: 'boss', label: 'Bosses', group: 'Groups', kinds: ['Boss', 'CircularWall'] },
   { value: 'countersink', label: 'Countersinks', group: 'Groups', kinds: ['Hole', 'Chamfer'] },
   { value: 'profile', label: 'Profiles', group: 'Groups', kinds: ['Profile'] },
   { value: 'contour', label: '3D surfaces', group: 'Groups', kinds: SURFACE_KINDS },
-  { value: 'wall', label: 'Walls', group: 'Groups', kinds: ['Wall'] },
+  { value: 'wall', label: 'Walls', group: 'Groups', kinds: ['Wall', 'CircularWall'] },
   { value: 'face', label: 'Faces', group: 'Groups', kinds: ['Face', 'Three'] },
   { value: 'fillet', label: 'Fillets', group: 'Groups', kinds: SURFACE_KINDS },
   { value: 'chamfer', label: 'Chamfers', group: 'Groups', kinds: ['Chamfer'] },
@@ -1046,6 +1047,7 @@ const TYPES: readonly [type: string, label: string, kinds: readonly FactsKind[]]
   ['filleted_open_pocket', 'Filleted open pockets', POCKET_KINDS],
   ['boss', 'Bosses', ['Boss']],
   ['filleted_boss', 'Filleted bosses', ['Boss']],
+  ['circular_wall', 'Circular walls', ['CircularWall']],
   ['wall', 'Wall features', ['Wall']],
   ['face', 'Face features', ['Face']],
   ['slanted_face', 'Slanted faces', ['Face', 'Three']],

@@ -22,11 +22,9 @@ import {
   SectionTool,
   Viewer,
   CONTROL_SCHEME_OPTIONS,
-  measurementLabel,
   sharpCornerPositions,
   surfaceCreases,
-  type MeasureMode,
-  type Measurement,
+  type MeasureGroup,
   type PartModel,
   type PartPick,
   type Projection,
@@ -314,9 +312,7 @@ const App = () => {
    * panel can clear it with its trash button.
    */
   const [measuring, setMeasuring] = useState(false)
-  const [measureMode, setMeasureMode] = useState<MeasureMode>('distance')
-  const [measured, setMeasured] = useState<readonly Measurement[]>([])
-  const [measureInstance, setMeasureInstance] = useState(0)
+  const [measured, setMeasured] = useState<readonly MeasureGroup[]>([])
   const [direction, setDirection] = useState<number | null>(null)
   const [showStock, setShowStock] = useState(params.get('stock') === 'on')
   const [showAxes, setShowAxes] = useState(true)
@@ -715,10 +711,10 @@ const App = () => {
           Left-drag to orbit, right-drag to pan, scroll to zoom, and click a face to select it.
           Press <strong>Section</strong>, then click a face to cut through it or one of the three
           planes behind the part to cut along an axis; drag the arrow to move the cut, and press
-          Escape to clear it. Press <strong>Measure</strong>, then click two points for a distance
-          or three for an angle — the pointer snaps to corners, edges and their midpoints, and Shift
-          holds the next point to an axis. Delete removes the last measurement and Escape drops one
-          in progress.
+          Escape to clear it. Press <strong>Measure</strong>, then click a face or a hole to measure
+          it, and a second face to read the two together. Hold Alt (Option) to place a point
+          instead, snapped to corners, edges and their midpoints. Shift keeps what is measured and
+          starts another; Delete removes the last pick.
         </p>
         <p>
           <strong>Hovered:</strong> {hovered.join(', ') || 'none'}
@@ -776,17 +772,12 @@ const App = () => {
               measuring={measuring}
               cut={cut}
               offset={offset}
-              measureMode={measureMode}
               onOffsetChange={(next) => {
                 setOffset(next)
                 if (cut) viewerRef.current?.setSection(sweepTo(cut, next))
               }}
               onClearCut={() => viewerRef.current?.setSection(null)}
-              onMeasureModeChange={setMeasureMode}
-              onClearMeasurements={() => {
-                setMeasured([])
-                setMeasureInstance((instance) => instance + 1)
-              }}
+              onClearMeasurements={() => setMeasured([])}
             />
             {showDirections && !sectioning && !measuring ? (
               <div
@@ -919,7 +910,9 @@ const App = () => {
                   explode.select(null)
                   setSelected([...pick.ranked])
                 }}
-              />
+              >
+                {measuring ? <MeasureTool measurements={measured} onChange={setMeasured} /> : null}
+              </PartMesh>
             </PartVisibility>
             {explode.renderable ? (
               <ExplodedPart
@@ -978,14 +971,6 @@ const App = () => {
               onPickDirection={(index) => setDirection((held) => (held === index ? null : index))}
             />
             {sectioning ? <SectionTool /> : null}
-            {measuring ? (
-              <MeasureTool
-                key={measureInstance}
-                mode={measureMode}
-                measurements={measured}
-                onChange={setMeasured}
-              />
-            ) : null}
             {showGrid ? <Grid /> : null}
             {banana ? (
               <Suspense fallback={null}>
@@ -1044,14 +1029,14 @@ function measureSegments(positions: Float32Array): { segments: number; length: n
 
 /**
  * The measurements, in a sentence: how many there are and what the last one
- * reads, which is the one just made.
+ * holds, which is the one just made. Its numbers are on its labels.
  */
-function describeMeasurements(measuring: boolean, measured: readonly Measurement[]): string {
+function describeMeasurements(measuring: boolean, measured: readonly MeasureGroup[]): string {
   if (!measuring) return 'off'
   const last = measured[measured.length - 1]
-  if (!last) return 'none — click two points for a distance, three for an angle'
+  if (!last) return 'none — click a face, or Alt-click a point'
   const count = measured.length === 1 ? '1 measurement' : `${measured.length} measurements`
-  return `${count}, last ${measurementLabel(last)}`
+  return `${count}, last ${last.map((pick) => pick.kind).join(' and ')}`
 }
 
 createRoot(document.getElementById('root')!).render(

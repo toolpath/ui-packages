@@ -5,6 +5,7 @@ import {
   CHAMFER,
   VIEW_NAMES,
   cubeZones,
+  onViewCube,
   panelGeometry,
   squaredUp,
   viewKind,
@@ -205,5 +206,20 @@ describe('cubeZones', () => {
       expect(vertices).toBe((zone.polygon.length - 2) * 3)
       expect(geometry.getAttribute('normal').count).toBe(vertices)
     }
+  })
+})
+
+describe('onViewCube', () => {
+  const viewport = { width: 800, height: 600 }
+
+  it('finds the cube in the top right corner, where it stands unless told', () => {
+    expect(onViewCube({ x: 720, y: 80 }, viewport, {})).toBe(true)
+    expect(onViewCube({ x: 80, y: 520 }, viewport, {})).toBe(false)
+  })
+
+  it('finds the cube in the corner it is aligned to', () => {
+    const place = { alignment: 'bottom-left', margin: [100, 60] } as const
+    expect(onViewCube({ x: 100, y: 540 }, viewport, place)).toBe(true)
+    expect(onViewCube({ x: 720, y: 80 }, viewport, place)).toBe(false)
   })
 })

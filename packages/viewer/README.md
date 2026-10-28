@@ -312,11 +312,12 @@ the part opaque. For multiselection, update your own tag array and avoid duplica
 | `DirectionArrows`            | Candidate and optional named/preview machining directions.                           |
 | `Stock`                      | Geometry, GLB bytes, box, or cylinder stock.                                         |
 | `SectionTool`, `SectionView` | Interactive section placement or a supplied section visualization.                   |
-| `MeasureTool`                | Distance/angle picking and labels.                                                   |
+| `MeasureTool`                | Measures faces, holes and points by what is clicked, with labels.                    |
 | `ToolMarks`                  | Supplied cutter/profile geometry and labels; no datasheet inference.                 |
 | `Banana`                     | Optional bundled 154 mm scale reference; loads its GLB on mount and suspends.        |
 | `CadCameraControls`          | Lower-level camera controls for custom R3F scenes. `Viewer` already installs them.   |
 | `ViewerToolbar`              | DOM controls configured through `ViewerToolbarProvider`.                             |
+| `viewerToolGroups`           | The toolbar controls in groups, with labels, notes and icons, for `ToolDock`.        |
 | `HoverCard`                  | Cursor-following DOM content for a pick.                                             |
 
 ### `<Viewer>`
@@ -538,7 +539,7 @@ import {
   Viewer,
   ViewerToolbar,
   ViewerToolbarProvider,
-  type Measurement,
+  type MeasureGroup,
   type PartModel,
   type ViewerHandle,
 } from '@toolpath/viewer'
@@ -548,7 +549,7 @@ export const Workbench = ({ model, geometry }: { model: PartModel; geometry: Buf
   const viewer = useRef<ViewerHandle>(null)
   const [stock, setStock] = useState(false)
   const [mode, setMode] = useState<'section' | 'measure' | null>(null)
-  const [measurements, setMeasurements] = useState<readonly Measurement[]>([])
+  const [measurements, setMeasurements] = useState<readonly MeasureGroup[]>([])
   const toggle = (next: 'section' | 'measure') =>
     setMode((current) => (current === next ? null : next))
 
@@ -565,12 +566,13 @@ export const Workbench = ({ model, geometry }: { model: PartModel; geometry: Buf
     >
       <div style={{ position: 'relative', height: 500 }}>
         <Viewer ref={viewer}>
-          <PartMesh model={model} geometry={geometry} />
+          <PartMesh model={model} geometry={geometry}>
+            {mode === 'measure' && (
+              <MeasureTool measurements={measurements} onChange={setMeasurements} />
+            )}
+          </PartMesh>
           {stock && <Stock box={{ partGeometry: geometry, allowance: { wall: 3, floor: 3 } }} />}
           {mode === 'section' && <SectionTool />}
-          {mode === 'measure' && (
-            <MeasureTool measurements={measurements} onChange={setMeasurements} />
-          )}
           <Grid />
           <Axes />
           <ViewCube />
@@ -594,6 +596,27 @@ The supported action names are `stock`, `axes`, `grid`, `banana`, `tools`,
 `directions`, `dfm`, `sharpCorners`, `threads`, `hover`, `focus`, `wireframe`, `section`,
 `measure`, `fit`, `reset`, and `top`; button names capitalize the action, such as
 `ViewerToolbar.SharpCornersButton`. `useViewerToolbar()` reads those controls.
+
+`viewerToolGroups(controls, options?)` describes the same controls for a toolbar
+that groups, explains and pins its tools, such as `@toolpath/ui`'s `ToolDock`. It
+puts them in four groups (`scene`, `dfm`, `tools`, `view`), each tool with its
+label, a line on what it does, its icon, whether it is on, and its `onClick`. A
+control you did not supply is left out, and so is a group left with none.
+`options.labels` renames a tool, `options.notes` replaces its line, and
+`options.gates` says why a tool cannot work yet:
+
+```tsx
+import { ToolDock } from '@toolpath/ui'
+import { viewerToolGroups } from '@toolpath/viewer'
+
+const groups = viewerToolGroups(controls, {
+  gates: { directions: report ? null : 'Waits for the DFM check' },
+})
+
+export const PartTools = () => (
+  <ToolDock groups={groups} defaultLayout="grouped" defaultPins={['section', 'measure']} />
+)
+```
 
 ### Stock and display controls
 
@@ -753,45 +776,77 @@ in millimetres. Pick tuples must be converted to `{ x, y, z }` for that helper.
 
 ### Measuring
 
-`MeasureTool` mounts inside `Viewer`. Two clicks measure distance; three measure an
-angle, with the vertex as the middle point. Snapping prefers corners, edge
-midpoints, edges, then faces. `mode` is `distance` or `angle`; `showDeltas={false}`
-hides a distance's X/Y/Z legs. `onChange` reports `readonly Measurement[]`; pass
-`measurements` too to control and retain the list, as the Workbench does.
+`MeasureTool` mounts inside `PartMesh` or `EnginePart`, as their child. It has no
+modes: what a click measures is read off what it lands on.
 
-Shift constrains the next point to an axis. Escape cancels points in progress;
-Delete/Backspace removes the last measurement unless focus is in a form field.
-Normal part hover/picks are suppressed while measuring. Without controlled state,
-unmounting the tool drops its measurements.
+- A click on a face takes the whole face; on a hole, the whole hole, with how many
+  of the same hole the part has.
+- With Alt (Option) held, a click places a point, snapped to a corner, the middle of a
+  straight edge, or an edge where one is near, and on the face where none is.
+- A second pick is read with the first where the two make a dimension: point to point
+  (with X/Y/Z legs), point to plane, plane to plane (gap or angle), and a hole's centre
+  line to a plane along its axis. Anything else starts a new measurement.
+- Shift keeps what is on screen and starts another. A click on a face already held
+  drops it; Delete/Backspace drops the last pick unless focus is in a form field; a
+  click off the part clears them all.
 
-The tool measures the visible sectioned geometry, including the cap and clipped
-edges. If a mounted SectionTool has no cut yet, measuring waits so its first
-placement click is not also a measurement. Existing measurements remain visible.
+`onChange` reports `readonly MeasureGroup[]`, each one pick or two; pass
+`measurements` too to control and retain the list, as the Workbench does. Without
+controlled state, unmounting the tool drops its measurements. Normal part hover/picks
+are suppressed while measuring. Before a click, the face under the pointer is tinted
+and a caption beside the pointer says what a click there takes.
 
-Labels are unstyled DOM overlays with class `toolpath-measure-label`; add CSS such as:
+The tool measures the part as a section cut leaves it. The cut face is solid to the
+tool: an Alt point lands on it and snaps to its outline's corners, and nothing behind
+it is offered. If a mounted SectionTool has no cut yet, measuring waits so its first
+placement click is not also a pick. `viewCube` names the `ViewCube`'s `alignment`
+and `margin` when they are not the defaults, so clicks on the cube are left to it;
+pass `null` when there is no cube.
+
+Labels are unstyled DOM overlays with class `toolpath-measure-label`
+(`MEASURE_LABEL_CLASS`); add CSS such as:
 
 ```css
 .toolpath-measure-label {
+  pointer-events: auto;
+  cursor: copy;
   white-space: nowrap;
   font:
     600 12px/1.2 system-ui,
     sans-serif;
   color: white;
   background: #141721dd;
-  border: 1px solid #4f8ef7;
+  border: 1px solid var(--measure-color, #4f8ef7);
   border-radius: 4px;
   padding: 2px 6px;
 }
 .toolpath-measure-label[data-measure-label='delta'] {
   font-size: 11px;
 }
+.toolpath-measure-label[data-copied]::after {
+  content: ' Copied';
+}
+.toolpath-measure-hint {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #000000b3;
+  color: white;
+  font:
+    500 11px system-ui,
+    sans-serif;
+}
 ```
 
-`data-measure-label` identifies `distance`, `angle`, `delta`, `live`, or tool labels;
-axis legs also have `data-axis`, and finished labels have `data-measurement-id`.
-`labelClassName` adds a class. Labels do not take pointer events. Lengths default to
-millimetres; the `format(mm)` callback changes their displayed string, not geometry
-units or angles (which remain degrees).
+`data-measure-label` is `face` for a reading of the picks or `delta` for one leg of a
+distance, and legs also have `data-axis`. Each measurement has its own colour, set on
+its `face` labels as `--measure-color`. A click on a label copies its number, from its
+`[data-measure-value]`, and marks the label `data-copied` for a moment; a label takes
+the pointer only where the stylesheet gives it `pointer-events: auto`. Labels that
+would overlap are moved apart by their inline `translate`, which leaves a stylesheet's
+`transform` alone. The caption by the pointer has class `toolpath-measure-hint`
+(`MEASURE_HINT_CLASS`) and is placed but not styled. `labelClassName` adds a class.
+Lengths default to millimetres; the `format(mm)` callback changes their displayed
+string, not geometry units or angles (which remain degrees).
 
 ### Showing threads
 
@@ -851,8 +906,8 @@ colors cycle through `DIRECTION_COLORS`.
 
 Part keys include `part`, `partEmissive`, `hover`, `highlight`, `picked`, `edge`,
 `edgeOpacity`, and `sharpCorner`. Section keys include `sectionCap`, `sectionHatch`,
-`sectionOutline`, `sectionHandle`, and `sectionHandleOutline`. Measurement tools
-use `measure`/`measureSnap`; cube keys are `cube`, `cubeEdge`, and `cubeLabel`.
+`sectionOutline`, `sectionHandle`, and `sectionHandleOutline`. `ToolMarks` uses
+`measure` (`measureSnap` is unused and deprecated); cube keys are `cube`, `cubeEdge`, and `cubeLabel`.
 The canvas background comes from the wrapper/parent, independently of those colors.
 
 Stable DOM classes include `viewer-root`, `viewer-webgl-unavailable`,
@@ -1050,7 +1105,7 @@ consult their declarations rather than importing implementation files.
 Start with `ViewerProps`, `ViewerHandle`, `PartMeshProps`, `EnginePartProps`,
 `PartModel`, `PartModelRegion`, `PartModelFeature`, `FeatureTag`, `PartPick`,
 `FeatureHighlight`, `RegionHighlight`, `FocusOptions`, `ViewerTheme`, `StockProps`,
-`SectionOptions`, `SectionState`, `Measurement`, `MeasureMode`, and `ToolMark`.
+`SectionOptions`, `SectionState`, `MeasureGroup`, `MeasurePick`, and `ToolMark`.
 `EnginePartProps` and the loader/cache types come from `/engine`; scene/model
 types come from the root. Use the types belonging to your installed version; a newer source checkout does
 not add exports to a published package.

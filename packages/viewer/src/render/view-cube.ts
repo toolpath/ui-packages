@@ -6,6 +6,7 @@ import {
   Vector3,
 } from 'three'
 import type { Vec3 } from '../model/types.js'
+import type { ViewportSize } from './camera.js'
 
 /**
  * The 26 standard views: the six faces of the cube, the twelve edges between
@@ -400,4 +401,37 @@ export function labelTexture(label: string, color: number): CanvasTexture {
   texture.needsUpdate = true
 
   return texture
+}
+
+/** Where `<ViewCube>` stands by default: CSS pixels in from the canvas's top right corner to its centre. */
+export const VIEW_CUBE_MARGIN: [number, number] = [80, 80]
+
+/**
+ * How far, CSS pixels, the cube reaches from its centre at any turn: its
+ * panels are drawn 38 pixels to a half side, and corner on, a cube reaches
+ * √3 of that.
+ */
+const VIEW_CUBE_REACH = 66
+
+/** Where a `<ViewCube>` stands: the corner of the canvas, and CSS pixels in from it to its centre. */
+export interface ViewCubePlace {
+  alignment?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+  margin?: readonly [number, number]
+}
+
+/**
+ * Whether a point on the canvas, CSS pixels from its top left, is on a view
+ * cube standing at `place`, by default as `<ViewCube>` does. The cube's own
+ * clicks stop at the cube, but a tool that listens on the canvas hears them
+ * too, and must leave these alone.
+ */
+export const onViewCube = (
+  { x, y }: { x: number; y: number },
+  viewport: ViewportSize,
+  { alignment = 'top-right', margin = VIEW_CUBE_MARGIN }: ViewCubePlace,
+): boolean => {
+  const [across, down] = margin
+  const centreX = alignment.endsWith('left') ? across : viewport.width - across
+  const centreY = alignment.startsWith('top') ? down : viewport.height - down
+  return Math.hypot(x - centreX, y - centreY) <= VIEW_CUBE_REACH
 }

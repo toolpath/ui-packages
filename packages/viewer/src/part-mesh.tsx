@@ -8,11 +8,12 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
 } from 'react'
 import { type BufferGeometry, Vector3 } from 'three'
 import type { FeatureTag, PartModel } from './model/types.js'
-import { PartContext } from './part-context.js'
+import { PartContext, PartPaintContext } from './part-context.js'
 import type { FeatureHighlight, RegionHighlight } from './render/paint.js'
 import { applyHighlightLayers } from './render/paint.js'
 import { focusStateKey, type FocusOptions } from './render/focus.js'
@@ -199,7 +200,7 @@ export const PartMesh = ({
   focus,
   candidates = [],
   highlights = [],
-  regionHighlights = [],
+  regionHighlights: ownRegionHighlights = [],
   pickedRegions = [],
   hoveredFeatureIds = [],
   hover = true,
@@ -222,6 +223,12 @@ export const PartMesh = ({
 }: PartMeshProps) => {
   const { camera, controls, invalidate, size } = useThree()
   const context = useMemo(() => ({ model, geometry }), [model, geometry])
+  // What a tool drawn inside the part paints, over the consumer's own (`PartPaintContext`).
+  const [toolPaint, setToolPaint] = useState<readonly RegionHighlight[]>(NO_PAINT)
+  const regionHighlights = useMemo(
+    () => (toolPaint.length === 0 ? ownRegionHighlights : [...ownRegionHighlights, ...toolPaint]),
+    [ownRegionHighlights, toolPaint],
+  )
   const viewerControls = useViewerControls()
   const resolved = useStableTheme(theme)
   // The part is built once per mesh and re-themed in place: a colour change is
@@ -638,10 +645,16 @@ export const PartMesh = ({
           onDrag={onDrag}
         />
       ) : null}
-      {children ? <PartContext.Provider value={context}>{children}</PartContext.Provider> : null}
+      {children ? (
+        <PartContext.Provider value={context}>
+          <PartPaintContext.Provider value={setToolPaint}>{children}</PartPaintContext.Provider>
+        </PartContext.Provider>
+      ) : null}
     </>
   )
 }
+
+const NO_PAINT: readonly RegionHighlight[] = []
 
 const ORIGIN = new Vector3()
 const UP = new Vector3(0, 0, 1)

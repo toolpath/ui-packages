@@ -59,6 +59,19 @@ describe('@toolpath/ui', () => {
     expect(container.querySelector('button')?.firstElementChild).toBe(surface)
   })
 
+  it("puts a Combobox button's own classes after its standard ones, so they win", () => {
+    render(
+      <ui.Combobox items={['Free']} value="Free" variant="secondary">
+        <ui.Combobox.Button className="ring-zinc-300 focus-visible:border-zinc-300" />
+      </ui.Combobox>,
+    )
+
+    const button = screen.getByRole('combobox')
+    expect(button).toHaveClass('ring-zinc-300', 'focus-visible:border-zinc-300')
+    expect(button).not.toHaveClass('ring-info/75')
+    expect(button).not.toHaveClass('focus-visible:border-info')
+  })
+
   it('exports the advanced portable primitives', () => {
     expect(ui.Table).toBeDefined()
     expect(ui.Notification.Provider).toBeDefined()

@@ -1032,6 +1032,24 @@ describe('planFromResults', () => {
     expect(parseDraftSetups(stated)).toEqual(stated)
   })
 
+  it('pins trimmed features where they were planned, as any other', () => {
+    // As `resultsView` lays them out: c2 listed by an orientation, e2 by a row alone, f2 from
+    // the side.
+    const listed = [{ tag: 'a' }, { tag: 'c2', trimmed: true }]
+    const rows = [{ tag: 'a' }, { tag: 'c2', trimmed: true }, { tag: 'e2', trimmed: true }]
+    const fromSide = [{ tag: 'f2', trimmed: true }]
+    count = 0
+    const stated = planFromResults(
+      [
+        { orientations: [{ direction: up, features: listed }], rows },
+        { orientations: [{ direction: side, features: fromSide }] },
+      ],
+      newId,
+    )
+    expect(stated.map((setup) => setup.features)).toEqual([['a', 'c2', 'e2'], ['f2']])
+    expect(parseDraftSetups(stated)).toEqual(stated)
+  })
+
   it('states the same folders as foldersFromPlan, pins apart', () => {
     const planned = [{ orientations: [facing(up, 'a'), facing(side, 'b')] }]
     count = 0

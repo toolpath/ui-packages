@@ -1,5 +1,62 @@
 # @toolpath/viewer
 
+## 3.0.0
+
+### Major Changes
+
+- f3b6381: `MeasureTool` measures by what is clicked, and it measures a cut part as the cut leaves it.
+
+  **Breaking.** `MeasureTool` now mounts inside `PartMesh` or `EnginePart`, as their child, not
+  beside them in `Viewer`. Mounted outside one it throws when it renders, which a type check does
+  not catch. It has no `mode` and no `showDeltas`. `measurements` and `onChange` are
+  `readonly MeasureGroup[]`, each one pick or two, not `Measurement[]`. Labels have
+  `data-measure-label` `face` or `delta`; `distance`, `angle`, `live` and `data-measurement-id` are
+  gone. It has no `theme` prop: its colours are its own, one per measurement for the readouts and a
+  fixed blue for the hover tint and snap ring. The `measure` theme colour now colours only
+  `ToolMarks`, and the `measureSnap` theme colour is unused and deprecated. A `ViewCube` that is not
+  at its default place is named by the new `viewCube` prop (`alignment` and `margin`, or `null` for
+  no cube), so the tool leaves its clicks alone.
+
+  A click on a face takes the whole face, and on a hole the whole hole. With Alt (Option) held, a
+  click places a point, snapped to a corner, the middle of a straight edge, or an edge. A second pick
+  is read with the first where the two make a dimension: point to point, point to plane, plane to
+  plane (gap or angle), and a hole's centre line to a plane. Shift keeps what is on screen; Delete
+  drops the last pick; a click off the part clears them all. Before a click, the face under the
+  pointer is tinted, and a caption with class `toolpath-measure-hint` (`MEASURE_HINT_CLASS`) says
+  what a click there takes. Each measurement has its own colour, set on its labels as
+  `--measure-color`. A click on a label copies its number and marks the label `data-copied`.
+
+  On a section cut, the cut face is solid to the tool: an Alt point lands on it and snaps to the
+  corners of its outline, and the faces and corners behind it are not offered.
+
+  `MeasureGroup`, `MeasurePick`, `MeasuredFace` and `MeasuredPoint` are exported.
+  `MEASURE_LABEL_CLASS` and `MeasureLabelKind` are still exported from the root. The old tool's
+  helpers (`snapAt`, `measurementFromPoints`, `measurementLabel`, `Measurement`, `MeasureMode` and the
+  rest of `render/measure.ts`) are still exported, unchanged, for custom tools.
+
+## 2.8.0
+
+### Minor Changes
+
+- 6120f6c: `ToolDock` is a toolbar for more tools than fit on a bar, in one of two layouts: `spread`, with the
+  pinned tools on the bar and every tool under All tools; or `grouped`, with the pinned tools beside a
+  menu for each group. A tool can be pinned from All tools or its menu, and both layouts share the
+  pins. `defaultLayout` picks the layout an app opens in, and `ToolDock.LayoutToggle` lets people
+  switch. Every menu and panel opens 4px above the bar, and `ToolDock.useBarPopout` puts an app's own
+  popup there too. The dock and its menus are dark in either theme, and `ToolDock.Tooltip` gives an
+  app's own control the dock's tooltip. `viewerToolGroups` in `@toolpath/viewer` gives the viewer's
+  toolbar controls in groups, with labels, notes and icons, ready for the dock; an app can rename a
+  tool or replace its note. `Toggle` takes an `aria-label`.
+
+## 2.7.0
+
+### Minor Changes
+
+- e35f7bb: `KnownFeatureType` includes `circular_wall`, which Engine API 1.34.0 reports for the outside of a
+  whole cylinder standing along its machining direction: a stud, a round boss or a turned part's
+  outline. `FEATURE_TYPE_RANKS` ranks it with the bosses, so a click on a face it shares with a
+  chamfer, fillet or wall selects the circular wall. Unranked, it went after chamfers and fillets.
+
 ## 2.6.0
 
 ### Minor Changes

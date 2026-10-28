@@ -1,3 +1,10 @@
+import {
+  trimmedFeaturesOf,
+  type PlanDirection,
+  type TrimmedFeature,
+  type WithTrimmedFeatures,
+} from './engine-plan'
+
 /*
   Who machines each face of a part, read the one way the server and every page read it. Two views,
   one rule: the constraints view reads the person's pins — a face is ignored, pinned, or open (left
@@ -62,6 +69,59 @@ export interface CoverageFeature {
 /** A tag as compared: Toolpath and the analysis spell a tag differently, so in lower case. */
 export const tagKey = (tag: string): string => tag.toLowerCase()
 
+/** A feature a plan's tags can name: one of the report's, or one a statement trimmed. */
+export interface PlanFeature extends CoverageFeature {
+  machiningDirection?: PlanDirection
+  /** A statement trimmed it (`TrimmedFeature`): no report lists it. Absent for a report feature. */
+  trimmed?: true
+  /**
+   * The report feature it was trimmed from: null for a report feature, or where Toolpath does not
+   * say.
+   */
+  fromFeatureTag: string | null
+}
+
+/**
+ * A plan's trimmed features but any whose tag the report lists (`reportLists`, asked by lower-case
+ * tag): the report's feature speaks for its own tag, in coverage and in a row alike.
+ */
+export const unlistedTrimmedFeatures = (
+  plan: WithTrimmedFeatures,
+  reportLists: (key: string) => boolean,
+): Array<TrimmedFeature> =>
+  trimmedFeaturesOf(plan).filter((feature) => !reportLists(tagKey(feature.featureTag)))
+
+/**
+ * Every feature a plan's tags can name: the report's, then the plan's trimmed features shaped as
+ * report features, but one whose tag the report lists already (`unlistedTrimmedFeatures`).
+ * The one join of plan tags to features: a view's coverage, its Not machined groups, a row's faces.
+ * The constraints view passes its pins (`pinned`, by lower-case tag): a trimmed feature shows there
+ * only where it is pinned.
+ */
+export const planFeaturesOf = (
+  reportFeatures: ReadonlyArray<CoverageFeature & { machiningDirection?: PlanDirection }>,
+  plan: WithTrimmedFeatures,
+  pinned?: ReadonlySet<string>,
+): Array<PlanFeature> => {
+  const listed = tagSet(reportFeatures.map((feature) => feature.tag))
+  const kept = unlistedTrimmedFeatures(plan, (key) => listed.has(key)).filter(
+    (feature) => pinned === undefined || pinned.has(tagKey(feature.featureTag)),
+  )
+  return [
+    ...reportFeatures.map((feature) => ({ ...feature, fromFeatureTag: null })),
+    ...kept.map(
+      (feature): PlanFeature => ({
+        tag: feature.featureTag,
+        featureType: feature.featureType,
+        regionIdxs: feature.regionIdxs,
+        machiningDirection: feature.machiningDirection,
+        trimmed: true,
+        fromFeatureTag: feature.fromFeatureTag,
+      }),
+    ),
+  ]
+}
+
 /** Tags in lower case: Toolpath and the analysis spell a tag differently. */
 export const tagSet = (tags: Iterable<string>): Set<string> => new Set([...tags].map(tagKey))
 
@@ -81,14 +141,20 @@ interface ClassifiedPart {
   ignored?: ReadonlyArray<number>
 }
 
-/** The constraints view: the person's pins, by tag (lower case). The rest is open. */
+/**
+ * The constraints view: the person's pins, by tag (lower case). The rest is open. Its `features`
+ * are `planFeaturesOf` the latest plan with the pins, so a pinned trimmed feature owns its faces.
+ */
 export interface ConstraintsCoverage extends ClassifiedPart {
   pinned: ReadonlySet<string>
   /** One view at a time: never Toolpath's plan beside the pins. */
   machined?: never
 }
 
-/** The results view: what Toolpath's plan cuts, by tag (lower case). The rest is not machined. */
+/**
+ * The results view: what Toolpath's plan cuts, by tag (lower case). The rest is not machined. Its
+ * `features` are `planFeaturesOf` the plan, so a trimmed feature's faces are read as its tag's.
+ */
 export interface ResultsCoverage extends ClassifiedPart {
   machined: ReadonlySet<string>
   /** One view at a time: never the pins beside Toolpath's plan. */
@@ -160,7 +226,16 @@ export interface FaceGroup {
 /** Feature types by rank, most specific first, as the viewer ranks them. */
 const RANKS: ReadonlyArray<ReadonlyArray<string>> = [
   ['blind_hole', 'through_hole', 'filleted_blind_hole'],
-  ['pocket', 'open_pocket', 'boss', 'filleted_boss', 'undercut_tslot', 'undercut_dovetail', 'sink'],
+  [
+    'pocket',
+    'open_pocket',
+    'boss',
+    'filleted_boss',
+    'circular_wall',
+    'undercut_tslot',
+    'undercut_dovetail',
+    'sink',
+  ],
   ['chamfer', 'inner_fillet', 'outer_fillet', 'contour_surface', 'slanted_face'],
   ['wall', 'face'],
   ['profile'],

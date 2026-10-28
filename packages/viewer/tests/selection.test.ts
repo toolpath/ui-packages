@@ -120,6 +120,17 @@ describe('featureTypeRank', () => {
   })
 
   /**
+   * A circular wall is the outside of a whole cylinder: a stud or a round boss,
+   * which read as a `boss` before the kernel reported the type, or a turned
+   * part's outline, which read as a `wall`. Either way it is a shape a click
+   * means, not bulk surface.
+   */
+  it('ranks a circular wall with the bosses', () => {
+    expect(featureTypeRank('circular_wall')).toBe(featureTypeRank('boss'))
+    expect(featureTypeRank('circular_wall')).toBeLessThan(featureTypeRank('chamfer'))
+  })
+
+  /**
    * `featureType` is an open set — eighteen values across two parts, and the
    * kernel will add more. A type nobody has seen is likelier to be a specific
    * machined feature than a new kind of wall, so it outranks the bulk surfaces
