@@ -88,6 +88,54 @@ describe('Engine geometry cache', () => {
     expect(loader).toHaveBeenCalledTimes(3)
   })
 
+  it('keeps geometry a part let go and another part read again when a third opens', async () => {
+    const loader = vi.fn(async () => new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader, 1)
+    const closed = cache.get(part('closed'))
+    await closed.promise
+    const dispose = vi.fn()
+    closed.geometry!.addEventListener('dispose', dispose)
+    cache.retain(closed)
+    cache.release(closed)
+
+    // Two parts mounting in one commit: one reads the closed geometry again,
+    // the other reads new geometry and retains first.
+    const again = cache.get(part('closed'))
+    const fresh = cache.get(part('new'))
+    await fresh.promise
+    cache.retain(fresh)
+
+    expect(again).toBe(closed)
+    expect(dispose).not.toHaveBeenCalled()
+    cache.retain(again)
+    expect(cache.get(part('closed'))).toBe(closed)
+    expect(loader).toHaveBeenCalledTimes(2)
+
+    // Letting it go is what disposes it.
+    cache.release(again)
+    expect(dispose).toHaveBeenCalledOnce()
+  })
+
+  it('disposes geometry that was evicted before its part retained it once the part lets go', async () => {
+    const loader = vi.fn(async () => new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader, 1)
+    const held = cache.get(part('held'))
+    await held.promise
+    cache.retain(held)
+
+    // Read during a render, not retained yet; the other part's cleanup runs first.
+    const late = cache.get(part('late'))
+    await late.promise
+    const dispose = vi.fn()
+    late.geometry!.addEventListener('dispose', dispose)
+    cache.release(held)
+    expect(dispose).toHaveBeenCalledOnce()
+
+    cache.retain(late)
+    cache.release(late)
+    expect(dispose).toHaveBeenCalledTimes(2)
+  })
+
   it('keys on the artifact path, so a re-presigned URL is still a hit', async () => {
     const loader = vi.fn(async () => new THREE.BufferGeometry())
     const cache = createEngineGeometryCache(loader)
