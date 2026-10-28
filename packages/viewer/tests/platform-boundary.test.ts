@@ -14,7 +14,7 @@
  * `Pick<HTMLCanvasElement, ...>` cast — is not a use: only what runs is.
  */
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -200,7 +200,33 @@ const domUses = (file: ts.SourceFile): Array<string> => {
 const GRAPH = nativeGraph()
 const name = (path: string) => relative(SRC, path).split(sep).join('/')
 
+/**
+ * Every `.native` file, by name. A deleted one leaves its web sibling in the
+ * native build, and where that sibling has no DOM — `render/pointer-hover.ts`,
+ * `render/part-picking.ts` — nothing else notices; so adding or removing one is
+ * an edit here.
+ */
+const NATIVE_FILES = [
+  'banana-asset.native.ts',
+  'cube-label.native.tsx',
+  'index.native.ts',
+  'label-overlay.native.tsx',
+  'render/keys.native.ts',
+  'render/part-picking.native.ts',
+  'render/pointer-hover.native.ts',
+  'scene-label.native.tsx',
+  'viewer-frame.native.tsx',
+]
+
 describe('the React Native build runs no DOM', () => {
+  it('has exactly the .native files it names', () => {
+    const found = readdirSync(SRC, { recursive: true, encoding: 'utf8' })
+      .filter((file) => /\.native\.tsx?$/.test(file))
+      .map((file) => file.split(sep).join('/'))
+      .sort()
+    expect(found).toEqual(NATIVE_FILES)
+  })
+
   it('walks the native graph', () => {
     const names = GRAPH.map(name)
     // A tree that moved would leave the rule below iterating nothing.
