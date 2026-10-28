@@ -1004,36 +1004,30 @@ under Hermes.
    npm install @toolpath/viewer three @react-three/fiber @react-three/drei
    ```
 
-2. In `metro.config.js`, give the app one copy of three.js and let Metro bundle
-   GLB models. Fiber's native build `require`s three, which would otherwise
-   resolve to `three.cjs` beside the `three.module.js` that ESM imports get, and
-   `instanceof` checks between the two copies fail. From three 0.186,
-   `three.cjs` also calls `process.emitWarning`, which React Native does not
-   have, so without this step the app crashes as it starts. The GLB step is
-   for `@toolpath/viewer/banana`, whose model (about 760 KB) ships only with an
-   app that imports it:
+2. In `metro.config.js`, wrap the app's config in `withToolpathViewer`:
 
    ```js
-   const path = require('node:path')
    const { getDefaultConfig } = require('expo/metro-config')
+   const { withToolpathViewer } = require('@toolpath/viewer/metro')
 
-   const config = getDefaultConfig(__dirname)
-   config.resolver.assetExts.push('glb')
-
-   const threeModule = path.join(path.dirname(require.resolve('three')), 'three.module.js')
-   config.resolver.resolveRequest = (context, moduleName, platform) => {
-     if (moduleName === 'three') return { type: 'sourceFile', filePath: threeModule }
-     return context.resolveRequest(context, moduleName, platform)
-   }
-
-   module.exports = config
+   module.exports = withToolpathViewer(getDefaultConfig(__dirname))
    ```
+
+   It gives the app one copy of three.js. Fiber's native build `require`s
+   three, which would otherwise resolve to `three.cjs` beside the
+   `three.module.js` that ESM imports get, and `instanceof` checks between the
+   two copies fail; from three 0.186, `three.cjs` also calls
+   `process.emitWarning`, which React Native does not have, so the app would
+   crash as it starts. `withToolpathViewer` has Metro resolve `three` as an ESM
+   import does, and keeps any `resolveRequest` the config already has. It also
+   lets Metro bundle GLB models, for `@toolpath/viewer/banana`, whose model
+   (about 760 KB) ships only with an app that imports it.
 
 3. In `package.json`, name the three.js packages for Expo's autolinking. It
    feeds `expo-doctor`'s duplicate check and, in a monorepo or with
    `experiments.autolinkingModuleResolution`, resolves each to one copy. In a
-   plain app it only feeds the check: step 2's `resolveRequest` is what keeps
-   three.js to one copy, so don't skip it.
+   plain app it only feeds the check: step 2's `withToolpathViewer` is what
+   keeps three.js to one copy, so don't skip it.
 
    ```json
    {
@@ -1251,8 +1245,9 @@ Do not disable validation to render an unrelated mesh against a report's regions
 | `@toolpath/viewer/engine`      | Engine loading/normalization, geometry cache, `PartMeshError`, and adapter types.                                                                        |
 | `@toolpath/viewer/banana`      | `Banana`, `BananaProps` and `BANANA_MODEL_URL` alone. The root has them too on the web; on React Native only this entry does.                            |
 | `@toolpath/viewer/toolbar.css` | Optional toolbar stylesheet.                                                                                                                             |
+| `@toolpath/viewer/metro`       | `withToolpathViewer(config)` for a React Native app's `metro.config.js` (CommonJS, Node).                                                                |
 
-Each JavaScript entry carries a `react-native` condition, which Metro picks; see
+The root, `/engine` and `/banana` carry a `react-native` condition, which Metro picks; see
 [React Native (Expo)](#react-native-expo).
 
 Other source/dist subpaths are not public imports. The complete signatures for an

@@ -48,6 +48,10 @@
       "types": "./dist/banana.d.ts",
       "import": "./dist/banana.js"
     },
+    "./metro": {
+      "types": "./dist/metro/index.d.cts",
+      "default": "./dist/metro/index.cjs"
+    },
     "./toolbar.css": "./dist/toolbar.css"
   },
   "files": [
