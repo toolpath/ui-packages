@@ -1,10 +1,12 @@
 import { useState, useSyncExternalStore } from 'react'
 import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native'
-import { type ProjectedLabel, labelHitSlop } from '../render/label-store.js'
-import { DEFAULT_LABELS, type ViewerTheme } from '../render/theme.js'
-import type { LabelOverlayProps } from '../label-overlay.js'
+import { type LabelStore, type ProjectedLabel, labelHitSlop } from './render/label-store.js'
+import { DEFAULT_LABELS, type ViewerTheme } from './render/theme.js'
 
-export type { LabelOverlayProps } from '../label-overlay.js'
+export interface LabelOverlayProps {
+  store: LabelStore
+  theme?: ViewerTheme['labels']
+}
 
 type LabelTheme = NonNullable<ViewerTheme['labels']>
 

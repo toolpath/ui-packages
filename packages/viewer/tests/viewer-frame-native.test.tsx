@@ -28,7 +28,7 @@ vi.mock('@react-three/fiber/native', () => ({
 }))
 vi.mock('expo-gl', () => ({ GLView: {} }))
 
-const { ViewerFrame } = await import('../src/native/viewer-frame.js')
+const { ViewerFrame } = await import('../src/viewer-frame.native.js')
 
 const canvas = {
   projection: 'orthographic' as const,

@@ -1,8 +1,13 @@
 import { useEffect, useMemo } from 'react'
-import type { CubeLabelProps } from '../cube-label.js'
-import { glyphLabelGeometry } from '../render/view-cube-glyph-label.js'
+import type { ViewerTheme } from './render/theme.js'
+import { glyphLabelGeometry } from './render/view-cube-glyph-label.js'
+import type { CubeZone } from './render/view-cube.js'
 
-export type { CubeLabelProps } from '../cube-label.js'
+export interface CubeLabelProps {
+  /** A face of the cube; edges and corners carry no name. */
+  zone: CubeZone
+  theme: ViewerTheme
+}
 
 /**
  * React Native's face name on the view cube: the name as flat glyph geometry
