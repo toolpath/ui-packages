@@ -9,10 +9,10 @@ entry), so non-DOM UIs can build the same views:
   `Hovered`, `FeatureIdentity`, `DfmRules`, `Choice`, `ChoiceGroup` and `Choices`, and `ListedRule`,
   `ComparisonRow` and `RuleSetRead`.
 - The rule editor's pickers: `subjectChoices`, `metricChoices`, `comparisonChoices`,
-  `rangeLowChoices` and `rangeHighChoices`, `OP_TITLES`, `rangeEnd` for a range's
-  end, and `takesNumber` for a measure with no number to compare. An `OpLabel` words each choice
-  from its symbol, comparison and title, the title reading the same way as the symbol (a range's
-  low end is `≤ at most`).
+  `rangeLowChoices` and `rangeHighChoices`, `OP_TITLES`, `LOW_TITLES` (a range's low end in
+  words), `rangeEnd` for a range's end, and `takesNumber` for a measure with no number to compare.
+  An `OpLabel` words each choice from its symbol, comparison and title, the title reading the same
+  way as the symbol (a range's low end is `≤ at most`).
 - The rule list: `ruleListOrder`, whose `ListedRule`s carry each rule's result and whether it is
   quiet, and `importNote` and `importError` for what an import says.
 - The feature panel's comparison: `comparisonRows`, whose rows say what they read (`kind`, a
