@@ -1,9 +1,8 @@
 /**
- * Every file in `src/native/` is a drop-in for the web file at the same path
- * under `src/`.
+ * Every `src/x.native.ts(x)` is a drop-in for its web sibling `src/x.ts(x)`.
  *
- * The React Native build swaps `src/native/x.ts(x)` in for `src/x.ts(x)`
- * wherever the package imports `./x.js` or `./x`, so the two must export exactly the same names: a
+ * The React Native build resolves `./x.js` and `./x` to `x.native.ts(x)`
+ * where there is one, so the two must export exactly the same names: a
  * name only the web file has is `undefined` on a phone, imported by code that
  * type-checked against the web file. Read with the type checker, so a
  * re-exported type counts as an export just as it does for an importer.
@@ -18,7 +17,6 @@ import { describe, expect, it } from 'vitest'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SRC = join(ROOT, 'src')
-const NATIVE_DIR = join(SRC, 'native')
 
 const nativeFiles = (dir: string): string[] =>
   readdirSync(dir)
@@ -26,18 +24,18 @@ const nativeFiles = (dir: string): string[] =>
     .flatMap((entry) => {
       const path = join(dir, entry)
       if (statSync(path).isDirectory()) return nativeFiles(path)
-      return /\.tsx?$/.test(entry) ? [path] : []
+      return /\.native\.tsx?$/.test(entry) && entry !== 'index.native.ts' ? [path] : []
     })
 
-/** The web file a native one replaces: the same path under `src/`, with `.ts` or `.tsx`. */
+/** The web file a native one replaces: the same path without `.native`, with `.ts` or `.tsx`. */
 const siblingOf = (path: string): string | null => {
-  const base = join(SRC, relative(NATIVE_DIR, path)).replace(/\.tsx?$/, '')
+  const base = path.replace(/\.native\.tsx?$/, '')
   return (
     ['.ts', '.tsx'].map((extension) => base + extension).find((file) => existsSync(file)) ?? null
   )
 }
 
-const NATIVE = nativeFiles(NATIVE_DIR)
+const NATIVE = nativeFiles(SRC)
 const PAIRS = NATIVE.map((native) => ({ native, web: siblingOf(native) }))
 
 const config = ts.getParsedCommandLineOfConfigFile(
@@ -78,19 +76,14 @@ const name = (path: string) => relative(SRC, path).split(sep).join('/')
  * web sibling to a phone.
  */
 const EXPECTED = [
-  'native/banana-asset.ts',
-  'native/cube-label.tsx',
-  'native/hover-card.tsx',
-  'native/label-overlay.tsx',
-  'native/measure-tool.tsx',
-  'native/render/keys.ts',
-  'native/render/label-texture.ts',
-  'native/render/part-picking.ts',
-  'native/render/pointer-hover.ts',
-  'native/scene-label.tsx',
-  'native/viewer-frame.tsx',
-  'native/viewer-toolbar.tsx',
-  'native/viewer-tools.tsx',
+  'banana-asset.native.ts',
+  'cube-label.native.tsx',
+  'label-overlay.native.tsx',
+  'render/keys.native.ts',
+  'render/part-picking.native.ts',
+  'render/pointer-hover.native.ts',
+  'scene-label.native.tsx',
+  'viewer-frame.native.tsx',
 ]
 
 /**
@@ -113,7 +106,7 @@ describe('native files and their web siblings', () => {
   it.each(PAIRS.map(({ native, web }) => [name(native), native, web] as const))(
     '%s exports what its sibling does',
     (_file, native, web) => {
-      expect(web, 'a src/native file replaces the web file at the same path').not.toBeNull()
+      expect(web, 'a .native file replaces its web sibling').not.toBeNull()
       expect([...exportStars(native), ...exportStars(web!)]).toEqual([])
       expect(exportsOf(native)).toEqual(exportsOf(web!))
     },

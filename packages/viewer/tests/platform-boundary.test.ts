@@ -1,8 +1,8 @@
 /**
  * The DOM stays in the files that are web-only by design.
  *
- * The React Native build swaps each file in `src/native/` in for the file at the
- * same path under `src/` and bundles everything else as it is, so a `window` read or a `<div>` in any
+ * The React Native build resolves each import to its `.native` file where
+ * there is one and bundles everything else as it is, so a `window` read or a `<div>` in any
  * other file ships to a phone, where it throws the first time it runs — and
  * nothing in the web build, its tests or its types would notice. So the uses
  * are found in the source, with TypeScript's own parser, and allowed only in
@@ -13,10 +13,10 @@
  * parameter type, a `Pick<HTMLCanvasElement, ...>` cast — is not a use: only
  * what runs is.
  *
- * Two more rules hold the swap together. A web-only file with no `src/native/`
- * counterpart ships as it is, so only other web-only files may import it. And the
- * native modules — React Native, Expo, three-mesh-bvh, fiber's native build —
- * are imported only by `src/native/` files, which the web build never sees.
+ * Two more rules hold the platform files together. A web-only file with no
+ * `.native` sibling ships as it is, so only other web-only files may import it.
+ * And the native modules — React Native, Expo, three-mesh-bvh, fiber's native
+ * build — are imported only by `.native` files, which the web build never sees.
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -30,6 +30,8 @@ const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'src')
 
 /** Web-only by design: the platform files' web halves and the web-only components. */
 const WEB_FILES = new Set([
+  // The web root: React Native's is `index.native.ts`.
+  'index.ts',
   'viewer-frame.tsx',
   'scene-label.tsx',
   'cube-label.tsx',
@@ -212,9 +214,12 @@ const importsOf = (path: string): Import[] => {
 }
 
 const NAMES = new Set(SOURCES.map(name))
-const isNative = (file: string) => file.startsWith('native/')
-/** Whether `src/native/` holds a replacement for this file. */
-const hasNativeSibling = (file: string) => NAMES.has(`native/${file}`)
+const isNative = (file: string) => /\.native\.tsx?$/.test(file)
+/** Whether a `.native` file replaces this one. */
+const hasNativeSibling = (file: string) => {
+  const base = file.replace(/\.tsx?$/, '')
+  return NAMES.has(`${base}.native.ts`) || NAMES.has(`${base}.native.tsx`)
+}
 
 /** The source a relative `./x.js` or `./x` specifier in `file` names, if it is one. */
 const resolveRelative = (file: string, from: string): string | null => {
@@ -292,7 +297,7 @@ describe('the DOM stays in the web-only files', () => {
     expect(offenders).toEqual([])
   })
 
-  it('imports the native modules only from src/native files', () => {
+  it('imports the native modules only from .native files', () => {
     const offenders = SOURCES.filter((path) => !isNative(name(path))).flatMap((path) =>
       nativeImports(path).map((use) => `${name(path)}:${use}`),
     )
@@ -307,7 +312,7 @@ describe('the DOM stays in the web-only files', () => {
     expect(webOnlyImports(join(SRC, 'viewer-toolbar.tsx'))).toContainEqual(
       expect.stringMatching(/imports toolbar-icons\.tsx$/),
     )
-    expect(nativeImports(join(SRC, 'native/viewer-frame.tsx'))).toContainEqual(
+    expect(nativeImports(join(SRC, 'viewer-frame.native.tsx'))).toContainEqual(
       expect.stringMatching(/imports react-native$/),
     )
     expect(dreiRootImports(join(SRC, 'scene-label.tsx'))).toContainEqual(

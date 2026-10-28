@@ -1,9 +1,30 @@
 import { useThree } from '@react-three/fiber'
 import { useContext, useId, useLayoutEffect } from 'react'
-import { SceneLabelStoreContext } from '../label-context.js'
-import type { SceneLabelProps } from '../scene-label.js'
+import { SceneLabelStoreContext } from './label-context.js'
+import type { Vector3 } from 'three'
 
-export type { SceneLabelProps } from '../scene-label.js'
+export interface SceneLabelProps {
+  position: Vector3 | [number, number, number]
+  text: string
+  note?: string
+  /** The label's `testID`, `scene-label-<kind>`. */
+  kind: string
+  axis?: 'x' | 'y' | 'z'
+  /** The label's border colour. */
+  color?: string
+  /** Web only: ignored here. */
+  className?: string
+  /** Web only: ignored here. */
+  layer?: number
+  /** Makes the label pressable. */
+  onPress?: () => void
+  /**
+   * What pressing the label does, for a screen reader, such as "Copies the
+   * measurement". A pressable label is otherwise announced as its text and
+   * "button" alone.
+   */
+  accessibilityHint?: string
+}
 
 let warned = false
 

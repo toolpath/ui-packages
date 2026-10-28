@@ -8,7 +8,7 @@ import {
   type Intersection,
 } from 'three'
 import { describe, expect, it } from 'vitest'
-import { acceleratePicking } from '../src/native/render/part-picking.js'
+import { acceleratePicking } from '../src/render/part-picking.native.js'
 
 /**
  * React Native's picking: the same hits as three's own raycast, through a tree

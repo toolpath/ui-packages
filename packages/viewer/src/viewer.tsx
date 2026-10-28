@@ -38,7 +38,8 @@ import {
 import type { ControlScheme, ExtendedCameraControls } from './render/controls.js'
 import { type ViewerTheme, resolveTheme } from './render/theme.js'
 import { TargetMarker } from './target-marker.js'
-import { type CanvasSettings, ViewerFrame } from './viewer-frame.js'
+import type { CanvasSettings } from './frame-settings.js'
+import { ViewerFrame } from './viewer-frame.js'
 import { squaredUp } from './render/view-cube.js'
 import type { VectorLike, ViewerControls, ViewerHandle, ViewerView } from './types.js'
 

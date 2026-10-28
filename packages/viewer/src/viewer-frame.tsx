@@ -1,33 +1,19 @@
-import { Canvas, type CanvasProps } from '@react-three/fiber'
+import { Canvas } from '@react-three/fiber'
 import { useCallback, useRef, useSyncExternalStore } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
-import type { Projection } from './render/camera.js'
+import type { FrameSettings } from './frame-settings.js'
 import { type TapTracker, trackTaps } from './render/tap.js'
-import type { ViewerTheme } from './render/theme.js'
 import { webGLAvailableSnapshot } from './render/webgl.js'
 import { WebGLUnavailable } from './webgl-unavailable.js'
 
-/** What `<Viewer>` asks of its canvas, whichever frame draws it. */
-export interface CanvasSettings {
-  projection: Projection
-  camera: NonNullable<CanvasProps['camera']>
-  gl: NonNullable<CanvasProps['gl']>
-  frameloop: NonNullable<CanvasProps['frameloop']>
-}
-
-export interface ViewerFrameProps {
+export interface ViewerFrameProps extends FrameSettings {
   className?: string
   style?: CSSProperties
-  canvas: CanvasSettings
-  /** For labels drawn without a DOM: React Native only. The web's are styled by the application. */
-  labels?: ViewerTheme['labels']
-  onPointerMissed?: () => void
   /** `<Viewer>`'s `webglUnavailable`: shown in place of the canvas without WebGL. */
   webglUnavailable?: ReactNode
   /** `<Viewer>`'s, for a screen reader: React Native only. */
   accessibilityLabel?: string
   accessibilityHint?: string
-  children: ReactNode
 }
 
 // Support does not change while the page is open, so there is nothing to subscribe to.

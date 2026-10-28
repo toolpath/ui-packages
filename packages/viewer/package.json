@@ -46,7 +46,7 @@
   "scripts": {
     "build": "tsup",
     "build:watch": "tsup --watch",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsc --noEmit && tsc -p tsconfig.native.json --noEmit",
     "test": "vitest run"
   },
   "peerDependencies": {

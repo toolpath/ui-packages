@@ -7,7 +7,7 @@
  * missing entry or a `document` that crept in through a new import would ship
  * unnoticed until an app crashed on start. `platform-boundary.test.ts` holds
  * the line in the source; this checks what the build actually emitted, the
- * swaps included.
+ * `.native` files included.
  *
  * It builds the viewer first, every time, so it never checks a stale build or
  * skips for want of one. The assets are checked too: the native build keeps

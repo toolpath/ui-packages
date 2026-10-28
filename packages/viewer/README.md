@@ -961,15 +961,16 @@ Custom R3F objects can go inside `Viewer` and participate in framing. Set
 The package runs under React Native through Metro: React Three Fiber's native
 build (`@react-three/fiber/native`) on expo-gl. Import it exactly as on the web.
 Its `react-native` export condition gives Metro a native build of both
-`@toolpath/viewer` and `@toolpath/viewer/engine`, in which a few web-only files
-are swapped for native ones.
+`@toolpath/viewer` and `@toolpath/viewer/engine`, built from the package's
+`.native` files where it has them. The native root leaves out the web-only
+exports.
 
-| Export                                                                                                                                                        | Web | React Native                                                                                        |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | --------------------------------------------------------------------------------------------------- |
-| `Viewer`, `PartMesh`, `EnginePart`, `Stock`, `DirectionArrows`, `SectionView`, `SectionTool`, `ToolMarks`, `Axes`, `Grid`, `ViewCube`, `Banana`, `SceneLabel` | yes | yes                                                                                                 |
-| Every pure function, constant and type from the models, rendering helpers and Engine adapter                                                                  | yes | yes                                                                                                 |
-| `MeasureTool`, `HoverCard`, `ViewerToolbar`, `viewerToolGroups`, `labelTexture`                                                                               | yes | throw `Error('@toolpath/viewer: <Name> is not available on React Native.')` when called or rendered |
-| `ViewerToolbarProvider`, `useViewerToolbar`                                                                                                                   | yes | yes (the context has no DOM)                                                                        |
+| Export                                                                                                                                                        | Web | React Native                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ---------------------------- |
+| `Viewer`, `PartMesh`, `EnginePart`, `Stock`, `DirectionArrows`, `SectionView`, `SectionTool`, `ToolMarks`, `Axes`, `Grid`, `ViewCube`, `Banana`, `SceneLabel` | yes | yes                          |
+| Every pure function, constant and type from the models, rendering helpers and Engine adapter                                                                  | yes | yes                          |
+| `MeasureTool`, `HoverCard`, `ViewerToolbar`, `viewerToolGroups`, `labelTexture`                                                                               | yes | no: not exported             |
+| `ViewerToolbarProvider`, `useViewerToolbar`                                                                                                                   | yes | yes (the context has no DOM) |
 
 On React Native, one finger orbits, two fingers pinch to zoom and pan, and a tap
 picks, as on the web; double tap re-targets. A tap on a face with `SectionTool`

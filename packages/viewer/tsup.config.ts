@@ -1,72 +1,78 @@
 import { existsSync, readdirSync } from 'node:fs'
-import { dirname, extname, join, relative, resolve, sep } from 'node:path'
+import { extname, join, relative, resolve, sep } from 'node:path'
 import { defineConfig, type Options } from 'tsup'
 
 const SRC = resolve(import.meta.dirname, 'src')
-const NATIVE = join(SRC, 'native')
 
 type Plugin = NonNullable<Options['esbuildPlugins']>[number]
 
-/** Every `.ts` and `.tsx` file under `src/native/`. */
-const nativeFiles = (): Array<string> =>
-  readdirSync(NATIVE, { recursive: true, encoding: 'utf8' })
-    .filter((file) => /\.tsx?$/.test(file))
-    .map((file) => join(NATIVE, file))
-
 /**
- * An import of a file under `src/` to the file at the same path under
- * `src/native/`, where one exists.
+ * A relative import to its `.native.tsx` or `.native.ts` file where one
+ * exists, as Metro and `tsconfig.native.json`'s `moduleSuffixes` resolve it.
  *
- * The sources import each other with `.js` specifiers, as Node's ESM
- * resolution wants, and an extensionless one resolves the same way. esbuild
- * maps both to `.ts` and `.tsx` itself, but never to a native replacement. A
- * specifier with any other extension (`.json`, `.glb`) is left to esbuild.
+ * esbuild's `resolveExtensions` tries `.native.ts` only for an extensionless
+ * specifier, and the sources import `./x.js`, so both forms are resolved here.
+ * A specifier with any other extension (`.json`, `.glb`) is left to esbuild.
  *
- * A native file that no import was swapped to fails the build: its web
- * sibling shipped in its place.
+ * A `.native` file that no import resolved to fails the build: it is dead, or
+ * its web sibling shipped in its place.
  */
-const nativeSiblings: Plugin = {
-  name: 'native-siblings',
+const platformFiles: Plugin = {
+  name: 'platform-files',
   setup(build) {
-    const swapped = new Set<string>()
+    const used = new Set<string>()
     build.onStart(() => {
-      swapped.clear()
+      used.clear()
     })
     build.onResolve({ filter: /^\.\.?\// }, (args) => {
       const extension = extname(args.path)
       if (extension !== '' && extension !== '.js') return undefined
-      const specifier = extension === '.js' ? args.path.slice(0, -'.js'.length) : args.path
-      const base = resolve(dirname(args.importer), specifier)
-      const inSource = relative(SRC, base)
-      if (inSource.startsWith('..') || inSource.startsWith(`native${sep}`)) return undefined
-      for (const candidate of ['.tsx', '.ts']) {
-        const replacement = join(NATIVE, inSource + candidate)
-        if (existsSync(replacement)) {
-          swapped.add(replacement)
-          return { path: replacement }
+      const base = resolve(args.resolveDir, args.path.slice(0, args.path.length - extension.length))
+      for (const candidate of ['.native.tsx', '.native.ts']) {
+        if (existsSync(base + candidate)) {
+          used.add(base + candidate)
+          return { path: base + candidate }
         }
       }
       return undefined
     })
     build.onEnd((result) => {
       if (result.errors.length > 0) return undefined
-      const unused = nativeFiles().filter((file) => !swapped.has(file))
+      const unused = readdirSync(SRC, { recursive: true, encoding: 'utf8' })
+        // The entry is built, not imported.
+        .filter((file) => /\.native\.tsx?$/.test(file) && file !== 'index.native.ts')
+        .map((file) => join(SRC, file))
+        .filter((file) => !used.has(file))
       return {
         errors: unused.map((file) => ({
-          text: `${relative(import.meta.dirname, file)} was never swapped in: no import of its web sibling reached it`,
+          text: `${relative(import.meta.dirname, file)} was never resolved: no import of its web sibling reached it`,
         })),
       }
     })
   },
 }
 
-const entry = ['src/index.ts', 'src/engine/index.ts']
+/**
+ * A model's import, kept as an import of the web build's copy, which Metro
+ * bundles: `src/assets/x.glb` is `dist/assets/x.glb`, `../assets/x.glb` from
+ * the native build's scripts in `dist/native/`.
+ */
+const webAssets: Plugin = {
+  name: 'web-assets',
+  setup(build) {
+    build.onResolve({ filter: /\.glb$/ }, (args) => ({
+      path: `../${relative(SRC, resolve(args.resolveDir, args.path)).split(sep).join('/')}`,
+      external: true,
+    }))
+  },
+}
+
 const external = ['react', 'react-dom', 'three', '@react-three/fiber', '@react-three/drei']
 
 export default defineConfig([
   // The web build: what `import` resolves to, with the declarations both builds share.
   {
-    entry,
+    entry: ['src/index.ts', 'src/engine/index.ts'],
     format: ['esm'],
     dts: true,
     // Everything in `dist/` but the native build, which the other configuration
@@ -76,19 +82,16 @@ export default defineConfig([
     outDir: 'dist',
     onSuccess: 'node scripts/copy-assets.mjs',
   },
-  // The React Native build, behind the `react-native` export condition: the
-  // same entries, with each `src/native/` file in place of the file at the
-  // same path under `src/`.
+  // The React Native build, behind the `react-native` export condition: its
+  // own root entry, with each import resolved to its `.native` file where
+  // there is one.
   {
-    entry,
+    entry: { index: 'src/index.native.ts', 'engine/index': 'src/engine/index.ts' },
     format: ['esm'],
     dts: false,
     clean: true,
-    // A RegExp, since tsup reads a string external as a package name. The
-    // model's import is kept as written, `../assets/banana.glb`, which from
-    // `dist/native/` is the web build's copy: Metro bundles that one.
-    external: [...external, 'react-native', 'expo-asset', 'expo-gl', /\.glb$/],
+    external: [...external, 'react-native', 'expo-asset', 'expo-gl'],
     outDir: 'dist/native',
-    esbuildPlugins: [nativeSiblings],
+    esbuildPlugins: [platformFiles, webAssets],
   },
 ] satisfies Options[])

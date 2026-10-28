@@ -8,7 +8,7 @@ import {
 } from '@react-three/fiber/native'
 import { GLView } from 'expo-gl'
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
-import type { ComponentRef } from 'react'
+import type { CSSProperties, ComponentRef, ReactNode } from 'react'
 import {
   AppState,
   type GestureResponderEvent,
@@ -17,17 +17,17 @@ import {
   View,
   type ViewStyle,
 } from 'react-native'
-import { SceneLabelStoreContext } from '../label-context.js'
-import { LabelOverlay } from '../label-overlay.js'
-import { type LabelStore, createLabelStore } from '../render/label-store.js'
+import { SceneLabelStoreContext } from './label-context.js'
+import { LabelOverlay } from './label-overlay.js'
+import { type LabelStore, createLabelStore } from './render/label-store.js'
 import {
   createPresenter,
   createRelease,
   createSceneRelease,
   createUnmountRelease,
-} from '../render/native-gl.js'
-import type { ViewportSize } from '../render/camera.js'
-import { pauseWhileInactive } from '../render/pause-inactive.js'
+} from './render/native-gl.js'
+import type { ViewportSize } from './render/camera.js'
+import { pauseWhileInactive } from './render/pause-inactive.js'
 import {
   type FingerTracker,
   type TouchOps,
@@ -41,10 +41,17 @@ import {
   holdInvalidate,
   localPoint,
   startedInFrame,
-} from '../render/touch-orbit.js'
-import type { CanvasSettings, ViewerFrameProps } from '../viewer-frame.js'
+} from './render/touch-orbit.js'
+import type { CanvasSettings, FrameSettings } from './frame-settings.js'
 
-export type { CanvasSettings, ViewerFrameProps } from '../viewer-frame.js'
+export interface ViewerFrameProps extends FrameSettings {
+  className?: string
+  style?: CSSProperties
+  webglUnavailable?: ReactNode
+  /** `<Viewer>`'s, for a screen reader. */
+  accessibilityLabel?: string
+  accessibilityHint?: string
+}
 
 /** The touch camera's state, shared between the frame's touch handlers and the canvas. */
 interface TouchState {
