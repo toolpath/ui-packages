@@ -44,7 +44,7 @@ describe('comparisonRows', () => {
     expect(rows.every((row) => !row.differs)).toBe(true)
   })
 
-  it('reads a face with no feature as a dash throughout', () => {
+  it('reads a face with no feature as a dash on the fixed rows', () => {
     const rows = byKey([
       hole('a', { measurements: [measured('depth', 'Depth', '5 mm')] }),
       { feature: null, directionColor: '#000', rules: [], measurements: [] },
@@ -53,6 +53,20 @@ describe('comparisonRows', () => {
       expect(rows[key]?.texts[1], key).toBe('—')
       expect(rows[key]?.differs, key).toBe(true)
     }
+  })
+
+  it("reads a face with no feature's own measurements", () => {
+    const rows = byKey([
+      hole('a'),
+      {
+        feature: null,
+        directionColor: '#000',
+        rules: [],
+        measurements: [measured('depth', 'Depth', '5 mm')],
+      },
+    ])
+    expect(rows.type?.texts[1]).toBe('—')
+    expect(rows.depth?.texts).toEqual(['—', '5 mm'])
   })
 
   it('keeps two measurements that share a label apart, by key', () => {

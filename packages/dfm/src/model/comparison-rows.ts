@@ -29,8 +29,8 @@ export const faceLetter = (index: number): string => String.fromCharCode(65 + (i
  * What each compared face was read as, row by row: its type, the way it is
  * machined from, whether it is required (only when some face says), the rules
  * it breaks, then every measurement any face has, keyed by its `key`, in the
- * order the faces first give them. A face no feature owns reads `—`
- * throughout.
+ * order the faces first give them. A face no feature owns reads `—` on the
+ * type, direction, required and rules rows; its own measurements still read.
  *
  * `differs` compares the texts, except on the rules row, which compares the
  * rules themselves: two faces each breaking one rule read the same count and
