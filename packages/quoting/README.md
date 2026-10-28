@@ -110,7 +110,11 @@ purchase order) → `payable`.
 ## The quoting app's plan draft: `@toolpath/quoting/plan`
 
 ```ts
-import { intentSessionRules, type PlanDraft } from '@toolpath/quoting/plan'
+import { quotingPlan, type PlanDraft } from '@toolpath/quoting/plan'
+
+let session = quotingPlan.start(saved)
+session = quotingPlan.update(session, { type: 'act', action }, { regionsOf, kernel, locked })
+session = quotingPlan.update(session, quotingPlan.read(savedAgain), { regionsOf, kernel, locked })
 ```
 
 Plan mode itself is [`@toolpath/plan`](../plan): the constraints a person states, every edit to
@@ -124,9 +128,13 @@ constraints on each part:
 - `StockState`, `StockProfileInput` and `StockProfileSummary`: a part's saved stock and the shop's
   stock profiles.
 - The Plan page's session holds an `Intent`, with no save stamps (`intentOf`).
-  `intentSessionRules(rules)` gives `planSession` the app's rules for it: `sameIntent` compares
-  a stock as a policy, whatever its key order, and `rebaseIntent` keeps the inputs edited here when
-  the plan is read again, and takes the others from it.
+  `quotingPlan.start`, `.update` and `.hasEdits` are `@toolpath/plan`'s `startSession`,
+  `planSession` and `isHeld` with the app's rules in place: `sameIntent` compares a stock as a
+  policy, whatever its key order, and DFM rule sets in any order, and `rebaseIntent` keeps the
+  inputs edited here when the plan is read again, and takes the others from it.
+  `quotingPlan.read(saved)` is the event for a plan read again. The app gives only what it reads
+  of the part (`IntentRules`: `regionsOf`, `kernel`, `locked`). `intentSessionRules(rules)` is the
+  same rules, for an app that calls `planSession` itself.
 
 `applyDraftAction` from `@toolpath/plan` takes a `PlanDraft` and gives a `PlanDraft` back, with
 these fields as they were. The package depends on `@toolpath/plan` for these; the root entry and
