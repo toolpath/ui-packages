@@ -4,8 +4,10 @@
 
 Adds `planPage(inputs)`: the Plan page in one call. It gives the constraints (`page.constraints`),
 Toolpath's plan (`page.results`), the lookups (`page.find`) and the paint (`page.paint(view)`) from
-one set of inputs. Each part is worked out only when it is read, and only once. It passes
-`planFeaturesOf` to the face coverage and the latest plan to `draftView`.
+one set of inputs: `draft`, `saved` (with whether it `changed` since the plan), `plan`, `part`,
+`analysis` (with its `kernelVersion` and `directions`) and `planIsOfSaved`. Each part is worked out
+only when it is read, and only once. It passes `planFeaturesOf` to the face coverage and the latest
+plan to `draftView`.
 
 Breaking: the functions `planPage` is built from, and the click rules, move off the main entry.
 Import them from their new entry:

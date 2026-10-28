@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { EnginePlan } from '../src/engine-plan'
-import { planPage, type PlanPageInputs, type PlanPagePart } from '../src/plan-page'
+import {
+  planPage,
+  type PartAnalysis,
+  type PlanPageInputs,
+  type PlanPagePart,
+} from '../src/plan-page'
 import type { Constraints } from '../src/plan-draft'
 import { DONE_COLOR, PART_ROW, UNMACHINED_FACE_COLOR } from '../src/plan-view'
 
@@ -40,8 +45,8 @@ const plan: EnginePlan = {
   trimmedFeatures: [],
 }
 
-/** Face 1 is `a`'s, face 2 is `b`'s, face 3 is no feature's. */
-const analysis = {
+/** Face 1 is `a`'s, face 2 is `b`'s, face 3 is no feature's. Read by kernel k1, facing up. */
+const analysis: PartAnalysis = {
   regions: [
     { idx: 1, area: 30 },
     { idx: 2, area: 20 },
@@ -51,18 +56,17 @@ const analysis = {
     { tag: 'a', featureType: 'pocket', regionIdxs: [1] },
     { tag: 'b', featureType: 'pocket', regionIdxs: [2] },
   ],
+  kernelVersion: 'k1',
+  directions: { analyzed: [up], discovered: [up, side], pending: false },
 }
 
 const inputs = (overrides: Partial<PlanPageInputs> = {}): PlanPageInputs => ({
   draft: { ...constraints, kernelVersion: 'k1' },
-  saved: constraints,
+  saved: { ...constraints, changed: false },
   plan,
   part: part(),
   analysis,
-  kernel: 'k1',
-  directions: { analyzed: [up], discovered: [up], pending: false },
   planIsOfSaved: true,
-  changedSincePlan: false,
   ...overrides,
 })
 
@@ -81,7 +85,9 @@ describe('planPage: the constraints', () => {
   })
 
   it('lets go of faces ignored under another kernel', () => {
-    const { constraints: page } = planPage(inputs({ kernel: 'k2' }))
+    const { constraints: page } = planPage(
+      inputs({ analysis: { ...analysis, kernelVersion: 'k2' } }),
+    )
     expect(page.ignored).toEqual([])
     expect(page.counts.ignored).toBe(0)
   })
@@ -91,6 +97,11 @@ describe('planPage: the constraints', () => {
     expect(planPage(inputs({ part: unknown })).constraints.checks).toContainEqual(
       expect.objectContaining({ tone: 'blocking' }),
     )
+  })
+
+  it('says nothing of a pin’s feature before the analysis is read', () => {
+    const unknown = { ...part(), feature: () => null }
+    expect(planPage(inputs({ part: unknown, analysis: null })).constraints.checks).toEqual([])
   })
 })
 
@@ -112,7 +123,11 @@ describe('planPage: the results', () => {
   })
 
   it('is all clear when the plan machines every face of constraints that have not changed', () => {
-    const whole = { regions: [analysis.regions[0]!], features: [analysis.features[0]!] }
+    const whole = {
+      ...analysis,
+      regions: [analysis.regions[0]!],
+      features: [analysis.features[0]!],
+    }
     const { results } = planPage(inputs({ analysis: whole }))
     expect(results.changed).toBe(false)
     expect(results.allClear).toBe(true)
@@ -128,7 +143,7 @@ describe('planPage: the results', () => {
   })
 
   it('says the constraints changed since the results, and so is not all clear', () => {
-    const { results } = planPage(inputs({ changedSincePlan: true }))
+    const { results } = planPage(inputs({ saved: { ...constraints, changed: true } }))
     expect(results.changed).toBe(true)
     expect(results.allClear).toBe(false)
   })

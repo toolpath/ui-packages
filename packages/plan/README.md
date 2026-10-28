@@ -286,17 +286,7 @@ An "our choice" refusal can become a yes in a later release. Until then, it stay
 ```ts
 import { planPage, PART_ROW } from '@toolpath/plan'
 
-const page = planPage({
-  draft,
-  saved,
-  plan,
-  part,
-  analysis,
-  kernel,
-  directions,
-  planIsOfSaved,
-  changedSincePlan,
-})
+const page = planPage({ draft, saved, plan, part, analysis, planIsOfSaved })
 page.constraints.setups // the tree of the constraints
 page.results.confirm // the checklist before the part moves on
 page.find.pinOf(tag) // the folder a feature is pinned in
@@ -306,13 +296,14 @@ page.paint({ tab: 'constraints', openId: PART_ROW, colorOf }) // { faces, hatche
 `planPage` gives a Plan page everything it shows, from one set of inputs. Make a new page when an
 input changes. Each part is worked out only when it is read, and only once.
 
-- **Inputs.** Toolpath's data only: the constraints held now (`draft`) and as applied (`saved`),
-  Toolpath's plan, the part's analysis, the kernel the part is read by, and its directions. Any
-  draft that holds the constraints works, with the `kernelVersion` its pins name: a session's
-  draft has none, so lay it over the plan as saved (`{ ...saved, ...session.draft }`). The app
-  says whether the plan is of `saved` (`planIsOfSaved`) and whether the constraints as applied
-  changed since it (`changedSincePlan`).
-  `part` is how a tag reads (`PlanPart`), and each feature the checks name.
+- **Inputs.** Toolpath's data only: the constraints held now (`draft`) and as applied (`saved`,
+  with whether they `changed` since Toolpath's plan), Toolpath's plan, and the part's analysis
+  (its faces and features, the `kernelVersion` that read it, and its `directions`). Any draft that
+  holds the constraints works, with the `kernelVersion` its pins name: a session's draft has none,
+  so lay it over the plan as saved (`{ ...saved, ...session.draft }`). The app says whether the
+  plan is of `saved` (`planIsOfSaved`). `part` is how a tag reads (`PlanPart`), and each feature
+  the checks name. The quoting app's page is `quotingPage` in `@toolpath/quoting/plan`: it makes
+  these inputs from its session.
 - **`page.constraints`**: the tree (`setups`, `folders`), each face pinned, ignored or open
   (`coverage`), the faces ignored, the counts, and the checks before Apply.
 - **`page.results`**: Toolpath's setups, named by the folders they are from while the plan is of

@@ -56,6 +56,15 @@ import { machines, resultsView, setupOf, type ResultsSetupView } from './results
 export interface PartAnalysis {
   regions: ReadonlyArray<{ idx: number; area: number }>
   features: ReadonlyArray<CoverageFeature & { machiningDirection?: PlanDirection }>
+  /** The kernel that read the part: faces ignored under another kernel's numbering are let go. */
+  kernelVersion: string | null
+  /** The directions the part's report and its pending request say a folder can face. */
+  directions: DirectionsKnown
+}
+
+/** The constraints as applied, and whether they changed since Toolpath's plan was made. */
+export interface AppliedConstraints extends Constraints {
+  changed: boolean
 }
 
 /** What the page knows of the part: how its rows read, and each feature its checks name. */
@@ -71,19 +80,14 @@ export interface PlanPageInputs {
    */
   draft: (Constraints & Pick<CheckedDraft, 'kernelVersion'>) | null
   /** The constraints as applied; null before they are read. */
-  saved: Constraints | null
+  saved: AppliedConstraints | null
   /** Toolpath's plan; null before one is read. */
   plan: EnginePlan | null
   part: PlanPagePart
-  /** Null before the part's analysis is read: no face is classified. */
+  /** Null before the part's analysis is read: no face is classified, and no direction is known. */
   analysis: PartAnalysis | null
-  /** The kernel the part is read by now: faces ignored under another kernel's numbering are let go. */
-  kernel: string | null
-  directions: DirectionsKnown
   /** Whether `plan` is of `saved`: only then are its setups named by the folders they are from. */
   planIsOfSaved: boolean
-  /** The constraints as applied changed since `plan` was made. */
-  changedSincePlan: boolean
 }
 
 /** The person's constraints, as the tree and the Constraints view show them. */
@@ -93,7 +97,7 @@ export interface ConstraintsPage {
   folders: ReadonlyArray<PlanSetupView>
   /** Each face pinned, ignored or open; null before the analysis is read. */
   coverage: Coverage | null
-  /** The faces ignored, numbered by `kernel`. */
+  /** The faces ignored, numbered by the analysis' kernel. */
   ignored: ReadonlyArray<number>
   /** Features pinned, faces ignored, and features left open. */
   counts: { pinned: number; ignored: number; open: number }
@@ -108,7 +112,7 @@ export interface ResultsPage {
   leftOut: ReadonlyArray<{ folderId: string; name: string }>
   /** Each face ignored, machined or not machined; null before the plan and the analysis are read. */
   coverage: Coverage | null
-  /** The faces ignored as applied, numbered by `kernel`: the ones the plan is made from. */
+  /** The faces ignored as applied, numbered by the analysis' kernel: the ones the plan is made from. */
   ignored: ReadonlyArray<number>
   /** The faces nothing machines, gathered under the features that would machine them. */
   notMachined: ReadonlyArray<FaceGroup>
@@ -165,6 +169,9 @@ const NO_FACES: Coverage['faces'] = {
   notMachined: [],
 }
 
+/** Before the analysis is read nothing is known of the directions, and nothing is said of them. */
+const NO_DIRECTIONS: DirectionsKnown = { analyzed: null, discovered: null, pending: false }
+
 /** A value worked out the first time it is asked for, and kept. */
 const once = <T>(work: () => T): (() => T) => {
   let kept: { value: T } | null = null
@@ -186,14 +193,8 @@ export const planPage = (inputs: PlanPageInputs): PlanPage => {
   }
 }
 
-const constraintsPage = ({
-  draft,
-  plan,
-  part,
-  analysis,
-  kernel,
-  directions,
-}: PlanPageInputs): ConstraintsPage => {
+const constraintsPage = ({ draft, plan, part, analysis }: PlanPageInputs): ConstraintsPage => {
+  const kernel = analysis?.kernelVersion ?? null
   const setups = once(() => (draft ? draftView(draft, part, plan) : []))
   const folders = once(() => allFolders(setups()))
   const pinned = once(() =>
@@ -220,7 +221,7 @@ const constraintsPage = ({
   const checks = once(() =>
     draft
       ? planChecks(draft, {
-          directions,
+          directions: analysis?.directions ?? NO_DIRECTIONS,
           feature: part.feature,
           kernelVersion: plan?.kernelVersion ?? null,
         })
@@ -249,7 +250,8 @@ const constraintsPage = ({
 }
 
 const resultsPage = (inputs: PlanPageInputs, constraints: ConstraintsPage): ResultsPage => {
-  const { plan, saved, part, analysis, kernel, planIsOfSaved, changedSincePlan } = inputs
+  const { plan, saved, part, analysis, planIsOfSaved } = inputs
+  const kernel = analysis?.kernelVersion ?? null
   const view = once(() => resultsView({ plan, constraints: planIsOfSaved ? saved : null, part }))
   const ignored = once(() => (saved ? currentFor(saved.done, saved.doneKernel, kernel) : []))
   const features = once(() => (analysis ? planFeaturesOf(analysis.features, plan) : []))
@@ -270,7 +272,7 @@ const resultsPage = (inputs: PlanPageInputs, constraints: ConstraintsPage): Resu
     notMachined: notMachined().length,
   }))
   const counted = once(() => planCounts(view().setups))
-  const changed = once(() => changedSinceResults(changedSincePlan, view().setups.length))
+  const changed = once(() => changedSinceResults(saved?.changed ?? false, view().setups.length))
   // The folders the plan is made from: the draft can hold folders added since.
   const folders = once(() =>
     planIsOfSaved && saved ? allFolders(draftView(saved, part, plan)) : [],
