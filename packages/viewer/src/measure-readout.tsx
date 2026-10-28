@@ -1,4 +1,5 @@
-import { Html, Line } from '@react-three/drei'
+import { Line } from '@react-three/drei/core/Line.js'
+import { Html } from '@react-three/drei/web/Html.js'
 import { type CSSProperties, useMemo } from 'react'
 import type { Vector3 } from 'three'
 import { cssColor } from './measure-hint.js'
