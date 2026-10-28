@@ -9,3 +9,6 @@ opens them.
 
 `RuleList` dims exactly the rules it sinks to the bottom, `ruleListOrder`'s quiet ones. A rule
 broken only by readings a plan can do without, and the rule just added, are no longer dimmed.
+
+A range's low-end picker is titled the way its symbol reads (`≤` is "at most"), not as the same
+comparison from the measure ("at least").
