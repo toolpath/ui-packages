@@ -703,7 +703,11 @@ for published changes.
 
 `BodyDfmResults` displays a `combineBodyChecks` summary from `@toolpath/dfm`.
 Pass `tab="rules"` or `tab="features"`, `units`, and
-`onInspect(bodyId, featureTag)`. Optional `onHover(bodyId, featureTag | null)` and
-`onRetry(bodyId)` connect the rows to an application's viewer and retries. Pending
-and failed checks remain explicit alongside available results. The component
-uses the kit's Table and Button; the application owns analysis and selection.
+`onInspect(bodyId, featureTag)`. The Rules tab lists every rule as the rule list
+does, with how many features break it in all bodies together, and opens into the
+bodies that break it and then their features. Optional `onHover(bodyId,
+featureTag | null)`, `onHoverRule(ruleId | null, bodyId | null)` and
+`onRetry(bodyId)` connect the rows to an application's viewer and retries, and
+`bodyColors` puts each body's colour beside its name. Pending and failed checks
+remain explicit alongside available results; the application owns analysis and
+selection.

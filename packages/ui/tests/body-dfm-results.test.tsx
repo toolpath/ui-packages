@@ -1,6 +1,6 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { combineBodyChecks } from '@toolpath/dfm'
+import { combineBodyChecks, makeRule, type BodyDfmSummary } from '@toolpath/dfm'
 import { BodyDfmResults } from '../src/body-dfm-results'
 
 describe('combined body results', () => {
@@ -87,5 +87,71 @@ describe('combined body results', () => {
       />,
     )
     expect(screen.getByText('No bodies could be checked.')).toBeVisible()
+  })
+
+  it('lists each rule with its count across bodies, opening into bodies and their features', () => {
+    const broken = { ...makeRule('hole', 'diameter', 'mm'), id: 'small', color: '#ef4444' }
+    const kept = { ...makeRule('pocket', 'depth', 'mm'), id: 'deep', color: '#f59e0b' }
+    const feature = (tag: string, number: number) => ({
+      tag,
+      number,
+      featureType: 'blind_hole',
+      machiningDirection: { x: 0, y: 0, z: 1 },
+      regionIdxs: [0],
+    })
+    const violation = (bodyId: string, tag: string, number: number) => ({
+      id: `${bodyId}:${tag}`,
+      bodyId,
+      bodyLabel: `Body ${bodyId}`,
+      feature: feature(tag, number),
+      rule: broken,
+      hit: null,
+    })
+    const summary: BodyDfmSummary = {
+      bodies: ['a', 'b', 'c'].map((id) => ({
+        id,
+        label: `Body ${id}`,
+        status: 'ready' as const,
+        check: null,
+        features: [],
+      })),
+      completed: 3,
+      total: 3,
+      failed: 0,
+      features: [],
+      violations: [violation('a', 'h1', 1), violation('a', 'h2', 2), violation('c', 'h1', 1)],
+      byRule: [
+        { rule: broken, count: 3 },
+        { rule: kept, count: 0 },
+      ],
+    }
+    const inspect = vi.fn()
+    const hoverRule = vi.fn()
+    render(
+      <BodyDfmResults
+        summary={summary}
+        tab="rules"
+        units="mm"
+        onInspect={inspect}
+        onHoverRule={hoverRule}
+      />,
+    )
+    const rules = screen.getByRole('list', { name: 'Rules' })
+    const rule = within(rules).getAllByRole('button')[0]!
+    expect(rule).toHaveTextContent('in 2 bodies')
+    expect(rule).toHaveTextContent(/3$/)
+    // A rule nothing breaks is listed, and cannot be opened.
+    expect(within(rules).getAllByRole('button')[1]).toBeDisabled()
+    fireEvent.pointerMove(rule)
+    expect(hoverRule).toHaveBeenLastCalledWith('small', null)
+    fireEvent.click(rule)
+    const bodyA = screen.getByRole('button', { name: /^Body a/ })
+    expect(bodyA).toHaveTextContent(/2$/)
+    expect(screen.queryByRole('button', { name: /^Body b/ })).toBeNull()
+    fireEvent.pointerMove(bodyA)
+    expect(hoverRule).toHaveBeenLastCalledWith('small', 'a')
+    fireEvent.click(bodyA)
+    fireEvent.click(screen.getByRole('button', { name: /Blind hole 2/ }))
+    expect(inspect).toHaveBeenCalledWith('a', 'h2')
   })
 })
