@@ -376,11 +376,10 @@ export function labelGeometry(zone: CubeZone): BufferGeometry {
 export const VIEW_CUBE_MARGIN: [number, number] = [80, 80]
 
 /**
- * How far, CSS pixels, the cube reaches from its centre at any turn: its
- * panels are drawn 38 pixels to a half side, and corner on, a cube reaches
- * √3 of that.
+ * How far, CSS pixels, the cube reaches from its centre at any turn: corner
+ * on, a cube reaches √3 of its half side, {@link VIEW_CUBE_HALF_PX}.
  */
-const VIEW_CUBE_REACH = 66
+const VIEW_CUBE_REACH = Math.ceil(VIEW_CUBE_HALF_PX * Math.sqrt(3))
 
 /** Where a `<ViewCube>` stands: the corner of the canvas, and CSS pixels in from it to its centre. */
 export interface ViewCubePlace {
