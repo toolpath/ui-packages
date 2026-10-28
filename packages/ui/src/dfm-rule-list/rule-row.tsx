@@ -14,7 +14,7 @@ interface RowProps extends Omit<RuleListProps, 'rules' | 'vocabulary'> {
   vocabulary: RuleVocabulary
   result: RuleResult | null
   checking: boolean
-  /** The check is in and nothing breaks it (`ruleListOrder`'s `quiet`): dimmed. */
+  /** The check is in, nothing breaks it and it is not the rule just added (`ListedRule.quiet`): dimmed. */
   quiet: boolean
   open: boolean
   /** A rule just added: its first word takes focus, ready to change. */
