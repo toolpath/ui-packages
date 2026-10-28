@@ -974,18 +974,18 @@ exports.
 
 On React Native, one finger orbits, two fingers pinch to zoom and pan, and a tap
 picks, as on the web; double tap re-targets. A tap on a face with `SectionTool`
-up cuts, and the handle drags the cut. `Viewer`'s `style` goes to the `View` that
-holds the canvas. The package's types are the web's, so `style` is typed as a
-React `CSSProperties`: pass one plain style object with values a `View` takes
-(`{ flex: 1 }`, not `'50vh'` or a style array), and leave out `className`, which
-does nothing there. There's no WebGL check on React Native, where expo-gl always
-creates a context, so `webglUnavailable` is never shown.
+up cuts, and the handle drags the cut.
+
+The `react-native` condition also gives TypeScript the native build's own
+declarations (with `customConditions: ["react-native"]`, which Expo's base
+tsconfig sets). There, `Viewer`'s `style` is a `View`'s `StyleProp<ViewStyle>`,
+for the `View` that holds the canvas, and `Viewer` has no `className` or
+`webglUnavailable`: expo-gl always creates a context.
 
 The canvas has nothing a screen reader can read, so pass `Viewer` an
 `accessibilityLabel` (and an `accessibilityHint`, such as where the view's
 controls are) for VoiceOver and TalkBack to announce the view as an image. The
-scene's pressable labels stay reachable on their own. Both are ignored on the
-web.
+scene's pressable labels stay reachable on their own.
 
 A finger doesn't hover, so on React Native `PartMesh` lights no face under a
 moving finger, and `onHover` isn't called. Its picks go through a bounding volume
@@ -1069,8 +1069,7 @@ context itself.
 
 `SceneLabel` has no DOM to draw into, so a `Viewer` draws its labels as views over
 the canvas, centred on their points, and hides one behind the camera or well
-outside the view. `className` and `layer` do nothing there; `onPress` makes a
-label pressable, and `accessibilityHint` tells a screen reader what pressing it
+outside the view. `onPress` makes a label pressable, and `accessibilityHint` tells a screen reader what pressing it
 does. Style them with the theme's `labels` key, which takes CSS colour
 strings:
 

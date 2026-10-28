@@ -70,7 +70,7 @@ const webAssets: Plugin = {
 const external = ['react', 'react-dom', 'three', '@react-three/fiber', '@react-three/drei']
 
 export default defineConfig([
-  // The web build: what `import` resolves to, with the declarations both builds share.
+  // The web build: what `import` resolves to.
   {
     entry: ['src/index.ts', 'src/engine/index.ts'],
     format: ['esm'],
@@ -88,7 +88,10 @@ export default defineConfig([
   {
     entry: { index: 'src/index.native.ts', 'engine/index': 'src/engine/index.ts' },
     format: ['esm'],
-    dts: false,
+    // Declarations from the same graph, so a React Native app reads its own
+    // props: `style` as a `View`'s, and no web-only exports.
+    dts: true,
+    tsconfig: 'tsconfig.native.json',
     clean: true,
     external: [...external, 'react-native', 'expo-asset', 'expo-gl'],
     outDir: 'dist/native',
