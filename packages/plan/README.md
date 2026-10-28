@@ -308,8 +308,10 @@ input changes. Each part is worked out only when it is read, and only once.
 
 - **Inputs.** Toolpath's data only: the constraints held now (`draft`) and as applied (`saved`),
   Toolpath's plan, the part's analysis, the kernel the part is read by, and its directions. Any
-  draft that holds the constraints works. The app says whether the plan is of `saved`
-  (`planIsOfSaved`) and whether the constraints as applied changed since it (`changedSincePlan`).
+  draft that holds the constraints works, with the `kernelVersion` its pins name: a session's
+  draft has none, so lay it over the plan as saved (`{ ...saved, ...session.draft }`). The app
+  says whether the plan is of `saved` (`planIsOfSaved`) and whether the constraints as applied
+  changed since it (`changedSincePlan`).
   `part` is how a tag reads (`PlanPart`), and each feature the checks name.
 - **`page.constraints`**: the tree (`setups`, `folders`), each face pinned, ignored or open
   (`coverage`), the faces ignored, the counts, and the checks before Apply.

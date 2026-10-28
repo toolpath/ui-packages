@@ -65,7 +65,10 @@ export interface PlanPagePart extends PlanPart {
 
 /** Everything the page is made from. Toolpath's data alone: the app's own choices stay its own. */
 export interface PlanPageInputs {
-  /** The constraints as held now, with edits not applied; null before they are read. */
+  /**
+   * The constraints as held now, with edits not applied, and the kernel its pins name; null before
+   * they are read.
+   */
   draft: (Constraints & Pick<CheckedDraft, 'kernelVersion'>) | null
   /** The constraints as applied; null before they are read. */
   saved: Constraints | null
@@ -266,6 +269,7 @@ const resultsPage = (inputs: PlanPageInputs, constraints: ConstraintsPage): Resu
     ignored: coverage()?.faces.ignored.length ?? 0,
     notMachined: notMachined().length,
   }))
+  const counted = once(() => planCounts(view().setups))
   const changed = once(() => changedSinceResults(changedSincePlan, view().setups.length))
   // The folders the plan is made from: the draft can hold folders added since.
   const folders = once(() =>
@@ -303,7 +307,7 @@ const resultsPage = (inputs: PlanPageInputs, constraints: ConstraintsPage): Resu
       return counts()
     },
     get planCounts() {
-      return planCounts(view().setups)
+      return counted()
     },
     get changed() {
       return changed()

@@ -206,4 +206,11 @@ describe('planPage: work done', () => {
     expect(page.constraints.checks).toBe(checks)
     expect(checked.feature).toHaveBeenCalledTimes(calls)
   })
+
+  it('gives the same value each time a part is read', () => {
+    const page = planPage(inputs())
+    expect(page.results.planCounts).toBe(page.results.planCounts)
+    expect(page.results.counts).toBe(page.results.counts)
+    expect(page.constraints.counts).toBe(page.constraints.counts)
+  })
 })
