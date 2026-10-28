@@ -1,80 +1,74 @@
+// @vitest-environment jsdom
+import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { type Frameloop, pauseWhileInactive } from '../src/render/pause-inactive.js'
 
-/** Fiber's root store, reduced to its loop: subscribers hear every change. */
-const createStore = (initial: Frameloop) => {
-  const listeners = new Set<(state: { frameloop: Frameloop }) => void>()
-  const state = {
-    frameloop: initial,
-    setFrameloop: vi.fn((frameloop: Frameloop) => {
-      state.frameloop = frameloop
-      for (const listener of [...listeners]) listener({ frameloop })
-    }),
-    invalidate: vi.fn(),
-  }
-  return {
-    state,
-    getState: () => state,
-    subscribe: (listener: (state: { frameloop: Frameloop }) => void) => {
+/** Fiber's root store, reduced to its loop. */
+const fiber = vi.hoisted(() => ({
+  state: { frameloop: 'demand' as 'always' | 'demand' | 'never', invalidate: () => {} },
+}))
+vi.mock('@react-three/fiber', () => ({
+  useThree: <T>(selector: (state: typeof fiber.state) => T): T => selector(fiber.state),
+}))
+
+const { useAppInactive, useRepaintOnResume } = await import('../src/render/pause-inactive.js')
+
+/** React Native's `AppState`: its current state, and a change that tells every listener. */
+const createAppState = (initial: string) => {
+  const listeners = new Set<(state: string) => void>()
+  const appState = {
+    currentState: initial,
+    addEventListener: (_type: 'change', listener: (state: string) => void) => {
       listeners.add(listener)
-      return () => listeners.delete(listener)
+      return { remove: () => listeners.delete(listener) }
     },
+    change: (state: string) => {
+      appState.currentState = state
+      for (const listener of [...listeners]) listener(state)
+    },
+    listeners,
   }
+  return appState
 }
 
-const createAppState = (currentState: string) => {
-  let listener: ((state: string) => void) | null = null
-  return {
-    currentState,
-    addEventListener: (_type: 'change', next: (state: string) => void) => {
-      listener = next
-      return { remove: () => (listener = null) }
-    },
-    change: (state: string) => listener?.(state),
-  }
-}
-
-describe('pauseWhileInactive', () => {
-  it('pauses a canvas that mounts while the app is already inactive', () => {
-    const store = createStore('demand')
-    pauseWhileInactive(createAppState('inactive'), store, 'demand')
-
-    expect(store.state.setFrameloop).toHaveBeenCalledWith('never')
-    expect(store.state.frameloop).toBe('never')
+describe('useAppInactive', () => {
+  it('is inactive from the first render when the app already is', () => {
+    const { result } = renderHook(() => useAppInactive(createAppState('inactive')))
+    expect(result.current).toBe(true)
   })
 
-  it('stays paused when a re-render sets the loop back to its prop', () => {
-    const store = createStore('demand')
+  it('follows the app out and back', () => {
     const appState = createAppState('active')
-    pauseWhileInactive(appState, store, 'demand')
+    const { result } = renderHook(() => useAppInactive(appState))
+    expect(result.current).toBe(false)
 
-    appState.change('inactive')
-    // What fiber 9.7's Canvas does on every render: the prop wins.
-    store.state.setFrameloop('demand')
-
-    expect(store.state.frameloop).toBe('never')
+    act(() => appState.change('inactive'))
+    expect(result.current).toBe(true)
+    act(() => appState.change('background'))
+    expect(result.current).toBe(true)
+    act(() => appState.change('active'))
+    expect(result.current).toBe(false)
   })
 
-  it('resumes with a frame when the app is active again', () => {
-    const store = createStore('demand')
+  it('stops listening when it unmounts', () => {
     const appState = createAppState('active')
-    pauseWhileInactive(appState, store, 'demand')
+    const { unmount } = renderHook(() => useAppInactive(appState))
+    expect(appState.listeners.size).toBe(1)
 
-    appState.change('background')
-    appState.change('active')
-
-    expect(store.state.frameloop).toBe('demand')
-    expect(store.state.invalidate).toHaveBeenCalledTimes(1)
+    unmount()
+    expect(appState.listeners.size).toBe(0)
   })
+})
 
-  it('leaves the loop alone once stopped', () => {
-    const store = createStore('demand')
-    const appState = createAppState('active')
-    const stop = pauseWhileInactive(appState, store, 'demand')
+describe('useRepaintOnResume', () => {
+  it('asks for a frame once the loop runs again, and none while it is paused', () => {
+    const invalidate = vi.fn()
+    fiber.state = { frameloop: 'never', invalidate }
+    const { rerender } = renderHook(() => useRepaintOnResume())
+    expect(invalidate).not.toHaveBeenCalled()
 
-    stop()
-    appState.change('inactive')
-
-    expect(store.state.frameloop).toBe('demand')
+    // What fiber's store holds once it has applied the canvas's new `frameloop`.
+    fiber.state = { frameloop: 'demand', invalidate }
+    rerender()
+    expect(invalidate).toHaveBeenCalledTimes(1)
   })
 })

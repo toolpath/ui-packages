@@ -3,7 +3,6 @@ import {
   type RootState,
   addAfterEffect,
   useFrame,
-  useStore,
   useThree,
 } from '@react-three/fiber/native'
 import { GLView } from 'expo-gl'
@@ -27,7 +26,7 @@ import {
   createUnmountRelease,
 } from './render/native-gl.js'
 import type { ViewportSize } from './render/camera.js'
-import { pauseWhileInactive } from './render/pause-inactive.js'
+import { useAppInactive, useRepaintOnResume } from './render/pause-inactive.js'
 import {
   type FingerTracker,
   type TouchOps,
@@ -42,7 +41,7 @@ import {
   localPoint,
   startedInFrame,
 } from './render/touch-orbit.js'
-import type { CanvasSettings, FrameSettings } from './frame-settings.js'
+import type { FrameSettings } from './frame-settings.js'
 
 /** What `<Viewer>` takes for the view it draws into, on React Native. */
 export interface ViewerFrameProps {
@@ -107,6 +106,7 @@ export const ViewerFrame = ({
     }),
     [],
   )
+  const inactive = useAppInactive(AppState)
   const frame = useRef<ComponentRef<typeof View>>(null)
   const origin = useRef({ x: 0, y: 0 })
   const size = useRef<ViewportSize | null>(null)
@@ -162,7 +162,8 @@ export const ViewerFrame = ({
             orthographic={canvas.projection === 'orthographic'}
             camera={canvas.camera}
             gl={canvas.gl}
-            frameloop={canvas.frameloop}
+            // No frames while the app is not active: see `render/pause-inactive.ts`.
+            frameloop={inactive ? 'never' : canvas.frameloop}
             // Fiber already ignores a press that moved, so a miss is a miss.
             onPointerMissed={onPointerMissed ? () => onPointerMissed() : undefined}
             onCreated={releaseWithTheCanvas}
@@ -172,7 +173,7 @@ export const ViewerFrame = ({
             {children}
             <TouchBridge />
             <LabelProjector store={store} />
-            <PauseWhenInactive frameloop={canvas.frameloop} />
+            <RepaintOnResume />
           </Canvas>
         </TouchOrbitContext.Provider>
       </SceneLabelStoreContext.Provider>
@@ -233,10 +234,9 @@ const LabelProjector = ({ store }: { store: LabelStore }) => {
   return null
 }
 
-/** No frames while the app is not active: see `pauseWhileInactive`. */
-const PauseWhenInactive = ({ frameloop }: { frameloop: CanvasSettings['frameloop'] }) => {
-  const store = useStore()
-  useEffect(() => pauseWhileInactive(AppState, store, frameloop), [frameloop, store])
+/** A frame when the loop runs again: see `useRepaintOnResume`. */
+const RepaintOnResume = () => {
+  useRepaintOnResume()
   return null
 }
 

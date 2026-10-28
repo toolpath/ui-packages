@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render } from '@testing-library/react'
+import { act, render } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -11,19 +11,36 @@ const host =
     views.push(props)
     return createElement(tag, null, children)
   }
+/** React Native's `AppState`: its current state, and a change that tells every listener. */
+const listeners = new Set<(state: string) => void>()
+const appState = {
+  currentState: 'active',
+  addEventListener: (_type: 'change', listener: (state: string) => void) => {
+    listeners.add(listener)
+    return { remove: () => listeners.delete(listener) }
+  },
+  change: (state: string) => {
+    appState.currentState = state
+    for (const listener of [...listeners]) listener(state)
+  },
+}
 vi.mock('react-native', () => ({
   View: host('div'),
   Pressable: host('button'),
   Text: host('span'),
   StyleSheet: { create: <T,>(styles: T) => styles, absoluteFill: {} },
-  AppState: { currentState: 'active', addEventListener: () => ({ remove: () => {} }) },
+  AppState: appState,
 }))
-// The canvas needs a GL context; the frame around it is what is tested here.
+// The canvas needs a GL context; the frame around it is what is tested here,
+// and the props it hands the canvas.
+const canvases: Array<Record<string, unknown>> = []
 vi.mock('@react-three/fiber/native', () => ({
-  Canvas: () => null,
+  Canvas: (props: Record<string, unknown>) => {
+    canvases.push(props)
+    return null
+  },
   addAfterEffect: () => () => {},
   useFrame: () => {},
-  useStore: () => ({}),
   useThree: () => undefined,
 }))
 vi.mock('expo-gl', () => ({ GLView: {} }))
@@ -68,5 +85,19 @@ describe('ViewerFrame (React Native)', () => {
     render(<ViewerFrame canvas={canvas}>{null}</ViewerFrame>)
 
     expect(views.some((view) => view.accessibilityRole === 'image')).toBe(false)
+  })
+
+  it('runs the canvas no frames while the app is inactive', () => {
+    appState.currentState = 'inactive'
+    canvases.length = 0
+    render(<ViewerFrame canvas={canvas}>{null}</ViewerFrame>)
+    expect(canvases.at(-1)?.frameloop).toBe('never')
+
+    act(() => appState.change('active'))
+    expect(canvases.at(-1)?.frameloop).toBe('demand')
+
+    act(() => appState.change('background'))
+    expect(canvases.at(-1)?.frameloop).toBe('never')
+    act(() => appState.change('active'))
   })
 })
