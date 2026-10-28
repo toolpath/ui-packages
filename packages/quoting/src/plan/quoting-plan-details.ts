@@ -1,16 +1,16 @@
 import {
-  planPage,
+  planDetails,
   type EnginePlan,
   type PartAnalysis,
-  type PlanPage,
-  type PlanPagePart,
+  type PlanDetails,
+  type PlanDetailsPart,
 } from '@toolpath/plan'
 
 import { quotingPlan, type IntentSession } from './intent-session'
 import type { PlanDraft } from './plan-draft'
 
 /*
-  The quoting app's Plan page: `@toolpath/plan`'s `planPage`, made from what the app holds — the plan
+  The quoting app's plan details: `@toolpath/plan`'s `planDetails`, made from what the app holds — the plan
   as saved, the session with its edits, and Toolpath's plan — so the app works out none of its inputs.
 */
 
@@ -20,32 +20,32 @@ export interface QuotingPlanLoaded {
   session: IntentSession
 }
 
-export interface QuotingPageInputs {
+export interface QuotingPlanDetailsInputs {
   /** Null before the plan as saved is read. */
   loaded: QuotingPlanLoaded | null
   /** Toolpath's plan; null before one is read. */
   plan: EnginePlan | null
   /** No newer plan is on its way from Toolpath: `plan` is the latest. */
   planSettled: boolean
-  part: PlanPagePart
+  part: PlanDetailsPart
   /** Null before the part's analysis is read. */
   analysis: PartAnalysis | null
 }
 
 /**
- * The quoting app's Plan page. The draft is the session's edits over the plan as saved, which keeps
+ * The quoting app's plan details. The draft is the session's edits over the plan as saved, which keeps
  * the kernel its pins name. Toolpath's setups are named by the folders they are from only while
  * the plan is of the plan as saved: no edits held, nothing changed since, and no newer plan on its
- * way. Make a new page when an input changes.
+ * way. Call it again when an input changes.
  */
-export const quotingPage = ({
+export const quotingPlanDetails = ({
   loaded,
   plan,
   planSettled,
   part,
   analysis,
-}: QuotingPageInputs): PlanPage =>
-  planPage({
+}: QuotingPlanDetailsInputs): PlanDetails =>
+  planDetails({
     draft: loaded && { ...loaded.saved, ...loaded.session.draft },
     saved: loaded?.saved ?? null,
     plan,

@@ -1,19 +1,19 @@
-import type { EnginePlan, PartAnalysis, PlanPagePart } from '@toolpath/plan'
+import type { EnginePlan, PartAnalysis, PlanDetailsPart } from '@toolpath/plan'
 import { describe, expect, it } from 'vitest'
 
 import {
   intentOf,
-  quotingPage,
+  quotingPlanDetails,
   quotingPlan,
   type Intent,
   type PlanDraft,
-  type QuotingPageInputs,
+  type QuotingPlanDetailsInputs,
 } from '../../src/plan'
 
 const up = { x: 0, y: 0, z: 1 }
 const side = { x: 1, y: 0, z: 0 }
 
-const part: PlanPagePart = {
+const part: PlanDetailsPart = {
   directionIndex: (direction) => (direction.z === 1 ? 0 : -1),
   featureLabel: (tag) => `Pocket ${tag}`,
   feature: (tag) => ({ type: 'pocket', label: `Pocket ${tag}`, direction: up }),
@@ -70,9 +70,9 @@ const edited: Intent = {
 }
 
 const inputs = (
-  overrides: Partial<QuotingPageInputs> = {},
+  overrides: Partial<QuotingPlanDetailsInputs> = {},
   held: Intent | null = null,
-): QuotingPageInputs => ({
+): QuotingPlanDetailsInputs => ({
   loaded: { saved, session: quotingPlan.start(saved, held) },
   plan,
   planSettled: true,
@@ -81,32 +81,32 @@ const inputs = (
   ...overrides,
 })
 
-const resultNames = (page: ReturnType<typeof quotingPage>) =>
-  page.results.setups.map((setup) => setup.name)
+const resultNames = (details: ReturnType<typeof quotingPlanDetails>) =>
+  details.results.setups.map((setup) => setup.name)
 
-describe('quotingPage', () => {
+describe('quotingPlanDetails', () => {
   it('shows the edits held over the plan as saved', () => {
-    const page = quotingPage(inputs({}, edited))
-    expect(page.constraints.setups.map((setup) => setup.name)).toEqual(['Top', 'Side'])
+    const details = quotingPlanDetails(inputs({}, edited))
+    expect(details.constraints.setups.map((setup) => setup.name)).toEqual(['Top', 'Side'])
   })
 
   it('names Toolpath’s setups by their folders while the plan is of the plan as saved', () => {
-    expect(resultNames(quotingPage(inputs()))).toEqual(['Top'])
+    expect(resultNames(quotingPlanDetails(inputs()))).toEqual(['Top'])
   })
 
   it('does not name them by folder while edits are held', () => {
-    expect(resultNames(quotingPage(inputs({}, edited)))).toEqual(['Setup 1'])
+    expect(resultNames(quotingPlanDetails(inputs({}, edited)))).toEqual(['Setup 1'])
   })
 
   it('does not name them by folder while a newer plan is on its way', () => {
-    expect(resultNames(quotingPage(inputs({ planSettled: false })))).toEqual(['Setup 1'])
+    expect(resultNames(quotingPlanDetails(inputs({ planSettled: false })))).toEqual(['Setup 1'])
   })
 
   it('says the results are out of date when the plan as saved changed since', () => {
     const loaded = { saved: { ...saved, changed: true }, session: quotingPlan.start(saved) }
-    const page = quotingPage(inputs({ loaded }))
-    expect(page.results.changed).toBe(true)
-    expect(resultNames(page)).toEqual(['Setup 1'])
+    const details = quotingPlanDetails(inputs({ loaded }))
+    expect(details.results.changed).toBe(true)
+    expect(resultNames(details)).toEqual(['Setup 1'])
   })
 
   it('warns when the pins are named by a kernel other than the plan’s', () => {
@@ -114,14 +114,14 @@ describe('quotingPage', () => {
       saved: { ...saved, kernelVersion: 'k0' },
       session: quotingPlan.start(saved),
     }
-    expect(quotingPage(inputs({ loaded })).constraints.checks).toContainEqual(
+    expect(quotingPlanDetails(inputs({ loaded })).constraints.checks).toContainEqual(
       expect.objectContaining({ tone: 'warning', text: expect.stringContaining('updated since') }),
     )
   })
 
   it('shows nothing before the plan as saved is read', () => {
-    const page = quotingPage(inputs({ loaded: null }))
-    expect(page.constraints.setups).toEqual([])
-    expect(resultNames(page)).toEqual(['Setup 1'])
+    const details = quotingPlanDetails(inputs({ loaded: null }))
+    expect(details.constraints.setups).toEqual([])
+    expect(resultNames(details)).toEqual(['Setup 1'])
   })
 })

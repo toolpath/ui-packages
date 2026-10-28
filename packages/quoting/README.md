@@ -110,13 +110,19 @@ purchase order) → `payable`.
 ## The quoting app's plan draft: `@toolpath/quoting/plan`
 
 ```ts
-import { quotingPage, quotingPlan, type PlanDraft } from '@toolpath/quoting/plan'
+import { quotingPlanDetails, quotingPlan, type PlanDraft } from '@toolpath/quoting/plan'
 
 let session = quotingPlan.start(saved)
 session = quotingPlan.update(session, { type: 'act', action }, { regionsOf, kernel, locked })
 session = quotingPlan.update(session, quotingPlan.read(savedAgain), { regionsOf, kernel, locked })
 
-const page = quotingPage({ loaded: { saved, session }, plan, planSettled, part, analysis })
+const details = quotingPlanDetails({
+  loaded: { saved, session },
+  plan,
+  planSettled,
+  part,
+  analysis,
+})
 ```
 
 Plan mode itself is [`@toolpath/plan`](../plan): the constraints a person states, every edit to
@@ -137,9 +143,9 @@ constraints on each part:
   `quotingPlan.read(saved)` is the event for a plan read again. The app gives only what it reads
   of the part (`IntentRules`: `regionsOf`, `kernel`, `locked`). `intentSessionRules(rules)` is the
   same rules, for an app that calls `planSession` itself.
-- `quotingPage` is the Plan page (`@toolpath/plan`'s `planPage`) made from that session. The app
+- `quotingPlanDetails` is the plan's details (`@toolpath/plan`'s `planDetails`) made from that session. The app
   gives the plan as saved and its session (`loaded`), Toolpath's plan, whether a newer one is on
-  its way (`planSettled`), the part, and its analysis. The page's draft is the session's edits over
+  its way (`planSettled`), the part, and its analysis. Its draft is the session's edits over
   the plan as saved, with the kernel its pins name. Toolpath's setups are named by their folders
   only while no edits are held, the plan has not changed since, and no newer plan is on its way.
 

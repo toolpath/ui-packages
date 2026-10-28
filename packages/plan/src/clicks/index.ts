@@ -1,7 +1,7 @@
 /**
  * `@toolpath/plan/clicks` — what a click on the part means: the features a click on a face can be
  * read as (`readingsFor`), and what a click does while Ignore is open (`ignoreClick`,
- * `ignoreSelection`). The page itself is `planPage`.
+ * `ignoreSelection`). The plan's details in one call are `planDetails`.
  */
 export {
   featuresAt,

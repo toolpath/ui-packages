@@ -1,6 +1,6 @@
 /**
- * `@toolpath/plan/parts` — the functions `planPage` is built from, for an app whose page is of
- * another shape: the tree of the constraints (`draftView`) and of Toolpath's plan (`resultsView`),
+ * `@toolpath/plan/parts` — the functions `planDetails` is built from, for an app that shows the plan
+ * another way: the tree of the constraints (`draftView`) and of Toolpath's plan (`resultsView`),
  * what each face is (`classifyFaces`, `groupFaces`), the checks before Apply and before a part moves
  * on, the counts, the paint, and the lookups of a folder, a pin and a setup.
  */

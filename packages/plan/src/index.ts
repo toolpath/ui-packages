@@ -11,7 +11,7 @@
  * `coverage` reads what a draft and a plan leave of each face: ignored, pinned, open, machined or
  * not machined.
  * `plan-session` holds a page's edits until Apply: Undo, Redo, Discard and the history.
- * `plan-page` is the Plan page in one call (`planPage`): its constraints, Toolpath's plan, its
+ * `plan-details` is the plan's details in one call (`planDetails`): its constraints, Toolpath's plan, its
  * lookups and its paint. The functions it is built from are `@toolpath/plan/parts`; what a click on
  * the part means is `@toolpath/plan/clicks`.
  * An app keeps its own fields beside the constraints: `applyDraftAction` takes any draft that holds
@@ -105,7 +105,7 @@ export {
   withIgnored,
   withoutIgnored,
 } from './plan-draft'
-export * from './plan-page'
+export * from './plan-details'
 export * from './plan-session'
 export {
   DONE_COLOR,

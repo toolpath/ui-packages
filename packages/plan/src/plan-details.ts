@@ -47,12 +47,13 @@ import {
 import { machines, resultsView, setupOf, type ResultsSetupView } from './results-view'
 
 /*
-  The Plan page in one call: what it shows of the person's constraints, of Toolpath's plan, what it
-  looks up, and how it paints the part — from the same inputs, each worked out once. Built from the
-  functions of `@toolpath/plan/parts`, which an app with a page of another shape uses itself.
+  The plan's details in one call: what an app shows of the person's constraints and of Toolpath's
+  plan, what it looks up, and how it paints the part — from the same inputs, each worked out once.
+  Built from the functions of `@toolpath/plan/parts`, which an app that shows the plan another way
+  uses itself.
 */
 
-/** The part's analysis, as the page reads it: its faces, and the features that include them. */
+/** The part's analysis, as `planDetails` reads it: its faces, and the features that include them. */
 export interface PartAnalysis {
   regions: ReadonlyArray<{ idx: number; area: number }>
   features: ReadonlyArray<CoverageFeature & { machiningDirection?: PlanDirection }>
@@ -67,13 +68,13 @@ export interface AppliedConstraints extends Constraints {
   changed: boolean
 }
 
-/** What the page knows of the part: how its rows read, and each feature its checks name. */
-export interface PlanPagePart extends PlanPart {
+/** What `planDetails` knows of the part: how its rows read, and each feature its checks name. */
+export interface PlanDetailsPart extends PlanPart {
   feature: CheckContext['feature']
 }
 
-/** Everything the page is made from. Toolpath's data alone: the app's own choices stay its own. */
-export interface PlanPageInputs {
+/** Everything `planDetails` is made from. Toolpath's data alone: the app's own choices stay its own. */
+export interface PlanDetailsInputs {
   /**
    * The constraints as held now, with edits not applied, and the kernel its pins name; null before
    * they are read.
@@ -83,7 +84,7 @@ export interface PlanPageInputs {
   saved: AppliedConstraints | null
   /** Toolpath's plan; null before one is read. */
   plan: EnginePlan | null
-  part: PlanPagePart
+  part: PlanDetailsPart
   /** Null before the part's analysis is read: no face is classified, and no direction is known. */
   analysis: PartAnalysis | null
   /** Whether `plan` is of `saved`: only then are its setups named by the folders they are from. */
@@ -91,7 +92,7 @@ export interface PlanPageInputs {
 }
 
 /** The person's constraints, as the tree and the Constraints view show them. */
-export interface ConstraintsPage {
+export interface PlanDetailsConstraints {
   setups: ReadonlyArray<PlanSetupView>
   /** Every folder of the tree, in tree order. */
   folders: ReadonlyArray<PlanSetupView>
@@ -106,7 +107,7 @@ export interface ConstraintsPage {
 }
 
 /** Toolpath's plan, as the Results view shows it. */
-export interface ResultsPage {
+export interface PlanDetailsResults {
   setups: ReadonlyArray<ResultsSetupView>
   /** Folders no setup was planned from. */
   leftOut: ReadonlyArray<{ folderId: string; name: string }>
@@ -127,8 +128,8 @@ export interface ResultsPage {
   allClear: boolean
 }
 
-/** What the page looks up: in the constraints held now, or in Toolpath's plan. */
-export interface PlanPageFind {
+/** What `planDetails` looks up: in the constraints held now, or in Toolpath's plan. */
+export interface PlanDetailsFind {
   folder: (id: string) => PlacedFolder | undefined
   /** A folder's name with the folders it is in: `Folder 1 › Side`. Empty for no folder. */
   path: (id: string) => string
@@ -142,7 +143,7 @@ export interface PlanPageFind {
   holds: (folder: string | number, tag: string) => boolean
 }
 
-/** What to paint: which view, which folder is open, and the app's colour for each direction. */
+/** What to paint: which tab, which folder is open, and the app's colour for each direction. */
 export interface PaintView {
   tab: 'constraints' | 'results'
   /** A folder's id, or `PART_ROW` with none open. */
@@ -154,11 +155,11 @@ export interface PaintView {
   uncovered?: boolean
 }
 
-export interface PlanPage {
-  constraints: ConstraintsPage
-  results: ResultsPage
-  find: PlanPageFind
-  paint: (view: PaintView) => { faces: Array<FacePaint>; hatches: Array<FaceHatch> }
+export interface PlanDetails {
+  constraints: PlanDetailsConstraints
+  results: PlanDetailsResults
+  find: PlanDetailsFind
+  paint: (shown: PaintView) => { faces: Array<FacePaint>; hatches: Array<FaceHatch> }
 }
 
 const NO_FACES: Coverage['faces'] = {
@@ -179,21 +180,26 @@ const once = <T>(work: () => T): (() => T) => {
 }
 
 /**
- * The Plan page from its inputs. Each part is worked out only when it is read, and only once: make
- * a new page when an input changes.
+ * The plan's details from its inputs. Each part is worked out only when it is read, and only once:
+ * call it again when an input changes.
  */
-export const planPage = (inputs: PlanPageInputs): PlanPage => {
-  const constraints = constraintsPage(inputs)
-  const results = resultsPage(inputs, constraints)
+export const planDetails = (inputs: PlanDetailsInputs): PlanDetails => {
+  const constraints = constraintsOf(inputs)
+  const results = resultsOf(inputs, constraints)
   return {
     constraints,
     results,
-    find: pageFind(inputs, constraints, results),
-    paint: (view) => paintOf(view, view.tab === 'results' ? results : constraints),
+    find: findOf(inputs, constraints, results),
+    paint: (shown) => paintOf(shown, shown.tab === 'results' ? results : constraints),
   }
 }
 
-const constraintsPage = ({ draft, plan, part, analysis }: PlanPageInputs): ConstraintsPage => {
+const constraintsOf = ({
+  draft,
+  plan,
+  part,
+  analysis,
+}: PlanDetailsInputs): PlanDetailsConstraints => {
   const kernel = analysis?.kernelVersion ?? null
   const setups = once(() => (draft ? draftView(draft, part, plan) : []))
   const folders = once(() => allFolders(setups()))
@@ -249,7 +255,10 @@ const constraintsPage = ({ draft, plan, part, analysis }: PlanPageInputs): Const
   }
 }
 
-const resultsPage = (inputs: PlanPageInputs, constraints: ConstraintsPage): ResultsPage => {
+const resultsOf = (
+  inputs: PlanDetailsInputs,
+  constraints: PlanDetailsConstraints,
+): PlanDetailsResults => {
   const { plan, saved, part, analysis, planIsOfSaved } = inputs
   const kernel = analysis?.kernelVersion ?? null
   const view = once(() => resultsView({ plan, constraints: planIsOfSaved ? saved : null, part }))
@@ -336,11 +345,11 @@ const machinedFrames = (
     .map((folder) => ({ id: folder.id, name: folder.name, machined: machinesIn(folder) }))
 }
 
-const pageFind = (
-  { draft }: PlanPageInputs,
-  constraints: ConstraintsPage,
-  results: ResultsPage,
-): PlanPageFind => {
+const findOf = (
+  { draft }: PlanDetailsInputs,
+  constraints: PlanDetailsConstraints,
+  results: PlanDetailsResults,
+): PlanDetailsFind => {
   const setups = draft?.setups ?? []
   return {
     folder: (id) => findPlaced(setups, id),
@@ -355,14 +364,14 @@ const pageFind = (
   }
 }
 
-/** One view's paint and hatches, from its coverage and its folders. */
+/** One tab's paint and hatches, from its coverage and its folders. */
 const paintOf = (
   { openId, colorOf, everyFolder, uncovered }: PaintView,
-  page: Pick<ConstraintsPage, 'coverage' | 'setups'>,
-): ReturnType<PlanPage['paint']> => {
+  tab: Pick<PlanDetailsConstraints, 'coverage' | 'setups'>,
+): ReturnType<PlanDetails['paint']> => {
   const input = {
-    faces: page.coverage?.faces ?? NO_FACES,
-    setups: page.setups,
+    faces: tab.coverage?.faces ?? NO_FACES,
+    setups: tab.setups,
     openId,
     colorOf,
     everyFolder,
