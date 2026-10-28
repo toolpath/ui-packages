@@ -167,6 +167,13 @@ export function createEngineGeometryCache(
       if (resource.references === 0 && (key === undefined || resources.get(key) !== resource)) {
         resource.geometry?.dispose()
       }
+      // Geometry a part has let go before geometry only read. Swapping one part
+      // for another in a commit runs the old part's cleanup before the new
+      // part's effect, and the touch above makes the old part's geometry the
+      // newest: oldest first alone would dispose what the new part read and
+      // keep what was closed. Only read, it still goes once nothing let go is
+      // left, so reads React threw away do not pile up past the capacity.
+      evictReleasedResources(true)
       evictReleasedResources(false)
     },
     clear() {
