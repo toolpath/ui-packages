@@ -12,10 +12,8 @@ export interface SceneLabelProps {
   axis?: 'x' | 'y' | 'z'
   /** The label's border colour. */
   color?: string
-  /** Web only: ignored here. */
+  /** Ignored: there is no DOM to style. `ToolMarks` passes its `labelClassName` here on every platform. */
   className?: string
-  /** Web only: ignored here. */
-  layer?: number
   /** Makes the label pressable. */
   onPress?: () => void
   /**
@@ -31,9 +29,8 @@ let warned = false
 /**
  * React Native's `<SceneLabel>`: there is no DOM to put a label in, so it
  * registers itself with the store the native frame provides, and the frame
- * draws it as a view over the canvas. `className` and `layer` are web-only and
- * ignored here; `onPress` makes the label pressable, and `accessibilityHint`
- * says what pressing it does.
+ * draws it as a view over the canvas. `onPress` makes the label pressable, and
+ * `accessibilityHint` says what pressing it does.
  */
 export const SceneLabel = ({
   position,

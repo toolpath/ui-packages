@@ -25,13 +25,19 @@
   "react-native": "./dist/native/index.js",
   "exports": {
     ".": {
+      "react-native": {
+        "types": "./dist/native/index.d.ts",
+        "default": "./dist/native/index.js"
+      },
       "types": "./dist/index.d.ts",
-      "react-native": "./dist/native/index.js",
       "import": "./dist/index.js"
     },
     "./engine": {
+      "react-native": {
+        "types": "./dist/native/engine/index.d.ts",
+        "default": "./dist/native/engine/index.js"
+      },
       "types": "./dist/engine/index.d.ts",
-      "react-native": "./dist/native/engine/index.js",
       "import": "./dist/engine/index.js"
     },
     "./toolbar.css": "./dist/toolbar.css"

@@ -6,14 +6,17 @@ import { type TapTracker, trackTaps } from './render/tap.js'
 import { webGLAvailableSnapshot } from './render/webgl.js'
 import { WebGLUnavailable } from './webgl-unavailable.js'
 
-export interface ViewerFrameProps extends FrameSettings {
+/** What `<Viewer>` takes for the element it draws into, on the web. */
+export interface ViewerFrameProps {
   className?: string
   style?: CSSProperties
-  /** `<Viewer>`'s `webglUnavailable`: shown in place of the canvas without WebGL. */
+  /**
+   * What to show in place of the canvas when the browser will not create a
+   * WebGL context — hardware acceleration off, or the GPU blocklisted. It goes
+   * inside a `role="alert"` element (`viewer-webgl-unavailable`), and replaces
+   * the default message asking the user to turn acceleration on.
+   */
   webglUnavailable?: ReactNode
-  /** `<Viewer>`'s, for a screen reader: React Native only. */
-  accessibilityLabel?: string
-  accessibilityHint?: string
 }
 
 // Support does not change while the page is open, so there is nothing to subscribe to.
@@ -34,7 +37,7 @@ export const ViewerFrame = ({
   onPointerMissed,
   webglUnavailable,
   children,
-}: ViewerFrameProps) => {
+}: ViewerFrameProps & FrameSettings) => {
   // The server assumes WebGL, so its markup hydrates as the canvas; a blocked
   // browser then re-renders into the alert.
   const webglAvailable = useSyncExternalStore(subscribeNever, webGLAvailableSnapshot, () => true)

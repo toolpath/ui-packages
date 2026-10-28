@@ -8,7 +8,7 @@ import {
 } from '@react-three/fiber/native'
 import { GLView } from 'expo-gl'
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
-import type { CSSProperties, ComponentRef, ReactNode } from 'react'
+import type { ComponentRef } from 'react'
 import {
   AppState,
   type GestureResponderEvent,
@@ -44,12 +44,18 @@ import {
 } from './render/touch-orbit.js'
 import type { CanvasSettings, FrameSettings } from './frame-settings.js'
 
-export interface ViewerFrameProps extends FrameSettings {
-  className?: string
-  style?: CSSProperties
-  webglUnavailable?: ReactNode
-  /** `<Viewer>`'s, for a screen reader. */
+/** What `<Viewer>` takes for the view it draws into, on React Native. */
+export interface ViewerFrameProps {
+  /** Goes to the `View` that holds the canvas, after its own `{ flex: 1 }`. */
+  style?: StyleProp<ViewStyle>
+  /**
+   * What a screen reader says the view is, such as "3D view of bracket.step".
+   * The canvas has nothing a screen reader can read, so without it VoiceOver
+   * and TalkBack skip the view entirely. It is announced as an image, and the
+   * scene's pressable labels stay reachable on their own.
+   */
   accessibilityLabel?: string
+  /** What a screen reader adds after {@link accessibilityLabel}, such as where to find the view's controls. */
   accessibilityHint?: string
 }
 
@@ -82,8 +88,6 @@ const isTouchControls = (controls: unknown): controls is TouchControls =>
  * The fingers are tracked from each event's `changedTouches`, not its
  * `touches` (see `createFingerTracker`).
  */
-// `webglUnavailable` is never shown: expo-gl always creates a context, so
-// there is nothing to probe.
 export const ViewerFrame = ({
   style,
   canvas,
@@ -92,7 +96,7 @@ export const ViewerFrame = ({
   accessibilityLabel,
   accessibilityHint,
   children,
-}: ViewerFrameProps) => {
+}: ViewerFrameProps & FrameSettings) => {
   const store = useMemo(() => createLabelStore(), [])
   const touch = useMemo<TouchState>(
     () => ({
@@ -144,7 +148,7 @@ export const ViewerFrame = ({
   return (
     <View
       ref={frame}
-      style={[{ flex: 1 }, style as StyleProp<ViewStyle>]}
+      style={[{ flex: 1 }, style]}
       onLayout={measure}
       onTouchStart={onTouch('start')}
       onTouchMove={onTouch('move')}

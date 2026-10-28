@@ -7,24 +7,16 @@ export interface SceneLabelProps {
   position: Vector3 | [number, number, number]
   text: string
   note?: string
-  /** Web: `data-measure-label`. Native: the label's `testID`, `scene-label-<kind>`. */
+  /** `data-measure-label` */
   kind: string
   /** `data-axis` */
   axis?: 'x' | 'y' | 'z'
-  /** Web: sets `--measure-color`. Native: the label's border colour. */
+  /** Sets `--measure-color`. */
   color?: string
-  /** Web only: added after {@link MEASURE_LABEL_CLASS}. */
+  /** Added after {@link MEASURE_LABEL_CLASS}. */
   className?: string
-  /** Web: drei's `zIndexRange` is `[layer, 0]`. Default 0. */
+  /** drei's `zIndexRange` is `[layer, 0]`. Default 0. */
   layer?: number
-  /** Native only. Web consumers handle label clicks in the DOM, as they do today. */
-  onPress?: () => void
-  /**
-   * Native only: what pressing the label does, for a screen reader, such as
-   * "Copies the measurement". A pressable label is otherwise announced as its
-   * text and "button" alone.
-   */
-  accessibilityHint?: string
 }
 
 /**
