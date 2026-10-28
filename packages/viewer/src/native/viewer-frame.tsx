@@ -21,6 +21,7 @@ import { SceneLabelStoreContext } from '../label-context.js'
 import { LabelOverlay } from '../label-overlay.js'
 import { type LabelStore, createLabelStore } from '../render/label-store.js'
 import { createPresenter, createRelease, createSceneRelease } from '../render/native-gl.js'
+import type { ViewportSize } from '../render/camera.js'
 import { pauseWhileInactive } from '../render/pause-inactive.js'
 import {
   type FingerTracker,
@@ -34,6 +35,7 @@ import {
   createTouchOrbit,
   holdInvalidate,
   localPoint,
+  startedInFrame,
 } from '../render/touch-orbit.js'
 import type { CanvasSettings, ViewerFrameProps } from '../viewer-frame.js'
 
@@ -91,6 +93,7 @@ export const ViewerFrame = ({
   )
   const frame = useRef<ComponentRef<typeof View>>(null)
   const origin = useRef({ x: 0, y: 0 })
+  const size = useRef<ViewportSize | null>(null)
 
   // An ancestor can move — a sheet sliding, a scroll — without the frame's
   // own layout changing, so the origin is measured again as each gesture
@@ -98,21 +101,28 @@ export const ViewerFrame = ({
   // the origin, the orbit starts afresh from the fingers' next positions
   // rather than reading the change as a jump.
   const measure = () => {
-    frame.current?.measureInWindow((x, y) => {
+    frame.current?.measureInWindow((x, y, width, height) => {
       const moved = x !== origin.current.x || y !== origin.current.y
       origin.current = { x, y }
+      size.current = { width, height }
       if (moved) touch.orbit.reset()
     })
   }
 
   // Touch positions are page coordinates; the frame's origin makes them local to
-  // the canvas.
+  // the canvas. A start's fingers that landed on another view are not this
+  // frame's (see `startedInFrame`).
   const onTouch = (kind: 'start' | 'move' | 'end' | 'cancel') => (event: GestureResponderEvent) => {
     const { touches, changedTouches } = event.nativeEvent
     if (kind === 'start' && touches.length === changedTouches.length) measure()
     const point = (finger: (typeof touches)[number]): TouchPoint =>
       localPoint(finger, origin.current)
-    const fingers = touch.fingers.update(kind, changedTouches.map(point), touches.map(point))
+    const changed = changedTouches.map(point)
+    const fingers = touch.fingers.update(
+      kind,
+      kind === 'start' ? startedInFrame(changed, size.current) : changed,
+      touches.map(point),
+    )
     const ops = touch.orbit.update(fingers)
     if (ops.length === 0) return
     touch.ops.push(ops)

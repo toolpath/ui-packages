@@ -7,6 +7,7 @@ import {
   createTouchOrbit,
   holdInvalidate,
   localPoint,
+  startedInFrame,
   type TouchPoint,
 } from '../src/render/touch-orbit.js'
 
@@ -108,6 +109,29 @@ describe('createFingerTracker', () => {
     expect(
       fingers.update('move', [finger(1, 5, 0)], [finger(1, 5, 0), finger(9, 300, 300)]),
     ).toEqual([finger(1, 5, 0)])
+  })
+
+  it('ignores a finger elsewhere on the screen that moved with this one', () => {
+    // React Native hands every target all of a move's `changedTouches`, so a
+    // finger resting on another view arrives with the one orbiting here.
+    const fingers = createFingerTracker()
+    fingers.update('start', [finger(1, 0, 0)], [finger(1, 0, 0), finger(7, 500, 500)])
+
+    expect(
+      fingers.update(
+        'move',
+        [finger(1, 5, 0), finger(7, 501, 500)],
+        [finger(1, 5, 0), finger(7, 501, 500)],
+      ),
+    ).toEqual([finger(1, 5, 0)])
+  })
+
+  it('follows a finger that started here as it moves', () => {
+    const fingers = createFingerTracker()
+    fingers.update('start', [finger(1, 0, 0)], [finger(1, 0, 0)])
+
+    expect(fingers.update('move', [finger(1, 5, 2)], [finger(1, 5, 2)])).toEqual([finger(1, 5, 2)])
+    expect(fingers.update('move', [finger(1, 9, 4)], [finger(1, 9, 4)])).toEqual([finger(1, 9, 4)])
   })
 
   it('drops every changed finger on a cancel', () => {
@@ -225,6 +249,35 @@ describe('localPoint', () => {
     expect(localPoint({ identifier: '3', pageX: 130, pageY: 260 }, { x: 30, y: 60 })).toEqual(
       finger(3, 100, 200),
     )
+  })
+})
+
+describe('startedInFrame', () => {
+  const size = { width: 400, height: 300 }
+
+  it('drops a finger that landed outside the frame with one inside', () => {
+    expect(startedInFrame([finger(1, 10, 10), finger(7, 500, 120)], size)).toEqual([
+      finger(1, 10, 10),
+    ])
+  })
+
+  it('keeps every finger that landed inside the frame', () => {
+    expect(startedInFrame([finger(1, 10, 10), finger(2, 400, 300)], size)).toEqual([
+      finger(1, 10, 10),
+      finger(2, 400, 300),
+    ])
+  })
+
+  it('keeps a lone finger, which is how the start reached the frame', () => {
+    // Measured before an ancestor scrolled, it can read as outside.
+    expect(startedInFrame([finger(1, -20, 10)], size)).toEqual([finger(1, -20, 10)])
+  })
+
+  it('keeps every finger until the frame has been measured', () => {
+    expect(startedInFrame([finger(1, 10, 10), finger(7, 500, 120)], null)).toEqual([
+      finger(1, 10, 10),
+      finger(7, 500, 120),
+    ])
   })
 })
 
