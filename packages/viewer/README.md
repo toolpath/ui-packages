@@ -1118,13 +1118,16 @@ app's tests to find it by. A pressable label is announced as a button.
 
 `jest-expo` resolves the package through its `react-native` condition, to the
 native build: ES modules that import three.js, React Three Fiber and drei, which
-ship as ES modules too, drei's `@babel/runtime` helpers, and the banana model.
-A `transformIgnorePatterns` setting replaces jest-expo's own list rather than
+ship as ES modules too, and drei's `@babel/runtime` helpers. A
+`transformIgnorePatterns` setting replaces jest-expo's own list rather than
 adding to it, so the one below starts from jest-expo 58's (copy it from your
 version's `jest-preset.js`) and adds `@toolpath`, `@react-three`, `three` and
-`@babel/runtime`. Map the model to a stub module of your own. `expo-asset`
-reads it with `Asset.fromModule`, which takes an object with a `uri`; a number
-such as `module.exports = 1` is looked up in the asset registry and throws.
+`@babel/runtime`.
+
+Code that imports `@toolpath/viewer/banana` also loads the banana model: map it
+to a stub module of your own. `expo-asset` reads it with `Asset.fromModule`,
+which takes an object with a `uri`; a number such as `module.exports = 1` is
+looked up in the asset registry and throws.
 
 ```js
 // jest.config.js
@@ -1135,6 +1138,7 @@ module.exports = {
     '/node_modules/react-native-reanimated/plugin/',
     '/node_modules/@react-native/babel-preset/',
   ],
+  // Only when a test imports @toolpath/viewer/banana:
   moduleNameMapper: { '\\.glb$': '<rootDir>/tests/asset-stub.cjs' },
 }
 ```
