@@ -7,15 +7,25 @@ the same way: the `react-native` export condition gives Metro a native build of 
 `@toolpath/viewer` and `@toolpath/viewer/engine`. See the README's "React Native (Expo)" section for
 the app setup.
 
-- `MeasureTool`, `HoverCard`, `ViewerToolbar`, `viewerToolGroups` and `labelTexture` are web-only
-  and throw when used on React Native.
+- On React Native the package exports only what runs there: `MeasureTool`, `HoverCard`,
+  `ViewerToolbar`, `viewerToolGroups` and `labelTexture` are web-only and not exported.
+- The `react-native` condition carries its own declarations (`dist/native/*.d.ts`), which TypeScript
+  reads with `customConditions: ["react-native"]`, as Expo's base tsconfig sets. There `Viewer`'s
+  `style` is a `StyleProp<ViewStyle>` and it takes `accessibilityLabel` and `accessibilityHint`, with
+  no `className` or `webglUnavailable`.
+- New `@toolpath/viewer/banana` exports `Banana`, `BananaProps` and `BANANA_MODEL_URL` on both
+  platforms. The web root keeps them; the React Native root does not, so the 760 KB model ships only
+  with an app that imports `@toolpath/viewer/banana`.
+- New `@toolpath/viewer/metro` (CommonJS) exports `withToolpathViewer(config)` for `metro.config.js`:
+  it adds `glb` to the asset extensions and resolves `three` to its ES module build, so the app runs
+  one three.js.
 - `SceneLabel`s are drawn as views over the canvas. `ViewerTheme.labels` styles them, and
   `DEFAULT_LABELS`, now exported, is its default, to spread when changing one setting. Each has the
-  `testID` `scene-label-<kind>`. `SceneLabel`'s new `onPress` makes a label pressable (React Native
-  only; the web ignores it): it is announced as a button, with the new `accessibilityHint` saying
+  `testID` `scene-label-<kind>`. On React Native, `SceneLabel`'s new `onPress` makes a label
+  pressable: it is announced as a button, with the new `accessibilityHint` saying
   what pressing it does, and its touch target is at least 44 tall.
-- `Viewer` takes `accessibilityLabel` and `accessibilityHint`, which a screen reader announces for
-  the view, as an image, on React Native.
+- On React Native, a screen reader announces `Viewer`'s `accessibilityLabel` and
+  `accessibilityHint` for the view, as an image.
 - `PartMesh` has no hover on React Native, and picks through a bounding volume hierarchy, so a large
   part stays smooth to touch.
 - The components React Native runs import drei's modules one by one (`@react-three/drei/core/…`)
