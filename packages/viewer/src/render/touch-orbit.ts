@@ -126,6 +126,12 @@ export interface FingerTracker {
  * changed does not. A finger that did not change this event still takes its
  * position from `touches`. A finger whose end was lost is forgotten when a
  * touch starts without it.
+ *
+ * Only a start adds a finger. React Native hands every target all of an
+ * event's `changedTouches`, so a move here also carries any finger moving on
+ * another view; added, it would turn an orbit into a pinch, and stay, since
+ * its end goes to that view. Which of a start's fingers landed here is the
+ * caller's to say (see {@link startedInFrame}).
  */
 export const createFingerTracker = (): FingerTracker => {
   const fingers = new Map<number, TouchPoint>()
@@ -144,7 +150,7 @@ export const createFingerTracker = (): FingerTracker => {
       const ending = kind === 'end' || kind === 'cancel'
       for (const touch of changed) {
         if (ending) fingers.delete(touch.id)
-        else fingers.set(touch.id, touch)
+        else if (kind === 'start' || fingers.has(touch.id)) fingers.set(touch.id, touch)
       }
       for (const touch of touches) if (fingers.has(touch.id)) fingers.set(touch.id, touch)
       return [...fingers.values()]
@@ -153,6 +159,25 @@ export const createFingerTracker = (): FingerTracker => {
       fingers.clear()
     },
   }
+}
+
+/**
+ * The fingers of a touch start that landed on a frame of `size`, in its local
+ * coordinates; every one of them while the frame is unmeasured.
+ *
+ * Fingers landing together reach each of their views as one start carrying all
+ * of them, so a finger on another view arrives with the frame's own. A start
+ * reaches the frame only through a finger that landed in it, so a lone finger
+ * is the frame's wherever it reads: the origin is measured again as a gesture
+ * starts, and until that arrives a scrolled ancestor can make it read as
+ * outside.
+ */
+export const startedInFrame = (
+  changed: readonly TouchPoint[],
+  size: ViewportSize | null,
+): readonly TouchPoint[] => {
+  if (changed.length < 2 || !size) return changed
+  return changed.filter(({ x, y }) => x >= 0 && y >= 0 && x <= size.width && y <= size.height)
 }
 
 /**
