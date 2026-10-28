@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { makeRule, withOp, type DfmRule } from '../../src/model/dfm-rules.js'
 import {
-  ONE_SIDED_CHOICES,
   OP_TITLES,
   comparisonChoices,
+  oneSidedChoices,
   rangeEnd,
   rangeHighChoices,
   rangeLowChoices,
@@ -37,7 +37,7 @@ describe('the comparison pickers', () => {
     expect(labels(rangeLowChoices())[1]?.[1]).toContain('≥ at least')
     expect(labels(rangeHighChoices())[1]).toEqual([
       'One-sided',
-      ONE_SIDED_CHOICES.choices.map((c) => c.label),
+      oneSidedChoices().choices.map((c) => c.label),
     ])
   })
 
@@ -55,7 +55,7 @@ describe('leaving a range or holding its end', () => {
   const range: DfmRule = withOp(makeRule('any', 'ld', 'mm'), 'between')
 
   it('offers every one-sided comparison, marked apart from a range’s ends', () => {
-    const values = ONE_SIDED_CHOICES.choices.map((choice) => choice.value)
+    const values = oneSidedChoices().choices.map((choice) => choice.value)
     expect(values).toHaveLength(6)
     expect(values.every((value) => value.startsWith('one:'))).toBe(true)
     expect(values).not.toContain('one:between')
