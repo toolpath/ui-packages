@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { makeRule, withOp, type DfmRule } from '../../src/model/dfm-rules.js'
 import {
-  LOW_SYMBOLS,
   ONE_SIDED_CHOICES,
   OP_TITLES,
   comparisonChoices,
@@ -71,9 +70,5 @@ describe('leaving a range or holding its end', () => {
     const held = rangeEnd(range, 'gt', (op) => ({ lowOp: op as 'gt' }))
     expect(held.op).toBe('between')
     expect(held.lowOp).toBe('gt')
-  })
-
-  it('reads a low end from the number toward the measure', () => {
-    expect(LOW_SYMBOLS).toEqual({ gte: '≤', gt: '<' })
   })
 })
