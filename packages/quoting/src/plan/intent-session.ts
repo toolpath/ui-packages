@@ -1,4 +1,6 @@
-import { sameJson, sameStock, type PlanRules, type SessionRules } from '@toolpath/plan'
+import { sameJson, type PlanRules, type SessionRules } from '@toolpath/plan'
+
+import { sameStock } from '../inputs/stock'
 import type { Intent, PartInputsHeld } from './plan-draft'
 
 /*

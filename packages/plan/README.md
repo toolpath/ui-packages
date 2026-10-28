@@ -15,8 +15,9 @@ pnpm add @toolpath/plan
 import { actionsFor, applyDraftAction, classifyFaces, statementOf } from '@toolpath/plan'
 ```
 
-The package is logic only: no React, no DOM and no CSS. Its one dependency is `@toolpath/tool-support`, for the inch. A view over these rules
-belongs in `@toolpath/ui`.
+The package is logic only: no React, no DOM and no CSS, and no dependencies. A view over these
+rules belongs in `@toolpath/ui`. The stock, the tool crib and units are in
+[`@toolpath/quoting`](../quoting): `@toolpath/quoting/inputs` and `@toolpath/quoting/units`.
 
 ## Your app's own fields
 
@@ -62,7 +63,7 @@ ignored faces, `withIgnored` and `withoutIgnored`. These return `{ refused }` wi
 when the edit cannot be made: `setSetupProcess`, `setToolOrientation`, `moveFolder`,
 `moveFeature`, `pinInto` and `pinFrom`. Nothing here throws on typed input; read a stored draft
 through `parseDraftSetups` first.
-`parseDraftSetups` and `parseStock` check stored data before it is used.
+`parseDraftSetups` checks stored data before it is used.
 
 `classifyFaces` reads what the draft and the plan leave of each face: pinned, ignored, open,
 machined or not machined (`COVERAGE_KINDS`). A viewer paints faces from it.

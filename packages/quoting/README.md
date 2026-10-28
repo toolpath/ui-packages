@@ -15,8 +15,8 @@ import { moveFor, partArtifactsOf, partStateOf, quoteStatus } from '@toolpath/qu
 ```
 
 The package is logic only: no React, no DOM and no CSS. `@toolpath/quoting/model` is the same
-entry under a second name. A view over these rules, such as a stage timeline, belongs in
-`@toolpath/ui`.
+entry under a second name. `/inputs`, `/units`, `/plan` and `/pipeline` are the other entries.
+A view over these rules, such as a stage timeline, belongs in `@toolpath/ui`.
 
 ## Part: state
 
@@ -129,8 +129,38 @@ constraints on each part:
   the plan is read again, and takes the others from it.
 
 `applyDraftAction` from `@toolpath/plan` takes a `PlanDraft` and gives a `PlanDraft` back, with
-these fields as they were. The package depends on `@toolpath/plan` for these; the root entry and
-`/model` import nothing.
+these fields as they were. The package depends on `@toolpath/plan` for these, and on
+`@toolpath/tool-support` for the inch in `/units`; the root entry and `/model` import nothing.
+
+## A part's stock and tool crib: `@toolpath/quoting/inputs`
+
+```ts
+import { parseStock, stockPlacement, stockRequest, startingLibrary } from '@toolpath/quoting/inputs'
+```
+
+A part is planned from its constraints and from these inputs:
+
+- **Stock.** `StockOption` is the stock a part is cut from: automatic (Toolpath sizes a flat bar or
+  round stock around the model) or fixed (a box or a cylinder of given size). Every length is in
+  millimetres. `parseStock` checks a stored stock before it is used, and `sameStock` compares two
+  whatever their key order.
+  `stockRequest` gives the stock as Toolpath is sent it, for the direction the first setup faces.
+  `stockPlacement` says where a stock sits on the model, and `fixedBoxCheck` says whether a fixed
+  box can be sent and how far the part stands outside it.
+- **Tool crib.** `ToolCrib` is the tool libraries a part draws its tools from. `startingLibrary`
+  is the library a crib starts on for a material, and `offeredLibraries` is what it offers to add.
+  `addLibrary`, `removeLibrary` and `swapLibraries` edit the list.
+
+## How units show: `@toolpath/quoting/units`
+
+```ts
+import { formatLength, fromInput, toInput, type Units } from '@toolpath/quoting/units'
+```
+
+The app stores and sends every value in metric. `Units` (`'mm'` or `'in'`) is a person's display
+choice only. `formatLength`, `formatArea`, `formatWeight` and the other `format` functions show a
+stored value in that choice. `toInput` and `fromInput` turn a stored value into what a field
+shows, and what a person types back into the stored value.
 
 ## Sending a part to Toolpath: `@toolpath/quoting/pipeline`
 

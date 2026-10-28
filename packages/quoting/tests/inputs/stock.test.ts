@@ -12,8 +12,8 @@ import {
   stockRequest,
   TILTED_FIRST_FOLDER,
   type FixedStock,
-} from '../src/stock'
-import { fromInput, toInput } from '../src/units'
+} from '../../src/inputs/stock'
+import { fromInput, toInput } from '../../src/units/units'
 
 describe('stock inputs', () => {
   it('uses legacy inch and metric defaults in canonical millimetres, with round stock upright', () => {

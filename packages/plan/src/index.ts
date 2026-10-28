@@ -9,7 +9,7 @@
  *   its actions, and what it could not reach.
  *
  * `coverage` reads what a draft and a plan leave of each face: ignored, pinned, open, machined or
- * not machined. `stock`, `tool-crib` and `units` are the other inputs to a plan and how they show.
+ * not machined.
  * `plan-session` holds a page's edits until Apply: Undo, Redo, Discard and the history.
  * An app keeps its own fields beside the constraints: `applyDraftAction` takes any draft that holds
  * them, and hands its other fields back unchanged.
@@ -29,6 +29,3 @@ export * from './plan-view'
 export * from './readings'
 export * from './results-view'
 export * from './same-json'
-export * from './stock'
-export * from './tool-crib'
-export * from './units'

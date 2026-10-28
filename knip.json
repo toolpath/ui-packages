@@ -21,9 +21,11 @@
     "packages/quoting": {
       "entry": [
         "src/index.ts",
+        "src/inputs/index.ts",
         "src/model/index.ts",
         "src/pipeline/index.ts",
         "src/plan/index.ts",
+        "src/units/index.ts",
         "tests/**/*.test.ts"
       ],
       "project": ["src/**/*.ts", "tests/**/*.ts"]

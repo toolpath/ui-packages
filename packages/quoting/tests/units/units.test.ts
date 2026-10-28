@@ -14,7 +14,7 @@ import {
   toStored,
   type Quantity,
   type Units,
-} from '../src/units'
+} from '../../src/units/units'
 
 describe('formatLength', () => {
   it('shows a millimetre value in the chosen unit', () => {

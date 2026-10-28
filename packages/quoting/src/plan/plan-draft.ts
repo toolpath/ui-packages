@@ -1,4 +1,8 @@
-import type { AutomaticStock, Constraints, StockOption, ToolCrib, Units } from '@toolpath/plan'
+import type { Constraints } from '@toolpath/plan'
+
+import type { AutomaticStock, StockOption } from '../inputs/stock'
+import type { ToolCrib } from '../inputs/tool-crib'
+import type { Units } from '../units/units'
 
 /*
   The quoting app's plan draft: plan mode's constraints (`@toolpath/plan`), and what the app keeps
