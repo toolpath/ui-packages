@@ -21,7 +21,7 @@ export const OP_TITLES = {
 } as const satisfies Record<DfmOp, string>
 
 /** A range's low end, read from the number toward the measure: `6 < L/D` is above 6. */
-export const LOW_SYMBOLS = { gte: '≤', gt: '<' } as const satisfies Record<RangeLow, string>
+const LOW_SYMBOLS = { gte: '≤', gt: '<' } as const satisfies Record<RangeLow, string>
 
 /** A range's low end in words, read the same way as {@link LOW_SYMBOLS}: `6 ≤ L/D` is 6 at most L/D. */
 const LOW_TITLES = { gte: 'at most', gt: 'less than' } as const satisfies Record<RangeLow, string>
