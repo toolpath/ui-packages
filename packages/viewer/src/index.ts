@@ -35,7 +35,8 @@ export type {
 } from './viewer-tools.js'
 export { Stock } from './stock.js'
 export type { StockProps, StockSource, StockAppearanceProps } from './stock.js'
-export { Banana, BANANA_MODEL_URL } from './banana.js'
+export { Banana } from './banana.js'
+export { BANANA_MODEL_URL } from './banana-asset.js'
 export { boxStockBounds, fixedBoxStockBounds } from './render/stock.js'
 export type {
   CylinderStockFigure,
@@ -54,14 +55,15 @@ export { DirectionArrows } from './direction-arrows.js'
 export { SectionView, resolveSectionPlane } from './section-view.js'
 export { SectionTool } from './section-tool.js'
 export { MeasureTool } from './measure-tool.js'
-export { MEASURE_LABEL_CLASS } from './measure-labels.js'
 export { MEASURE_HINT_CLASS } from './measure-hint.js'
 export { ToolMarks } from './tool-marks.js'
+export { SceneLabel } from './scene-label.js'
 export {
   ANGLE_ARC_FRACTION,
   AXIS_COLORS,
   ANGLE_ARC_SEGMENTS,
   DELTA_DASH_PIXELS,
+  MEASURE_LABEL_CLASS,
   MEASURE_LINE_PIXELS,
   MEASURE_MARKER_PIXELS,
   MEASURE_RENDER_ORDER,
@@ -136,18 +138,19 @@ export { useTapGuard } from './tap.js'
 export { DOUBLE_TAP_MS, TAP_SLOP, movedFar, trackDoubleTaps, trackTaps } from './render/tap.js'
 export {
   CHAMFER,
+  VIEW_CUBE_HALF_PX,
   VIEW_NAMES,
   VIEW_SIGNS,
   cubeOutlineGeometry,
   cubeZones,
   labelGeometry,
-  labelTexture,
   panelGeometry,
   squaredUp,
   viewKind,
   viewUp,
   viewVector,
 } from './render/view-cube.js'
+export { labelTexture } from './render/label-texture.js'
 export { gridGeometry, gridSpec } from './render/grid.js'
 export { BANANA_GAP, bananaFrameBounds, bananaPosition } from './render/banana.js'
 export { regionEdgesGeometry } from './render/edges.js'
@@ -282,6 +285,7 @@ export type { MeasureLabelKind } from './measure-labels.js'
 export type { MeasureGroup, MeasurePick, MeasuredPoint } from './render/measure-picks.js'
 export type { MeasuredFace } from './render/face-measure.js'
 export type { ToolMarksProps } from './tool-marks.js'
+export type { SceneLabelProps } from './scene-label.js'
 export type { ToolMark, ToolProfilePoint } from './render/tool-marks.js'
 export type {
   AngleMeasurement,
@@ -298,6 +302,7 @@ export type {
 } from './render/measure.js'
 export type { GridSpec } from './render/grid.js'
 export type { DoubleTapPoint, DoubleTapTracker, TapPoint, TapTracker } from './render/tap.js'
+export type { PointerLike } from './render/pointer.js'
 export type { CadCameraControlsProps } from './camera.js'
 export type {
   CameraLimits,

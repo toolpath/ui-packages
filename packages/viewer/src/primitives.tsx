@@ -9,14 +9,14 @@ import { type ViewerTheme, resolveTheme } from './render/theme.js'
 import {
   type CubeZone,
   type ViewName,
+  VIEW_CUBE_HALF_PX,
   cubeOutlineGeometry,
   cubeZones,
-  labelGeometry,
-  labelTexture,
   panelGeometry,
   VIEW_CUBE_MARGIN,
   viewVector,
 } from './render/view-cube.js'
+import { CubeLabel } from './cube-label.js'
 import { useViewerControls } from './viewer.js'
 
 const FURNITURE = { [EXCLUDE_FROM_FRAME]: true }
@@ -116,28 +116,14 @@ const CubePanels = ({
     [zones],
   )
   const outline = useMemo(() => cubeOutlineGeometry(zones), [zones])
-  const labels = useMemo(
-    () =>
-      zones
-        .filter((zone) => zone.kind === 'face')
-        .map((zone) => ({
-          zone,
-          geometry: labelGeometry(zone),
-          texture: labelTexture(zone.name, theme.cubeLabel),
-        })),
-    [theme.cubeLabel, zones],
-  )
+  const faces = useMemo(() => zones.filter((zone) => zone.kind === 'face'), [zones])
 
   useEffect(
     () => () => {
       for (const panel of panels) panel.geometry.dispose()
-      for (const label of labels) {
-        label.geometry.dispose()
-        label.texture.dispose()
-      }
       outline.dispose()
     },
-    [labels, outline, panels],
+    [outline, panels],
   )
 
   const choose = (zone: CubeZone) => {
@@ -151,7 +137,7 @@ const CubePanels = ({
   }
 
   return (
-    <group ref={groupRef} scale={38}>
+    <group ref={groupRef} scale={VIEW_CUBE_HALF_PX}>
       {panels.map(({ zone, geometry }) => (
         <mesh
           key={zone.name}
@@ -174,13 +160,8 @@ const CubePanels = ({
           />
         </mesh>
       ))}
-      {labels.map(({ zone, geometry, texture }) => (
-        <mesh key={`${zone.name}-label`} geometry={geometry} raycast={() => null}>
-          {/* Basic rather than lambert: shading a label makes the same word
-              darker on whichever faces the key light misses, which on a control
-              reads as a rendering fault rather than as depth. */}
-          <meshBasicMaterial map={texture} transparent />
-        </mesh>
+      {faces.map((zone) => (
+        <CubeLabel key={`${zone.name}-label`} zone={zone} theme={theme} />
       ))}
       <lineSegments geometry={outline} raycast={() => null}>
         <lineBasicMaterial color={theme.cubeEdge} />

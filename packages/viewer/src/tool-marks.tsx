@@ -1,12 +1,12 @@
-import { Html, Line } from '@react-three/drei'
+import { Line } from '@react-three/drei'
 import { useMemo } from 'react'
 import { DoubleSide } from 'three'
-import { MEASURE_LABEL_CLASS } from './measure-labels.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
 import { MEASURE_LINE_PIXELS, MEASURE_RENDER_ORDER } from './render/measure.js'
 import { ignoreRay } from './render/picking.js'
 import { type ViewerTheme, resolveTheme } from './render/theme.js'
 import { type ToolMark, type ToolMarkShape, toolMarkShape } from './render/tool-marks.js'
+import { SceneLabel } from './scene-label.js'
 
 export interface ToolMarksProps {
   /** The tools to draw, in the coordinates the part is drawn in. */
@@ -14,7 +14,7 @@ export interface ToolMarksProps {
   /** Draws nothing while false, and keeps its place in the scene. On by default. */
   visible?: boolean
   /**
-   * Added to every label's `className`, beside {@link MEASURE_LABEL_CLASS} —
+   * Added to every label's `className`, beside `MEASURE_LABEL_CLASS` —
    * a Tailwind utility list, or a CSS module's class.
    */
   labelClassName?: string
@@ -24,7 +24,6 @@ export interface ToolMarksProps {
 
 /** The tool itself: pale and see-through, so what it stands in shows through it. */
 const BODY = { color: 0xf8fafc, opacity: 0.32 } as const
-const NO_POINTER = { pointerEvents: 'none' } as const
 
 /**
  * Cutting tools drawn on the part, each to scale where it stands: a
@@ -39,7 +38,7 @@ const NO_POINTER = { pointerEvents: 'none' } as const
  *
  * Drawn as the measure tool draws: the lines show through the part, in the
  * theme's `measure` colour, and the labels are unstyled DOM elements with the
- * {@link MEASURE_LABEL_CLASS} class and `data-measure-label="tool"`, the
+ * `MEASURE_LABEL_CLASS` class and `data-measure-label="tool"`, the
  * label's text in a `data-measure-value` span and its note in a
  * `data-measure-note` one. The marks take no pointer events and are left out
  * of framing, so fitting the view fits the part.
@@ -54,7 +53,6 @@ export const ToolMarks = ({ marks, visible = true, labelClassName, theme }: Tool
       }),
     [marks],
   )
-  const label = labelClassName ? `${MEASURE_LABEL_CLASS} ${labelClassName}` : MEASURE_LABEL_CLASS
   return (
     <group visible={visible} userData={{ [EXCLUDE_FROM_FRAME]: true }}>
       {shapes.map(({ mark, shape }, index) => (
@@ -73,12 +71,13 @@ export const ToolMarks = ({ marks, visible = true, labelClassName, theme }: Tool
             />
           ))}
           {mark.label && visible ? (
-            <Html position={shape.labelAt} center zIndexRange={[0, 0]} style={NO_POINTER}>
-              <div className={label} data-measure-label="tool">
-                <span data-measure-value>{mark.label}</span>
-                {mark.note ? <span data-measure-note> {mark.note}</span> : null}
-              </div>
-            </Html>
+            <SceneLabel
+              kind="tool"
+              position={shape.labelAt}
+              text={mark.label}
+              note={mark.note}
+              className={labelClassName}
+            />
           ) : null}
         </group>
       ))}

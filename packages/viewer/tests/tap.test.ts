@@ -1,5 +1,15 @@
-import { describe, expect, it } from 'vitest'
-import { TAP_SLOP, movedFar, trackDoubleTaps } from '../src/render/tap.js'
+import { describe, expect, expectTypeOf, it } from 'vitest'
+import { readPointer } from '../src/render/pointer.js'
+import {
+  type DoubleTapPoint,
+  type DoubleTapTracker,
+  TAP_SLOP,
+  type TapPoint,
+  type TapTracker,
+  movedFar,
+  trackDoubleTaps,
+} from '../src/render/tap.js'
+import type { useTapGuard } from '../src/tap.js'
 
 /**
  * The whole distinction the viewport rests on: a press that ends where it
@@ -85,5 +95,55 @@ describe('pairing presses into a double tap by hand', () => {
     expect(doubles.isDouble(at(0, 0, 0))).toBe(false)
     expect(doubles.isDouble(at(0, 0, 100))).toBe(true)
     expect(doubles.isDouble(at(0, 0, 200))).toBe(false)
+  })
+})
+
+describe('React Native presses', () => {
+  /*
+   * Fiber's native events carry page coordinates and a lower-case `timestamp`,
+   * and no `clientX` or `timeStamp` at all. Read through `readPointer`, they
+   * judge the same as the DOM's.
+   */
+  const touch = (pageX: number, pageY: number, timestamp: number) => ({
+    pageX,
+    pageY,
+    offsetX: pageX - 20,
+    offsetY: pageY - 20,
+    timestamp,
+  })
+  const moved = (from: ReturnType<typeof touch>, to: ReturnType<typeof touch>) =>
+    movedFar(readPointer(from), readPointer(to))
+
+  it('tells a tap from a drag', () => {
+    expect(moved(touch(100, 100, 0), touch(102, 101, 0))).toBe(false)
+    expect(moved(touch(100, 100, 0), touch(140, 100, 0))).toBe(true)
+  })
+
+  it('pairs two taps into a double tap', () => {
+    const doubles = trackDoubleTaps()
+
+    expect(doubles.isDouble(touch(10, 10, 0))).toBe(false)
+    expect(doubles.isDouble(touch(11, 10, 200))).toBe(true)
+    expect(doubles.isDouble(touch(10, 10, 300))).toBe(false)
+    expect(doubles.isDouble(touch(10, 10, 900))).toBe(false)
+  })
+})
+
+/**
+ * The tap types a consumer can hold or implement: widening what the trackers
+ * accept must not stop code written against `TapPoint` from compiling.
+ */
+describe('tap types', () => {
+  it('accepts consumer code written against TapPoint', () => {
+    expectTypeOf<ReturnType<typeof useTapGuard>>().toExtend<(event: TapPoint) => boolean>()
+    expectTypeOf<(event: TapPoint) => boolean>().toExtend<ReturnType<typeof useTapGuard>>()
+    expectTypeOf<{
+      isTap(event: TapPoint): boolean
+      dispose(): void
+    }>().toExtend<TapTracker>()
+    expectTypeOf<{
+      isDouble(event: DoubleTapPoint): boolean
+      reset(): void
+    }>().toExtend<DoubleTapTracker>()
   })
 })

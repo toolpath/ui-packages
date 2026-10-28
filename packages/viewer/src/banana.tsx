@@ -5,9 +5,7 @@ import { Box3, type BufferGeometry, type Group, type Mesh } from 'three'
 import { useContentBox } from './content-box.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
 import { bananaFrameBounds, bananaPosition } from './render/banana.js'
-
-/** The six-inch (154 mm) reference model bundled with `@toolpath/viewer`. */
-export const BANANA_MODEL_URL = new URL('./assets/banana.glb', import.meta.url).href
+import { BANANA_MODEL_URL } from './banana-asset.js'
 
 const SKIN = '#e8b530'
 const FURNITURE = { [EXCLUDE_FROM_FRAME]: true }

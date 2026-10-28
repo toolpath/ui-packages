@@ -11,6 +11,9 @@ import {
   sectionDepthRange,
   sectionDirectionColor,
   sectionHandleColor,
+  sectionHandleHoverColor,
+  colorLuminance,
+  HANDLE_LIT_MIN_CHANGE,
   sectionFromPick,
   sectionOffset,
   sectionPlane,
@@ -215,6 +218,29 @@ describe('sectionHandleColor', () => {
   it('preserves explicit theme colours, including black', () => {
     expect(sectionHandleColor(0, 0x123456)).toBe(0)
     expect(sectionHandleColor(0xabcdef, 0x123456)).toBe(0xabcdef)
+  })
+})
+
+describe('sectionHandleHoverColor', () => {
+  it('lightens the handle in its own colour', () => {
+    expect(sectionHandleHoverColor(0xff6b6b)).toBe(0xffaeae)
+    expect(sectionHandleHoverColor(0x6fe08a)).toBe(0xb0eebf)
+    expect(sectionHandleHoverColor(0x6f9bff)).toBe(0xb0c8ff)
+  })
+
+  it('keeps each handle its own hue, so red never lights blue', () => {
+    const lit = sectionHandleHoverColor(0xff6b6b)
+    expect(lit >> 16).toBeGreaterThan(lit & 0xff)
+  })
+
+  it('visibly changes a handle too light to lighten, by darkening it', () => {
+    for (const color of [0xf2f3f7, 0xffffff]) {
+      const lit = sectionHandleHoverColor(color)
+      expect(Math.abs(colorLuminance(lit) - colorLuminance(color))).toBeGreaterThanOrEqual(
+        HANDLE_LIT_MIN_CHANGE,
+      )
+      expect(colorLuminance(lit)).toBeLessThan(colorLuminance(color))
+    }
   })
 })
 
