@@ -51,13 +51,14 @@ export function createEngineGeometryCache(
 ): EngineGeometryCache {
   const resources = new Map<string, EngineGeometryResource>()
   const requests = new WeakMap<EngineGeometryResource, string>()
+  const keys = new WeakMap<EngineGeometryResource, string>()
   let failures = new WeakMap<CacheablePart, EngineGeometryResource>()
   let accessSequence = 0
   const touch = (resource: EngineGeometryResource) => {
     resource.lastAccess = ++accessSequence
   }
 
-  /** Resources a part has held at some point; see `retain`. */
+  /** Resources a part has held and not been handed out again since; see `retain`. */
   const retained = new WeakSet<EngineGeometryResource>()
 
   const evictReleasedResources = (onlyOnceRetained: boolean) => {
@@ -100,6 +101,10 @@ export function createEngineGeometryCache(
       const existing = resources.get(key)
       if (existing?.status === 'fulfilled') {
         failures.delete(part)
+        // Read again after being let go: a part is about to retain it, so
+        // another part retaining first must not evict it. A held resource keeps
+        // its mark, as its parts read it on every render.
+        if (existing.references === 0) retained.delete(existing)
         touch(existing)
         return existing
       }
@@ -125,6 +130,7 @@ export function createEngineGeometryCache(
         lastAccess: ++accessSequence,
       }
       requests.set(resource, requestKey)
+      keys.set(resource, key)
       resource.promise = loadGeometry(part).then(
         (geometry) => {
           resource.status = 'fulfilled'
@@ -155,6 +161,12 @@ export function createEngineGeometryCache(
     release(resource) {
       resource.references = Math.max(0, resource.references - 1)
       touch(resource)
+      // Evicted (or cleared) while a part was still to retain it: the cache no
+      // longer tracks it, so the last part to let it go disposes it.
+      const key = keys.get(resource)
+      if (resource.references === 0 && (key === undefined || resources.get(key) !== resource)) {
+        resource.geometry?.dispose()
+      }
       evictReleasedResources(false)
     },
     clear() {
