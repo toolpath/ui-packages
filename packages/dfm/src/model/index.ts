@@ -110,7 +110,6 @@ export { dfmFeatures, type DfmFeature, type ReportFeature } from './geometry.js'
 export { directionLabel } from './direction-label.js'
 export { featureRows, sameDepth, type FeatureRow } from './hole-groups.js'
 export {
-  LOW_SYMBOLS,
   OP_TITLES,
   comparisonChoices,
   rangeEnd,
