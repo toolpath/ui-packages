@@ -54,17 +54,21 @@ interface Release {
  * The frame makes this the renderer's `forceContextLoss`, the last thing fiber
  * calls when it tears a root down. It stops presenting, disposes anything
  * still under the scene, disposes the renderer, and destroys the context, in
- * that order; called again, it does nothing.
+ * that order; called again, it does nothing. The context goes even if a
+ * dispose throws: fiber swallows the error, and nothing would free it after.
  */
 export const createRelease = ({ gl, scene, destroy, stopPresenting }: Release): (() => void) => {
   let released = false
   return () => {
     if (released) return
     released = true
-    stopPresenting()
-    disposeTree(scene)
-    gl.dispose()
-    destroy()
+    try {
+      stopPresenting()
+      disposeTree(scene)
+      gl.dispose()
+    } finally {
+      destroy()
+    }
   }
 }
 
@@ -128,6 +132,37 @@ export const createSceneRelease = (scene: Object3D) => {
     gone: (): void => {
       for (const each of held ?? []) each.dispose()
       held = null
+    },
+  }
+}
+
+/** Fiber's root teardown is done well within this, and calls `forceContextLoss` itself when it is. */
+export const RELEASE_FALLBACK_MS = 2000
+
+/**
+ * When a canvas that has gone frees its scene and its context: the scene on
+ * the next task, and the context after {@link RELEASE_FALLBACK_MS} if fiber
+ * has not freed it by then.
+ *
+ * React's StrictMode, which fiber carries into the canvas, runs every effect's
+ * cleanup and then its setup again on a canvas that stays. Freed in the
+ * cleanup itself, the live scene's geometry and materials would all upload
+ * again; `mounted` cancels what `unmounted` set off. A real unmount frees the
+ * scene well before fiber's own teardown, which waits 500 ms, so the context
+ * is still there.
+ */
+export const createUnmountRelease = (release: { gone(): void }, forceContextLoss: () => void) => {
+  let pending: Array<ReturnType<typeof setTimeout>> = []
+  return {
+    mounted: (): void => {
+      for (const timer of pending) clearTimeout(timer)
+      pending = []
+    },
+    unmounted: (): void => {
+      pending = [
+        setTimeout(() => release.gone(), 0),
+        setTimeout(forceContextLoss, RELEASE_FALLBACK_MS),
+      ]
     },
   }
 }
