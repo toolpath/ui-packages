@@ -1,6 +1,18 @@
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { combineBodyChecks, makeRule, type BodyDfmSummary } from '@toolpath/dfm'
+import {
+  combineBodyChecks,
+  CRITICAL_COLOR,
+  makeRule,
+  metricInfo,
+  TURNING_RULES,
+  WARNING_COLOR,
+  type BodyDfmCheck,
+  type BodyDfmSummary,
+  type DfmCheck,
+  type DfmHit,
+  type DfmRule,
+} from '@toolpath/dfm'
 import { BodyDfmResults } from '../src/body-dfm-results'
 
 describe('combined body results', () => {
@@ -220,5 +232,243 @@ describe('combined body results', () => {
     expect(inspect).toHaveBeenCalledWith('a', 'h1')
     fireEvent.pointerLeave(bodies)
     expect(focus).toHaveBeenLastCalledWith(null)
+  })
+
+  const holeFeature = (tag: string, number: number, featureType = 'blind_hole') => ({
+    tag,
+    number,
+    featureType,
+    machiningDirection: { x: 0, y: 0, z: 1 },
+    regionIdxs: [0],
+  })
+  const checkFor = (rules: Array<[DfmRule, Array<string>]>): DfmCheck => {
+    const hitsByTag = new Map<string, Array<DfmHit>>()
+    for (const [rule, tags] of rules) {
+      const metric = metricInfo(rule.metric)!
+      for (const tag of tags) {
+        hitsByTag.set(tag, [...(hitsByTag.get(tag) ?? []), { rule, metric, value: 1 }])
+      }
+    }
+    return {
+      byRule: rules.map(([rule, tags]) => ({ rule, tags, otherTags: [] })),
+      hitsByTag,
+      required: new Set(rules.flatMap(([, tags]) => tags)),
+      paintedFaces: new Map(),
+      paintedWhole: new Map(),
+    }
+  }
+  const critical: DfmRule = {
+    ...makeRule('hole', 'diameter', 'mm'),
+    id: 'c',
+    color: CRITICAL_COLOR,
+  }
+  const amber: DfmRule = { ...makeRule('hole', 'depth', 'mm'), id: 'w', color: WARNING_COLOR }
+
+  it('marks fallback-grouped features by the worst rule they break', () => {
+    const body: BodyDfmCheck = {
+      id: 'a',
+      label: 'Body a',
+      status: 'ready',
+      features: [
+        holeFeature('Both', 1),
+        holeFeature('warn', 2),
+        holeFeature('clean', 3),
+        holeFeature('red', 4),
+      ],
+      // Amber first, then red: red still wins for the feature that breaks both.
+      check: checkFor([
+        [amber, ['both', 'warn']],
+        [critical, ['both', 'red']],
+      ]),
+    }
+    render(
+      <BodyDfmResults
+        summary={combineBodyChecks([body], [amber, critical])}
+        tab="features"
+        units="mm"
+        onInspect={() => {}}
+      />,
+    )
+    const bodies = screen.getByRole('list', { name: 'Features by body' })
+    const bodyRow = within(bodies).getByRole('button', { name: /^Body a/ })
+    expect(within(bodyRow).getByTitle('2 breaking a critical rule')).toBeVisible()
+    expect(within(bodyRow).getByTitle('1 breaking a rule')).toBeVisible()
+    expect(bodyRow).toHaveTextContent('2 breaking a critical rule')
+    fireEvent.click(bodyRow)
+    fireEvent.click(within(bodies).getByRole('button', { name: /^Blind hole/ }))
+    const mark = (name: RegExp) =>
+      within(within(bodies).getByRole('button', { name })).queryByLabelText(/flag/i)
+    expect(mark(/Blind hole 1/)).toHaveAccessibleName('Critical flag')
+    expect(mark(/Blind hole 4/)).toHaveAccessibleName('Critical flag')
+    expect(
+      within(within(bodies).getByRole('button', { name: /Blind hole 2/ })).getByLabelText(
+        'Flagged',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      within(within(bodies).getByRole('button', { name: /Blind hole 3/ })).queryByLabelText(
+        /flag/i,
+      ),
+    ).toBeNull()
+  })
+
+  it('shows no groups under a body that goes back to checking', () => {
+    const ready: BodyDfmCheck = {
+      id: 'a',
+      label: 'Body a',
+      status: 'ready',
+      check: null,
+      features: [holeFeature('h1', 1)],
+    }
+    const view = (body: BodyDfmCheck) => (
+      <BodyDfmResults
+        summary={combineBodyChecks([body], [])}
+        tab="features"
+        units="mm"
+        onInspect={() => {}}
+        featureGroups={
+          new Map([
+            [
+              'a',
+              [{ key: 'own', label: 'Own kind', color: null, rows: [{ tag: 'h1', label: 'H' }] }],
+            ],
+          ])
+        }
+      />
+    )
+    const { rerender } = render(view(ready))
+    fireEvent.click(screen.getByRole('button', { name: /^Body a/ }))
+    expect(screen.getByRole('button', { name: /^Own kind/ })).toBeVisible()
+    rerender(view({ ...ready, status: 'pending' }))
+    const row = screen.getByRole('button', { name: /^Body a/ })
+    expect(row).toBeDisabled()
+    expect(row).not.toHaveAttribute('aria-expanded')
+    expect(screen.queryByRole('button', { name: /^Own kind/ })).toBeNull()
+    rerender(view(ready))
+    expect(screen.getByRole('button', { name: /^Own kind/ })).toBeVisible()
+  })
+
+  it('shows no bodies under a rule whose count drops to nothing', () => {
+    const feature = holeFeature('h1', 1)
+    const body: BodyDfmCheck = {
+      id: 'a',
+      label: 'Body a',
+      status: 'ready',
+      check: checkFor([[critical, ['h1']]]),
+      features: [feature],
+    }
+    const view = (checked: BodyDfmCheck) => (
+      <BodyDfmResults
+        summary={combineBodyChecks([checked], [critical])}
+        tab="rules"
+        units="mm"
+        onInspect={() => {}}
+      />
+    )
+    const { rerender } = render(view(body))
+    const rules = screen.getByRole('list', { name: 'Rules' })
+    fireEvent.click(within(rules).getAllByRole('button')[0]!)
+    expect(screen.getByRole('button', { name: /^Body a/ })).toBeVisible()
+    rerender(view({ ...body, check: checkFor([]) }))
+    expect(screen.queryByRole('button', { name: /^Body a/ })).toBeNull()
+    expect(within(rules).getAllByRole('button')[0]!).toBeDisabled()
+  })
+
+  it('lets go of the pointer when the results unmount', () => {
+    const summary = combineBodyChecks(
+      [
+        {
+          id: 'a',
+          label: 'Body a',
+          status: 'ready',
+          check: null,
+          features: [holeFeature('h1', 1)],
+        },
+      ],
+      [],
+    )
+    const hoverFeatures = vi.fn()
+    const features = render(
+      <BodyDfmResults
+        summary={summary}
+        tab="features"
+        units="mm"
+        onInspect={() => {}}
+        onHoverFeatures={hoverFeatures}
+      />,
+    )
+    fireEvent.pointerMove(screen.getByRole('button', { name: /^Body a/ }))
+    hoverFeatures.mockClear()
+    features.unmount()
+    expect(hoverFeatures).toHaveBeenCalledExactlyOnceWith(null)
+
+    const hoverRule = vi.fn()
+    const hover = vi.fn()
+    const rules = render(
+      <BodyDfmResults
+        summary={combineBodyChecks(
+          [
+            {
+              id: 'a',
+              label: 'Body a',
+              status: 'ready',
+              check: checkFor([[critical, ['h1']]]),
+              features: [holeFeature('h1', 1)],
+            },
+          ],
+          [critical],
+        )}
+        tab="rules"
+        units="mm"
+        onInspect={() => {}}
+        onHover={hover}
+        onHoverRule={hoverRule}
+      />,
+    )
+    fireEvent.click(screen.getAllByRole('button')[0]!)
+    fireEvent.click(screen.getByRole('button', { name: /^Body a/ }))
+    fireEvent.pointerEnter(screen.getByRole('button', { name: /Blind hole 1/ }))
+    expect(hover).toHaveBeenLastCalledWith('a', 'h1')
+    hoverRule.mockClear()
+    hover.mockClear()
+    rules.unmount()
+    expect(hoverRule).toHaveBeenCalledExactlyOnceWith(null, null)
+    expect(hover).toHaveBeenCalledExactlyOnceWith('a', null)
+  })
+
+  it('names features by the vocabulary in both tabs', () => {
+    const body: BodyDfmCheck = {
+      id: 'a',
+      label: 'Body a',
+      status: 'ready',
+      check: checkFor([[critical, ['g1']]]),
+      features: [holeFeature('g1', 1, 'od_groove')],
+    }
+    const summary = combineBodyChecks([body], [critical])
+    const rules = render(
+      <BodyDfmResults
+        summary={summary}
+        tab="rules"
+        units="mm"
+        vocabulary={TURNING_RULES}
+        onInspect={() => {}}
+      />,
+    )
+    fireEvent.click(screen.getAllByRole('button')[0]!)
+    fireEvent.click(screen.getByRole('button', { name: /^Body a/ }))
+    expect(screen.getByRole('button', { name: /OD groove 1/ })).toBeVisible()
+    rules.unmount()
+    render(
+      <BodyDfmResults
+        summary={summary}
+        tab="features"
+        units="mm"
+        vocabulary={TURNING_RULES}
+        onInspect={() => {}}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^Body a/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^OD groove/ }))
+    expect(screen.getByRole('button', { name: /OD groove 1/ })).toBeVisible()
   })
 })

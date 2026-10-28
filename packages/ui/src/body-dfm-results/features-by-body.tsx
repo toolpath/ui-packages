@@ -1,9 +1,18 @@
-import { useState, type ReactElement } from 'react'
-import { CaretRightIcon, InfoIcon, WarningIcon } from '@phosphor-icons/react'
-import { CRITICAL_COLOR, featureTypeLabel, type BodyDfmSummary } from '@toolpath/dfm'
+import type { ReactElement } from 'react'
+import { InfoIcon, WarningIcon } from '@phosphor-icons/react'
+import {
+  featureSeverities,
+  featuresByType,
+  MILLING_RULES,
+  type BodyDfmCheck,
+  type BodyDfmSummary,
+  type DfmSeverity,
+  type RuleVocabulary,
+} from '@toolpath/dfm'
 import { cn } from '../common'
 import { ScrollArea } from '../scroll-area'
-import { SeverityIcon, type FeatureSeverity } from './severity-icon'
+import { Caret, Dot, ROW, useOnUnmount, useOpenSet } from './rows'
+import { SeverityIcon } from './severity-icon'
 
 /** One feature as the Features tab lists it. */
 export interface BodyFeatureRow {
@@ -13,7 +22,7 @@ export interface BodyFeatureRow {
   label: string
   /** What it measures, as short phrases: `⌀ 6 mm`, `depth 12 mm`. */
   facts?: ReadonlyArray<string>
-  severity?: FeatureSeverity | null
+  severity?: DfmSeverity | null
 }
 
 /** A kind of feature on one body: `Holes`, in its colour on the model. */
@@ -32,39 +41,6 @@ export interface BodyFeatureFocus {
   tag: string | null
 }
 
-const hex = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
-
-const ROW = cn(
-  'flex w-full cursor-pointer items-center gap-2 rounded text-left outline-none',
-  'hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-info/75 dark:hover:bg-zinc-800',
-  'disabled:cursor-default',
-)
-
-const Caret = ({ open, size = 'size-3.5' }: { open: boolean; size?: string }) => (
-  <CaretRightIcon
-    aria-hidden
-    weight="bold"
-    className={cn(
-      size,
-      'shrink-0 text-gray-300 transition-transform duration-150 dark:text-zinc-500',
-      open && 'rotate-90',
-    )}
-  />
-)
-
-/** A body's colour, round, or a group's, square; outlined where the group paints nothing. */
-const Dot = ({ color, square = false }: { color: number | null | undefined; square?: boolean }) => (
-  <span
-    aria-hidden
-    className={cn(
-      'inline-block size-2.5 shrink-0',
-      square ? 'rounded-sm' : 'rounded-full',
-      color == null && 'border border-gray-400',
-    )}
-    style={color == null ? undefined : { backgroundColor: hex(color) }}
-  />
-)
-
 /** How many of `rows` break a rule, by severity, so a closed body or group says where its problems are. */
 const Flags = ({ rows }: { rows: ReadonlyArray<BodyFeatureRow> }) => {
   const critical = rows.filter((row) => row.severity === 'critical').length
@@ -78,15 +54,17 @@ const Flags = ({ rows }: { rows: ReadonlyArray<BodyFeatureRow> }) => {
         >
           <WarningIcon aria-hidden weight="fill" className="size-3.5" />
           {critical}
+          <span className="sr-only"> breaking a critical rule</span>
         </span>
       ) : null}
       {warning > 0 ? (
         <span
-          className="flex items-center gap-0.5 text-warning tabular-nums"
+          className="flex items-center gap-0.5 text-warning-darken tabular-nums dark:text-warning"
           title={`${warning} breaking a rule`}
         >
           <InfoIcon aria-hidden weight="fill" className="size-3.5" />
           {warning}
+          <span className="sr-only"> breaking a rule</span>
         </span>
       ) : null}
     </>
@@ -94,36 +72,28 @@ const Flags = ({ rows }: { rows: ReadonlyArray<BodyFeatureRow> }) => {
 }
 
 /**
- * A body's features by type, where the application gives no groups of its
- * own: each type one group, each feature marked by the rules it breaks, as
- * the Rules tab counts them.
+ * A ready body's features by type, where the application gives no groups of
+ * its own: each type one group, each feature marked by the rules it breaks, as
+ * the Rules tab counts them. A body that is not ready has none.
  */
-const groupsByType = (summary: BodyDfmSummary, bodyId: string): Array<BodyFeatureGroup> => {
-  const body = summary.bodies.find((entry) => entry.id === bodyId)
-  const severities = new Map<string, FeatureSeverity>()
-  for (const violation of summary.violations) {
-    if (violation.bodyId !== bodyId) continue
-    const critical = violation.rule.color === CRITICAL_COLOR
-    if (critical || !severities.has(violation.feature.tag))
-      severities.set(violation.feature.tag, critical ? 'critical' : 'warning')
+const groupsByType = (body: BodyDfmCheck, vocabulary: RuleVocabulary): Array<BodyFeatureGroup> => {
+  if (body.status !== 'ready') {
+    return []
   }
-  const groups = new Map<string, BodyFeatureGroup & { rows: Array<BodyFeatureRow> }>()
-  for (const feature of body?.features ?? []) {
-    const label = featureTypeLabel(feature.featureType)
-    const group = groups.get(feature.featureType) ?? {
-      key: feature.featureType,
+  const severities = body.check ? featureSeverities(body.check) : new Map<string, DfmSeverity>()
+  return featuresByType(body.features).map(({ featureType, features }) => {
+    const label = vocabulary.featureLabel(features[0]!).name
+    return {
+      key: featureType,
       label,
       color: null,
-      rows: [],
+      rows: features.map((feature) => ({
+        tag: feature.tag,
+        label: `${vocabulary.featureLabel(feature).name} ${feature.number}`,
+        severity: severities.get(feature.tag.toLowerCase()) ?? null,
+      })),
     }
-    group.rows.push({
-      tag: feature.tag,
-      label: `${label} ${feature.number}`,
-      severity: severities.get(feature.tag) ?? null,
-    })
-    groups.set(feature.featureType, group)
-  }
-  return [...groups.values()]
+  })
 }
 
 export interface FeaturesByBodyProps {
@@ -131,7 +101,13 @@ export interface FeaturesByBodyProps {
   /** Each body's groups, by id; by feature type where a body has none here. */
   featureGroups?: ReadonlyMap<string, ReadonlyArray<BodyFeatureGroup>>
   bodyColors?: ReadonlyMap<string, number>
+  /** How a feature is named; milling where left out. */
+  vocabulary?: RuleVocabulary
   onInspect: (bodyId: string, tag: string) => void
+  /**
+   * The body, group or feature the pointer is on; null once it leaves or the
+   * list unmounts. Called as the pointer moves, so it may repeat a value.
+   */
   onHoverFeatures?: (focus: BodyFeatureFocus | null) => void
 }
 
@@ -144,17 +120,12 @@ export const FeaturesByBody = ({
   summary,
   featureGroups,
   bodyColors,
+  vocabulary = MILLING_RULES,
   onInspect,
   onHoverFeatures,
 }: FeaturesByBodyProps): ReactElement => {
-  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
-  const toggle = (key: string) =>
-    setOpen((old) => {
-      const next = new Set(old)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
+  const [open, toggle] = useOpenSet()
+  useOnUnmount(() => onHoverFeatures?.(null))
   return (
     <ScrollArea className="min-h-0 flex-1">
       <ul
@@ -163,12 +134,14 @@ export const FeaturesByBody = ({
         onPointerLeave={() => onHoverFeatures?.(null)}
       >
         {summary.bodies.map((body) => {
-          const groups = (featureGroups?.get(body.id) ?? groupsByType(summary, body.id)).filter(
-            (group) => group.rows.length > 0,
-          )
           const ready = body.status === 'ready'
+          const groups = ready
+            ? (featureGroups?.get(body.id) ?? groupsByType(body, vocabulary)).filter(
+                (group) => group.rows.length > 0,
+              )
+            : []
           const total = groups.reduce((sum, group) => sum + group.rows.length, 0)
-          const expanded = open.has(body.id)
+          const expanded = ready && open.has(body.id)
           return (
             <li
               key={body.id}
@@ -219,7 +192,7 @@ export const FeaturesByBody = ({
               </button>
               {expanded
                 ? groups.map((group) => {
-                    const key = `${body.id}:${group.key}`
+                    const key = JSON.stringify([body.id, group.key])
                     const groupOpen = open.has(key)
                     return (
                       <div key={key} className="pl-5">

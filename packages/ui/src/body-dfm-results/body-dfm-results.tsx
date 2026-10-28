@@ -1,30 +1,36 @@
-import { useState } from 'react'
-import { CaretRightIcon } from '@phosphor-icons/react'
+import { useMemo, useRef } from 'react'
 import {
-  featureTypeLabel,
-  hitFigure,
+  bodiesByRule,
   describeRule,
+  MILLING_RULES,
   type BodyDfmSummary,
-  type DfmRule,
   type Units,
   type RuleVocabulary,
 } from '@toolpath/dfm'
 import { Button } from '../button'
 import { cn } from '../common'
-import { Swatch } from '../dfm-rule-list'
+import { HitFigure } from '../dfm-rule-list/feature-button'
+import { Swatch } from '../dfm-rule-list/swatch'
 import { FeaturesByBody, type BodyFeatureFocus, type BodyFeatureGroup } from './features-by-body'
+import { Caret, Dot, ROW, useOnUnmount, useOpenSet } from './rows'
 import { ScrollArea } from '../scroll-area'
 
 export interface BodyDfmResultsProps {
   summary: BodyDfmSummary
   tab: 'rules' | 'features'
   units: Units
+  /** How rules and features are named; milling where left out. */
   vocabulary?: RuleVocabulary
   onInspect: (bodyId: string, tag: string) => void
+  /**
+   * The feature pointed at in the Rules tab, null for its tag once the pointer
+   * leaves it or the list unmounts.
+   */
   onHover?: (bodyId: string, tag: string | null) => void
   /**
    * The rule pointed at in the Rules tab, and the body when the pointer is on
-   * one of its bodies; both null once it leaves the list.
+   * one of its bodies; both null once it leaves the list or the list unmounts.
+   * Called as the pointer moves, so it may repeat the same value.
    */
   onHoverRule?: (ruleId: string | null, bodyId: string | null) => void
   onRetry?: (bodyId: string) => void
@@ -36,7 +42,11 @@ export interface BodyDfmResultsProps {
    * feature type.
    */
   featureGroups?: ReadonlyMap<string, ReadonlyArray<BodyFeatureGroup>>
-  /** The body, group or feature the pointer is on in the Features tab; null once it leaves. */
+  /**
+   * The body, group or feature the pointer is on in the Features tab; null once
+   * it leaves or the list unmounts. Called as the pointer moves, so it may
+   * repeat the same value.
+   */
   onHoverFeatures?: (focus: BodyFeatureFocus | null) => void
 }
 
@@ -131,6 +141,7 @@ export const BodyDfmResults = ({
             summary={summary}
             featureGroups={featureGroups}
             bodyColors={bodyColors}
+            vocabulary={vocabulary}
             onInspect={onInspect}
             onHoverFeatures={onHoverFeatures}
           />
@@ -139,13 +150,6 @@ export const BodyDfmResults = ({
     </div>
   )
 }
-
-const hex = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
-
-const ROW = cn(
-  'flex w-full cursor-pointer items-center gap-2 rounded text-left outline-none',
-  'hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-info/75 dark:hover:bg-zinc-800',
-)
 
 /**
  * The Rules tab: every rule as the rule list shows it, its colour, its words
@@ -156,7 +160,7 @@ const ROW = cn(
 const RulesByRule = ({
   summary,
   units,
-  vocabulary,
+  vocabulary = MILLING_RULES,
   bodyColors,
   onInspect,
   onHover,
@@ -165,21 +169,16 @@ const RulesByRule = ({
   BodyDfmResultsProps,
   'summary' | 'units' | 'vocabulary' | 'bodyColors' | 'onInspect' | 'onHover' | 'onHoverRule'
 >) => {
-  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
-  const toggle = (key: string) =>
-    setOpen((old) => {
-      const next = new Set(old)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  const byBody = (rule: DfmRule) =>
-    summary.bodies.flatMap((body) => {
-      const hits = summary.violations.filter(
-        (violation) => violation.rule.id === rule.id && violation.bodyId === body.id,
-      )
-      return hits.length > 0 ? [{ body, hits }] : []
-    })
+  const [open, toggle] = useOpenSet()
+  const bodiesOf = useMemo(() => bodiesByRule(summary), [summary])
+  // The body whose feature the pointer is on, so leaving with the list can let it go.
+  const hovered = useRef<string | null>(null)
+  useOnUnmount(() => {
+    onHoverRule?.(null, null)
+    if (hovered.current !== null) {
+      onHover?.(hovered.current, null)
+    }
+  })
   return (
     <ScrollArea className="min-h-0 flex-1">
       <ul
@@ -190,8 +189,8 @@ const RulesByRule = ({
         }}
       >
         {summary.byRule.map(({ rule, count }) => {
-          const ruleOpen = open.has(rule.id)
-          const bodies = byBody(rule)
+          const bodies = bodiesOf.get(rule.id) ?? []
+          const ruleOpen = count > 0 && open.has(rule.id)
           return (
             <li
               key={rule.id}
@@ -201,19 +200,11 @@ const RulesByRule = ({
                 type="button"
                 aria-expanded={count > 0 ? ruleOpen : undefined}
                 disabled={count === 0}
-                className={cn(ROW, 'px-2 py-2 disabled:cursor-default')}
+                className={cn(ROW, 'px-2 py-2')}
                 onClick={() => toggle(rule.id)}
                 onPointerMove={() => onHoverRule?.(rule.id, null)}
               >
-                <CaretRightIcon
-                  aria-hidden
-                  weight="bold"
-                  className={cn(
-                    'size-3.5 shrink-0 text-gray-300 transition-transform duration-150 dark:text-zinc-500',
-                    ruleOpen && 'rotate-90',
-                    count === 0 && 'invisible',
-                  )}
-                />
+                <Caret open={ruleOpen} className={cn(count === 0 && 'invisible')} />
                 <Swatch color={rule.color} />
                 <span className="min-w-0 flex-1 text-sm text-gray-700 dark:text-zinc-200">
                   {describeRule(rule, units, vocabulary)}
@@ -229,8 +220,8 @@ const RulesByRule = ({
               </button>
               {ruleOpen ? (
                 <ul aria-label={describeRule(rule, units, vocabulary)} className="pb-1 pl-6">
-                  {bodies.map(({ body, hits }) => {
-                    const key = `${rule.id}:${body.id}`
+                  {bodies.map(({ body, violations }) => {
+                    const key = JSON.stringify([rule.id, body.id])
                     const bodyOpen = open.has(key)
                     const color = bodyColors?.get(body.id)
                     return (
@@ -242,48 +233,38 @@ const RulesByRule = ({
                           onClick={() => toggle(key)}
                           onPointerMove={() => onHoverRule?.(rule.id, body.id)}
                         >
-                          <CaretRightIcon
-                            aria-hidden
-                            weight="bold"
-                            className={cn(
-                              'size-3 shrink-0 text-gray-300 transition-transform duration-150 dark:text-zinc-500',
-                              bodyOpen && 'rotate-90',
-                            )}
-                          />
-                          {color === undefined ? null : (
-                            <span
-                              aria-hidden
-                              className="size-2.5 shrink-0 rounded-full"
-                              style={{ backgroundColor: hex(color) }}
-                            />
-                          )}
+                          <Caret open={bodyOpen} size="size-3" />
+                          {color === undefined ? null : <Dot color={color} />}
                           <span className="min-w-0 flex-1 truncate text-gray-700 dark:text-zinc-200">
                             {body.label}
                           </span>
                           <span className="text-xs text-gray-500 tabular-nums dark:text-zinc-400">
-                            {hits.length}
+                            {violations.length}
                           </span>
                         </button>
                         {bodyOpen ? (
                           <ul aria-label={body.label} className="pb-1 pl-6">
-                            {hits.map((hit) => (
-                              <li key={hit.id}>
+                            {violations.map((violation) => (
+                              <li key={violation.id}>
                                 <button
                                   type="button"
                                   className={cn(ROW, 'items-baseline px-2 py-1 text-xs')}
-                                  onClick={() => onInspect(hit.bodyId, hit.feature.tag)}
-                                  onPointerEnter={() => onHover?.(hit.bodyId, hit.feature.tag)}
-                                  onPointerLeave={() => onHover?.(hit.bodyId, null)}
+                                  onClick={() => onInspect(violation.bodyId, violation.feature.tag)}
+                                  onPointerEnter={() => {
+                                    hovered.current = violation.bodyId
+                                    onHover?.(violation.bodyId, violation.feature.tag)
+                                  }}
+                                  onPointerLeave={() => {
+                                    hovered.current = null
+                                    onHover?.(violation.bodyId, null)
+                                  }}
                                   onPointerMove={() => onHoverRule?.(rule.id, body.id)}
                                 >
                                   <span className="font-medium text-gray-700 dark:text-zinc-200">
-                                    {featureTypeLabel(hit.feature.featureType)} {hit.feature.number}
+                                    {vocabulary.featureLabel(violation.feature).name}{' '}
+                                    {violation.feature.number}
                                   </span>
-                                  {hit.hit ? (
-                                    <span className="text-gray-500 tabular-nums dark:text-zinc-400">
-                                      {hitFigure(hit.hit, units)}
-                                    </span>
-                                  ) : null}
+                                  <HitFigure hit={violation.hit ?? undefined} units={units} />
                                 </button>
                               </li>
                             ))}

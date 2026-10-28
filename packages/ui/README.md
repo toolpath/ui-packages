@@ -738,6 +738,28 @@ both ends", "Machined from both ends" — with its considerations under
 - **Keys:** Escape closes the panel and the arrow keys walk the candidates. On
   a `CandidateList` used alone, put `candidateListKeys` on whatever holds it.
 
+### Combined body results
+
+`BodyDfmResults` displays a `combineBodyChecks` summary from `@toolpath/dfm`.
+Pass `tab="rules"` or `tab="features"`, `units`, and
+`onInspect(bodyId, featureTag)`. The Rules tab lists every rule as the rule list
+does, with how many features break it in all bodies together, and opens into the
+bodies that break it and then their features. The Features tab lists each body
+with how many features of each kind it has and how many break a rule, and opens
+into its groups and then their features, each marked with `SeverityIcon`
+(`DfmSeverity` from `@toolpath/dfm`: critical where a rule in the critical red
+is broken). Pass `featureGroups` (each body's `BodyFeatureGroup`s, by id) for an
+application's own kinds of feature, colours and measurements; a body without
+them is grouped by feature type. Pass `vocabulary` (`TURNING_RULES` for turned
+parts; milling by default) to name rules and features as the other DFM views do.
+Optional `onHover(bodyId, featureTag | null)`, `onHoverRule(ruleId | null, bodyId | null)`,
+`onHoverFeatures(focus | null)` and `onRetry(bodyId)` connect the rows to an
+application's viewer and retries; the hover callbacks are called as the pointer
+moves, may repeat a value, and are cleared when the results unmount.
+`bodyColors` puts each body's colour beside its name. Pending and failed checks
+remain explicit alongside available results; the application owns analysis and
+selection.
+
 ## Troubleshooting
 
 | Symptom                                       | Check                                                                                                                                                       |
@@ -775,21 +797,3 @@ for published changes.
 ## License
 
 [MIT](https://github.com/toolpath/ui-packages/blob/main/packages/ui/LICENSE).
-
-### Combined body results
-
-`BodyDfmResults` displays a `combineBodyChecks` summary from `@toolpath/dfm`.
-Pass `tab="rules"` or `tab="features"`, `units`, and
-`onInspect(bodyId, featureTag)`. The Rules tab lists every rule as the rule list
-does, with how many features break it in all bodies together, and opens into the
-bodies that break it and then their features. The Features tab lists each body
-with how many features of each kind it has and how many break a rule, and opens
-into its groups and then their features, each marked with `SeverityIcon`. Pass
-`featureGroups` (each body's `BodyFeatureGroup`s, by id) for an application's
-own kinds of feature, colours and measurements; a body without them is grouped
-by feature type. Optional `onHover(bodyId, featureTag | null)`,
-`onHoverRule(ruleId | null, bodyId | null)`, `onHoverFeatures(focus | null)` and
-`onRetry(bodyId)` connect the rows to an application's viewer and retries, and
-`bodyColors` puts each body's colour beside its name. Pending and failed checks
-remain explicit alongside available results; the application owns analysis and
-selection.

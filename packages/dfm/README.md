@@ -109,9 +109,24 @@ outline of a flat or bull nose end mill that size.
 ## Combined body checks
 
 `combineBodyChecks(bodies, rules)` summarizes independently calculated body checks.
-Each body supplies `id`, `label`, `status` (`pending`, `ready`, or `error`), `check`,
-and `features`, with optional error text. The summary includes completed/failed
-counts, body-labelled features and required rule violations, and totals by rule.
-Repeated feature tags across bodies remain distinct. Alternative readings in
-`otherTags` are not counted as additional violations. Geometry and painted region
-indices stay in each original check; the helper does not merge parts or run jobs.
+Each body supplies a unique `id` (it throws on a duplicate), `label`, `status`
+(`pending`, `ready`, or `error`), `check`, and `features`, with optional
+`progress` and error text. The summary includes `completed`, `total` and
+`failed` counts (a failed body never finishes, so only `completed + failed <
+total` means still waiting), body-labelled features and required rule
+violations, and totals by rule. A result for a rule that is not in `rules` is
+left out, so the violations and the totals agree. Repeated feature tags across
+bodies remain distinct. Alternative readings in `otherTags` are not counted as
+additional violations. Geometry and painted region indices stay in each
+original check; the helper does not merge parts or run jobs.
+
+To present a summary:
+
+- `ruleSeverity(rule)` is `'critical'` where the rule's colour is `CRITICAL_COLOR`
+  (any case) and `'warning'` otherwise: a rule's colour is how much it matters.
+- `featureSeverities(check)` maps each required feature's lower-cased tag to its
+  worst severity; a feature that breaks nothing has no entry.
+- `featuresByType(features)` groups features by `featureType`, in the order the
+  types first appear.
+- `bodiesByRule(summary)` maps a rule id to the bodies that break it, in the
+  summary's order, each with its violations of that rule.
