@@ -1065,8 +1065,17 @@ strings:
 >
 ```
 
-Those are the defaults, `DEFAULT_THEME.labels`. A label's own `color` replaces `border`, and a label with
-an `axis` takes that axis's colour.
+Those are the defaults, `DEFAULT_LABELS`. The theme replaces `labels` whole, so
+to change one field, spread the defaults:
+
+```tsx
+import { DEFAULT_LABELS } from '@toolpath/viewer'
+
+<Viewer theme={{ labels: { ...DEFAULT_LABELS, fontSize: 14 } }}>
+```
+
+A label's own `color` replaces `border`, and a label with an `axis` takes that
+axis's colour.
 
 Each label view has the `testID` `scene-label-<kind>`, from its `kind`, for an
 app's tests to find it by. A pressable label is announced as a button.

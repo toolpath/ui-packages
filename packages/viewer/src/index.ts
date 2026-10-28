@@ -196,6 +196,7 @@ export {
 } from './model/directions.js'
 export { regionNormals } from './model/normals.js'
 export {
+  DEFAULT_LABELS,
   DEFAULT_THEME,
   DIRECTION_COLORS,
   HIGHLIGHT_COLORS,
