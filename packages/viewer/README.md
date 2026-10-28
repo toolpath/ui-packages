@@ -34,8 +34,8 @@ Your application must provide compatible peers:
 | `@react-three/fiber` | `^9.7.0`       | Both                               |
 | `@react-three/drei`  | `^10.7.8`      | Both                               |
 | `react-native`       | `>=0.79`       | React Native, where it is required |
-| `expo-asset`         | `>=8.4`        | React Native, where it is required |
-| `expo-gl`            | `>=11.0`       | React Native, where it is required |
+| `expo-asset`         | `>=11.1`       | React Native, where it is required |
+| `expo-gl`            | `>=15.1`       | React Native, where it is required |
 
 A web application installs `react-dom` itself; it is optional only so a React
 Native app does not need it. The React Native peers are optional only so a web
