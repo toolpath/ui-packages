@@ -44,7 +44,12 @@ export const ComparisonTable: FC<ComparisonTableProps> = ({
   /** A cell as the rows read it, with what only this table draws: swatches and the other unit. */
   const cell = (row: ComparisonRow, text: string, index: number): ReactNode => {
     const face = faces[index]
-    if (!face?.feature) return text
+    if (!face) return text
+    if (row.kind === 'measurement') {
+      const measured = face.measurements.find((each) => each.key === row.key)
+      return measured ? <span title={measured.alt}>{text}</span> : text
+    }
+    if (!face.feature) return text
     if (row.kind === 'direction') {
       return (
         <span className="inline-flex items-center gap-1">
@@ -66,9 +71,7 @@ export const ComparisonTable: FC<ComparisonTableProps> = ({
         </span>
       )
     }
-    if (row.kind !== 'measurement') return text
-    const measured = face.measurements.find((each) => each.key === row.key)
-    return measured ? <span title={measured.alt}>{text}</span> : text
+    return text
   }
 
   return (
