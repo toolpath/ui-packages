@@ -17,6 +17,10 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": []
+    },
+    "@toolpath/ui#test": {
+      "dependsOn": ["^build", "build"],
+      "outputs": []
     }
   }
 }
