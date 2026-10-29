@@ -1,9 +1,11 @@
-import type { BufferGeometry, Plane } from 'three'
+import type { BufferGeometry, Object3D, Plane } from 'three'
 import type { ViewerTheme } from './theme.js'
 
 /** What one item of a collection needs drawn for its cut. */
 interface CollectionSection {
   geometry: BufferGeometry
+  /** What the geometry is drawn by, whose world transform its stencil follows. */
+  placement: Object3D
   plane: Plane
   theme: ViewerTheme
   handleColor?: number
@@ -15,6 +17,8 @@ interface CollectionSection {
 interface CollectionSectionGroup {
   plane: Plane
   geometries: Array<BufferGeometry>
+  /** Each geometry's `placement`, in the same order. */
+  placements: Array<Object3D>
   /** The first item's: one cap takes one theme. */
   theme: ViewerTheme
   handleColor?: number
@@ -50,6 +54,7 @@ const groupSections = (sections: Iterable<CollectionSection>): Array<CollectionS
       group = {
         plane: section.plane,
         geometries: [],
+        placements: [],
         theme: section.theme,
         handleColor: section.handleColor,
         showHandle: false,
@@ -58,6 +63,7 @@ const groupSections = (sections: Iterable<CollectionSection>): Array<CollectionS
       groups.set(key, group)
     }
     group.geometries.push(section.geometry)
+    group.placements.push(section.placement)
     if (section.onDrag) {
       group.drags.push(section.onDrag)
       group.showHandle ||= section.showHandle

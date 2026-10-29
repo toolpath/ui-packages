@@ -685,6 +685,41 @@ To show a whole file and also one body as a part, switch between
 `ViewerHandle.fit()` after switching, since the viewer frames its first content
 only.
 
+To pull the bodies apart so each one can be seen, pass `explode={{ amount }}`.
+Each item moves as a whole, with its edges, paint, threads and children, by its
+offset times the amount; picks, hover, and the section cap follow it. The
+amount is a number from 0 to 1 or an `ExplodeAmount`, such as a
+`createExplodeMotion` that animates itself: the collection reads it on each
+frame with no React render, and needs no preparation, so it never holds a move.
+`explode.offsets` sets each item's full displacement by id, in world units;
+without it, `collectionExplodeOffsets(items, { gap? })` places them: each body
+moves out from the collection's centre towards its own, just far enough that its
+bounding box clears the others by `gap` (a fraction of the collection's
+diagonal, 0.05 by default). Bodies centred on the collection's centre, such as
+nested ones, stack upwards instead. While `explode` is given, the shared bounds
+hold the bodies both assembled and apart, so the grid and section stay put.
+`collectionBounds(items, { offsets })` measures that extent for framing:
+
+```tsx
+const Exploding = ({ items }) => {
+  const viewer = useRef<ViewerHandle>(null)
+  const [motion] = useState(() => createExplodeMotion(0))
+  const offsets = useMemo(() => collectionExplodeOffsets(items), [items])
+  const explode = () => {
+    viewer.current?.frameBox(collectionBounds(items, { offsets }))
+    motion.moveTo(1)
+  }
+  return (
+    <>
+      <button onClick={explode}>Explode</button>
+      <Viewer ref={viewer}>
+        <PartCollection items={items} explode={{ amount: motion, offsets }} />
+      </Viewer>
+    </>
+  )
+}
+```
+
 The collection never uploads files or starts Engine analysis.
 
 ### `<ViewCube>`, `<Grid>`, and `<Axes>`
