@@ -8,6 +8,8 @@ export interface ViewerToolbarControl {
   pressed?: boolean
   /** Invoked when the control is clicked. */
   onClick: () => void
+  /** Shown but unavailable: greyed, and a click does nothing. */
+  disabled?: boolean
 }
 
 /**
@@ -33,6 +35,8 @@ export interface ViewerToolbarControls {
   hover?: ViewerToolbarControl
   focus?: ViewerToolbarControl
   wireframe?: ViewerToolbarControl
+  /** The part pulled apart: see `<ExplodedPart>`. Pressed while it is apart. */
+  explode?: ViewerToolbarControl
   section?: ViewerToolbarControl
   measure?: ViewerToolbarControl
   fit?: ViewerToolbarControl
@@ -85,6 +89,7 @@ const ToolbarButton = ({ action, icon, label, toggle = true }: ToolbarButtonProp
       type="button"
       aria-label={label(pressed)}
       aria-pressed={toggle ? pressed : undefined}
+      disabled={control.disabled}
       onClick={control.onClick}
     >
       <ToolbarIcon name={icon} />
@@ -176,6 +181,13 @@ const FocusButton = () => (
 const WireframeButton = () => (
   <ToolbarButton action="wireframe" icon="wireframe" label={() => 'Wireframe'} />
 )
+const ExplodeButton = () => (
+  <ToolbarButton
+    action="explode"
+    icon="explode"
+    label={(pressed) => (pressed ? 'Collapse' : 'Explode')}
+  />
+)
 const SectionButton = () => (
   <ToolbarButton
     action="section"
@@ -235,6 +247,7 @@ const DefaultControls = () => {
     controls.hover ? <HoverButton key="hover" /> : null,
     controls.focus ? <FocusButton key="focus" /> : null,
     controls.wireframe ? <WireframeButton key="wireframe" /> : null,
+    controls.explode ? <ExplodeButton key="explode" /> : null,
     controls.section ? <SectionButton key="section" /> : null,
     controls.measure ? <MeasureButton key="measure" /> : null,
   ].filter(Boolean)
@@ -296,6 +309,7 @@ export const ViewerToolbar = Object.assign(ViewerToolbarRoot, {
   HoverButton,
   FocusButton,
   WireframeButton,
+  ExplodeButton,
   SectionButton,
   MeasureButton,
   FitButton,

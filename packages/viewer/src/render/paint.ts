@@ -3,6 +3,9 @@ import type { FeatureTag } from '../model/types.js'
 import type { PartObject } from './part.js'
 import { type ViewerTheme, directionColor } from './theme.js'
 
+/** What painting needs of a part: its model, and its paint. `createPart` provides it. */
+export type PaintTarget = Pick<PartObject, 'model' | 'clearPaint' | 'paintRegion' | 'paintFeature'>
+
 /**
  * A feature the consumer wants coloured, for a reason the viewer does not need
  * to know — a difficulty band, a setup, a material.
@@ -83,7 +86,7 @@ export interface HighlightLayers {
  * Everywhere else the pointer still wins — it is only the face it just selected
  * that it leaves alone.
  */
-function selectedRegions(part: PartObject, layers: HighlightLayers): Set<number> {
+function selectedRegions(part: PaintTarget, layers: HighlightLayers): Set<number> {
   const regions = new Set<number>()
   for (const tag of layers.selection ?? []) {
     for (const region of part.model.regionIndex.regionsForFeature(tag)) regions.add(region)
@@ -105,7 +108,7 @@ function selectedRegions(part: PartObject, layers: HighlightLayers): Set<number>
  * when the pointer moves away.
  */
 export function applyHighlightLayers(
-  part: PartObject,
+  part: PaintTarget,
   layers: HighlightLayers,
   theme: ViewerTheme,
 ): void {

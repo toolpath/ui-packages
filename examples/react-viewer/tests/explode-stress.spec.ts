@@ -109,7 +109,7 @@ test('the real dense sample animates, recolors individual features, picks, colla
   await expect(selection).toHaveText(pickedFeature)
   expect(await camera(page)).toEqual(fitted)
   for (let cycle = 0; cycle < 2; cycle += 1) {
-    await page.getByRole('button', { name: 'Collapse features', exact: true }).click()
+    await page.getByRole('button', { name: 'Collapse', exact: true }).click()
     await expect(page.getByRole('group', { name: 'Explode options', exact: true })).toHaveCount(0, {
       timeout: 30_000,
     })

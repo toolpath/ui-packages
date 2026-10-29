@@ -1,9 +1,44 @@
-import { buildRegionIndex, directionColor, sameDirection } from '@toolpath/viewer'
-import { Vector3 } from 'three'
+import {
+  EXPLODE_LIMITS,
+  buildRegionIndex,
+  directionColor,
+  explodeFits,
+  sameDirection,
+  type ExplodeGroup,
+  type PartModel,
+} from '@toolpath/viewer'
+import { Box3, Vector3, type BufferGeometry } from 'three'
 import { MODELS } from '../../src/models'
 import { partFromFiles } from '../../src/local-part'
 import { colorGroups, makeGroups } from '../../src/explode/groups'
-import { explodeStats, regionBounds } from '../../src/explode/geometry'
+
+/** Where regions sit in the source mesh, read from their triangle ranges. */
+const regionBounds = (model: PartModel, geometry: BufferGeometry, regions: readonly number[]) => {
+  const box = new Box3()
+  const position = geometry.getAttribute('position')
+  const point = new Vector3()
+  for (const region of new Set(regions)) {
+    const range = model.regionIndex.rangeForRegion(region)!
+    for (let vertex = range.start * 3; vertex < range.end * 3; vertex += 1) {
+      box.expandByPoint(point.fromBufferAttribute(position, vertex))
+    }
+  }
+  return box
+}
+
+/** The triangles a layout copies, beside the package's verdict on whether it draws. */
+const explodeStats = (model: PartModel, groups: readonly ExplodeGroup[]) => ({
+  triangles: groups.reduce(
+    (sum, group) =>
+      sum +
+      [...new Set(group.regionIdxs)].reduce((count, region) => {
+        const range = model.regionIndex.rangeForRegion(region)
+        return count + (range ? range.end - range.start : 0)
+      }, 0),
+    0,
+  ),
+  renderable: explodeFits(model, groups),
+})
 
 const sharp = MODELS.find((part) => part.id === 'sharp-pocket')!
 const reading = sharp.model.features.find((feature) => feature.tag === 'pocket')!
@@ -206,7 +241,10 @@ output.textContent = JSON.stringify({
     directionRenderable: explodeStats(dense.model, denseDirections).renderable,
     overGroupBudget: explodeStats(
       dense.model,
-      Array.from({ length: 513 }, (_, index) => denseFeatures[index % denseFeatures.length]),
+      Array.from(
+        { length: EXPLODE_LIMITS.groups + 1 },
+        (_, index) => denseFeatures[index % denseFeatures.length],
+      ),
     ).renderable,
   },
 })

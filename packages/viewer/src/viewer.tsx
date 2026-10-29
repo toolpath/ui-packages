@@ -64,6 +64,9 @@ export const useSectionStore = (): SectionStore => {
   return store
 }
 
+/** The viewer's cut, or `null` in a canvas of the caller's own. */
+export const useOptionalSectionStore = (): SectionStore | null => useContext(SectionStoreContext)
+
 /** Re-aims the orbit, or `null` when this viewer has the gesture turned off. */
 export type Retarget = ((point: VectorLike) => void) | null
 

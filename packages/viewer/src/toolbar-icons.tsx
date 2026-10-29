@@ -129,6 +129,13 @@ const MeasureIcon = () => (
   </SvgIcon>
 )
 
+/** Pieces flying out from a centre. */
+const ExplodeIcon = () => (
+  <SvgIcon>
+    <path d="m12 2 1.8 5.2 4.7-2.7-.8 5.4 5.3 1.1-4.6 3 3 4.5-5.4-.8-1.1 5.3-3-4.6-4.5 3 .8-5.4L1 14.9l4.6-3-3-4.5 5.4.8L9.1 3l2.9 4.6" />
+  </SvgIcon>
+)
+
 export type ToolbarIconName =
   | 'fit'
   | 'reset'
@@ -145,6 +152,7 @@ export type ToolbarIconName =
   | 'hover'
   | 'focus'
   | 'wireframe'
+  | 'explode'
   | 'section'
   | 'measure'
 
@@ -164,6 +172,7 @@ const ICONS: Record<ToolbarIconName, () => ReactNode> = {
   hover: HoverIcon,
   focus: FocusIcon,
   wireframe: WireframeIcon,
+  explode: ExplodeIcon,
   section: SectionIcon,
   measure: MeasureIcon,
 }

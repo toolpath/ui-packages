@@ -57,7 +57,7 @@ for (const projection of ['perspective', 'orthographic']) {
         { intervals: [100] },
       )
       .toBeGreaterThanOrEqual(2)
-    await page.getByRole('button', { name: 'Collapse features', exact: true }).click()
+    await page.getByRole('button', { name: 'Collapse', exact: true }).click()
     await expect(amount).not.toHaveValue('1')
     await expectHeld(fitted!)
     await expect(page.getByRole('group', { name: 'Explode options' })).toHaveCount(0)
@@ -126,7 +126,7 @@ test('recolors the same feature pieces without rebuilding buffers or losing sele
   await expect.poll(async () => Buffer.compare(featurePaint, await canvas.screenshot())).not.toBe(0)
   expect(await readBuffers()).toEqual(buffers)
   // The loaded part owns a cached batch. Closing and reopening must not rebuild it.
-  await page.getByRole('button', { name: 'Collapse features', exact: true }).click()
+  await page.getByRole('button', { name: 'Collapse', exact: true }).click()
   await expect(page.getByRole('group', { name: 'Explode options', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Explode', exact: true }).click()
   await expect(amount).toHaveValue('1')
@@ -171,9 +171,10 @@ for (const projection of ['perspective', 'orthographic']) {
     const options = page.getByRole('group', { name: 'Explode options', exact: true })
     await expect(options).toHaveCount(0)
     await page.getByRole('button', { name: 'Explode', exact: true }).click()
-    await expect(
-      page.getByRole('button', { name: 'Collapse features', exact: true }),
-    ).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: 'Collapse', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
     const amount = page.getByRole('slider', { name: 'Explosion amount' })
     await expect(amount).toHaveValue('1')
     await expect(options.getByRole('slider')).toHaveCount(1)
@@ -185,7 +186,7 @@ for (const projection of ['perspective', 'orthographic']) {
     await page.waitForTimeout(800)
     await canvas.click({ position: { x: box.width / 2, y: box.height / 2 } })
     await expect(page.locator('p', { hasText: 'Selected:' })).toContainText('front-face')
-    await page.getByRole('button', { name: 'Collapse features', exact: true }).click()
+    await page.getByRole('button', { name: 'Collapse', exact: true }).click()
     await expect(options).toHaveCount(0)
     await page.waitForTimeout(800)
     await canvas.click({ position: { x: box.width / 2, y: box.height / 2 } })
@@ -193,7 +194,7 @@ for (const projection of ['perspective', 'orthographic']) {
     // Repeat the round trip. A cleared normal mesh must not be mistaken for a working collapse.
     await page.getByRole('button', { name: 'Explode', exact: true }).click()
     await amount.fill('1')
-    await page.getByRole('button', { name: 'Collapse features', exact: true }).click()
+    await page.getByRole('button', { name: 'Collapse', exact: true }).click()
     await expect(options).toHaveCount(0)
     await page.waitForTimeout(800)
     await canvas.click({ position: { x: box.width / 2, y: box.height / 2 } })
@@ -251,7 +252,7 @@ test('scrubbing to zero keeps the original mesh paintable when explode is closed
   await page.getByRole('button', { name: 'Explode', exact: true }).click()
   const amount = page.getByRole('slider', { name: 'Explosion amount' })
   await amount.fill('0')
-  await page.getByRole('button', { name: 'Collapse features', exact: true }).click()
+  await page.getByRole('button', { name: 'Collapse', exact: true }).click()
   await expect(page.getByRole('group', { name: 'Explode options' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Top view', exact: true }).click()
   await page.waitForTimeout(900)
@@ -311,7 +312,7 @@ test('defers hidden playback and resumes pending explode and collapse when visib
 
   await amount.fill('0.6')
   await setHidden(true)
-  await page.getByRole('button', { name: 'Collapse features', exact: true }).click()
+  await page.getByRole('button', { name: 'Collapse', exact: true }).click()
   await page.waitForTimeout(300)
   await expect(amount).toHaveValue('0.6')
   await setHidden(false)

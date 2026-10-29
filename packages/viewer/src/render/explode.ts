@@ -67,7 +67,7 @@ interface ExplodeAppearance {
 /** The pointer details a pick reports beyond the hit itself. */
 type ExplodePickContext = Omit<
   BuildPickInput,
-  'model' | 'region' | 'triangleIndex' | 'point' | 'normal'
+  'model' | 'region' | 'triangleIndex' | 'point' | 'normal' | 'scope'
 >
 
 /** Overlays draw only for a selection; the pointer and framing pass through them. */
@@ -346,9 +346,11 @@ export const createExplodeBatch = (
           triangleIndex: found.triangleIndex,
           point: intersection.point.toArray(),
           normal: normal.toArray(),
+          ...(found.group.featureTags ? { scope: found.group.featureTags } : {}),
         }),
         explodeGroupId: found.group.id,
         modelPoint: modelPoint.toArray(),
+        explodeDirection: found.group.direction ?? null,
       }
     },
     setAppearance: ({

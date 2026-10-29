@@ -1,27 +1,39 @@
 import { DEFAULT_THEME, type ViewerTheme } from './theme.js'
 
-/** The explode look without a theme. Not DEFAULT_THEME's values; a theme replaces each one. */
+/** Selection and hover tints: the viewer's warm pair, and a cool pair for warm pieces. */
+export const EXPLODE_TINTS = {
+  warm: { highlight: DEFAULT_THEME.highlight, hover: DEFAULT_THEME.hover },
+  cool: { highlight: 0x2563eb, hover: 0x0ea5e9 },
+} as const
+
+export type ExplodeTint = keyof typeof EXPLODE_TINTS
+
+/**
+ * The explode look without a theme: the part's edges and the viewer's selection colors, as
+ * on `<PartMesh>`, with a pale ghost of the source and a pale source highlight.
+ */
 const EXPLODE_DEFAULTS = {
   ghost: 0xb5c7dc,
-  ghostEdge: 0xa5b7d1,
   ghostEmissive: 0x000000,
-  edge: 0x182535,
-  edgeOpacity: 0.9,
-  selected: 0xffffff,
-  hovered: 0xffffff,
   source: 0xffda83,
 } as const
 
-/** Rendering colors only; piece colors remain application-owned. */
-export const resolveExplodeTheme = (theme?: Partial<ViewerTheme>) => ({
+/** The edge opacity outline fades were tuned at; a theme's own scales them. */
+const TUNED_EDGE_OPACITY = 0.9
+
+/**
+ * Rendering colors only; piece colors remain application-owned. `highlight` and `hover` follow
+ * the layout's tint unless the theme sets them.
+ */
+export const resolveExplodeTheme = (theme?: Partial<ViewerTheme>, tint: ExplodeTint = 'warm') => ({
   ghost: theme?.part ?? EXPLODE_DEFAULTS.ghost,
-  ghostEdge: theme?.edge ?? EXPLODE_DEFAULTS.ghostEdge,
+  ghostEdge: theme?.edge ?? DEFAULT_THEME.edge,
   ghostEmissive: theme?.partEmissive ?? EXPLODE_DEFAULTS.ghostEmissive,
   emissive: theme?.partEmissive ?? DEFAULT_THEME.partEmissive,
-  edge: theme?.edge ?? EXPLODE_DEFAULTS.edge,
-  edgeOpacity: theme?.edgeOpacity ?? EXPLODE_DEFAULTS.edgeOpacity,
-  selected: theme?.highlight ?? EXPLODE_DEFAULTS.selected,
-  hovered: theme?.hover ?? EXPLODE_DEFAULTS.hovered,
+  edge: theme?.edge ?? DEFAULT_THEME.edge,
+  edgeOpacity: theme?.edgeOpacity ?? DEFAULT_THEME.edgeOpacity,
+  selected: theme?.highlight ?? EXPLODE_TINTS[tint].highlight,
+  hovered: theme?.hover ?? EXPLODE_TINTS[tint].hover,
   // The selected piece's source surfaces are what was picked, apart from its selection tint.
   source: theme?.picked ?? EXPLODE_DEFAULTS.source,
 })
@@ -29,6 +41,6 @@ export const resolveExplodeTheme = (theme?: Partial<ViewerTheme>) => ({
 export type ExplodeTheme = ReturnType<typeof resolveExplodeTheme>
 export const DEFAULT_EXPLODE_THEME = resolveExplodeTheme()
 
-/** Outline opacities are tuned at the default edge opacity and scale with a theme's own. */
+/** Outline opacities are tuned at one edge opacity and scale with a theme's own. */
 export const edgeOpacityScale = (theme: ExplodeTheme): number =>
-  theme.edgeOpacity / EXPLODE_DEFAULTS.edgeOpacity
+  theme.edgeOpacity / TUNED_EDGE_OPACITY

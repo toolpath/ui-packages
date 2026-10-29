@@ -71,6 +71,22 @@ describe('viewer styling hooks', () => {
     expect(markup).toContain('aria-pressed="true"')
   })
 
+  it('puts Explode on the default bar, labelled for what a press does, and greys a disabled control', () => {
+    const render = (pressed: boolean, disabled = false) =>
+      renderToStaticMarkup(
+        <ViewerToolbarProvider controls={{ explode: { pressed, disabled, onClick: () => {} } }}>
+          <ViewerToolbar />
+        </ViewerToolbarProvider>,
+      )
+
+    expect(render(false)).toContain('data-viewer-toolbar-action="explode"')
+    expect(render(false)).toContain('aria-label="Explode"')
+    expect(render(true)).toContain('aria-label="Collapse"')
+    expect(render(true)).toContain('aria-pressed="true"')
+    expect(render(false)).not.toContain('disabled=""')
+    expect(render(false, true)).toContain('disabled=""')
+  })
+
   it('puts the sharp-corners button on the default bar, labelled for what a press does', () => {
     const render = (pressed: boolean) =>
       renderToStaticMarkup(

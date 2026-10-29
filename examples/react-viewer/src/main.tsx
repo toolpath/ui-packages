@@ -21,6 +21,7 @@ import {
   ExplodedPart,
   SectionTool,
   Viewer,
+  VisibilityGroup,
   CONTROL_SCHEME_OPTIONS,
   sharpCornerPositions,
   surfaceCreases,
@@ -38,12 +39,7 @@ import {
   type ViewerToolbarControls,
 } from '@toolpath/viewer'
 import { AnalysisOptions } from './analysis-options'
-import {
-  ExplodeButton,
-  ExplodeOptions,
-  PartVisibility,
-  useExampleExplode,
-} from './explode/example-mode'
+import { ExplodeOptions, OnAssembled, useExampleExplode } from './explode/example-mode'
 import type { FeatureSheet } from '@toolpath/dfm/model'
 import { partFromFiles } from './local-part'
 import { type ExampleModel, MODELS, modelFromQuery } from './models'
@@ -397,6 +393,30 @@ const App = () => {
     setDirection(null)
   }
   const toolbarControls: ViewerToolbarControls = {
+    explode: {
+      pressed: explode.enabled,
+      disabled: !explode.ready,
+      onClick: () => {
+        if (!explode.enabled) {
+          viewerRef.current?.setSection(null)
+          setSectioning(false)
+          setCut(null)
+          setMeasuring(false)
+          setMeasured([])
+          heldSelection.current = []
+          setSelected([])
+          setShowDirections(false)
+          setDirection(null)
+          setWireframe(false)
+          setFocus(false)
+          setSharpOn(false)
+          setFeatureHover(true)
+        }
+        setHovered([])
+        setHoverPick(null)
+        explode.toggle()
+      },
+    },
     fit: { onClick: () => viewerRef.current?.fit() },
     reset: { onClick: explode.reset },
     top: { onClick: () => viewerRef.current?.setView('top') },
@@ -428,7 +448,6 @@ const App = () => {
         setFeatureHover((enabled) => !enabled)
         setHoverPick(null)
         setHovered([])
-        explode.hover(null)
       },
     },
     focus: {
@@ -821,29 +840,7 @@ const App = () => {
               <ViewerToolbar.HoverButton />
               <ViewerToolbar.FocusButton />
               <ViewerToolbar.WireframeButton />
-              <ExplodeButton
-                state={explode}
-                onClick={() => {
-                  if (!explode.enabled) {
-                    viewerRef.current?.setSection(null)
-                    setSectioning(false)
-                    setCut(null)
-                    setMeasuring(false)
-                    setMeasured([])
-                    heldSelection.current = []
-                    setSelected([])
-                    setShowDirections(false)
-                    setDirection(null)
-                    setWireframe(false)
-                    setFocus(false)
-                    setSharpOn(false)
-                    setFeatureHover(true)
-                  }
-                  setHovered([])
-                  setHoverPick(null)
-                  explode.toggle()
-                }}
-              />
+              <ViewerToolbar.ExplodeButton />
               <ViewerToolbar.SectionButton />
               <ViewerToolbar.MeasureButton />
               <ViewerToolbar.Divider />
@@ -881,89 +878,78 @@ const App = () => {
             projection={projection}
             controls={controls}
             showOrbitTarget={showOrbitTarget}
-            onPointerMissed={() => {
-              setSelected([])
-              explode.select(null)
-            }}
+            onPointerMissed={() => setSelected([])}
           >
             <CameraReadout onChange={onCamera} />
-            <PartVisibility visible={!explode.visible} onVisible={explode.onAssembled}>
-              <PartMesh
-                model={part.model}
-                geometry={part.geometry}
-                selection={selected}
-                focus={focus ? {} : undefined}
-                display={wireframe ? 'wireframe' : 'solid'}
-                sharpCorners={sharpCorners}
-                regionHighlights={highlights}
-                hover={featureHover}
-                activeDirection={showDirections ? direction : null}
-                onSectionChange={(state) => {
-                  setCut(state.enabled ? state : null)
-                  if (state.enabled) setOffset(state.offset)
-                }}
-                onHover={(pick: PartPick | null) => {
-                  setHovered(pick ? [...pick.owners] : [])
-                  setHoverPick(pick)
-                }}
-                onPick={(pick: PartPick) => {
-                  explode.select(null)
-                  setSelected([...pick.ranked])
-                }}
-              >
-                {measuring ? <MeasureTool measurements={measured} onChange={setMeasured} /> : null}
-              </PartMesh>
-            </PartVisibility>
-            {explode.renderable ? (
-              <ExplodedPart
-                model={part.model}
-                geometry={part.geometry}
-                explode={explode.input}
-                selected={explode.selected}
-                hovered={explode.hovered}
-                activeDirection={showDirections ? direction : null}
-                visible={explode.visible}
-                onReady={explode.onPrepared}
-                onPick={(pick) => {
-                  const group = explode.groups.find((entry) => entry.id === pick.explodeGroupId)
-                  explode.select(group?.id ?? null)
-                  setSelected(group ? [...group.featureTags] : [...pick.ranked])
-                }}
-                onHover={(pick) => {
-                  const group = explode.groups.find((entry) => entry.id === pick?.explodeGroupId)
-                  explode.hover(featureHover ? (group?.id ?? null) : null)
-                  setHovered(featureHover && pick ? [...(group?.featureTags ?? pick.owners)] : [])
-                  setHoverPick(
-                    featureHover && pick
-                      ? { ...pick, best: group?.activeFeatureTag ?? pick.best }
-                      : null,
-                  )
-                }}
-              />
-            ) : null}
-            {showStock && stockSource === 'geometry' && stockShape === 'cylinder' ? (
-              <Stock
-                cylinder={{
-                  partGeometry: part.geometry,
-                  ...stockCylinder,
-                  position: stockPosition,
-                  positionOffset: stockPositionOffset,
-                }}
-              />
-            ) : null}
-            {showStock && stockSource === 'glb' ? (
-              <Stock glb={stockMeshSize === '40' ? STOCK_GLB_BYTES : LARGE_STOCK_GLB_BYTES} />
-            ) : null}
-            {showStock && stockSource === 'geometry' && stockShape === 'box' ? (
-              <Stock
-                box={{
-                  partGeometry: part.geometry,
-                  dimensions: stockDimensions,
-                  position: stockPosition,
-                  positionOffset: stockPositionOffset,
-                }}
-              />
-            ) : null}
+            <OnAssembled assembled={!explode.visible} onAssembled={explode.onAssembled} />
+            {/* Hidden while its exploded pieces stand in for it, and kept mounted. */}
+            <PartMesh
+              visible={!explode.visible}
+              model={part.model}
+              geometry={part.geometry}
+              selection={selected}
+              focus={focus ? {} : undefined}
+              display={wireframe ? 'wireframe' : 'solid'}
+              sharpCorners={sharpCorners}
+              regionHighlights={highlights}
+              hover={featureHover}
+              activeDirection={showDirections ? direction : null}
+              onSectionChange={(state) => {
+                setCut(state.enabled ? state : null)
+                if (state.enabled) setOffset(state.offset)
+              }}
+              onHover={(pick: PartPick | null) => {
+                setHovered(pick ? [...pick.owners] : [])
+                setHoverPick(pick)
+              }}
+              onPick={(pick: PartPick) => setSelected([...pick.ranked])}
+            >
+              {/* Reads the part's model and mesh, and stays drawn while the part is hidden. */}
+              {explode.renderable ? (
+                <ExplodedPart
+                  explode={explode.input}
+                  selectedFeatures={selected}
+                  hover={featureHover}
+                  activeDirection={showDirections ? direction : null}
+                  visible={explode.visible}
+                  onPick={(pick) => setSelected([...pick.owners])}
+                  onHover={(pick) => {
+                    const group = explode.groups.find((entry) => entry.id === pick?.explodeGroupId)
+                    setHovered(pick ? [...pick.owners] : [])
+                    setHoverPick(
+                      pick ? { ...pick, best: group?.activeFeatureTag ?? pick.best } : null,
+                    )
+                  }}
+                />
+              ) : null}
+              {measuring ? <MeasureTool measurements={measured} onChange={setMeasured} /> : null}
+            </PartMesh>
+            {/* Hidden, and out of picking and Fit, while the exploded pieces stand in for the part. */}
+            <VisibilityGroup visible={!explode.visible}>
+              {showStock && stockSource === 'geometry' && stockShape === 'cylinder' ? (
+                <Stock
+                  cylinder={{
+                    partGeometry: part.geometry,
+                    ...stockCylinder,
+                    position: stockPosition,
+                    positionOffset: stockPositionOffset,
+                  }}
+                />
+              ) : null}
+              {showStock && stockSource === 'glb' ? (
+                <Stock glb={stockMeshSize === '40' ? STOCK_GLB_BYTES : LARGE_STOCK_GLB_BYTES} />
+              ) : null}
+              {showStock && stockSource === 'geometry' && stockShape === 'box' ? (
+                <Stock
+                  box={{
+                    partGeometry: part.geometry,
+                    dimensions: stockDimensions,
+                    position: stockPosition,
+                    positionOffset: stockPositionOffset,
+                  }}
+                />
+              ) : null}
+            </VisibilityGroup>
             <DirectionArrows
               visible={showDirections && !sectioning && !measuring}
               directions={part.model.candidateDirections}
