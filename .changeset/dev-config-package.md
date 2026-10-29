@@ -12,7 +12,7 @@ Add `@toolpath/dev-config`, shared development configuration for Toolpath reposi
   presets. Every rule is an error or off. `eslint-disable` comments need a reason, may not be
   unlimited or turn off the rules in `UNSUPPRESSIBLE`, and comments may not configure rules;
   `createCommentAuditConfig()` checks the comments in CI with inline configuration disabled.
-  Requires Node 22.13, ESLint 10.4 and TypeScript 6.0 or later.
+  Requires Node 22.13, ESLint 10.4 and TypeScript 6 (TypeScript 7 is not supported yet).
 - `@toolpath/dev-config/prettier`: the shared Prettier config.
 - `@toolpath/dev-config/tsconfig/{base,browser,node,library}.json`: strict TypeScript bases.
 - `@toolpath/dev-config/react-compiler`: the shared compiler options, a Vite plugin that fails a
