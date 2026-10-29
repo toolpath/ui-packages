@@ -107,6 +107,29 @@ test('a double click on a face aims the orbit at the point that was clicked', as
 })
 
 /**
+ * The measure tool takes the part's clicks, and a double click among them is
+ * still the view's: it aims the orbit at the face clicked. Its first click
+ * measures the face; its second does not take it away again.
+ */
+test('a double click while measuring aims the orbit at the point that was clicked', async ({
+  page,
+}) => {
+  const { canvas, box } = await openViewer(page, ORTHOGRAPHIC)
+  const measured = page.locator('p', { hasText: 'Measured:' })
+
+  await page.getByRole('button', { name: 'Measure', exact: true }).click()
+  await expect(measured).toContainText('none')
+  expectPivot(await readCamera(page), ORIGIN)
+
+  await canvas.dblclick({ position: on(box, RIGHT) })
+  await expect(measured).toHaveText(/1 measurement, last face$/)
+  await expect.poll(async () => (await readCamera(page)).target[0]).toBeCloseTo(RIGHT_FACE_X, 3)
+  const pose = await readCamera(page)
+  expect(Math.abs(pose.target[1])).toBeLessThan(RIGHT_FACE_X)
+  expect(Math.abs(pose.target[2])).toBeLessThan(RIGHT_FACE_X)
+})
+
+/**
  * An orbit released over the part is not half of a double click.
  *
  * The part is one mesh, so an orbit that ends over it is still a `click` as far

@@ -142,6 +142,8 @@ describe('underPointer on a cut part', () => {
     const found = underPointer(cutCube(), over(1, 2), null)
     expect(found).not.toBeNull()
     expect(found?.under.on).toBeNull()
+    // Where a double click aims the orbit: on the cut face, in world space.
+    expect(found?.at?.toArray().map((value) => Number(value.toFixed(6)))).toEqual([1, 2, 0])
   })
 
   it('puts an Alt point on the cut face', () => {
@@ -169,9 +171,10 @@ describe('underPointer on a cut part', () => {
 describe('underPointer on a part away from the origin', () => {
   const SHIFT = 3
 
-  it('gives a face picked in mesh space', () => {
-    const point = underPointer(cutCube(SHIFT), near(SHIFT + 5, 1, -2), null)?.under.on?.face.point
-    expect(point?.[0]).toBeCloseTo(5, 6)
+  it('gives a face picked in mesh space, and where the ray met it in world space', () => {
+    const found = underPointer(cutCube(SHIFT), near(SHIFT + 5, 1, -2), null)
+    expect(found?.under.on?.face.point[0]).toBeCloseTo(5, 6)
+    expect(found?.at?.x).toBeCloseTo(SHIFT + 5, 6)
   })
 
   it('gives an Alt point on the cut face in mesh space', () => {

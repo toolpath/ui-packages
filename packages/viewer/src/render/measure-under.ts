@@ -196,6 +196,11 @@ export interface AltSnap {
 export interface Found {
   under: Under
   line: number | null
+  /**
+   * Where the pointer's ray meets the part, on a face of its own or on one a
+   * cut made, in world space: where a double click aims the orbit. Null off the part.
+   */
+  at: Vector3 | null
 }
 
 /**
@@ -205,8 +210,8 @@ export interface Found {
  * a cut made is no face of the part's: where the ray meets one first, the
  * pointer is on the part but on no face, and the face behind it is not offered.
  *
- * Its points are in the mesh's own space, as the part's faces are
- * (`surfaceFor`) and as the tool draws: the rays are cast in world space,
+ * Its points, all but `at`, are in the mesh's own space, as the part's faces
+ * are (`surfaceFor`) and as the tool draws: the rays are cast in world space,
  * and what they find is brought back.
  */
 export const underPointer = (part: PartAt, screen: ScreenAt, alt: AltSnap | null): Found | null => {
@@ -219,7 +224,8 @@ export const underPointer = (part: PartAt, screen: ScreenAt, alt: AltSnap | null
   const landing = onCap ? cap : hit && { point: hit.point, surface: hit.object as Mesh }
   const near = alt ? snapNear(part, screen, alt, landing) : null
   const snap = near?.snap ?? null
-  return on || snap || onCap ? { under: { on, snap }, line: near?.line ?? null } : null
+  if (!on && !snap && !onCap) return null
+  return { under: { on, snap }, line: near?.line ?? null, at: landing?.point ?? null }
 }
 
 /** The first face a ray meets that a section cut has not taken away. */

@@ -1,6 +1,6 @@
 import { useThree } from '@react-three/fiber'
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
-import { Matrix4, Raycaster, type BufferGeometry } from 'three'
+import { Matrix4, Raycaster, type BufferGeometry, type Vector3 } from 'three'
 import { createMeasureHint, type CanvasSpot } from './measure-hint.js'
 import type { PartModel } from './model/types.js'
 import type { ViewerCamera } from './render/camera.js'
@@ -21,7 +21,7 @@ import {
 } from './render/measure-picks.js'
 import { cutSampler, onCanvas, partSphere, underPointer } from './render/measure-under.js'
 import { partSurfaces } from './render/part-surfaces.js'
-import { TAP_SLOP } from './render/tap.js'
+import { TAP_SLOP, trackDoubleTaps } from './render/tap.js'
 import { onViewCube, type ViewCubePlace } from './render/view-cube.js'
 
 /** The part measured, and what the tool already knows of it. */
@@ -36,6 +36,8 @@ export interface MeasuredPart {
 export interface PointerHandlers {
   onPick: (pick: MeasurePick, keep: boolean, pairs: Pairs) => void
   onClear: () => void
+  /** A double click or tap, on the part at `at`, in world space. */
+  onDouble: (at: Vector3) => void
   format: (mm: number) => string
   /** Where a view cube stands, whose clicks are its own; null for none. */
   viewCube: ViewCubePlace | null
@@ -82,10 +84,11 @@ const NO_MOVE = new Matrix4()
  *
  * A click picks exactly what was shown. A click off the part clears the
  * measurements; a plain click on the part with nothing to pick, such as on
- * a face a section cut made, does nothing. A drag is no click, a double
- * click's second click is left to the viewer, which re-aims the orbit with
- * it, only the left button picks, a click on the view cube is the cube's,
- * and a click whose press came before the tool was listening is not its.
+ * a face a section cut made, does nothing. A drag is no click, only the left
+ * button picks, a click on the view cube is the cube's, and a click whose
+ * press came before the tool was listening is not its. A double click is
+ * paired as the part pairs it (`trackDoubleTaps`) and goes to `onDouble` at
+ * the point clicked; its second click picks nothing.
  */
 export const useMeasurePointer = (
   part: MeasuredPart,
@@ -100,6 +103,8 @@ export const useMeasurePointer = (
   const pairs = useMemo(() => pairsOn(surfaceFor), [surfaceFor])
   // Kept past a re-run of the effect below, so a pointer that has not moved is read again.
   const last = useRef<ClientSpot | null>(null)
+  // Kept past a re-run too: a pick can resize the canvas between a double click's two clicks.
+  const [doubles] = useState(trackDoubleTaps)
 
   useEffect(() => {
     // Off, the tool sees no moves: where the pointer was is not where it will be.
@@ -115,6 +120,8 @@ export const useMeasurePointer = (
     let zooming = false
     let under: Under | null = null
     let onPart = false
+    // Where the ray met the part at the last read, in world space.
+    let hit: Vector3 | null = null
     let heldCorner: Snapped | null = null
     let heldLine: number | null = null
     let pressedAt: ClientSpot | null = null
@@ -125,6 +132,7 @@ export const useMeasurePointer = (
       setShown((previous) => (sameShown(previous, next) ? previous : next))
     const letGo = (): void => {
       under = null
+      hit = null
       heldCorner = null
       heldLine = null
       hint.hide()
@@ -171,6 +179,7 @@ export const useMeasurePointer = (
       const at3d = { model, geometry, surfaceFor, holes, cut, surfaces, raycaster }
       const found = underPointer(at3d, screen, reach && { reach, heldLine })
       onPart = found !== null
+      hit = found?.at ?? null
       if (!reach) heldCorner = null
       const snap = reach ? holdCorner(found?.under.snap ?? null, pointer, reach, meshToWorld) : null
       heldLine = snap?.kind === 'edge' ? (found?.line ?? null) : null
@@ -241,6 +250,7 @@ export const useMeasurePointer = (
     const onLeave = (event: PointerEvent): void => {
       if (event.pointerType !== 'mouse') return
       last.current = null
+      doubles.reset()
       letGo()
     }
     // Read where the press lands: a touch or a pen has no hover before it, and Alt may have changed unseen.
@@ -263,13 +273,22 @@ export const useMeasurePointer = (
     const onClick = (event: MouseEvent): void => {
       const pressed = pressedAt
       pressedAt = null
-      if (!pressed || event.detail > 1 || distance(event, pressed) > TAP_SLOP) return
-      if (onCube(pointerOf(pressed))) return
-      // Alt as the click has it, so a ring left up by a missed keyup cannot make a plain click a point.
-      const pick = under && (event.altKey ? pickFrom(under) : (under.on?.face ?? null))
-      if (pick) handlers.current.onPick(pick, event.shiftKey, pairs)
-      // Only a click off the part clears: a plain click on a corner just off it, or on a cut face, does nothing.
-      else if (!under && !onPart) handlers.current.onClear()
+      if (!pressed) return
+      // A drag between two clicks, or a click on the cube, breaks a double click up.
+      if (distance(event, pressed) > TAP_SLOP || onCube(pointerOf(pressed))) {
+        doubles.reset()
+        return
+      }
+      const doubled = doubles.isDouble(event)
+      if (event.detail <= 1) {
+        // Alt as the click has it, so a ring left up by a missed keyup cannot make a plain click a point.
+        const pick = under && (event.altKey ? pickFrom(under) : (under.on?.face ?? null))
+        if (pick) handlers.current.onPick(pick, event.shiftKey, pairs)
+        // Only a click off the part clears: a plain click on a corner just off it, or on a cut face, does nothing.
+        else if (!under && !onPart) handlers.current.onClear()
+      }
+      // After the pick, as the part orders it: the re-aim moves the view the pick was read in.
+      if (doubled && hit) handlers.current.onDouble(hit)
     }
     const listeners: [EventTarget, string, EventListener][] = [
       [canvas, 'pointermove', onMove as EventListener],
@@ -294,7 +313,21 @@ export const useMeasurePointer = (
       hint.remove()
       setShown(null)
     }
-  }, [active, gl, camera, size, scene, model, geometry, surfaceFor, holes, cut, pairs, handlers])
+  }, [
+    active,
+    gl,
+    camera,
+    size,
+    scene,
+    model,
+    geometry,
+    surfaceFor,
+    holes,
+    cut,
+    pairs,
+    handlers,
+    doubles,
+  ])
 
   return shown
 }
