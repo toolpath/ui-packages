@@ -1,9 +1,75 @@
+import { Html } from '@react-three/drei/web/Html.js'
 import { addAfterEffect, useThree } from '@react-three/fiber'
-import { useEffect } from 'react'
-import { MEASURE_LABEL_CLASS } from './render/measure.js'
+import { type CSSProperties, useEffect, useRef } from 'react'
+import type { Vector3 } from 'three'
+import {
+  MEASURE_LABEL_CLASS,
+  cssColor,
+  labelValue,
+  type LabelPress,
+  type MeasureLabelKind,
+} from './render/measure.js'
 
-/** What a label is, for a stylesheet to tell them apart. */
-export type MeasureLabelKind = 'face' | 'delta'
+/**
+ * The measure tool's labels and points as the web draws them: elements laid
+ * over the canvas (drei's `Html`), styled by the page. React Native's are in
+ * `measure-labels.native.tsx`.
+ */
+
+/** A label as the tool reads it out (`measure-readout.tsx`). */
+export interface MeasureLabelProps {
+  at: Vector3
+  text: string
+  kind: MeasureLabelKind
+  axis?: 'x' | 'y' | 'z'
+  /** Its measurement's colour, CSS; none for a distance's leg, which wears its axis's. */
+  color?: string
+  /** The label's class: {@link MEASURE_LABEL_CLASS}, and the consumer's beside it. */
+  labelClass: string
+  /** Pressing it; on the web a click is read where the labels live (`MeasureLabelChrome`). */
+  onPress?: () => void
+  /** Ignored: React Native's, for a screen reader. */
+  hint?: string
+}
+
+/** A measure label: an unstyled element whose look is the page's stylesheet's. */
+export const MeasureLabel = ({ at, text, kind, axis, color, labelClass }: MeasureLabelProps) => (
+  <Html position={at} center zIndexRange={[20, 0]} pointerEvents="none">
+    <div
+      className={labelClass}
+      data-measure-label={kind}
+      data-axis={axis}
+      style={color ? ({ '--measure-color': color } as CSSProperties) : undefined}
+    >
+      {/* What a click on the label copies. */}
+      <span data-measure-value>{text}</span>
+    </div>
+  </Html>
+)
+
+/** The size of a point picked, in CSS pixels, and of the white ring round it. */
+const MARKER_STYLE: CSSProperties = {
+  width: '10px',
+  height: '10px',
+  boxSizing: 'border-box',
+  border: '2px solid #fff',
+  borderRadius: '9999px',
+  boxShadow: '0 1px 3px rgb(0 0 0 / 30%)',
+}
+
+/**
+ * Set on the box drei wraps round a dot. Its `pointerEvents` prop does not
+ * reach that box unless `transform` is set, and the box, the dot's size,
+ * would take a click on the point from the part.
+ */
+const DEAF: CSSProperties = { pointerEvents: 'none' }
+
+/** A point picked: a dot on screen, a set size however far off. */
+export const PointMarker = ({ at, color }: { at: Vector3; color: number }) => (
+  <Html position={at} center zIndexRange={[20, 0]} style={DEAF}>
+    <div style={{ ...MARKER_STYLE, backgroundColor: cssColor(color) }} />
+  </Html>
+)
 
 /** The room left between two labels, in CSS pixels. */
 const GAP_PIXELS = 4
@@ -107,7 +173,7 @@ const useLabelRoot = (): HTMLElement | null =>
  * callback in the frame would read that label before drei had moved it.
  * It draws nothing.
  */
-export const MeasureLabelDeclutter = (): null => {
+const MeasureLabelDeclutter = (): null => {
   const labelRoot = useLabelRoot()
   const invalidate = useThree((state) => state.invalidate)
 
@@ -132,9 +198,6 @@ export const MeasureLabelDeclutter = (): null => {
   return null
 }
 
-/** A hole's count at the front of its label (`4× ⌀ 6.350 mm`), which is not its value. */
-const HOLE_COUNT = /^\s*\d+×\s*/
-
 /** How long a label shows it was copied, ms. */
 const COPIED_MS = 1200
 
@@ -145,16 +208,9 @@ const copyable = (target: EventTarget | null): HTMLElement | null => {
 }
 
 /**
- * The number a label reads, without its words or its unit: `⌀ 6.35 mm` and
- * `Angle 45.0°` copy as `6.35` and `45.0`, ready to paste into a field that
- * wants a number; `4× ⌀ 6.35 mm` copies the diameter, not the count. A label
- * with no number copies as it reads.
- */
-const labelValue = (text: string): string =>
-  text.replace(HOLE_COUNT, '').match(/-?\d+(?:\.\d+)?/)?.[0] ?? text.trim()
-
-/**
- * A click on a measurement's label copies its value.
+ * A click on a measurement's label copies its value (`labelValue`): `⌀ 6.35 mm`
+ * copies as `6.35`, ready to paste into a field that wants a number. Where
+ * `onPress` is given, the click goes to it instead, and nothing is copied.
  *
  * The labels are drei's `Html`, outside the canvas, so this listens where
  * they all live. It listens in the capture phase and stops a press that
@@ -165,8 +221,11 @@ const labelValue = (text: string): string =>
  * A label takes the pointer only where the stylesheet lets it
  * (`pointer-events: auto`); its wrapper never does.
  */
-export const MeasureLabelCopy = (): null => {
+const MeasureLabelCopy = ({ onPress }: { onPress?: (label: LabelPress) => void }): null => {
   const labelRoot = useLabelRoot()
+  // Read at the click, so a new handler each render does not set the listeners up afresh.
+  const press = useRef(onPress)
+  press.current = onPress
 
   useEffect(() => {
     if (!labelRoot) return
@@ -177,10 +236,14 @@ export const MeasureLabelCopy = (): null => {
       const label = copyable(event.target)
       if (!label) return
       event.stopPropagation()
-      const value = label.querySelector('[data-measure-value]')?.textContent ?? label.textContent
+      const text = label.querySelector('[data-measure-value]')?.textContent ?? label.textContent
+      if (press.current) {
+        press.current({ text: text ?? '', value: labelValue(text ?? '') })
+        return
+      }
       // No clipboard (off a secure origin) or a refused one only means no "Copied" mark.
       navigator.clipboard
-        ?.writeText(labelValue(value ?? ''))
+        ?.writeText(labelValue(text ?? ''))
         .then(() => {
           label.dataset.copied = ''
           window.setTimeout(() => delete label.dataset.copied, COPIED_MS)
@@ -198,3 +261,15 @@ export const MeasureLabelCopy = (): null => {
 
   return null
 }
+
+/**
+ * What the labels need beside them on the web: keeping them off each other,
+ * and a click on one, which copies its value, or goes to `onPress` where
+ * that is given.
+ */
+export const MeasureLabelChrome = ({ onPress }: { onPress?: (label: LabelPress) => void }) => (
+  <>
+    <MeasureLabelDeclutter />
+    <MeasureLabelCopy onPress={onPress} />
+  </>
+)

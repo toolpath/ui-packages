@@ -15,7 +15,7 @@ import {
   type Raycaster,
 } from 'three'
 import { toVector, type HoleIndex, type Point, type SurfaceFor } from './face-measure.js'
-import type { OnFace, SnapReach, Snapped, Under } from './measure-picks.js'
+import type { MeasurePick, OnFace, Pairs, SnapReach, Snapped, Under } from './measure-picks.js'
 import {
   cornersNear,
   edgeCorners,
@@ -26,14 +26,51 @@ import {
   type ScreenAt,
 } from './edge-corners.js'
 import { capHit, clipSegments, sectionContour } from './resample.js'
+import type { ViewCubePlace } from './view-cube.js'
 
 /**
  * What is under the measure tool's pointer, read with rays of its own at the
  * part (`underPointer`): the face, and with Alt where a point snaps.
  */
 
+/** The part measured, and what the tool already knows of it. */
+export interface MeasuredPart {
+  model: PartModel
+  geometry: BufferGeometry
+  surfaceFor: SurfaceFor
+  holes: HoleIndex
+}
+
+/**
+ * What the measure tool's input does to the measurements, and how it reads
+ * them: the same for a pointer and for a finger (`measure-pointer.ts`, and its
+ * `.native` sibling). Read afresh at each event.
+ */
+export interface PointerHandlers {
+  onPick: (pick: MeasurePick, keep: boolean, pairs: Pairs) => void
+  onClear: () => void
+  /** Drops the last pick; false where there was none to drop. */
+  onDrop: () => boolean
+  /** A double click or tap, on the part at `at`, in world space. */
+  onDouble: (at: Vector3) => void
+  format: (mm: number) => string
+  /** Where a view cube stands, whose clicks are its own; null for none. */
+  viewCube: ViewCubePlace | null
+  /** Points rather than faces, as Alt (Option) picks them. */
+  points: boolean
+  /** Keep what is on screen, as Shift does. */
+  keep: boolean
+}
+
+/** What the part paints for the input: the face it is on, and the edge a point is on. */
+export interface PointerShown {
+  region: number | null
+  /** The edge a point snaps to or is the middle of, as points along it, drawn bold. */
+  edge: readonly Point[] | null
+}
+
 /** The part's edges to snap to: its corners and straight edges' middles, and its edges whole. */
-export interface EdgeSnaps {
+interface EdgeSnaps {
   corners: readonly EdgeCorner[]
   lines: EdgeLines
   /**

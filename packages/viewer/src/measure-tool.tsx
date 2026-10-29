@@ -8,9 +8,8 @@ import {
   useSyncExternalStore,
 } from 'react'
 import type { Vector3 } from 'three'
-import { HOVER_COLORS } from './measure-hint.js'
-import { MeasureLabelCopy, MeasureLabelDeclutter } from './measure-labels.js'
-import { useMeasurePointer, type PointerHandlers } from './measure-pointer.js'
+import { MeasureLabelChrome } from './measure-labels.js'
+import { useMeasurePointer } from './measure-pointer.js'
 import { HoverEdge, Measurements, labelClassOf, measureColor } from './measure-readout.js'
 import type { PartModel } from './model/types.js'
 import { PartPaintContext, usePartContext } from './part-context.js'
@@ -22,8 +21,9 @@ import {
   type HoleIndex,
   type SurfaceFor,
 } from './render/face-measure.js'
-import { formatMillimetres } from './render/measure.js'
+import { HOVER_COLORS, formatMillimetres, type LabelPress } from './render/measure.js'
 import { clickPick, dropLastPick, isFace, type MeasureGroup } from './render/measure-picks.js'
+import type { PointerHandlers } from './render/measure-under.js'
 import { HOVER_WEIGHT, type RegionHighlight } from './render/paint.js'
 import type { ViewCubeProps } from './primitives.js'
 import { useRetarget, useSectionStore } from './viewer.js'
@@ -36,14 +36,18 @@ export interface MeasureToolProps {
    * part changes.
    */
   measurements?: readonly MeasureGroup[]
-  /** The list changed: a click picked, Delete dropped the last pick, or a click off the part cleared it. */
+  /**
+   * The list changed: a click or a tap picked, Delete dropped the last pick,
+   * or a click or a tap off the part cleared it. On React Native, where there
+   * is no Delete, an app drops the last pick itself with `dropLastPick`.
+   */
   onChange?: (measurements: readonly MeasureGroup[]) => void
   /**
    * Writes a length. Millimetres to two places unless told otherwise: the
    * part is in millimetres, and converting is the consumer's call.
    */
   format?: (mm: number) => string
-  /** Added to every label's `className`, beside {@link MEASURE_LABEL_CLASS}. */
+  /** Added to every label's `className`, beside {@link MEASURE_LABEL_CLASS}. Ignored on React Native. */
   labelClassName?: string
   /**
    * The `alignment` and `margin` of the `<ViewCube>` beside the part, whose
@@ -51,6 +55,29 @@ export interface MeasureToolProps {
    * is no cube.
    */
   viewCube?: Pick<ViewCubeProps, 'alignment' | 'margin'> | null
+  /**
+   * Place points rather than take faces, as Alt (Option) does on the web,
+   * where either one does it. For a touch screen, which has no Alt.
+   */
+  points?: boolean
+  /**
+   * Keep what is on screen and start another measurement, as Shift does on
+   * the web, where either one does it.
+   */
+  keep?: boolean
+  /**
+   * A label was pressed: `text` is the label as drawn (`X 12.30 mm`), and
+   * `value` the bare number in it (`12.30`). On the web it takes the place of
+   * the copy a click makes; on React Native the labels can be pressed only
+   * where it is given.
+   */
+  onLabelPress?: (label: { text: string; value: string }) => void
+  /**
+   * What a screen reader is told pressing a label does, such as "Copies the
+   * measurement", on React Native: what a press does is the app's own. None
+   * unless given, and ignored on the web.
+   */
+  labelHint?: string
 }
 
 const NONE: readonly MeasureGroup[] = []
@@ -58,21 +85,22 @@ const NONE: readonly MeasureGroup[] = []
 const CUBE_AS_DRAWN = {}
 
 /**
- * Measure the part by what is clicked. Mount it inside `<PartMesh>` or
- * `<EnginePart>`.
+ * Measure the part by what is clicked or tapped. Mount it inside `<PartMesh>`
+ * or `<EnginePart>`.
  *
  * The tool has no modes. A plain click on a face takes the whole face, and on
- * a hole the whole hole. With Alt (Option) held a click places a point,
- * snapped to a corner, the middle of a straight edge, or an edge where one is
- * near, and on the face where none is. Two picks are read together where
- * they make a dimension: the distance between points, from a point or a
- * hole's centre line to a plane, the gap or the angle between two planes.
+ * a hole the whole hole. With Alt (Option) held, or `points`, a click places
+ * a point, snapped to a corner, the middle of a straight edge, or an edge
+ * where one is near, and on the face where none is. Two picks are read
+ * together where they make a dimension: the distance between points, from a
+ * point or a hole's centre line to a plane, the gap or the angle between two
+ * planes.
  * Before a click the face under the pointer is tinted, and a caption by the
  * pointer says what a click there picks.
  *
- * A click starts afresh; Shift keeps what is on screen. A click on a face
- * already held drops it, Delete drops the last pick, and a click off the
- * part clears them all. A double click aims the orbit at the point clicked,
+ * A click starts afresh; Shift, or `keep`, keeps what is on screen. A click
+ * on a face already held drops it, Delete drops the last pick, and a click
+ * off the part clears them all. A double click aims the orbit at the point clicked,
  * as it does without the tool, and measures once.
  *
  * It measures the part as a section cut leaves it. The cut faces are solid
@@ -86,7 +114,12 @@ const CUBE_AS_DRAWN = {}
  * Labels are DOM elements laid over the canvas, and they are **unstyled**:
  * what a label looks like is the consumer's stylesheet's, through
  * {@link MEASURE_LABEL_CLASS} and the data attributes on each one. A click
- * on a label copies its number.
+ * on a label copies its number, or goes to `onLabelPress`.
+ *
+ * On React Native a tap does what a click does, with no hover, no caption
+ * and no keys: what was tapped stays painted until the measurements are
+ * cleared, a pinch's lift is no tap, and the labels are the native frame's
+ * (`<SceneLabel>`), pressable where `onLabelPress` is given.
  */
 export const MeasureTool = ({
   measurements,
@@ -94,6 +127,10 @@ export const MeasureTool = ({
   format = formatMillimetres,
   labelClassName,
   viewCube = CUBE_AS_DRAWN,
+  points = false,
+  keep = false,
+  onLabelPress,
+  labelHint,
 }: MeasureToolProps) => {
   const { model, geometry } = usePartContext()
   const store = useSectionStore()
@@ -123,27 +160,40 @@ export const MeasureTool = ({
   const holes = useMemo(() => holeIndex(model, surfaceFor), [model, surfaceFor])
   // The part's own double click is off while the tool has its clicks, so the tool re-aims for it.
   const retarget = useRetarget()
-  const handlers = useRef<PointerHandlers>({
-    onPick: (pick, keep, pairs) => commit(clickPick(latest.current.groups, pick, keep, pairs)),
-    onClear: () => commit(NONE),
-    onDouble: (at) => retarget?.(at),
+  // What the input reads afresh at each event, as of this render.
+  const current = {
+    onDouble: (at: Vector3) => retarget?.(at),
     format,
     viewCube,
+    points,
+    keep,
+  }
+  const handlers = useRef<PointerHandlers>({
+    onPick: (pick, kept, pairs) => commit(clickPick(latest.current.groups, pick, kept, pairs)),
+    onClear: () => commit(NONE),
+    onDrop: () => {
+      if (latest.current.groups.length === 0) return false
+      commit(dropLastPick(latest.current.groups))
+      return true
+    },
+    ...current,
   })
-  handlers.current.onDouble = (at) => retarget?.(at)
-  handlers.current.format = format
-  handlers.current.viewCube = viewCube
+  Object.assign(handlers.current, current)
+  // One handler for as long as one is given, whatever the app passes each render:
+  // on React Native a new one would draw every label again.
+  const press = useRef(onLabelPress)
+  press.current = onLabelPress
+  const pressable = onLabelPress !== undefined
+  const pressLabel = useMemo(
+    () => (pressable ? (label: LabelPress) => press.current?.(label) : undefined),
+    [pressable],
+  )
 
   const part = useMemo(
     () => ({ model, geometry, surfaceFor, holes }),
     [model, geometry, surfaceFor, holes],
   )
-  const shown = useMeasurePointer(part, handlers, !picking)
-  useDeleteKey((event) => {
-    if (latest.current.groups.length === 0) return
-    event.preventDefault()
-    commit(dropLastPick(latest.current.groups))
-  })
+  const shown = useMeasurePointer(part, handlers, !picking, groups.length)
   useMeasurePaint(model, surfaceFor, holes, groups, shown?.region ?? null)
   const edge = shown?.edge
   const hoverEdge = useMemo((): Vector3[] | null => (edge ? edge.map(toVector) : null), [edge])
@@ -156,32 +206,13 @@ export const MeasureTool = ({
         holes={holes}
         format={format}
         labelClass={labelClassOf(labelClassName)}
+        onLabelPress={pressLabel}
+        labelHint={labelHint}
       />
       {hoverEdge ? <HoverEdge points={hoverEdge} color={HOVER_COLORS.plane} /> : null}
-      <MeasureLabelDeclutter />
-      <MeasureLabelCopy />
+      <MeasureLabelChrome onPress={pressLabel} />
     </>
   )
-}
-
-const isEditing = (target: EventTarget | null): boolean =>
-  target instanceof HTMLElement &&
-  (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
-
-/** Delete or Backspace, unless a field beside the viewer is being typed in. */
-const useDeleteKey = (onDelete: (event: KeyboardEvent) => void): void => {
-  const latest = useRef(onDelete)
-  latest.current = onDelete
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Delete' && event.key !== 'Backspace') return
-      // Cmd+Backspace and the like are the page's, not a pick dropped.
-      if (event.metaKey || event.ctrlKey || event.altKey || isEditing(event.target)) return
-      latest.current(event)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
 }
 
 /** How strongly the holes the same as a measured one are painted in its colour. */

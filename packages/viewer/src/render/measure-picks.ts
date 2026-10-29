@@ -204,7 +204,11 @@ export const clickPick = (
   return [...before, paired ? [only, pick] : [pick]]
 }
 
-/** Delete: the last pick goes, and with it its measurement if it was alone. */
+/**
+ * The measurements with the last pick taken back, and its measurement with
+ * it if it was alone: what Delete does in `<MeasureTool>`, for an app's own
+ * undo. An empty list comes back as it is.
+ */
 export const dropLastPick = (groups: readonly MeasureGroup[]): readonly MeasureGroup[] => {
   const last = groups[groups.length - 1]
   if (!last) return groups
