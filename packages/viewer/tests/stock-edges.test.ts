@@ -50,7 +50,9 @@ describe('stockEdgePositions', () => {
     ['a jittered mesh', jittered],
     ['an open plane', () => new PlaneGeometry(10, 10, 8, 8)],
     ['a torus knot', large],
-  ])('draws exactly the lines EdgesGeometry draws on %s', (_name, make) => {
+    // The torus knot's two full comparisons take about 0.4 s alone, and past Vitest's 5 s default
+    // on a CI runner that runs every workspace's tests at once.
+  ])('draws exactly the lines EdgesGeometry draws on %s', { timeout: 30_000 }, (_name, make) => {
     const geometry = make()
     expect(Array.from(stockEdgePositions(geometry))).toEqual(threeEdges(geometry))
     expect(Array.from(stockEdgePositions(geometry, 1))).toEqual(threeEdges(geometry, 1))

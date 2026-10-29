@@ -21,6 +21,7 @@ machined, and what it may cost.
 | Share quote flow rules         | `@toolpath/quoting`             | [Quoting](packages/quoting)                                        |
 | Share the cutting-tool domain  | `@toolpath/tool-support`        | [Tool support](packages/tool-support)                              |
 | Share application logic        | `@toolpath/app-support`         | [App support](packages/app-support)                                |
+| Share lint and format config   | `@toolpath/dev-config`          | [Dev config](packages/dev-config)                                  |
 | See usage examples             | TypeScript, Python, or React    | [Examples](#examples)                                              |
 | Start a customer application   | Part Viewer template            | [toolpath-template](https://github.com/toolpath/toolpath-template) |
 | Call the API without an SDK    | HTTP, cURL, or another language | [API documentation](https://developers.toolpath.com)               |
