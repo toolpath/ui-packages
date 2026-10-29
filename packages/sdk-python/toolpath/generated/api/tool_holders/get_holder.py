@@ -107,7 +107,7 @@ def sync_detailed(
     """Get a tool holder
 
      Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder**
-    (`PATCH /holders/{id}`) to have run and its job to have succeeded.
+    (`PATCH /v1/holders/{id}`) to have run and its job to have succeeded.
 
     Args:
         id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -143,7 +143,7 @@ def sync(
     """Get a tool holder
 
      Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder**
-    (`PATCH /holders/{id}`) to have run and its job to have succeeded.
+    (`PATCH /v1/holders/{id}`) to have run and its job to have succeeded.
 
     Args:
         id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -174,7 +174,7 @@ async def asyncio_detailed(
     """Get a tool holder
 
      Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder**
-    (`PATCH /holders/{id}`) to have run and its job to have succeeded.
+    (`PATCH /v1/holders/{id}`) to have run and its job to have succeeded.
 
     Args:
         id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -208,7 +208,7 @@ async def asyncio(
     """Get a tool holder
 
      Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder**
-    (`PATCH /holders/{id}`) to have run and its job to have succeeded.
+    (`PATCH /v1/holders/{id}`) to have run and its job to have succeeded.
 
     Args:
         id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

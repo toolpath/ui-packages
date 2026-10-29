@@ -17,18 +17,28 @@ T = TypeVar("T", bound="JobSummary")
 class JobSummary:
     """
     Attributes:
-        part_uuid (None | UUID): Identifier of the part this job processes, or null when its subject is a holder.
-        holder_uuid (None | UUID): Identifier of the holder this job processes, or null when its subject is a part.
+        part_uuid (None | UUID): Identifier of the part this job processes, or null when its subject is a holder or a
+            file.
+        holder_uuid (None | UUID): Identifier of the holder this job processes, or null when its subject is a part or a
+            file.
+        file_uuid (None | UUID): **Experimental.** Available now and still gaining functionality. It may change in
+            breaking ways in a minor API release; each such change is listed in the release notes, so check them before
+            upgrading.
+
+            Identifier of the file this job inspects, or null when its subject is a part or a holder.
         job_uuid (UUID): Identifier of this job.
         product_type (str): Product operation performed by the job, such as part processing, feature-detail processing,
-            or holder import.
-        status (JobSummaryStatus): Current durable state of the job.
+            holder import, or file inspection.
+        status (JobSummaryStatus): Current state of the job: `queued` until a worker starts it, then `running` until it
+            finishes, including while it waits to be retried after a failed attempt. `succeeded` and `failed` are final: a
+            job in either state never changes again.
         progress (int | None): Worker-reported completion percentage, or null before progress is available.
         created_at (datetime.datetime): Time at which the job was created, in ISO 8601 format.
     """
 
     part_uuid: None | UUID
     holder_uuid: None | UUID
+    file_uuid: None | UUID
     job_uuid: UUID
     product_type: str
     status: JobSummaryStatus
@@ -49,6 +59,12 @@ class JobSummary:
         else:
             holder_uuid = self.holder_uuid
 
+        file_uuid: None | str
+        if isinstance(self.file_uuid, UUID):
+            file_uuid = str(self.file_uuid)
+        else:
+            file_uuid = self.file_uuid
+
         job_uuid = str(self.job_uuid)
 
         product_type = self.product_type
@@ -66,6 +82,7 @@ class JobSummary:
             {
                 "partUuid": part_uuid,
                 "holderUuid": holder_uuid,
+                "fileUuid": file_uuid,
                 "jobUuid": job_uuid,
                 "productType": product_type,
                 "status": status,
@@ -110,6 +127,21 @@ class JobSummary:
 
         holder_uuid = _parse_holder_uuid(d.pop("holderUuid"))
 
+        def _parse_file_uuid(data: object) -> None | UUID:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                file_uuid_type_0 = UUID(data)
+
+                return file_uuid_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | UUID, data)
+
+        file_uuid = _parse_file_uuid(d.pop("fileUuid"))
+
         job_uuid = UUID(d.pop("jobUuid"))
 
         product_type = d.pop("productType")
@@ -128,6 +160,7 @@ class JobSummary:
         job_summary = cls(
             part_uuid=part_uuid,
             holder_uuid=holder_uuid,
+            file_uuid=file_uuid,
             job_uuid=job_uuid,
             product_type=product_type,
             status=status,

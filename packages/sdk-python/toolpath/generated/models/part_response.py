@@ -7,6 +7,8 @@ from uuid import UUID
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..types import UNSET, Unset
+
 if TYPE_CHECKING:
     from ..models.direction_z_bounds import DirectionZBounds
     from ..models.no_axis import NoAxis
@@ -44,22 +46,34 @@ class PartResponse:
             `candidateDirections` were chosen from these, and any other can be added to the part with **Analyze a part**:
             pass it back exactly as served. Null on part results made before this was recorded.
         added_directions (list[Vec3] | None): The directions this run was asked to analyze the part from beyond those
-            the directions analysis chose: the part’s added directions when it was queued. One missing from
-            `candidateDirections` added nothing. Null on part results made before this was recorded.
+            the directions analysis chose: the part’s added directions when it was queued. One within 0.1° of the exact
+            opposite of a direction the part has was added as that exact opposite, which `candidateDirections` holds in its
+            place; any other missing from `candidateDirections` added nothing. Null on part results made before this was
+            recorded.
         direction_z_bounds (list[DirectionZBounds] | None): Part z extents for each candidate direction, or null when
             detail enrichment did not run.
         turnability (NoAxis | None | TurningAxis): How much of the part one turning setup could finish, or null when no
             reading was taken.
         turning (None | TurningBelowThreshold | TurningNoAxis | TurningNotRequested | TurningSpinFailed |
-            TurningTurned): **Experimental.** Available now and still gaining functionality. It may change in breaking ways
-            in a minor API release; each such change is listed in the release notes, so check them before upgrading.
-
-            What reading the part for turning came to, or null when no reading was taken. Narrow on `kind`.
+            TurningTurned): What reading the part for turning came to, or null when no reading was taken. Narrow on `kind`.
         mesh_point_count (int): Number of points in the generated mesh.
         mesh_triangle_count (int): Number of triangles in the generated mesh.
         thumbnail_url (None | str): 15-minute URL for the rendered PNG thumbnail, or null when absent.
         mesh_stl_url (None | str): 15-minute URL for the generated STL mesh, or null when absent.
         mesh_glb_url (None | str): 15-minute URL for the generated GLB mesh, or null when absent.
+        file_id (UUID | Unset): **Experimental.** Available now and still gaining functionality. It may change in
+            breaking ways in a minor API release; each such change is listed in the release notes, so check them before
+            upgrading.
+
+            Identifier of the file this part was made from, absent on a part uploaded on its own and once the file is
+            deleted or pruned past the retention window.
+        body_index (int | Unset): **Experimental.** Available now and still gaining functionality. It may change in
+            breaking ways in a minor API release; each such change is listed in the release notes, so check them before
+            upgrading.
+
+            The `index` of the body of its file this part is: of the file it was made from, or the `bodyIndex` it was
+            uploaded with. Absent on a part uploaded with none. It stays once the file is deleted or pruned, when `fileId`
+            is absent.
     """
 
     part_id: UUID
@@ -80,6 +94,8 @@ class PartResponse:
     thumbnail_url: None | str
     mesh_stl_url: None | str
     mesh_glb_url: None | str
+    file_id: UUID | Unset = UNSET
+    body_index: int | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -181,6 +197,12 @@ class PartResponse:
         mesh_glb_url: None | str
         mesh_glb_url = self.mesh_glb_url
 
+        file_id: str | Unset = UNSET
+        if not isinstance(self.file_id, Unset):
+            file_id = str(self.file_id)
+
+        body_index = self.body_index
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -205,6 +227,10 @@ class PartResponse:
                 "meshGlbUrl": mesh_glb_url,
             }
         )
+        if file_id is not UNSET:
+            field_dict["fileId"] = file_id
+        if body_index is not UNSET:
+            field_dict["bodyIndex"] = body_index
 
         return field_dict
 
@@ -415,6 +441,15 @@ class PartResponse:
 
         mesh_glb_url = _parse_mesh_glb_url(d.pop("meshGlbUrl"))
 
+        _file_id = d.pop("fileId", UNSET)
+        file_id: UUID | Unset
+        if isinstance(_file_id, Unset):
+            file_id = UNSET
+        else:
+            file_id = UUID(_file_id)
+
+        body_index = d.pop("bodyIndex", UNSET)
+
         part_response = cls(
             part_id=part_id,
             report_id=report_id,
@@ -434,6 +469,8 @@ class PartResponse:
             thumbnail_url=thumbnail_url,
             mesh_stl_url=mesh_stl_url,
             mesh_glb_url=mesh_glb_url,
+            file_id=file_id,
+            body_index=body_index,
         )
 
         part_response.additional_properties = d

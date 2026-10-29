@@ -100,7 +100,7 @@ def sync_detailed(
 ) -> Response[File | ProblemDetails]:
     """Get part thumbnail
 
-     Requires **Analyze a part** (`PATCH /parts/{id}`) to have run and its job to have succeeded.
+     Requires **Analyze a part** (`PATCH /v1/parts/{id}`) to have run and its job to have succeeded.
 
     Serves the rendered PNG thumbnail for a part as image bytes, so a client can fetch it with the
     API key it already holds rather than reading `thumbnailUrl` off `GET /v1/parts/{id}` first.
@@ -147,7 +147,7 @@ def sync(
 ) -> File | ProblemDetails | None:
     """Get part thumbnail
 
-     Requires **Analyze a part** (`PATCH /parts/{id}`) to have run and its job to have succeeded.
+     Requires **Analyze a part** (`PATCH /v1/parts/{id}`) to have run and its job to have succeeded.
 
     Serves the rendered PNG thumbnail for a part as image bytes, so a client can fetch it with the
     API key it already holds rather than reading `thumbnailUrl` off `GET /v1/parts/{id}` first.
@@ -189,7 +189,7 @@ async def asyncio_detailed(
 ) -> Response[File | ProblemDetails]:
     """Get part thumbnail
 
-     Requires **Analyze a part** (`PATCH /parts/{id}`) to have run and its job to have succeeded.
+     Requires **Analyze a part** (`PATCH /v1/parts/{id}`) to have run and its job to have succeeded.
 
     Serves the rendered PNG thumbnail for a part as image bytes, so a client can fetch it with the
     API key it already holds rather than reading `thumbnailUrl` off `GET /v1/parts/{id}` first.
@@ -234,7 +234,7 @@ async def asyncio(
 ) -> File | ProblemDetails | None:
     """Get part thumbnail
 
-     Requires **Analyze a part** (`PATCH /parts/{id}`) to have run and its job to have succeeded.
+     Requires **Analyze a part** (`PATCH /v1/parts/{id}`) to have run and its job to have succeeded.
 
     Serves the rendered PNG thumbnail for a part as image bytes, so a client can fetch it with the
     API key it already holds rather than reading `thumbnailUrl` off `GET /v1/parts/{id}` first.

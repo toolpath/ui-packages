@@ -110,7 +110,8 @@ def sync_detailed(
 
      Lists processing jobs, newest first. Every pipeline step that queues work — **Analyze a part**,
     **Analyze part features**, **Create a plan**, **Calculate toolpaths**, and **Import a tool holder**
-    — returns a job you track here.
+    — returns a job. To wait for one job, use **Stream job updates** (`GET /v1/jobs/{id}/events`) rather
+    than listing repeatedly.
 
     Args:
         page (int | Unset):  Default: 1. Example: 1.
@@ -158,7 +159,8 @@ def sync(
 
      Lists processing jobs, newest first. Every pipeline step that queues work — **Analyze a part**,
     **Analyze part features**, **Create a plan**, **Calculate toolpaths**, and **Import a tool holder**
-    — returns a job you track here.
+    — returns a job. To wait for one job, use **Stream job updates** (`GET /v1/jobs/{id}/events`) rather
+    than listing repeatedly.
 
     Args:
         page (int | Unset):  Default: 1. Example: 1.
@@ -201,7 +203,8 @@ async def asyncio_detailed(
 
      Lists processing jobs, newest first. Every pipeline step that queues work — **Analyze a part**,
     **Analyze part features**, **Create a plan**, **Calculate toolpaths**, and **Import a tool holder**
-    — returns a job you track here.
+    — returns a job. To wait for one job, use **Stream job updates** (`GET /v1/jobs/{id}/events`) rather
+    than listing repeatedly.
 
     Args:
         page (int | Unset):  Default: 1. Example: 1.
@@ -247,7 +250,8 @@ async def asyncio(
 
      Lists processing jobs, newest first. Every pipeline step that queues work — **Analyze a part**,
     **Analyze part features**, **Create a plan**, **Calculate toolpaths**, and **Import a tool holder**
-    — returns a job you track here.
+    — returns a job. To wait for one job, use **Stream job updates** (`GET /v1/jobs/{id}/events`) rather
+    than listing repeatedly.
 
     Args:
         page (int | Unset):  Default: 1. Example: 1.

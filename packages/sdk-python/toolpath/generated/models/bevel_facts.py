@@ -51,7 +51,7 @@ class BevelFacts:
                 to the rim, where the cone is widest. Riding the bevel, the cone's near flank lies along
                 the bevel's own line, so its rim sits at height `H − t`, with its near corner at
                 `u = −(H − t) / slope` and its far corner at `u = (t + H) / slope + b`. Above the rim the
-                shank is no wider than the rim.
+                shaft is no wider than the rim.
 
                 The curve admits a tool when three things hold:
 

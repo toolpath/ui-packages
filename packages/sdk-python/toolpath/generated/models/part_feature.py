@@ -24,7 +24,7 @@ class PartFeature:
         region_idxs (list[int]): Indexes of regions this feature covers; join each value to `regions[].idx`.
         feature_type (str): Kernel-recognized feature type. This vocabulary is open-ended as the kernel evolves.
         machining_direction (Vec3):
-        axis (None | Vec3): Feature-local machining axis, such as a face normal; null for older part results.
+        axis (None | Vec3): Deprecated: use `machiningDirection`, which this repeats. Removed in the next API major.
     """
 
     feature_id: UUID

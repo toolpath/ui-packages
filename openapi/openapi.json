@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Toolpath Engine API",
-    "version": "1.29.1",
-    "description": "Public REST API for Toolpath engine operations.\n\n**Experimental.** Machining plans and toolpath calculation — creating, listing, and reading\nplans, calculating toolpaths, and reading toolpath results and machining time — and turning,\nthe `turning` reading of a part, are experimental: available now but still gaining\nfunctionality; planned additions include plan constraints and specifying material and stock,\namong others. You can build against them today, but they may change substantially in a\nminor release — reshaped, renamed, or removed — where the rest of the API keeps breaking\nchanges for a major version, apart from small ones with no material effect on clients. Every\nbreaking change is listed in the release notes, so check them before upgrading. Plan and\ntoolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental\noperation, field, and schema is marked `x-toolpath-experimental`.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis,\nfeature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access\ncan be edited on an existing key in the portal. Every operation states its area in its\n`x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in\n`x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs\nDFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key\nwith no access to the operation’s area is refused with 403 `product_mismatch`; one with read\naccess used for a write is refused with 403 `read_only_key`."
+    "version": "1.35.0",
+    "description": "Public REST API for Toolpath engine operations.\n\n**Waiting for a job.** Every operation that queues work answers `202` with a `jobId`.\nWait for it with **Stream job updates** (`GET /v1/jobs/{id}/events`), a server-sent event\nstream that sends the job at once, sends it again on every change, and closes after\nsending `succeeded` or `failed`. Both are final. An attempt exceeding its configured\ndeadline (default 300 seconds) fails without retry. Exhausted queue deliveries are\nrecovered by the worker from its DLQ, usually within a few minutes after the last\ndelivery with healthy consumers; outages delay recovery. A job still queued after\n24 hours fails. Read the result as soon as the stream sends `succeeded`, and report the `error`\nas soon as it sends `failed`. Do not wait by calling **Get a job** or a result endpoint in\na loop: a stream is one request however long the job runs, while a loop spends one request\nof the key’s rate limit on every call. In a browser, read the stream with `fetch` and an\nSSE parser: `EventSource` cannot send the `Authorization` header.\n\n**Experimental.** Machining plans and toolpath calculation — creating, listing, and reading\nplans, calculating toolpaths, and reading toolpath results and machining time — and\nmulti-body CAD files, under the `Files` tag, are experimental: available now but still\ngaining functionality; planned additions include plan constraints and specifying material and\nstock, among others. You can build against them today, but they may change substantially in a\nminor release — reshaped, renamed, or removed — where the rest of the API keeps breaking\nchanges for a major version, apart from small ones with no material effect on clients. Every\nbreaking change is listed in the release notes, so check them before upgrading. Plan and\ntoolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental\noperation, field, and schema is marked `x-toolpath-experimental`.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis,\nfeature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access\ncan be edited on an existing key in the portal. Every operation states its area in its\n`x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in\n`x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs\nDFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key\nwith no access to the operation’s area is refused with 403 `product_mismatch`; one with read\naccess used for a write is refused with 403 `read_only_key`."
   },
   "tags": [
     {
@@ -17,6 +17,10 @@
     {
       "name": "Parts",
       "description": "Upload a part and queue its machining analysis, then read the analysis."
+    },
+    {
+      "name": "Files",
+      "description": "Upload a CAD file once, list its solid bodies, and make parts of the ones to machine. Experimental — see the description above."
     },
     {
       "name": "Features",
@@ -36,7 +40,7 @@
     },
     {
       "name": "Jobs",
-      "description": "Track queued work. Every pipeline step that queues work returns a job."
+      "description": "Track queued work. Every pipeline step that queues work returns a job; wait for it with **Stream job updates** (`GET /v1/jobs/{id}/events`)."
     },
     {
       "name": "Service",
@@ -91,8 +95,7 @@
             "NotRequested": "#/components/schemas/TurningNotRequested"
           }
         },
-        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nWhat reading the part for turning came to; narrow on `kind`.",
-        "x-toolpath-experimental": true
+        "description": "What reading the part for turning came to; narrow on `kind`."
       },
       "TurningTurned": {
         "type": "object",
@@ -168,8 +171,7 @@
           "regionIdxsLeftForMilling",
           "featureTagsLeftForMilling"
         ],
-        "description": "The part read about its turning axis.",
-        "x-toolpath-experimental": true
+        "description": "The part read about its turning axis."
       },
       "AxisSource": {
         "type": "string",
@@ -177,8 +179,7 @@
           "Detected",
           "UserGiven"
         ],
-        "description": "Where the axis came from: `Detected` is the axis the part’s revolved surfaces agree on.",
-        "x-toolpath-experimental": true
+        "description": "Where the axis came from: `Detected` is the axis the part’s revolved surfaces agree on."
       },
       "TurningFrame": {
         "type": "object",
@@ -201,8 +202,7 @@
           "location",
           "radial"
         ],
-        "description": "The half-plane a part is turned in: the axis, and how `(z, r)` lies in part coordinates — the point `location + z·direction + r·radial`.",
-        "x-toolpath-experimental": true
+        "description": "The half-plane a part is turned in: the axis, and how `(z, r)` lies in part coordinates — the point `location + z·direction + r·radial`."
       },
       "Vec3": {
         "type": "object",
@@ -242,8 +242,7 @@
           "z",
           "r"
         ],
-        "description": "A point of a turned part’s outline.",
-        "x-toolpath-experimental": true
+        "description": "A point of a turned part’s outline."
       },
       "TurnedFeature": {
         "type": "object",
@@ -293,8 +292,7 @@
           "regionIdxs",
           "datasheet"
         ],
-        "description": "A stretch of a turned part’s outline, as cut from one end, and what it is.",
-        "x-toolpath-experimental": true
+        "description": "A stretch of a turned part’s outline, as cut from one end, and what it is."
       },
       "AxialDirection": {
         "type": "string",
@@ -302,8 +300,7 @@
           "PlusZ",
           "MinusZ"
         ],
-        "description": "Which way along the axis something looks or comes from.",
-        "x-toolpath-experimental": true
+        "description": "Which way along the axis something looks or comes from."
       },
       "TurningDatasheet": {
         "type": "object",
@@ -371,24 +368,32 @@
             "$ref": "#/components/schemas/MountingAxis",
             "description": "How a tool must be mounted to reach it."
           },
+          "approach": {
+            "$ref": "#/components/schemas/AxialDirection",
+            "description": "The end it is cut from, its feature's `approach`: an axial tool comes along the\naxis from it, and a holder's hand feeds toward or away from the chuck at the other\nend. The axial reach and the entry diameter are read from it."
+          },
           "slopeSpans": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SlopeSpan"
             },
-            "description": "How steeply each of its curves rises and falls along a feed, in the order they run."
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nHow steeply each of its curves rises and falls along a feed, in the order they run.",
+            "x-toolpath-experimental": true
           },
           "radialReachMinusZ": {
             "$ref": "#/components/schemas/ReachCurve",
-            "description": "How deep a radial tool must reach, by how far toward −z from the feature the\nmaterial stands. Read off the finished part. A radial tool's holder trails its tip\nto one side, so each side is read apart."
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nHow deep a radial tool must reach, by how far toward −z from the feature the\nmaterial stands. Read off the finished part. A radial tool's holder trails its tip\nto one side, so each side is read apart.",
+            "x-toolpath-experimental": true
           },
           "radialReachPlusZ": {
             "$ref": "#/components/schemas/ReachCurve",
-            "description": "The same toward +z."
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nThe same toward +z.",
+            "x-toolpath-experimental": true
           },
           "axialReach": {
             "$ref": "#/components/schemas/ReachCurve",
-            "description": "The same for an axial tool coming from the end its feature is cut from, the\nfeature's `approach`, by how far across the axis from the feature the material\nstands."
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nThe same for an axial tool coming from the end its feature is cut from, the\nfeature's `approach`, by how far across the axis from the feature the material\nstands.",
+            "x-toolpath-experimental": true
           },
           "entryDiameter": {
             "type": "number",
@@ -427,8 +432,7 @@
           "radialStockToLeave",
           "toleranceBand"
         ],
-        "description": "One turned feature as a tool check sees it: the turning counterpart of a\n`FeatureDatasheet`. In `(z, r)`, mm and degrees.",
-        "x-toolpath-experimental": true
+        "description": "One turned feature as a tool check sees it: the turning counterpart of a\n`FeatureDatasheet`. In `(z, r)`, mm and degrees."
       },
       "TurningNoAxis": {
         "type": "object",
@@ -444,8 +448,7 @@
         "required": [
           "kind"
         ],
-        "description": "The part’s revolved surfaces agree on no line, so it was not read.",
-        "x-toolpath-experimental": true
+        "description": "The part’s revolved surfaces agree on no line, so it was not read."
       },
       "TurningBelowThreshold": {
         "type": "object",
@@ -473,8 +476,7 @@
           "axis",
           "turnability"
         ],
-        "description": "An axis was found, but the part’s turnability is under the default threshold.",
-        "x-toolpath-experimental": true
+        "description": "An axis was found, but the part’s turnability is under the default threshold."
       },
       "TurningSpinFailed": {
         "type": "object",
@@ -510,8 +512,7 @@
           "error",
           "code"
         ],
-        "description": "The part could not be spun about its axis, or its outline could not be read.",
-        "x-toolpath-experimental": true
+        "description": "The part could not be spun about its axis, or its outline could not be read."
       },
       "TurningNotRequested": {
         "type": "object",
@@ -527,8 +528,7 @@
         "required": [
           "kind"
         ],
-        "description": "No turning reading was asked for.",
-        "x-toolpath-experimental": true
+        "description": "No turning reading was asked for."
       },
       "Turnability": {
         "oneOf": [
@@ -820,7 +820,7 @@
               "additionalProperties": false
             },
             "maxItems": 12,
-            "description": "Directions to analyze the part from beyond those the directions analysis chose — usually ones from the part’s `discoveredDirections`, passed back exactly as served, though any vector within 0.0001 of unit length is taken and normalized. They are added to the part for good: this analysis and every later one, and every plan and toolpath calculation, analyze the part from them too, so a `setupPlan` can state a setup in one and name its features. Each follows the part’s `candidateDirections` in the order added, and every feature the part had keeps its `featureTag`. A direction within 0.1° of one the part has adds nothing, and nor does one whose analysis fails; either is missing from the result’s `candidateDirections`. A part takes at most 12 added directions in all, and there is no removing one. Omit to analyze the part from the directions it has.",
+            "description": "Directions to analyze the part from beyond those the directions analysis chose — usually ones from the part’s `discoveredDirections`, passed back exactly as served, though any vector within 0.0001 of unit length is taken and normalized. They are added to the part for good: this analysis and every later one, and every plan and toolpath calculation, analyze the part from them too, so a `setupPlan` can state a setup in one and name its features. Each follows the part’s `candidateDirections` in the order added, and every feature the part had keeps its `featureTag`. A direction within 0.1° of one the part has adds nothing, and nor does one whose analysis fails; either is missing from the result’s `candidateDirections`. One within 0.1° of the exact opposite of a direction the part has is added as that exact opposite: read it back off `candidateDirections` rather than matching the direction sent. A part takes at most 12 added directions in all, and there is no removing one. Omit to analyze the part from the directions it has.",
             "example": [
               {
                 "x": 1,
@@ -866,6 +866,18 @@
             "type": "string",
             "format": "uuid",
             "description": "Identifier of this part."
+          },
+          "fileId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nIdentifier of the file this part was made from, absent on a part uploaded on its own and once the file is deleted or pruned past the retention window.",
+            "x-toolpath-experimental": true
+          },
+          "bodyIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nThe `index` of the body of its file this part is: of the file it was made from, or the `bodyIndex` it was uploaded with. Absent on a part uploaded with none. It stays once the file is deleted or pruned, when `fileId` is absent.",
+            "x-toolpath-experimental": true
           },
           "reportId": {
             "type": "string",
@@ -924,7 +936,7 @@
             "items": {
               "$ref": "#/components/schemas/Vec3"
             },
-            "description": "The directions this run was asked to analyze the part from beyond those the directions analysis chose: the part’s added directions when it was queued. One missing from `candidateDirections` added nothing. Null on part results made before this was recorded."
+            "description": "The directions this run was asked to analyze the part from beyond those the directions analysis chose: the part’s added directions when it was queued. One within 0.1° of the exact opposite of a direction the part has was added as that exact opposite, which `candidateDirections` holds in its place; any other missing from `candidateDirections` added nothing. Null on part results made before this was recorded."
           },
           "directionZBounds": {
             "type": [
@@ -956,8 +968,7 @@
                 "type": "null"
               }
             ],
-            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nWhat reading the part for turning came to, or null when no reading was taken. Narrow on `kind`.",
-            "x-toolpath-experimental": true
+            "description": "What reading the part for turning came to, or null when no reading was taken. Narrow on `kind`."
           },
           "meshPointCount": {
             "type": "integer",
@@ -1116,7 +1127,8 @@
                 "type": "null"
               }
             ],
-            "description": "Feature-local machining axis, such as a face normal; null for older part results."
+            "description": "Deprecated: use `machiningDirection`, which this repeats. Removed in the next API major.",
+            "deprecated": true
           }
         },
         "required": [
@@ -1198,6 +1210,291 @@
           "faceTriangleCounts",
           "meshGlbUrl"
         ]
+      },
+      "CreateFileResponse": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the newly created file."
+          },
+          "uploadUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Short-lived URL that accepts a direct upload of the CAD file."
+          },
+          "sourceBucket": {
+            "type": "string",
+            "description": "Object-storage bucket receiving the CAD file."
+          },
+          "sourceS3Key": {
+            "type": "string",
+            "description": "Object-storage key assigned to the CAD file."
+          }
+        },
+        "required": [
+          "fileId",
+          "uploadUrl",
+          "sourceBucket",
+          "sourceS3Key"
+        ]
+      },
+      "UpdateFileResponse": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the queued inspection job."
+          },
+          "fileId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the file submitted for inspection."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued"
+            ],
+            "description": "Initial state of the accepted inspection job."
+          }
+        },
+        "required": [
+          "jobId",
+          "fileId",
+          "status"
+        ]
+      },
+      "FileResponse": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of this file."
+          },
+          "filename": {
+            "type": "string",
+            "description": "The name the file was uploaded under."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Time at which the file was created, in ISO 8601 format."
+          },
+          "bodies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileBody"
+            },
+            "description": "The file’s solid bodies, by `index`. Empty until an inspection has succeeded, and never changed after it: a file is inspected once, so an `index` names the same body for the life of the file."
+          },
+          "shapes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileShape"
+            },
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nThe file’s distinct shapes, by the `index` of each one’s first body: separate copies of one shape are one entry, with a `count`. Empty until an inspection has succeeded.",
+            "x-toolpath-experimental": true
+          },
+          "hasMesh": {
+            "type": "boolean",
+            "description": "Whether the inspection stored a display mesh of the bodies, served by **Get file mesh** (`GET /v1/files/{id}/mesh`). False before inspection, and after one whose meshing failed: meshing is best-effort, and the bodies are listed either way."
+          },
+          "inspectJobId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Identifier of the inspection job that listed `bodies`, or null until one has succeeded."
+          }
+        },
+        "required": [
+          "fileId",
+          "filename",
+          "createdAt",
+          "bodies",
+          "shapes",
+          "hasMesh",
+          "inspectJobId"
+        ]
+      },
+      "FileBody": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Where the body is among the file’s solid bodies, from 0: what **Make parts from a file** names it by."
+          },
+          "name": {
+            "type": "string",
+            "description": "The body’s name, where the file gives it one."
+          },
+          "faceCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "How many faces the body has as loaded."
+          },
+          "boundingBox": {
+            "type": "object",
+            "properties": {
+              "lower": {
+                "$ref": "#/components/schemas/Vec3",
+                "description": "The box’s lowest corner, in mm."
+              },
+              "upper": {
+                "$ref": "#/components/schemas/Vec3",
+                "description": "The box’s highest corner, in mm."
+              }
+            },
+            "required": [
+              "lower",
+              "upper"
+            ],
+            "description": "A box the body fits in, in mm in the file’s coordinates — not necessarily the tightest."
+          },
+          "shape": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nThe shape this body is: the `index` of the lowest-indexed body of the file it matches, in any position and orientation, and its own `index` when it is the first. Bodies are matched on volume, surface area, face count, mass distribution and handedness, not exact geometry, so some different bodies match: a hole pattern rotated on a symmetric plate, or a near-symmetric part and its mirror image. One part of a shape can be quoted by its `count`.",
+            "x-toolpath-experimental": true
+          }
+        },
+        "required": [
+          "index",
+          "faceCount",
+          "boundingBox",
+          "shape"
+        ]
+      },
+      "FileShape": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The shape’s first body, which stands for every copy: the one **Make parts from a file** takes."
+          },
+          "bodies": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Every body of the file that matches this shape, by `index`, ascending. A match is by mass properties, not exact geometry, so check it before quoting from it."
+          },
+          "count": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "How many of this shape one of the file’s assemblies needs: what a quote multiplies by. Today one for each of its `bodies`. A body an assembly places more than once is still listed once, and counted once, until placements are reported."
+          }
+        },
+        "required": [
+          "index",
+          "bodies",
+          "count"
+        ],
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nOne shape of a file, and how many it needs.",
+        "x-toolpath-experimental": true
+      },
+      "FileMeshResponse": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of this file."
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the inspection job that produced this display mesh."
+          },
+          "meshGlbUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "15-minute URL for the display mesh of every body as binary glTF (GLB), one node per body."
+          }
+        },
+        "required": [
+          "fileId",
+          "jobId",
+          "meshGlbUrl"
+        ]
+      },
+      "CreateFilePartsResponse": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the file."
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "partId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Identifier of the part."
+                },
+                "bodyIndex": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "The `index` of the body the part is."
+                },
+                "created": {
+                  "type": "boolean",
+                  "description": "Whether this request made the part. False when the body was already made a part, which is then the part returned: one body of a file is only ever one part."
+                },
+                "shape": {
+                  "$ref": "#/components/schemas/FileShape",
+                  "description": "The shape the body is, as `GET /v1/files/{id}` lists it: its first body, every body that is it, and its `count`. Information only — a part made of one body of a shape can be quoted by the shape's `count` rather than made once per copy."
+                }
+              },
+              "required": [
+                "partId",
+                "bodyIndex",
+                "created",
+                "shape"
+              ]
+            },
+            "description": "One part for each body named, in the order named."
+          }
+        },
+        "required": [
+          "fileId",
+          "parts"
+        ]
+      },
+      "CreateFilePartsRequest": {
+        "type": "object",
+        "properties": {
+          "bodies": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minItems": 1,
+            "maxItems": 100,
+            "description": "The bodies to make parts of, each named once by its `index` among the file’s `bodies`, at most 100 to a call. Any body may be named, a copy of another shape included.",
+            "example": [
+              0,
+              2
+            ]
+          }
+        },
+        "required": [
+          "bodies"
+        ],
+        "additionalProperties": false
       },
       "UpdatePartFeaturesResponse": {
         "type": "object",
@@ -1376,7 +1673,7 @@
             "items": {
               "$ref": "#/components/schemas/PinchPoint"
             },
-            "description": "The places the feature is at its tightest: where the clearance reaches the minimum\n`cd` reports, one point per place, in part coordinates, tightest first and never more\nthan ten.\n\nThe counterpart of a bound rather than another bound: what these answer is *where*\nthe clearance minimum was decided, which the number itself cannot. A drawing is the\naudience, which is why the list is capped — a feature can tie in dozens of places,\nand the eleventh point tells a reader nothing the first ten did not.\n\nEmpty for the kinds whose clearance is not measured off a single medial axis — a\nhole, a facing pass, a dovetail and the layered kinds — unless an inside corner with no\nradius is what zeroed the minimum, which is pointed at whatever the kind, or a layered\nkind's minimum is the widest ball reaching all of it, which is pointed at where that\nball is stopped, or a layered kind's minimum is read off one of its slices (a chamfer's),\nwhich is pointed at on that slice. Empty is \"nowhere to point at\", never \"nowhere is\ntight\"."
+            "description": "The places the feature is at its tightest: where the clearance reaches the minimum\n`cd` reports, one point per place, in part coordinates, tightest first and never more\nthan ten.\n\nThe counterpart of a bound rather than another bound: what these answer is *where*\nthe clearance minimum was decided, which the number itself cannot. A drawing is the\naudience, which is why the list is capped — a feature can tie in dozens of places,\nand the eleventh point tells a reader nothing the first ten did not.\n\nRead off the medial axis where the clearance was measured against a single one. Beyond\nthat: a hole is pointed at on its axis at the top of its wall; a dovetail, whose\nminimum is the smallest cutter spanning its undercut, once along each run of its\noverhangs' foot; an inside corner with no radius that zeroed the minimum, whatever the\nkind; a layered kind's minimum that is the widest tool reaching all of it — a ball, a\nbullnose or a flat — where a wider one is stopped or the surface bends too tightly for\nit; and a layered kind's minimum read off one of its slices (a chamfer's), on that slice.\nEmpty where the minimum is unbounded (a facing pass) or its measurement failed, where a\ndovetail's foot could not be read, and where a layered kind's minimum is none of these. Empty is \"nowhere to point at\", never\n\"nowhere is tight\"."
           },
           "facts": {
             "oneOf": [
@@ -1388,6 +1685,9 @@
               },
               {
                 "$ref": "#/components/schemas/BossFacts"
+              },
+              {
+                "$ref": "#/components/schemas/CircularWallFacts"
               },
               {
                 "$ref": "#/components/schemas/WallFacts"
@@ -1417,6 +1717,7 @@
                 "Hole": "#/components/schemas/HoleFacts",
                 "Pocket": "#/components/schemas/PocketFacts",
                 "Boss": "#/components/schemas/BossFacts",
+                "CircularWall": "#/components/schemas/CircularWallFacts",
                 "Wall": "#/components/schemas/WallFacts",
                 "Face": "#/components/schemas/FaceFacts",
                 "Three": "#/components/schemas/SurfaceFacts",
@@ -2147,6 +2448,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/FixedCylinderStock"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BodyStock"
                   }
                 ],
                 "discriminator": {
@@ -2155,7 +2459,8 @@
                     "automaticFlatBar": "#/components/schemas/AutomaticFlatBarStock",
                     "automaticRoundStock": "#/components/schemas/AutomaticRoundStock",
                     "fixedBox": "#/components/schemas/FixedBoxStock",
-                    "fixedCylinder": "#/components/schemas/FixedCylinderStock"
+                    "fixedCylinder": "#/components/schemas/FixedCylinderStock",
+                    "body": "#/components/schemas/BodyStock"
                   }
                 },
                 "description": "The stock policy the job cuts from, all lengths mm, with omitted figures left omitted. The request’s stock policy, or the saved input on a recalculation, or automatic Flat Bar on a new plan and a plan made before stock inputs were recorded. A recalculation without stock reuses this."
@@ -2167,6 +2472,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/StockCylinder"
+                  },
+                  {
+                    "$ref": "#/components/schemas/StockBody"
                   },
                   {
                     "type": "null"
@@ -2434,6 +2742,30 @@
         "additionalProperties": false,
         "description": "A cylinder of given size, standing along the first setup’s cutting direction and centered on the part’s smallest enclosing circle. Its box, diameter × diameter × length, must fit within 80 × 50 × 30 in (2032 × 1270 × 762 mm) in some order."
       },
+      "BodyStock": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "body"
+            ],
+            "description": "Another body of the part’s own file."
+          },
+          "bodyIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The stock body’s index among the part’s file’s `bodies`: one that exists, and not the part’s own."
+          }
+        },
+        "required": [
+          "mode",
+          "bodyIndex"
+        ],
+        "additionalProperties": false,
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nAnother solid body of the part’s own file, taken where it lies — a casting, a forging, or what an earlier operation left — never sized or squared up. The part must stand inside it, or the job fails. Regions of the part the body already leaves at their final surface are skipped: no setup machines them. Only a part made from a file can be cut from one.",
+        "x-toolpath-experimental": true
+      },
       "StockBox": {
         "type": "object",
         "properties": {
@@ -2519,6 +2851,38 @@
           "diameter",
           "length"
         ]
+      },
+      "StockBody": {
+        "type": "object",
+        "properties": {
+          "shape": {
+            "type": "string",
+            "enum": [
+              "body"
+            ],
+            "description": "A body of the part’s file."
+          },
+          "bodyIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The stock body’s index among the part’s file’s `bodies`."
+          },
+          "materialFreeRegions": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "The part’s regions (indices into its report’s `regions`) the stock body already leaves at their final surface, ascending. The plan skips them: no setup machines them."
+          }
+        },
+        "required": [
+          "shape",
+          "bodyIndex",
+          "materialFreeRegions"
+        ],
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nInitial stock taken where it lies: another body of the part’s own file, never sized or squared up, so no figure is reported — the body is the figure.",
+        "x-toolpath-experimental": true
       },
       "PartJobRequest": {
         "type": "object",
@@ -3187,7 +3551,7 @@
               "setups"
             ],
             "additionalProperties": false,
-            "description": "The setup plan to extend: setups in machining order, each stated as one `orientations` entry — a setup machines from one direction — naming the features (`featureTag`, hex) to machine from its `direction`. A direction must be one of the part’s `candidateDirections` — the kernel’s choice, or one added with **Analyze a part** — passed back exactly as served (a unit vector), and a feature is named under its own direction. The plan made keeps these setups first, in this order, each holding at least the features named (and every other offered feature of its direction), and appends setups where the part needs more. A plan read serves its own `setupPlan`, which can be edited and sent back. Tags are stable only within one `kernelVersion`, and a feature named has to be offered: one no tool in the crib cuts is not. A statement the kernel cannot honor fails the job, whose `error` begins `refused_user_plan:` and gives one clause per refused statement. Omit or null for the kernel’s own plan; on **Calculate a plan’s toolpaths**, omit to keep the plan’s statement and null to clear it.",
+            "description": "The setup plan to extend: setups in machining order, each stated as one `orientations` entry — a setup machines from one direction — naming the features (`featureTag`, hex) to machine from its `direction`. A direction must be one of the part’s `candidateDirections` — the kernel’s choice, or one added with **Analyze a part** — passed back exactly as served (a unit vector), and a feature is named under its own direction. The plan made keeps these setups first, in this order, each holding at least the features named (and every other offered feature of its direction), and appends setups where the part needs more. A plan read serves its own `setupPlan`, which can be edited and sent back. Tags are stable only within one `kernelVersion`. A feature named is machined where it is named whatever it needs: one no tool in the crib cuts is planned all the same, its passes left `unmachined`. It also keeps its regions from every other feature, in every direction: a feature that shares one is planned as what is left of it, under a tag of its own that the plan’s `trimmedFeatures` describes, and the plan’s `setupPlan` may name that tag in turn. A statement the kernel cannot honor fails the job, whose `error` begins `refused_user_plan:` and gives one clause per refused statement. Omit or null for the kernel’s own plan; on **Calculate a plan’s toolpaths**, omit to keep the plan’s statement and null to clear it.",
             "example": {
               "setups": [
                 {
@@ -3244,7 +3608,7 @@
               "regions"
             ],
             "additionalProperties": false,
-            "description": "Regions already at their final surface — near-net stock, a face finished before the part arrives: `regions`, indices into the part report’s `regions`, and the `kernelVersion` of the report they were read from. Region indices are stable only within one kernel release, so a job planned by another fails, its `error` beginning `stale_regions:`; an index the part does not have fails it as `unknown_regions:`. A done region is left out of the plan’s `issues`, its machining times and its toolpaths. A feature whose regions are all done is not planned, unless `setupPlan` names it — then it is machined, and its regions still do not count toward `issues`. A done region on the top of a direction turns off facing from that direction, and the part’s other top faces are machined one by one. The stock is unchanged: it is still the block around the part, so the simulation cuts air over a done region. Omit or null for none; on **Calculate a plan’s toolpaths**, omit to keep the plan’s and null to clear them.",
+            "description": "Regions already at their final surface — near-net stock, a face finished before the part arrives: `regions`, indices into the part report’s `regions`, and the `kernelVersion` of the report they were read from. Region indices are stable only within one kernel release, so a job planned by another fails, its `error` beginning `stale_regions:`; an index the part does not have fails it as `unknown_regions:`. A done region is left out of the plan’s `issues`, its machining times and its toolpaths, and no feature planned holds one: a part feature that does is planned as what is left of it, under a tag of its own that the plan’s `trimmedFeatures` describes, and one whose regions are all done is not planned. A `setupPlan` may still name such a feature by its part-report tag: what is left of it is stated in its place. A done region on the top of a direction turns off facing from that direction, and the part’s other top faces are machined one by one. The stock is unchanged: it is still the block around the part, so the simulation cuts air over a done region. Omit or null for none; on **Calculate a plan’s toolpaths**, omit to keep the plan’s and null to clear them.",
             "example": {
               "kernelVersion": "0.18.0",
               "regions": [
@@ -3266,6 +3630,9 @@
               },
               {
                 "$ref": "#/components/schemas/FixedCylinderStock"
+              },
+              {
+                "$ref": "#/components/schemas/BodyStock"
               }
             ],
             "discriminator": {
@@ -3274,10 +3641,11 @@
                 "automaticFlatBar": "#/components/schemas/AutomaticFlatBarStock",
                 "automaticRoundStock": "#/components/schemas/AutomaticRoundStock",
                 "fixedBox": "#/components/schemas/FixedBoxStock",
-                "fixedCylinder": "#/components/schemas/FixedCylinderStock"
+                "fixedCylinder": "#/components/schemas/FixedCylinderStock",
+                "body": "#/components/schemas/BodyStock"
               }
             },
-            "description": "Initial stock settings. Omit stock to use automatic Flat Bar on a new plan or keep the saved input on a recalculation. The initial stock to cut from, all lengths mm, told apart by `mode`: automatic Flat Bar or Round Stock sized around the part, or a fixed block or cylinder placed against it. Omit it on a new plan for automatic Flat Bar at the default figures; omit it when recalculating a plan to reuse that plan’s own.",
+            "description": "Initial stock settings. Omit stock to use automatic Flat Bar on a new plan or keep the saved input on a recalculation. The initial stock to cut from, all lengths mm, told apart by `mode`: automatic Flat Bar or Round Stock sized around the part, a fixed block or cylinder placed against it, or another body of the part’s own file. Omit it on a new plan for automatic Flat Bar at the default figures; omit it when recalculating a plan to reuse that plan’s own.",
             "example": {
               "mode": "automaticFlatBar",
               "oversizeX": 1
@@ -3294,7 +3662,7 @@
               "thinAir",
               "syntheticVise"
             ],
-            "description": "How the part is held. `thinAir`, the default, holds it by nothing: the optimistic answer, since a fixture only ever takes reach away. `syntheticVise` holds it in a vise sized to whatever it closes on, its jaws along each setup’s y, so a jaw blocks the reach it would. The first setup grips the initial stock, every later setup the part as cut; the jaws reach 5.35 mm up whatever they close on, at most half its height. The planner chooses the first setup among the directions the stock can be gripped in. A job no first setup can start fails, its `error` beginning `invalid_argument: setup planning: no fixture on the initial stock holds a first setup`; a `setupPlan` whose first setup cannot start fails as `refused_user_plan:`. Faces a jaw leaves out of reach are reported as the plan’s `issues`. Omit on **Calculate a plan’s toolpaths** to keep the plan’s.",
+            "description": "How the part is held. `thinAir`, the default, holds it by nothing: the optimistic answer, since a fixture only ever takes reach away. `syntheticVise` holds it in a vise sized to whatever it closes on, its jaws along each setup’s y, so a jaw blocks the reach it would. The first setup grips the initial stock, every later setup the part as cut; the jaws reach 5.35 mm up whatever they close on, at most half its height. The planner chooses the first setup among the directions the stock can be gripped in. Fixed stock is gripped only in the directions the part fits it squared up in; where it fits in none — or not in the direction a `setupPlan` states its first setup in — the job fails, its `error` beginning `part_outside_initial_stock:` and naming each direction. A job no first setup can start otherwise fails, its `error` beginning `invalid_argument: setup planning: no fixture on the initial stock holds a first setup`; a `setupPlan` whose first setup cannot start fails as `refused_user_plan:`. Faces a jaw leaves out of reach are reported as the plan’s `issues`. Omit on **Calculate a plan’s toolpaths** to keep the plan’s.",
             "example": "syntheticVise"
           }
         },
@@ -3377,7 +3745,7 @@
           "issues": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PlanIssue"
+              "$ref": "#/components/schemas/PlanIssueSummary"
             },
             "description": "The plan’s coverage shortfalls (see PlanResponse.issues). Empty when it covers all."
           },
@@ -3397,7 +3765,7 @@
           "createdAt"
         ]
       },
-      "PlanIssue": {
+      "PlanIssueSummary": {
         "type": "object",
         "properties": {
           "kind": {
@@ -3407,7 +3775,7 @@
               "OutOfPlay",
               "Incomplete"
             ],
-            "description": "How the plan falls short: `Unseen` (regions no direction reaches at all), `OutOfPlay` (regions some direction reaches but no feature in play holds — one the kernel rejected or excluded, or one left out because measuring it threw) or `Incomplete` (regions some feature could reach that the plan leaves untouched)."
+            "description": "How the plan falls short: `Unseen` (regions no direction reaches at all), `OutOfPlay` (regions some direction reaches but no feature in play holds — one the kernel rejected or excluded, or one left out because it would not measure) or `Incomplete` (regions some feature could reach that the plan leaves untouched)."
           },
           "area": {
             "type": "number",
@@ -3423,7 +3791,8 @@
           "kind",
           "area",
           "regionCount"
-        ]
+        ],
+        "description": "A plan’s coverage shortfall, as a plan list states it."
       },
       "PlanResponse": {
         "type": "object",
@@ -3472,6 +3841,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/FixedCylinderStock"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BodyStock"
                   }
                 ],
                 "discriminator": {
@@ -3480,7 +3852,8 @@
                     "automaticFlatBar": "#/components/schemas/AutomaticFlatBarStock",
                     "automaticRoundStock": "#/components/schemas/AutomaticRoundStock",
                     "fixedBox": "#/components/schemas/FixedBoxStock",
-                    "fixedCylinder": "#/components/schemas/FixedCylinderStock"
+                    "fixedCylinder": "#/components/schemas/FixedCylinderStock",
+                    "body": "#/components/schemas/BodyStock"
                   }
                 },
                 "description": "The stock policy the job cuts from, all lengths mm, with omitted figures left omitted. The request’s stock policy, or the saved input on a recalculation, or automatic Flat Bar on a new plan and a plan made before stock inputs were recorded. A recalculation without stock reuses this."
@@ -3494,10 +3867,13 @@
                     "$ref": "#/components/schemas/StockCylinder"
                   },
                   {
+                    "$ref": "#/components/schemas/StockBody"
+                  },
+                  {
                     "type": "null"
                   }
                 ],
-                "description": "The initial stock the kernel sized and placed, in mm, told apart by `shape`: a `box` — two corners in the first setup’s frame, squared up in the direction the job cuts first — or a `cylinder` in part coordinates. This is the material bought, which a quote is written against (a cylinder’s volume is π·(diameter/2)²·length); the part’s own bounding box is not a substitute. Null for a plan calculated before this field existed — re-run the part to get one — and for a part with no setup, which has nothing to square stock against."
+                "description": "The initial stock the kernel sized and placed, in mm, told apart by `shape`: a `box` — two corners in the first setup’s frame, squared up in the direction the job cuts first — a `cylinder` in part coordinates, or the `body` of the part’s file it was cut from. This is the material bought, which a quote is written against (a cylinder’s volume is π·(diameter/2)²·length); the part’s own bounding box is not a substitute. Null for a plan calculated before this field existed — re-run the part to get one — and for a part with no setup, which has nothing to square stock against."
               }
             },
             "required": [
@@ -3632,6 +4008,16 @@
             ],
             "additionalProperties": false,
             "description": "The regions this plan was told are already at their final surface, and the kernel version they were read under — or null for none. They are left out of `issues`, of machining times and of toolpaths: a plan whose `issues` are empty machines everything it owes *except* these, which the caller vouched for."
+          },
+          "trimmedFeatures": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/TrimmedFeature"
+            },
+            "description": "The features of the part as this plan reads it — after its skipped regions and stated features trim it — that `GET /v1/parts/{id}` does not list, whether or not a setup names them. A part feature holding a region the plan skips — a done region, or one its stock body already leaves at size — or a region of a feature the job’s `setupPlan` names, is read as what is left of it, under a tag of its own, which the plan’s `setupPlan`, `featureTags` and `unmachined` may name; each such feature is here, with the part feature it was cut from. Empty where nothing trimmed a feature; null for a plan that skips no region and whose `setupPlan` names no feature, and for plans made before Engine API 1.30.0."
           }
         },
         "required": [
@@ -3646,8 +4032,83 @@
           "issues",
           "setups",
           "setupPlan",
-          "doneRegions"
+          "doneRegions",
+          "trimmedFeatures"
         ]
+      },
+      "PlanIssue": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "Unseen",
+              "OutOfPlay",
+              "Incomplete"
+            ],
+            "description": "How the plan falls short: `Unseen` (regions no direction reaches at all), `OutOfPlay` (regions some direction reaches but no feature in play holds — one the kernel rejected or excluded, or one left out because it would not measure) or `Incomplete` (regions some feature could reach that the plan leaves untouched)."
+          },
+          "area": {
+            "type": "number",
+            "description": "Faceted area of this shortfall, in mm² — the figure to gate a quote on."
+          },
+          "regionCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "How many part regions this shortfall covers."
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanIssueFeature"
+            },
+            "description": "For an `OutOfPlay` shortfall, the features holding its regions that were never in play, and why. A region can be held by several features. Empty for `Unseen`, whose regions no feature holds. Absent for `Incomplete`, on every issue of a plan whose features could not be read (its issues are stated without them), and on plans made before this was recorded."
+          },
+          "unattributedRegionCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "How many of this shortfall’s regions no feature in `features` holds: all of them for `Unseen`. A sliver held only by an edge break’s dead stop counts here, and so does a region held only by a feature the plan never measured, because it could do without it. Absent where `features` is."
+          }
+        },
+        "required": [
+          "kind",
+          "area",
+          "regionCount"
+        ]
+      },
+      "PlanIssueFeature": {
+        "type": "object",
+        "properties": {
+          "featureTag": {
+            "type": "string",
+            "description": "Kernel feature tag (hex), as `PlanSetup.unmachined` states one — join to a part feature’s `featureTag` (from `GET /v1/parts/{id}`) or to the plan’s `trimmedFeatures`."
+          },
+          "cause": {
+            "type": "string",
+            "description": "Why no setup machines it. `ToolsRefused`: no tool of the plan can cut it, so it was never offered to the planner. `Revoked`: it shares regions with a pocket-like feature of another direction, which must be machined as that pocket. `RefusesEveryTool`: its own measurement admits no tool at all. `MeasurementFailed`: its clearance measurement failed. `FallbackNotNeeded`: only a fallback tool cuts it, and other features machine every region it would with the tool crib alone, so the plan does without it (`fallbackTools`). `Unmeasured`: the plan’s reading of it would not measure, so nothing is known of it. Other values may be added."
+          },
+          "owed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The passes no tool of the plan meets — `Rough`, `Finish` or `Thread` — in that order. Empty where the tools meet every pass, or nothing is known of it (`Unmeasured`)."
+          },
+          "rejections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "For `ToolsRefused`, why no tool was invented for those passes, each reason once: the tool crib’s reasons, or with `fallbackTools`, the reasons no fallback tool could be made, reach lifted. They are the kernel’s rejection codes, such as `ClearanceAtSharpCorner`, `DiameterTooSmall`, `FluteLengthTooLong`, `StickoutTooLong`, `LengthOverDiameterTooHigh`, `CannotSynthesizeDrill`, `ToolTypeExcluded` or `MeasurementFailed`; other values may be added. Always empty for a `Thread` pass, which no rejection names; empty when the crib lists no tool head and `fallbackTools` is off; empty for any other cause."
+          }
+        },
+        "required": [
+          "featureTag",
+          "cause",
+          "owed",
+          "rejections"
+        ],
+        "description": "A feature holding regions of a plan issue, and why no setup machines it."
       },
       "PlanSetup": {
         "type": "object",
@@ -3731,7 +4192,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /parts/{id}`). Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either."
+            "description": "Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /v1/parts/{id}`), or, for a feature the plan’s skipped regions trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either."
           },
           "tool": {
             "type": [
@@ -3787,6 +4248,46 @@
           "spindleSpeed",
           "cuttingFeedRate"
         ]
+      },
+      "TrimmedFeature": {
+        "type": "object",
+        "properties": {
+          "featureTag": {
+            "type": "string",
+            "description": "Kernel feature tag (hex) the plan reads this feature under. `GET /v1/parts/{id}` lists no feature under it."
+          },
+          "featureType": {
+            "type": "string",
+            "description": "What the rest of the part feature reads as, in snake_case as a part feature’s `featureType` is: a pocket whose floor is done may read as a wall. This vocabulary is open-ended."
+          },
+          "machiningDirection": {
+            "$ref": "#/components/schemas/Vec3",
+            "description": "Access direction from which the kernel extracted this feature, as on a part feature: that of the part feature it was cut from."
+          },
+          "regionIdxs": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Indexes of the regions it holds, ascending; join each value to the part report’s `regions[].idx`. None is a region the plan skips."
+          },
+          "fromFeatureTag": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The `featureTag` of the part feature it was cut from, which holds every one of its regions, and also the ones cut away from it. Null where no one part feature does."
+          }
+        },
+        "required": [
+          "featureTag",
+          "featureType",
+          "machiningDirection",
+          "regionIdxs",
+          "fromFeatureTag"
+        ],
+        "description": "A feature of the part as a plan reads it that the part report does not list, whether or not a setup names it: what the plan’s skipped regions (done, or left at size by its stock body), or the features its `setupPlan` names, left of a part feature, which the kernel reads again on the rest of its regions under a tag of its own."
       },
       "ToolpathsResponse": {
         "type": "object",
@@ -3897,7 +4398,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /parts/{id}`). Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either."
+            "description": "Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /v1/parts/{id}`), or, for a feature the plan’s skipped regions trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either."
           },
           "machiningTime": {
             "type": [
@@ -3940,7 +4441,7 @@
               "string",
               "null"
             ],
-            "description": "Why the runner refused to cut this action (`unsupported:`/`geometry:`), or null when it cut."
+            "description": "Why the runner refused to cut this action, or null when it cut. It begins with a code: `refused_pass:` for a pass not cut against the stock as it stands, or past its cutting-time limit; `timed_out:` for a calculation stopped at its time limit; `unsupported:` for a pass nothing can cut yet; `invalid_argument:` for a pass that cannot be cut as given, such as one whose tool has no feeds for it; `internal:` for a fault in the calculation. An action of a plan whose `kernelVersion` is earlier than 0.29.0 may begin `geometry:` instead. Codes may be added in any release."
           },
           "toolpathUrl": {
             "type": [
@@ -4073,6 +4574,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/FixedCylinderStock"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BodyStock"
                   }
                 ],
                 "discriminator": {
@@ -4081,7 +4585,8 @@
                     "automaticFlatBar": "#/components/schemas/AutomaticFlatBarStock",
                     "automaticRoundStock": "#/components/schemas/AutomaticRoundStock",
                     "fixedBox": "#/components/schemas/FixedBoxStock",
-                    "fixedCylinder": "#/components/schemas/FixedCylinderStock"
+                    "fixedCylinder": "#/components/schemas/FixedCylinderStock",
+                    "body": "#/components/schemas/BodyStock"
                   }
                 },
                 "description": "The stock policy the job cuts from, all lengths mm, with omitted figures left omitted. The request’s stock policy, or the saved input on a recalculation, or automatic Flat Bar on a new plan and a plan made before stock inputs were recorded. A recalculation without stock reuses this."
@@ -4095,10 +4600,13 @@
                     "$ref": "#/components/schemas/StockCylinder"
                   },
                   {
+                    "$ref": "#/components/schemas/StockBody"
+                  },
+                  {
                     "type": "null"
                   }
                 ],
-                "description": "The initial stock the kernel sized and placed, in mm, told apart by `shape`: a `box` — two corners in the first setup’s frame, squared up in the direction the job cuts first — or a `cylinder` in part coordinates. This is the material bought, which a quote is written against (a cylinder’s volume is π·(diameter/2)²·length); the part’s own bounding box is not a substitute. Null for a plan calculated before this field existed — re-run the part to get one — and for a part with no setup, which has nothing to square stock against."
+                "description": "The initial stock the kernel sized and placed, in mm, told apart by `shape`: a `box` — two corners in the first setup’s frame, squared up in the direction the job cuts first — a `cylinder` in part coordinates, or the `body` of the part’s file it was cut from. This is the material bought, which a quote is written against (a cylinder’s volume is π·(diameter/2)²·length); the part’s own bounding box is not a substitute. Null for a plan calculated before this field existed — re-run the part to get one — and for a part with no setup, which has nothing to square stock against."
               }
             },
             "required": [
@@ -4191,7 +4699,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /parts/{id}`). Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either."
+            "description": "Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /v1/parts/{id}`), or, for a feature the plan’s skipped regions trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either."
           },
           "machiningTime": {
             "type": [
@@ -4596,7 +5104,7 @@
               "null"
             ],
             "format": "uuid",
-            "description": "Identifier of the part this job processes, or null when its subject is a holder."
+            "description": "Identifier of the part this job processes, or null when its subject is a holder or a file."
           },
           "holderUuid": {
             "type": [
@@ -4604,7 +5112,16 @@
               "null"
             ],
             "format": "uuid",
-            "description": "Identifier of the holder this job processes, or null when its subject is a part."
+            "description": "Identifier of the holder this job processes, or null when its subject is a part or a file."
+          },
+          "fileUuid": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nIdentifier of the file this job inspects, or null when its subject is a part or a holder.",
+            "x-toolpath-experimental": true
           },
           "jobUuid": {
             "type": "string",
@@ -4613,7 +5130,7 @@
           },
           "productType": {
             "type": "string",
-            "description": "Product operation performed by the job, such as part processing, feature-detail processing, or holder import."
+            "description": "Product operation performed by the job, such as part processing, feature-detail processing, holder import, or file inspection."
           },
           "status": {
             "type": "string",
@@ -4623,7 +5140,7 @@
               "succeeded",
               "failed"
             ],
-            "description": "Current durable state of the job."
+            "description": "Current state of the job: `queued` until a worker starts it, then `running` until it finishes, including while it waits to be retried after a failed attempt. `succeeded` and `failed` are final: a job in either state never changes again."
           },
           "progress": {
             "type": [
@@ -4643,6 +5160,7 @@
         "required": [
           "partUuid",
           "holderUuid",
+          "fileUuid",
           "jobUuid",
           "productType",
           "status",
@@ -4659,7 +5177,7 @@
               "null"
             ],
             "format": "uuid",
-            "description": "Identifier of the part this job processes, or null when its subject is a holder."
+            "description": "Identifier of the part this job processes, or null when its subject is a holder or a file."
           },
           "holderUuid": {
             "type": [
@@ -4667,7 +5185,16 @@
               "null"
             ],
             "format": "uuid",
-            "description": "Identifier of the holder this job processes, or null when its subject is a part."
+            "description": "Identifier of the holder this job processes, or null when its subject is a part or a file."
+          },
+          "fileUuid": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nIdentifier of the file this job inspects, or null when its subject is a part or a holder.",
+            "x-toolpath-experimental": true
           },
           "jobUuid": {
             "type": "string",
@@ -4676,7 +5203,7 @@
           },
           "productType": {
             "type": "string",
-            "description": "Product operation performed by the job, such as part processing, feature-detail processing, or holder import."
+            "description": "Product operation performed by the job, such as part processing, feature-detail processing, holder import, or file inspection."
           },
           "status": {
             "type": "string",
@@ -4686,7 +5213,7 @@
               "succeeded",
               "failed"
             ],
-            "description": "Current durable state of the job."
+            "description": "Current state of the job: `queued` until a worker starts it, then `running` until it finishes, including while it waits to be retried after a failed attempt. `succeeded` and `failed` are final: a job in either state never changes again."
           },
           "progress": {
             "type": [
@@ -4697,12 +5224,67 @@
             "maximum": 100,
             "description": "Worker-reported completion percentage, or null before progress is available."
           },
+          "retriesRemaining": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "How many more times the job will be attempted if its current attempt fails, counting down to 0 on its last attempt; null until the first attempt starts. A final failure keeps the count last recorded, which may remain above 0 or null after queue recovery."
+          },
           "error": {
             "type": [
               "string",
               "null"
             ],
-            "description": "Failure reason when the job status is failed; otherwise null."
+            "description": "Failure reason when the job status is failed; otherwise null. Deadline failures say `timed out after <n>s`. Queue recovery uses `job_delivery_exhausted`; jobs queued for more than 24 hours fail with `job_dispatch_failed`."
+          },
+          "bodies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Where the body is among the file’s solid bodies, from 0: pass it as `bodyIndex` to **Upload a part** (`POST /v1/parts`) to make a part of this body."
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The body’s name, where the file gives it one."
+                },
+                "faceCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "How many faces the body has as loaded."
+                },
+                "boundingBox": {
+                  "type": "object",
+                  "properties": {
+                    "lower": {
+                      "$ref": "#/components/schemas/Vec3",
+                      "description": "The box’s lowest corner, in mm."
+                    },
+                    "upper": {
+                      "$ref": "#/components/schemas/Vec3",
+                      "description": "The box’s highest corner, in mm."
+                    }
+                  },
+                  "required": [
+                    "lower",
+                    "upper"
+                  ],
+                  "description": "A box the body fits in, in mm in the file’s coordinates — not necessarily the tightest."
+                }
+              },
+              "required": [
+                "index",
+                "faceCount",
+                "boundingBox"
+              ]
+            },
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nThe solid bodies of the part’s file, listed when the job failed because the file holds more than one and none was chosen (`error` beginning `multiple_bodies:`), or because the `bodyIndex` chosen is past the last (`body_not_found:`). Upload the file again with **Upload a part** (`POST /v1/parts`), passing `bodyIndex` as the `index` of the body to machine. Absent on every other job.",
+            "x-toolpath-experimental": true
           },
           "reportId": {
             "type": [
@@ -4739,10 +5321,12 @@
         "required": [
           "partUuid",
           "holderUuid",
+          "fileUuid",
           "jobUuid",
           "productType",
           "status",
           "progress",
+          "retriesRemaining",
           "error",
           "reportId",
           "importId",
@@ -4966,7 +5550,7 @@
           "z",
           "flat"
         ],
-        "description": "What a bevel's surroundings allow a chamfer tool riding it: how deep its tip may sit below\nthe bevel's lower edge, how wide its flat bottom may be at that depth, and how far its rim\nmay reach to either side. Every cone a tool matcher accepts for the bevel is read off this.\n\nThe picture is the bevel cut straight across, square to its edge: `u` runs across the cut\nand `z` up the tool axis, both in mm, with the bevel's lower edge at `u = 0, z = 0`. The\nbevel rises to the left, to its upper edge at `z = height`. The face above the upper edge\nis the *near side*, on the left; whatever lies past the lower edge is the *far side*, on\nthe right. Each figure is the nearest obstacle anywhere along the bevel's edge, so this one\ncut stands for the whole bevel. `slope` is the bevel's rise over run, a ratio: 1 for a 45°\nchamfer.\n\nA chamfer tool is a cone ground to the bevel's angle, described by three numbers: its tip\noffset `t`, how far its tip sits below the lower edge; its flat `b`, the diameter of the\nflat bottom at its tip, zero for a pointed tool; and its cone height `H`, from the tip up\nto the rim, where the cone is widest. Riding the bevel, the cone's near flank lies along\nthe bevel's own line, so its rim sits at height `H − t`, with its near corner at\n`u = −(H − t) / slope` and its far corner at `u = (t + H) / slope + b`. Above the rim the\nshank is no wider than the rim.\n\nThe curve admits a tool when three things hold:\n\n- It spans the bevel: its rim sits at or above the upper edge, `H − t >= height`.\n- Its flat fits: `b` is at most the widest flat at its tip height `z = −t`. `z` and `flat`\n  are parallel, `z` ascending from the deepest tip the curve places to at or below the\n  lower edge. For the last `z[i]` at or below the tip height, the widest flat is\n  `flat[i] + 2 (z − z[i]) / slope`, widening as the tip rises; no tip sits below `z[0]`.\n- Its rim fits: both rim corners lie between `minU` and `maxU`, the near corner at or\n  right of `minU` and the far corner at or left of `maxU`.\n\nEvery key is always present; a bound nothing sets is `null`."
+        "description": "What a bevel's surroundings allow a chamfer tool riding it: how deep its tip may sit below\nthe bevel's lower edge, how wide its flat bottom may be at that depth, and how far its rim\nmay reach to either side. Every cone a tool matcher accepts for the bevel is read off this.\n\nThe picture is the bevel cut straight across, square to its edge: `u` runs across the cut\nand `z` up the tool axis, both in mm, with the bevel's lower edge at `u = 0, z = 0`. The\nbevel rises to the left, to its upper edge at `z = height`. The face above the upper edge\nis the *near side*, on the left; whatever lies past the lower edge is the *far side*, on\nthe right. Each figure is the nearest obstacle anywhere along the bevel's edge, so this one\ncut stands for the whole bevel. `slope` is the bevel's rise over run, a ratio: 1 for a 45°\nchamfer.\n\nA chamfer tool is a cone ground to the bevel's angle, described by three numbers: its tip\noffset `t`, how far its tip sits below the lower edge; its flat `b`, the diameter of the\nflat bottom at its tip, zero for a pointed tool; and its cone height `H`, from the tip up\nto the rim, where the cone is widest. Riding the bevel, the cone's near flank lies along\nthe bevel's own line, so its rim sits at height `H − t`, with its near corner at\n`u = −(H − t) / slope` and its far corner at `u = (t + H) / slope + b`. Above the rim the\nshaft is no wider than the rim.\n\nThe curve admits a tool when three things hold:\n\n- It spans the bevel: its rim sits at or above the upper edge, `H − t >= height`.\n- Its flat fits: `b` is at most the widest flat at its tip height `z = −t`. `z` and `flat`\n  are parallel, `z` ascending from the deepest tip the curve places to at or below the\n  lower edge. For the last `z[i]` at or below the tip height, the widest flat is\n  `flat[i] + 2 (z − z[i]) / slope`, widening as the tip rises; no tip sits below `z[0]`.\n- Its rim fits: both rim corners lie between `minU` and `maxU`, the near corner at or\n  right of `minU` and the far corner at or left of `maxU`.\n\nEvery key is always present; a bound nothing sets is `null`."
       },
       "ChamferFacts": {
         "type": "object",
@@ -4992,6 +5576,40 @@
           "three"
         ],
         "description": "A chamfer, which is two things at once and carries a measurement of each: a bevel\ncut by a cone's flank, and a surface a ball can follow. Which one a given tool\nanswers to is settled by the tool's own shape."
+      },
+      "CircularWallFacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "CircularWall",
+            "description": "Discriminator for this facts variant."
+          },
+          "cd": {
+            "$ref": "#/components/schemas/CdData",
+            "description": "Clearance-diameter limits for tools sweeping around the wall."
+          },
+          "wallLength": {
+            "$ref": "#/components/schemas/OffsetLength",
+            "description": "The outline a pass around the wall follows, sized for any tool. Absent where the\nprojection left no outline — a wall nothing can estimate, not one that is free."
+          },
+          "diameter": {
+            "type": "number",
+            "description": "The cylinder's diameter, in mm."
+          },
+          "standsOnAFloor": {
+            "type": "boolean",
+            "description": "Whether the cylinder rises from a floor: machined as a boss where it does, and as a\nwall where it does not."
+          }
+        },
+        "required": [
+          "kind",
+          "cd",
+          "diameter",
+          "standsOnAFloor"
+        ],
+        "description": "A circular wall: the outside of a whole cylinder standing along the tool axis — a stud, a\nround boss, a turned part's outline. The narrowest type of what could be a boss or a wall,\nas a hole is of what could be a pocket, and measured as a boss with no blend at its foot is."
       },
       "DovetailFacts": {
         "type": "object",
@@ -5127,7 +5745,8 @@
           "UndercutFilletedDovetail",
           "TaperedThroughHole",
           "ThreadedBlindHole",
-          "ThreadedThroughHole"
+          "ThreadedThroughHole",
+          "CircularWall"
         ],
         "description": "What kind of thing a feature is, and so how it gets machined. The names are the\ncontract at this boundary (the shared numeric wire format stays inside the binary\nAPI)."
       },
@@ -5148,8 +5767,7 @@
           "z",
           "coneDeg"
         ],
-        "description": "Where a blind hole ends.",
-        "x-toolpath-experimental": true
+        "description": "Where a blind hole ends."
       },
       "HoleFacts": {
         "type": "object",
@@ -5259,8 +5877,7 @@
           "zMin",
           "zMax"
         ],
-        "description": "One cylinder of an axial hole.",
-        "x-toolpath-experimental": true
+        "description": "One cylinder of an axial hole."
       },
       "HoleThread": {
         "type": "object",
@@ -5284,8 +5901,7 @@
           "zMin",
           "zMax"
         ],
-        "description": "A thread cut in an axial hole.",
-        "x-toolpath-experimental": true
+        "description": "A thread cut in an axial hole."
       },
       "MountingAxis": {
         "type": "string",
@@ -5293,8 +5909,7 @@
           "Radial",
           "Axial"
         ],
-        "description": "How a tool must be mounted to reach a feature.",
-        "x-toolpath-experimental": true
+        "description": "How a tool must be mounted to reach a feature."
       },
       "OffsetLength": {
         "type": "object",
@@ -5321,7 +5936,7 @@
         "properties": {
           "point": {
             "$ref": "#/components/schemas/Vec3",
-            "description": "Where, in part coordinates: at the feature's bottom where a width or a corner the\nclearance measured is tight (a t-slot's and a layered kind's at the height it was\nmeasured at), at the middle of the corner's edge where an inside corner with no radius\nis, and at the center of the ball that stands there where a surface's minimum is the\nwidest ball reaching all of it — so not necessarily at the bottom."
+            "description": "Where, in part coordinates: at the feature's bottom where a width or a corner the\nclearance measured is tight (a t-slot's and a layered kind's at the height it was\nmeasured at), at the middle of the corner's edge where an inside corner with no radius\nis, and on the axis of the tool that stands there, level with its corner's center (a\nball's center), where a surface's minimum is the widest tool reaching all of it — so not\nnecessarily at the bottom. A hole's is on its axis at the top of its wall; a dovetail's\nat its floor, on the axis of the cutter of the minimum whose flare reaches the\noverhangs' foot."
           },
           "diameter": {
             "type": "number",
@@ -5819,8 +6434,7 @@
           "depth",
           "steps"
         ],
-        "description": "A hole on the axis.",
-        "x-toolpath-experimental": true
+        "description": "A hole on the axis."
       },
       "TurnedFaceFacts": {
         "type": "object",
@@ -5840,8 +6454,7 @@
           "kind",
           "z"
         ],
-        "description": "A face square to the axis.",
-        "x-toolpath-experimental": true
+        "description": "A face square to the axis."
       },
       "TurnedFaceGrooveFacts": {
         "type": "object",
@@ -5866,8 +6479,7 @@
           "width",
           "depth"
         ],
-        "description": "A groove cut axially into a face.",
-        "x-toolpath-experimental": true
+        "description": "A groove cut axially into a face."
       },
       "TurnedFeatureType": {
         "type": "string",
@@ -5883,8 +6495,7 @@
           "IdGroove",
           "IdThread"
         ],
-        "description": "What a turned feature is.",
-        "x-toolpath-experimental": true
+        "description": "What a turned feature is."
       },
       "TurnedGrooveFacts": {
         "type": "object",
@@ -5917,8 +6528,7 @@
           "width",
           "depth"
         ],
-        "description": "A groove cut radially, into the outside or into a hole's wall.",
-        "x-toolpath-experimental": true
+        "description": "A groove cut radially, into the outside or into a hole's wall."
       },
       "TurnedOutlineFacts": {
         "type": "object",
@@ -5945,8 +6555,7 @@
         "required": [
           "kind"
         ],
-        "description": "A feature with no measurements of its own: `OdProfile`, `FaceProfile` or\n`IdProfile`. Its datasheet's bounds and slopes say what it asks of\na tool.",
-        "x-toolpath-experimental": true
+        "description": "A feature with no measurements of its own: `OdProfile`, `FaceProfile` or\n`IdProfile`. Its datasheet's bounds and slopes say what it asks of\na tool."
       },
       "TurnedThreadFacts": {
         "type": "object",
@@ -5983,8 +6592,7 @@
           "pitch",
           "depth"
         ],
-        "description": "A thread.",
-        "x-toolpath-experimental": true
+        "description": "A thread."
       },
       "Vec2": {
         "type": "object",
@@ -6215,7 +6823,7 @@
         "x-toolpath-product": "core",
         "x-toolpath-metered": false,
         "summary": "Upload a part",
-        "description": "Creates a part and returns a short-lived URL for uploading its CAD source. This is the first step of the pipeline — upload the file to the URL, then run **Analyze a part** (`PATCH /parts/{id}`).",
+        "description": "Creates a part and returns a short-lived URL for uploading its CAD source. This is the first step of the pipeline — upload the file to the URL, then run **Analyze a part** (`PATCH /v1/parts/{id}`).\n\nA part is one solid body. A file holding several fails analysis: its job’s `error` begins `multiple_bodies:`, and its `bodies` list each body’s `index`, `name`, face count and box. Upload the file again with `bodyIndex` set to the `index` of the body to machine, and the part is that body from then on, processed exactly as a single-body file is.",
         "parameters": [
           {
             "schema": {
@@ -6223,11 +6831,25 @@
               "minLength": 1,
               "maxLength": 255,
               "example": "part.step",
-              "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, or `.igs`/`.iges`. Omitting it stores the upload as `.step`, which fails processing for any other format."
+              "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format."
             },
             "required": false,
-            "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, or `.igs`/`.iges`. Omitting it stores the upload as `.step`, which fails processing for any other format.",
+            "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format.",
             "name": "filename",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999999,
+              "example": 1,
+              "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nWhich solid body of the file the part is, by its `index` among the `bodies` a `multiple_bodies:` failure lists. Omit it for a file of one body; `0` names that body too. An index past the file’s last body fails analysis as `body_not_found:`, listing the bodies again. The first job to load the file records its body count and the chosen body’s name and box; a later job whose kernel reads them differently fails as `body_mismatch:`, and the part must be uploaded again.",
+              "x-toolpath-experimental": true
+            },
+            "required": false,
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nWhich solid body of the file the part is, by its `index` among the `bodies` a `multiple_bodies:` failure lists. Omit it for a file of one body; `0` names that body too. An index past the file’s last body fails analysis as `body_not_found:`, listing the bodies again. The first job to load the file records its body count and the chosen body’s name and box; a later job whose kernel reads them differently fails as `body_mismatch:`, and the part must be uploaded again.",
+            "name": "bodyIndex",
             "in": "query"
           }
         ],
@@ -6304,7 +6926,7 @@
         "x-toolpath-product": "dfm",
         "x-toolpath-metered": true,
         "summary": "Analyze a part",
-        "description": "Queues machining analysis for an uploaded part and returns a job. Track the job, then read the result with **Get a part** (`GET /parts/{id}`). A body may add `directions` to analyze the part from beyond those the directions analysis chose.",
+        "description": "Queues machining analysis for an uploaded part and returns a job. Wait for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the result with **Get a part** (`GET /v1/parts/{id}`). A body may add `directions` to analyze the part from beyond those the directions analysis chose.",
         "parameters": [
           {
             "schema": {
@@ -6356,7 +6978,7 @@
         },
         "responses": {
           "202": {
-            "description": "The processing job was accepted.",
+            "description": "The processing job was accepted; wait for it on `GET /v1/jobs/{id}/events`, then read /v1/parts/{id}.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6426,7 +7048,7 @@
             }
           },
           "500": {
-            "description": "The processing job could not be submitted.",
+            "description": "The processing job could not be created.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6436,7 +7058,7 @@
             }
           },
           "503": {
-            "description": "Authentication is temporarily unavailable.",
+            "description": "Authentication is temporarily unavailable, or the analysis job could not be sent to the processing queue (`job_dispatch_failed`) and was not created. Any `directions` the request added are kept on the part. Retry the request; reusing its Idempotency-Key is safe, since directions the part already has are not added again.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6455,7 +7077,7 @@
         "x-toolpath-product": "dfm",
         "x-toolpath-metered": false,
         "summary": "Get a part",
-        "description": "Returns a part and the results of its machining analysis. Requires **Analyze a part** (`PATCH /parts/{id}`) to have run and its job to have succeeded; until then there is no result and this returns 404.",
+        "description": "Returns a part and the results of its machining analysis. Requires **Analyze a part** (`PATCH /v1/parts/{id}`) to have run and its job to have succeeded; until then there is no result and this returns 404.",
         "parameters": [
           {
             "schema": {
@@ -6573,7 +7195,7 @@
         "x-toolpath-product": "core",
         "x-toolpath-metered": false,
         "summary": "Tessellate a part for display",
-        "description": "Queues a job that facets the uploaded CAD file into a display mesh without analyzing it — the fast path for a viewer that only needs to draw the part. Poll the job, then read the mesh at GET /parts/{id}/mesh. Each run replaces the part’s previous display mesh.",
+        "description": "Queues a job that facets the uploaded CAD file into a display mesh without analyzing it — the fast path for a viewer that only needs to draw the part. Wait for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the mesh at GET /v1/parts/{id}/mesh. Each run replaces the part’s previous display mesh.",
         "parameters": [
           {
             "schema": {
@@ -6599,7 +7221,7 @@
         ],
         "responses": {
           "202": {
-            "description": "The tessellation job was accepted; poll /jobs/{id}, then read /parts/{id}/mesh.",
+            "description": "The tessellation job was accepted; wait for it on `GET /v1/jobs/{id}/events`, then read /v1/parts/{id}/mesh.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6659,7 +7281,7 @@
             }
           },
           "500": {
-            "description": "The tessellation job could not be submitted.",
+            "description": "The tessellation job could not be created.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6669,7 +7291,7 @@
             }
           },
           "503": {
-            "description": "Authentication is temporarily unavailable.",
+            "description": "Authentication is temporarily unavailable, or the job could not be sent to the processing queue (`job_dispatch_failed`) and was not created. Retry the request; reusing its Idempotency-Key is safe.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6688,7 +7310,7 @@
         "x-toolpath-product": "core",
         "x-toolpath-metered": false,
         "summary": "Get part mesh",
-        "description": "Returns the display mesh the latest tessellation job wrote for this part. Requires **Tessellate a part for display** (`POST /parts/{id}/mesh`) to have run and its job to have succeeded. It is faceted from the uploaded file as-is, so it is not the analysis mesh: its counts differ from the part result’s, and region triangle ranges do not apply to it. Its own face spans come with it as `faceTriangleCounts`. 410 once the part is past the retention window.",
+        "description": "Returns the display mesh the latest tessellation job wrote for this part. Requires **Tessellate a part for display** (`POST /v1/parts/{id}/mesh`) to have run and its job to have succeeded. It is faceted from the uploaded file as-is, so it is not the analysis mesh: its counts differ from the part result’s, and region triangle ranges do not apply to it. Its own face spans come with it as `faceTriangleCounts`. 410 once the part is past the retention window.",
         "parameters": [
           {
             "schema": {
@@ -6806,7 +7428,7 @@
         "x-toolpath-product": "core",
         "x-toolpath-metered": false,
         "summary": "Get part thumbnail",
-        "description": "Requires **Analyze a part** (`PATCH /parts/{id}`) to have run and its job to have succeeded.\n\nServes the rendered PNG thumbnail for a part as image bytes, so a client can fetch it with the\nAPI key it already holds rather than reading `thumbnailUrl` off `GET /v1/parts/{id}` first.\nThe thumbnail is the kernel’s three-quarter view of the analyzed part.\n\nThe bytes are served through this request rather than as a redirect to a presigned URL: a\nthumbnail is a few kB, and streaming it keeps the disclosure on this request’s access audit\ninstead of handing out a bearer grant that outlives it. `thumbnailUrl` on the part response is\nstill the right choice for an `<img src>`, which cannot carry an Authorization header.\n\nResolves the same artifact `GET /v1/parts/{id}` reports — the latest analysis run by default,\nor the run named by `?jobId=`. A part whose analysis produced no thumbnail answers 404.",
+        "description": "Requires **Analyze a part** (`PATCH /v1/parts/{id}`) to have run and its job to have succeeded.\n\nServes the rendered PNG thumbnail for a part as image bytes, so a client can fetch it with the\nAPI key it already holds rather than reading `thumbnailUrl` off `GET /v1/parts/{id}` first.\nThe thumbnail is the kernel’s three-quarter view of the analyzed part.\n\nThe bytes are served through this request rather than as a redirect to a presigned URL: a\nthumbnail is a few kB, and streaming it keeps the disclosure on this request’s access audit\ninstead of handing out a bearer grant that outlives it. `thumbnailUrl` on the part response is\nstill the right choice for an `<img src>`, which cannot carry an Authorization header.\n\nResolves the same artifact `GET /v1/parts/{id}` reports — the latest analysis run by default,\nor the run named by `?jobId=`. A part whose analysis produced no thumbnail answers 404.",
         "parameters": [
           {
             "schema": {
@@ -6917,6 +7539,573 @@
         }
       }
     },
+    "/v1/files": {
+      "post": {
+        "operationId": "createFile",
+        "tags": [
+          "Files"
+        ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "Upload a file",
+        "description": "Creates a CAD file and returns a short-lived URL for uploading it. Use a file rather than **Upload a part** when the file may hold more than one solid body — a part beside its stock, or several parts: upload it to the URL, run **Inspect a file** (`PATCH /v1/files/{id}`) to list its bodies, then **Make parts from a file** (`POST /v1/files/{id}/parts`).\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "example": "assembly.step",
+              "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. A name with no extension, or one no reader is chosen for, is refused."
+            },
+            "required": true,
+            "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. A name with no extension, or one no reader is chosen for, is refused.",
+            "name": "filename",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The file was created and is ready for direct upload.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateFileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid, or the filename names no reader.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The file could not be created.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/files/{id}": {
+      "patch": {
+        "operationId": "updateFile",
+        "tags": [
+          "Files"
+        ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "Inspect a file",
+        "description": "Queues inspection of an uploaded file — listing its solid bodies — and returns a job. Wait for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the bodies with **Get a file** (`GET /v1/files/{id}`). A file holding no solid body fails the job, its `error` beginning `no_solid_bodies:`. A file is inspected once: once its bodies are listed they never change, and a further inspection is refused. A failed inspection lists nothing, so it can be run again. One inspection of a file runs at a time: another, while one is queued or running, is refused.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "example": "file-inspection-123"
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The inspection job was accepted; wait for it on `GET /v1/jobs/{id}/events`, then read /v1/files/{id}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateFileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The file does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The file has not been uploaded, its bodies are already listed, an inspection of it is already queued or running, or the Idempotency-Key was already used for a different operation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The file is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The inspection job could not be submitted.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable, or the job could not be sent to the processing queue (`job_dispatch_failed`) and was not created. Retry the request; reusing its Idempotency-Key is safe.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getFile",
+        "tags": [
+          "Files"
+        ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "Get a file",
+        "description": "Returns an uploaded file and its solid bodies. The bodies are listed once **Inspect a file** (`PATCH /v1/files/{id}`) has run and its job has succeeded; pick the ones to make parts of from them.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file and its bodies.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The file does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The file is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The file could not be retrieved.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/files/{id}/mesh": {
+      "get": {
+        "operationId": "getFileMesh",
+        "tags": [
+          "Files"
+        ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "Get file mesh",
+        "description": "Returns a display mesh of every solid body of a file, written by **Inspect a file** (`PATCH /v1/files/{id}`), so the bodies can be drawn before any is made a part. The GLB holds one node per body, and node `body-<index>` is the body at `bodies[index]` of **Get a file** (`GET /v1/files/{id}`); nodes are named by index only, never by the body’s name. It is faceted from the uploaded file as-is, so it is not any part’s analysis mesh. Meshing is best-effort: an inspection can list the bodies without one, which `hasMesh` on **Get a file** reports. 409 before an inspection has succeeded; 410 once the file is past the retention window.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file’s display mesh.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileMeshResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The file does not exist, or its inspection produced no display mesh.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The file has not been inspected yet.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The file is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The file mesh could not be retrieved.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/files/{id}/parts": {
+      "post": {
+        "operationId": "createFileParts",
+        "tags": [
+          "Files"
+        ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "Make parts from a file",
+        "description": "Makes a part of each named body of an inspected file. Each part is an ordinary part from then on: run **Analyze a part** (`PATCH /v1/parts/{id}`) and the rest of the pipeline on it, as on an uploaded one. Naming a body that is already a part returns that part rather than making another, so one call can make every part of a file, or calls can make them one at a time. Name only the bodies to machine. Each part comes back with the shape its body is (the file’s `shapes`), so a client can make one part of a shape and quote it by the shape’s `count`; nothing stops it making a part of every copy. The body a part is cut from is stated as stock with each part’s plan, not here.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFilePartsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The parts are ready to analyze.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateFilePartsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid, or names a body the file does not have.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The file does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The file has not been inspected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The file is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The parts could not be made.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/parts/{id}/features": {
       "patch": {
         "operationId": "updatePartFeatures",
@@ -6926,7 +8115,7 @@
         "x-toolpath-product": "dfm",
         "x-toolpath-metered": true,
         "summary": "Analyze part features",
-        "description": "Queues detailed machining datasheets for selected features of an analyzed part and returns a job. Track the job, then read the datasheets with **Get part features** (`GET /parts/{id}/features`).",
+        "description": "Queues detailed machining datasheets for selected features of an analyzed part and returns a job. Wait for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the datasheets with **Get part features** (`GET /v1/parts/{id}/features`).",
         "parameters": [
           {
             "schema": {
@@ -6950,7 +8139,7 @@
         },
         "responses": {
           "202": {
-            "description": "The enrichment job was accepted.",
+            "description": "The enrichment job was accepted; wait for it on `GET /v1/jobs/{id}/events`, then read /v1/parts/{id}/features.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7020,7 +8209,7 @@
             }
           },
           "500": {
-            "description": "The enrichment job could not be submitted.",
+            "description": "The enrichment job could not be created.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7030,7 +8219,7 @@
             }
           },
           "503": {
-            "description": "Authentication is temporarily unavailable.",
+            "description": "Authentication is temporarily unavailable, or the job could not be sent to the processing queue (`job_dispatch_failed`) and was not created. Retry the request; reusing its Idempotency-Key is safe.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7049,7 +8238,7 @@
         "x-toolpath-product": "dfm",
         "x-toolpath-metered": false,
         "summary": "Get part features",
-        "description": "Returns detailed machining datasheets for the requested features. Requires the datasheets to have been generated first: run **Analyze part features** (`PATCH /parts/{id}/features`), or **Analyze a part** (`PATCH /parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A feature with no datasheet yet comes back with `datasheet: null`.",
+        "description": "Returns detailed machining datasheets for the requested features. Requires the datasheets to have been generated first: run **Analyze part features** (`PATCH /v1/parts/{id}/features`), or **Analyze a part** (`PATCH /v1/parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A feature with no datasheet yet comes back with `datasheet: null`.",
         "parameters": [
           {
             "schema": {
@@ -7167,7 +8356,7 @@
         "x-toolpath-metered": true,
         "x-toolpath-experimental": true,
         "summary": "Create a plan",
-        "description": "Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "description": "Queues a machining plan for an analyzed part and returns a job. Wait for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the plan with **Get a plan** (`GET /v1/plans/{planId}`) or **List plans** (`GET /v1/parts/{id}/plans`).\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {
@@ -7203,7 +8392,7 @@
         },
         "responses": {
           "202": {
-            "description": "The planning job was accepted; poll /plans/{planId} for the result.",
+            "description": "The planning job was accepted; wait for it on `GET /v1/jobs/{id}/events`, then read /v1/plans/{planId}.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7273,7 +8462,7 @@
             }
           },
           "500": {
-            "description": "The planning job could not be submitted.",
+            "description": "The planning job could not be created.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7283,7 +8472,7 @@
             }
           },
           "503": {
-            "description": "Authentication is temporarily unavailable.",
+            "description": "Authentication is temporarily unavailable, or the job could not be sent to the processing queue (`job_dispatch_failed`) and was not created. Retry the request; reusing its Idempotency-Key is safe.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7303,7 +8492,7 @@
         "x-toolpath-metered": false,
         "x-toolpath-experimental": true,
         "summary": "List plans",
-        "description": "Lists the plans created for a part, newest first. Create them first with **Create a plan** (`POST /parts/{id}/plans`); a part with no plans returns an empty page.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "description": "Lists the plans created for a part, newest first. Create them first with **Create a plan** (`POST /v1/parts/{id}/plans`); a part with no plans returns an empty page.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {
@@ -7434,7 +8623,7 @@
         "x-toolpath-metered": true,
         "x-toolpath-experimental": true,
         "summary": "Calculate toolpaths",
-        "description": "Creates a plan and calculates its toolpaths in one step, returning a job. Track the job, then read the result with **Get toolpaths** (`GET /plans/{planId}/toolpaths`) and **Get machining time** (`GET /plans/{planId}/machining-time`).\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "description": "Creates a plan and calculates its toolpaths in one step, returning a job. Wait for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the result with **Get toolpaths** (`GET /v1/plans/{planId}/toolpaths`) and **Get machining time** (`GET /v1/plans/{planId}/machining-time`).\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {
@@ -7470,7 +8659,7 @@
         },
         "responses": {
           "202": {
-            "description": "The toolpath job was accepted; poll /plans/{planId}/toolpaths for the calculated result. The plan is readable at `planned` (GET /plans/{planId}) as soon as the job has planned the part, with `jobId` naming this job; it becomes `toolpathed` when the cuts are done. A failed job leaves it `planned` under the failed job.",
+            "description": "The toolpath job was accepted; wait for it on `GET /v1/jobs/{id}/events`, then read /v1/plans/{planId}/toolpaths for the calculated result. The plan is readable at `planned` (GET /v1/plans/{planId}) as soon as the job has planned the part, with `jobId` naming this job; it becomes `toolpathed` when the cuts are done. A failed job leaves it `planned` under the failed job.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7540,7 +8729,7 @@
             }
           },
           "500": {
-            "description": "The toolpath job could not be submitted.",
+            "description": "The toolpath job could not be created.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7550,7 +8739,7 @@
             }
           },
           "503": {
-            "description": "Authentication is temporarily unavailable.",
+            "description": "Authentication is temporarily unavailable, or the job could not be sent to the processing queue (`job_dispatch_failed`) and was not created. Retry the request; reusing its Idempotency-Key is safe.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7572,7 +8761,7 @@
         "x-toolpath-metered": true,
         "x-toolpath-experimental": true,
         "summary": "Calculate a plan’s toolpaths",
-        "description": "Calculates toolpaths for an existing plan and returns a job — for a workflow that creates a plan first with **Create a plan** (`POST /parts/{id}/plans`) and calculates its toolpaths afterward, and for recomputing a plan’s toolpaths. Track the job, then read the result with **Get toolpaths** (`GET /plans/{planId}/toolpaths`) and **Get machining time** (`GET /plans/{planId}/machining-time`).\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "description": "Calculates toolpaths for an existing plan and returns a job — for a workflow that creates a plan first with **Create a plan** (`POST /v1/parts/{id}/plans`) and calculates its toolpaths afterward, and for recomputing a plan’s toolpaths. Wait for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the result with **Get toolpaths** (`GET /v1/plans/{planId}/toolpaths`) and **Get machining time** (`GET /v1/plans/{planId}/machining-time`).\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {
@@ -7608,7 +8797,7 @@
         },
         "responses": {
           "202": {
-            "description": "The toolpath job was accepted; it recomputes onto this plan. Poll /plans/{planId}/toolpaths. A `toolpathed` plan keeps its last result while the job runs, and its `jobId` moves to this job when it completes; a plan that was `planned` is rewritten under this job as soon as it has been re-planned. A failed job leaves a `toolpathed` plan as it was. Compare `jobId` with the job you queued.",
+            "description": "The toolpath job was accepted; it recomputes onto this plan. Wait for it on `GET /v1/jobs/{id}/events`, then read /v1/plans/{planId}/toolpaths. A `toolpathed` plan keeps its last result while the job runs, and its `jobId` moves to this job when it completes; a plan that was `planned` is rewritten under this job as soon as it has been re-planned. A failed job leaves a `toolpathed` plan as it was. Compare `jobId` with the job you queued.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7678,7 +8867,7 @@
             }
           },
           "500": {
-            "description": "The toolpath job could not be submitted.",
+            "description": "The toolpath job could not be created.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7688,7 +8877,7 @@
             }
           },
           "503": {
-            "description": "Authentication is temporarily unavailable.",
+            "description": "Authentication is temporarily unavailable, or the job could not be sent to the processing queue (`job_dispatch_failed`) and was not created. Retry the request; reusing its Idempotency-Key is safe.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7708,7 +8897,7 @@
         "x-toolpath-metered": false,
         "x-toolpath-experimental": true,
         "summary": "Get toolpaths",
-        "description": "Returns the calculated toolpaths for a plan, with geometry download URLs. Requires **Calculate toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST /plans/{planId}/toolpaths`) to have run and its job to have succeeded.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "description": "Returns the calculated toolpaths for a plan, with geometry download URLs. Requires **Calculate toolpaths** (`POST /v1/parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST /v1/plans/{planId}/toolpaths`) to have run and its job to have succeeded.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {
@@ -7825,7 +9014,7 @@
         "x-toolpath-metered": false,
         "x-toolpath-experimental": true,
         "summary": "Get a plan",
-        "description": "Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`) to have run and its job to have succeeded.\n\nA toolpath calculation makes the plan readable at `planned` as soon as it has planned the part, before it cuts: `jobId` names the job cutting it, so compare it with the job you queued. A plan already `toolpathed` keeps its last result while it is recalculated, and its `jobId` moves when that run completes. A failed calculation leaves the plan as its last successful run left it, or `planned` under the failed job for a plan that had no toolpaths.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "description": "Returns a plan with its setups and operations. Requires **Create a plan** (`POST /v1/parts/{id}/plans`) to have run and its job to have succeeded.\n\nA toolpath calculation makes the plan readable at `planned` as soon as it has planned the part, before it cuts: `jobId` names the job cutting it, so compare it with the job you queued. A plan already `toolpathed` keeps its last result while it is recalculated, and its `jobId` moves when that run completes. A failed calculation leaves the plan as its last successful run left it, or `planned` under the failed job for a plan that had no toolpaths.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {
@@ -7932,7 +9121,7 @@
         "x-toolpath-metered": false,
         "x-toolpath-experimental": true,
         "summary": "Get machining time",
-        "description": "Returns the machining time for a plan’s toolpaths, per action and totalled. Requires **Calculate toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST /plans/{planId}/toolpaths`) to have run and its job to have succeeded.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "description": "Returns the machining time for a plan’s toolpaths, per action and totalled. Requires **Calculate toolpaths** (`POST /v1/parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST /v1/plans/{planId}/toolpaths`) to have run and its job to have succeeded.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {
@@ -8048,7 +9237,7 @@
         "x-toolpath-product": "core",
         "x-toolpath-metered": false,
         "summary": "Upload a tool holder",
-        "description": "Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).",
+        "description": "Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to the URL, then run **Import a tool holder** (`PATCH /v1/holders/{id}`).",
         "parameters": [
           {
             "schema": {
@@ -8056,10 +9245,10 @@
               "minLength": 1,
               "maxLength": 255,
               "example": "holder.step",
-              "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, or `.igs`/`.iges`. Omitting it stores the upload as `.step`, which fails processing for any other format."
+              "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format."
             },
             "required": false,
-            "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, or `.igs`/`.iges`. Omitting it stores the upload as `.step`, which fails processing for any other format.",
+            "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format.",
             "name": "filename",
             "in": "query"
           }
@@ -8137,7 +9326,7 @@
         "x-toolpath-product": "core",
         "x-toolpath-metered": false,
         "summary": "Import a tool holder",
-        "description": "Queues import of an uploaded tool holder — deriving its collision envelope — and returns a job. Track the job, then read the result with **Get a tool holder** (`GET /holders/{id}`).",
+        "description": "Queues import of an uploaded tool holder — deriving its collision envelope — and returns a job. Wait for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the result with **Get a tool holder** (`GET /v1/holders/{id}`).",
         "parameters": [
           {
             "schema": {
@@ -8209,7 +9398,7 @@
         ],
         "responses": {
           "202": {
-            "description": "The import job was accepted.",
+            "description": "The import job was accepted; wait for it on `GET /v1/jobs/{id}/events`, then read /v1/holders/{id}.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8269,7 +9458,7 @@
             }
           },
           "500": {
-            "description": "The import job could not be submitted.",
+            "description": "The import job could not be created.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -8279,7 +9468,7 @@
             }
           },
           "503": {
-            "description": "Authentication is temporarily unavailable.",
+            "description": "Authentication is temporarily unavailable, or the job could not be sent to the processing queue (`job_dispatch_failed`) and was not created. Retry the request; reusing its Idempotency-Key is safe.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -8298,7 +9487,7 @@
         "x-toolpath-product": "core",
         "x-toolpath-metered": false,
         "summary": "Get a tool holder",
-        "description": "Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder** (`PATCH /holders/{id}`) to have run and its job to have succeeded.",
+        "description": "Returns a tool holder’s imported geometry and collision envelope. Requires **Import a tool holder** (`PATCH /v1/holders/{id}`) to have run and its job to have succeeded.",
         "parameters": [
           {
             "schema": {
@@ -8416,7 +9605,7 @@
         "x-toolpath-product": "core",
         "x-toolpath-metered": false,
         "summary": "Download a holder (Fusion)",
-        "description": "Requires **Import a tool holder** (`PATCH /holders/{id}`) to have run and its job to have\nsucceeded.\n\nReturns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,\nhyphenated keys.\n\nBy default this is a **tool library** (`format=library`) that Fusion can import directly.\n`format=document` returns the bare holder document the kernel wrote, which carries the same\ngeometry but cannot be imported on its own.\n\nThe exported envelope stops at the gauge plane by default: material above it is inside the\nspindle and cannot collide with anything. Pass `trim=false` for the complete envelope,\nincluding the taper. Both are written by the kernel during the import, so neither is a\nreshaping of the other. `trim=true` falls back to the complete envelope for a holder that has\nno gauge plane to cut at, or whose taper a flip put at the nose.\n\nAn unmeasured gauge length is not written as zero. In a library it becomes the sum of every\nsegment height — Fusion's own idiom for a holder whose geometry is its gauge length; in a\ndocument the field is omitted, which puts Fusion's own field into manual mode.",
+        "description": "Requires **Import a tool holder** (`PATCH /v1/holders/{id}`) to have run and its job to have\nsucceeded.\n\nReturns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,\nhyphenated keys.\n\nBy default this is a **tool library** (`format=library`) that Fusion can import directly.\n`format=document` returns the bare holder document the kernel wrote, which carries the same\ngeometry but cannot be imported on its own.\n\nThe exported envelope stops at the gauge plane by default: material above it is inside the\nspindle and cannot collide with anything. Pass `trim=false` for the complete envelope,\nincluding the taper. Both are written by the kernel during the import, so neither is a\nreshaping of the other. `trim=true` falls back to the complete envelope for a holder that has\nno gauge plane to cut at, or whose taper a flip put at the nose.\n\nAn unmeasured gauge length is not written as zero. In a library it becomes the sum of every\nsegment height — Fusion's own idiom for a holder whose geometry is its gauge length; in a\ndocument the field is omitted, which puts Fusion's own field into manual mode.",
         "parameters": [
           {
             "schema": {
@@ -8733,7 +9922,7 @@
         "x-toolpath-product": "core",
         "x-toolpath-metered": false,
         "summary": "List jobs",
-        "description": "Lists processing jobs, newest first. Every pipeline step that queues work — **Analyze a part**, **Analyze part features**, **Create a plan**, **Calculate toolpaths**, and **Import a tool holder** — returns a job you track here.",
+        "description": "Lists processing jobs, newest first. Every pipeline step that queues work — **Analyze a part**, **Analyze part features**, **Create a plan**, **Calculate toolpaths**, and **Import a tool holder** — returns a job. To wait for one job, use **Stream job updates** (`GET /v1/jobs/{id}/events`) rather than listing repeatedly.",
         "parameters": [
           {
             "schema": {
@@ -8792,8 +9981,8 @@
                 "succeeded",
                 "failed"
               ],
-              "example": "succeeded",
-              "description": "Return only jobs in this state."
+              "description": "Return only jobs in this state.",
+              "example": "succeeded"
             },
             "required": false,
             "description": "Return only jobs in this state.",
@@ -8865,6 +10054,114 @@
         }
       }
     },
+    "/v1/jobs/{id}/events": {
+      "get": {
+        "operationId": "streamJobEvents",
+        "tags": [
+          "Jobs"
+        ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "summary": "Stream job updates",
+        "description": "The way to wait for a job. Sends the current job immediately, then sends every subsequent persisted status, progress, retry, or error change as a `job` server-sent event. Every job reaches a final status, `succeeded` or `failed`, and the server closes the stream right after sending it; a stream that ends without one lost its connection. The stream may also contain comment lines (starting with `:`) that keep the connection open; ignore them. In a browser, read the stream with `fetch` and an SSE parser: `EventSource` cannot send the `Authorization` header.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A stream of job snapshots.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "Each `job` event has a JSON `data` field matching JobDetail.",
+                  "example": "event: job\ndata: {\"partUuid\":\"0195f02c-4b4a-7b5d-9b6e-8f139d5e2820\",\"holderUuid\":null,\"fileUuid\":null,\"jobUuid\":\"0195f02c-4b4a-7b5d-9b6e-8f139d5e2821\",\"productType\":\"analyze-part\",\"status\":\"running\",\"progress\":null,\"retriesRemaining\":2,\"error\":null,\"reportId\":null,\"importId\":null,\"createdAt\":\"2026-08-05T12:00:00.000Z\",\"updatedAt\":\"2026-08-05T12:00:02.000Z\",\"durationMs\":2000}\n\n"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The job was not found.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The job is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The job event stream could not be opened.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/jobs/{id}": {
       "get": {
         "operationId": "getJob",
@@ -8874,7 +10171,7 @@
         "x-toolpath-product": "core",
         "x-toolpath-metered": false,
         "summary": "Get a job",
-        "description": "Returns one processing job. After any pipeline step that queues work, poll this (or **Stream job updates**, `GET /jobs/{id}/events`) until the status is `succeeded`, then read the result from the matching Get endpoint.",
+        "description": "Returns one processing job as it is now. To wait for a job to finish, use **Stream job updates** (`GET /v1/jobs/{id}/events`) instead of calling this repeatedly: the stream sends this same object on every change and closes once the status is `succeeded` or `failed`.",
         "parameters": [
           {
             "schema": {
@@ -8950,114 +10247,6 @@
           },
           "500": {
             "description": "The job could not be retrieved.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Authentication is temporarily unavailable.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/jobs/{id}/events": {
-      "get": {
-        "operationId": "streamJobEvents",
-        "tags": [
-          "Jobs"
-        ],
-        "x-toolpath-product": "core",
-        "x-toolpath-metered": false,
-        "summary": "Stream job updates",
-        "description": "Sends the current job immediately, then sends every subsequent persisted status, progress, or error change as a `job` server-sent event while the connection remains open. If the connection closes, reconnect to receive the latest job snapshot before continuing with future updates.",
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
-            },
-            "required": true,
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "A stream of job snapshots.",
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "string",
-                  "description": "Each `job` event has a JSON `data` field matching JobDetail.",
-                  "example": "event: job\ndata: {\"partUuid\":\"0195f02c-4b4a-7b5d-9b6e-8f139d5e2820\",\"holderUuid\":null,\"jobUuid\":\"0195f02c-4b4a-7b5d-9b6e-8f139d5e2821\",\"productType\":\"analyze-part\",\"status\":\"running\",\"progress\":null,\"error\":null,\"reportId\":null,\"importId\":null,\"createdAt\":\"2026-08-05T12:00:00.000Z\",\"updatedAt\":\"2026-08-05T12:00:02.000Z\",\"durationMs\":2000}\n\n"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request is invalid.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "The API key is missing or invalid.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The job was not found.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "The job is older than the retention window and is no longer available.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The job event stream could not be opened.",
             "content": {
               "application/problem+json": {
                 "schema": {

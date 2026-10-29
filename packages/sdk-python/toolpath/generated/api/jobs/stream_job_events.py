@@ -88,9 +88,12 @@ def sync_detailed(
 ) -> Response[ProblemDetails | str]:
     """Stream job updates
 
-     Sends the current job immediately, then sends every subsequent persisted status, progress, or error
-    change as a `job` server-sent event while the connection remains open. If the connection closes,
-    reconnect to receive the latest job snapshot before continuing with future updates.
+     The way to wait for a job. Sends the current job immediately, then sends every subsequent persisted
+    status, progress, retry, or error change as a `job` server-sent event. Every job reaches a final
+    status, `succeeded` or `failed`, and the server closes the stream right after sending it; a stream
+    that ends without one lost its connection. The stream may also contain comment lines (starting with
+    `:`) that keep the connection open; ignore them. In a browser, read the stream with `fetch` and an
+    SSE parser: `EventSource` cannot send the `Authorization` header.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -121,9 +124,12 @@ def sync(
 ) -> ProblemDetails | str | None:
     """Stream job updates
 
-     Sends the current job immediately, then sends every subsequent persisted status, progress, or error
-    change as a `job` server-sent event while the connection remains open. If the connection closes,
-    reconnect to receive the latest job snapshot before continuing with future updates.
+     The way to wait for a job. Sends the current job immediately, then sends every subsequent persisted
+    status, progress, retry, or error change as a `job` server-sent event. Every job reaches a final
+    status, `succeeded` or `failed`, and the server closes the stream right after sending it; a stream
+    that ends without one lost its connection. The stream may also contain comment lines (starting with
+    `:`) that keep the connection open; ignore them. In a browser, read the stream with `fetch` and an
+    SSE parser: `EventSource` cannot send the `Authorization` header.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -149,9 +155,12 @@ async def asyncio_detailed(
 ) -> Response[ProblemDetails | str]:
     """Stream job updates
 
-     Sends the current job immediately, then sends every subsequent persisted status, progress, or error
-    change as a `job` server-sent event while the connection remains open. If the connection closes,
-    reconnect to receive the latest job snapshot before continuing with future updates.
+     The way to wait for a job. Sends the current job immediately, then sends every subsequent persisted
+    status, progress, retry, or error change as a `job` server-sent event. Every job reaches a final
+    status, `succeeded` or `failed`, and the server closes the stream right after sending it; a stream
+    that ends without one lost its connection. The stream may also contain comment lines (starting with
+    `:`) that keep the connection open; ignore them. In a browser, read the stream with `fetch` and an
+    SSE parser: `EventSource` cannot send the `Authorization` header.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -180,9 +189,12 @@ async def asyncio(
 ) -> ProblemDetails | str | None:
     """Stream job updates
 
-     Sends the current job immediately, then sends every subsequent persisted status, progress, or error
-    change as a `job` server-sent event while the connection remains open. If the connection closes,
-    reconnect to receive the latest job snapshot before continuing with future updates.
+     The way to wait for a job. Sends the current job immediately, then sends every subsequent persisted
+    status, progress, retry, or error change as a `job` server-sent event. Every job reaches a final
+    status, `succeeded` or `failed`, and the server closes the stream right after sending it; a stream
+    that ends without one lost its connection. The stream may also contain comment lines (starting with
+    `:`) that keep the connection open; ignore them. In a browser, read the stream with `fetch` and an
+    SSE parser: `EventSource` cannot send the `Authorization` header.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

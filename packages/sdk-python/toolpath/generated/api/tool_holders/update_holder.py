@@ -127,8 +127,9 @@ def sync_detailed(
 ) -> Response[ProblemDetails | UpdateHolderResponse]:
     """Import a tool holder
 
-     Queues import of an uploaded tool holder — deriving its collision envelope — and returns a job.
-    Track the job, then read the result with **Get a tool holder** (`GET /holders/{id}`).
+     Queues import of an uploaded tool holder — deriving its collision envelope — and returns a job. Wait
+    for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the result with
+    **Get a tool holder** (`GET /v1/holders/{id}`).
 
     Args:
         id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -178,8 +179,9 @@ def sync(
 ) -> ProblemDetails | UpdateHolderResponse | None:
     """Import a tool holder
 
-     Queues import of an uploaded tool holder — deriving its collision envelope — and returns a job.
-    Track the job, then read the result with **Get a tool holder** (`GET /holders/{id}`).
+     Queues import of an uploaded tool holder — deriving its collision envelope — and returns a job. Wait
+    for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the result with
+    **Get a tool holder** (`GET /v1/holders/{id}`).
 
     Args:
         id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -224,8 +226,9 @@ async def asyncio_detailed(
 ) -> Response[ProblemDetails | UpdateHolderResponse]:
     """Import a tool holder
 
-     Queues import of an uploaded tool holder — deriving its collision envelope — and returns a job.
-    Track the job, then read the result with **Get a tool holder** (`GET /holders/{id}`).
+     Queues import of an uploaded tool holder — deriving its collision envelope — and returns a job. Wait
+    for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the result with
+    **Get a tool holder** (`GET /v1/holders/{id}`).
 
     Args:
         id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -273,8 +276,9 @@ async def asyncio(
 ) -> ProblemDetails | UpdateHolderResponse | None:
     """Import a tool holder
 
-     Queues import of an uploaded tool holder — deriving its collision envelope — and returns a job.
-    Track the job, then read the result with **Get a tool holder** (`GET /holders/{id}`).
+     Queues import of an uploaded tool holder — deriving its collision envelope — and returns a job. Wait
+    for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the result with
+    **Get a tool holder** (`GET /v1/holders/{id}`).
 
     Args:
         id (UUID):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

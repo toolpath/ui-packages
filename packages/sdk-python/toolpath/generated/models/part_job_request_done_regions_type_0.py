@@ -14,11 +14,13 @@ class PartJobRequestDoneRegionsType0:
     into the part report’s `regions`, and the `kernelVersion` of the report they were read from. Region indices are
     stable only within one kernel release, so a job planned by another fails, its `error` beginning `stale_regions:`; an
     index the part does not have fails it as `unknown_regions:`. A done region is left out of the plan’s `issues`, its
-    machining times and its toolpaths. A feature whose regions are all done is not planned, unless `setupPlan` names it
-    — then it is machined, and its regions still do not count toward `issues`. A done region on the top of a direction
-    turns off facing from that direction, and the part’s other top faces are machined one by one. The stock is
-    unchanged: it is still the block around the part, so the simulation cuts air over a done region. Omit or null for
-    none; on **Calculate a plan’s toolpaths**, omit to keep the plan’s and null to clear them.
+    machining times and its toolpaths, and no feature planned holds one: a part feature that does is planned as what is
+    left of it, under a tag of its own that the plan’s `trimmedFeatures` describes, and one whose regions are all done
+    is not planned. A `setupPlan` may still name such a feature by its part-report tag: what is left of it is stated in
+    its place. A done region on the top of a direction turns off facing from that direction, and the part’s other top
+    faces are machined one by one. The stock is unchanged: it is still the block around the part, so the simulation cuts
+    air over a done region. Omit or null for none; on **Calculate a plan’s toolpaths**, omit to keep the plan’s and null
+    to clear them.
 
         Example:
             {'kernelVersion': '0.18.0', 'regions': [12, 13]}

@@ -25,8 +25,10 @@ class UpdatePartRequest:
             `setupPlan` can state a setup in one and name its features. Each follows the part’s `candidateDirections` in the
             order added, and every feature the part had keeps its `featureTag`. A direction within 0.1° of one the part has
             adds nothing, and nor does one whose analysis fails; either is missing from the result’s `candidateDirections`.
-            A part takes at most 12 added directions in all, and there is no removing one. Omit to analyze the part from the
-            directions it has. Example: [{'x': 1, 'y': 0, 'z': 0}].
+            One within 0.1° of the exact opposite of a direction the part has is added as that exact opposite: read it back
+            off `candidateDirections` rather than matching the direction sent. A part takes at most 12 added directions in
+            all, and there is no removing one. Omit to analyze the part from the directions it has. Example: [{'x': 1, 'y':
+            0, 'z': 0}].
     """
 
     directions: list[UpdatePartRequestDirectionsItem] | Unset = UNSET

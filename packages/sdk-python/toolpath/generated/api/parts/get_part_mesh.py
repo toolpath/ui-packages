@@ -103,7 +103,7 @@ def sync_detailed(
     """Get part mesh
 
      Returns the display mesh the latest tessellation job wrote for this part. Requires **Tessellate a
-    part for display** (`POST /parts/{id}/mesh`) to have run and its job to have succeeded. It is
+    part for display** (`POST /v1/parts/{id}/mesh`) to have run and its job to have succeeded. It is
     faceted from the uploaded file as-is, so it is not the analysis mesh: its counts differ from the
     part result’s, and region triangle ranges do not apply to it. Its own face spans come with it as
     `faceTriangleCounts`. 410 once the part is past the retention window.
@@ -143,7 +143,7 @@ def sync(
     """Get part mesh
 
      Returns the display mesh the latest tessellation job wrote for this part. Requires **Tessellate a
-    part for display** (`POST /parts/{id}/mesh`) to have run and its job to have succeeded. It is
+    part for display** (`POST /v1/parts/{id}/mesh`) to have run and its job to have succeeded. It is
     faceted from the uploaded file as-is, so it is not the analysis mesh: its counts differ from the
     part result’s, and region triangle ranges do not apply to it. Its own face spans come with it as
     `faceTriangleCounts`. 410 once the part is past the retention window.
@@ -178,7 +178,7 @@ async def asyncio_detailed(
     """Get part mesh
 
      Returns the display mesh the latest tessellation job wrote for this part. Requires **Tessellate a
-    part for display** (`POST /parts/{id}/mesh`) to have run and its job to have succeeded. It is
+    part for display** (`POST /v1/parts/{id}/mesh`) to have run and its job to have succeeded. It is
     faceted from the uploaded file as-is, so it is not the analysis mesh: its counts differ from the
     part result’s, and region triangle ranges do not apply to it. Its own face spans come with it as
     `faceTriangleCounts`. 410 once the part is past the retention window.
@@ -216,7 +216,7 @@ async def asyncio(
     """Get part mesh
 
      Returns the display mesh the latest tessellation job wrote for this part. Requires **Tessellate a
-    part for display** (`POST /parts/{id}/mesh`) to have run and its job to have succeeded. It is
+    part for display** (`POST /v1/parts/{id}/mesh`) to have run and its job to have succeeded. It is
     faceted from the uploaded file as-is, so it is not the analysis mesh: its counts differ from the
     part result’s, and region triangle ranges do not apply to it. Its own face spans come with it as
     `faceTriangleCounts`. 410 once the part is past the retention window.

@@ -103,9 +103,9 @@ def sync_detailed(
     """Get part features
 
      Returns detailed machining datasheets for the requested features. Requires the datasheets to have
-    been generated first: run **Analyze part features** (`PATCH /parts/{id}/features`), or **Analyze a
-    part** (`PATCH /parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A feature
-    with no datasheet yet comes back with `datasheet: null`.
+    been generated first: run **Analyze part features** (`PATCH /v1/parts/{id}/features`), or **Analyze
+    a part** (`PATCH /v1/parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A
+    feature with no datasheet yet comes back with `datasheet: null`.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -141,9 +141,9 @@ def sync(
     """Get part features
 
      Returns detailed machining datasheets for the requested features. Requires the datasheets to have
-    been generated first: run **Analyze part features** (`PATCH /parts/{id}/features`), or **Analyze a
-    part** (`PATCH /parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A feature
-    with no datasheet yet comes back with `datasheet: null`.
+    been generated first: run **Analyze part features** (`PATCH /v1/parts/{id}/features`), or **Analyze
+    a part** (`PATCH /v1/parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A
+    feature with no datasheet yet comes back with `datasheet: null`.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -174,9 +174,9 @@ async def asyncio_detailed(
     """Get part features
 
      Returns detailed machining datasheets for the requested features. Requires the datasheets to have
-    been generated first: run **Analyze part features** (`PATCH /parts/{id}/features`), or **Analyze a
-    part** (`PATCH /parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A feature
-    with no datasheet yet comes back with `datasheet: null`.
+    been generated first: run **Analyze part features** (`PATCH /v1/parts/{id}/features`), or **Analyze
+    a part** (`PATCH /v1/parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A
+    feature with no datasheet yet comes back with `datasheet: null`.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -210,9 +210,9 @@ async def asyncio(
     """Get part features
 
      Returns detailed machining datasheets for the requested features. Requires the datasheets to have
-    been generated first: run **Analyze part features** (`PATCH /parts/{id}/features`), or **Analyze a
-    part** (`PATCH /parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A feature
-    with no datasheet yet comes back with `datasheet: null`.
+    been generated first: run **Analyze part features** (`PATCH /v1/parts/{id}/features`), or **Analyze
+    a part** (`PATCH /v1/parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A
+    feature with no datasheet yet comes back with `datasheet: null`.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
