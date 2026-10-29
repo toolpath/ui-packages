@@ -3,6 +3,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   useSyncExternalStore,
@@ -149,10 +150,18 @@ export const MeasureTool = ({
   const groups = measurements ?? held
   const latest = useRef({ groups, onChange, controlled: measurements !== undefined })
   latest.current = { groups, onChange, controlled: measurements !== undefined }
+  // Draws the tool again after a change its app owns, even one the app declines.
+  const [, redraw] = useReducer((count: number) => count + 1, 0)
   const commit = useRef((next: readonly MeasureGroup[]): void => {
     const { groups: current, onChange: report, controlled } = latest.current
     if (next === current || (next.length === 0 && current.length === 0)) return
-    if (!controlled) setHeld(next)
+    // A second event before the next render builds on this one; the render puts back what is shown.
+    latest.current.groups = next
+    if (controlled) {
+      redraw()
+    } else {
+      setHeld(next)
+    }
     report?.(next)
   }).current
 

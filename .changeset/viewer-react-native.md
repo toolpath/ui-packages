@@ -61,6 +61,8 @@ rather than finding them each time it opens. It looks up a face's regions in a t
 part, rather than searching every region each time, and tries to join only cylinders of about the
 same radius into one hole.
 
+Two picks in quick succession, before the tool redraws, now both count.
+
 `createEngineGeometryCache` now evicts released geometry past its capacity when a part is retained
 as well as when one is released, and evicts geometry a part has let go before geometry only read. At
 a capacity of 1 (a phone's), a closed part's geometry goes as soon as the next part opens, including
