@@ -4,7 +4,6 @@ import { Matrix4, Raycaster, type BufferGeometry } from 'three'
 import { createMeasureHint, type CanvasSpot } from './measure-hint.js'
 import type { PartModel } from './model/types.js'
 import type { ViewerCamera } from './render/camera.js'
-import { regionEdgesGeometry } from './render/edges.js'
 import { zoomedReach, type ScreenAt } from './render/edge-corners.js'
 import type { HoleIndex, Point, SurfaceFor } from './render/face-measure.js'
 import {
@@ -20,15 +19,7 @@ import {
   type Snapped,
   type Under,
 } from './render/measure-picks.js'
-import {
-  cutSampler,
-  edgeSnaps,
-  onCanvas,
-  partSphere,
-  underPointer,
-  type CutSampler,
-  type EdgeSnaps,
-} from './render/measure-under.js'
+import { cutSampler, onCanvas, partSphere, underPointer } from './render/measure-under.js'
 import { partSurfaces } from './render/part-surfaces.js'
 import { TAP_SLOP } from './render/tap.js'
 import { onViewCube, type ViewCubePlace } from './render/view-cube.js'
@@ -103,7 +94,8 @@ export const useMeasurePointer = (
 ): PointerShown | null => {
   const { model, geometry, surfaceFor, holes } = part
   const { gl, camera, size, scene } = useThree()
-  const { snaps, cut } = useEdgeSnaps(model, geometry)
+  // Re-sampled only when cut; the part's edges are found the first time a point is snapped.
+  const cut = useMemo(() => cutSampler(geometry, model), [geometry, model])
   const [shown, setShown] = useState<PointerShown | null>(null)
   const pairs = useMemo(() => pairsOn(surfaceFor), [surfaceFor])
   // Kept past a re-run of the effect below, so a pointer that has not moved is read again.
@@ -176,7 +168,7 @@ export const useMeasurePointer = (
       // The tool draws in the mesh's space, so its points are in it (`underPointer`).
       const meshToWorld = surfaces[0]?.matrixWorld ?? NO_MOVE
       const reach = alt ? zoomedReach(SNAP_REACH, partSphere(geometry, surfaces), view, size) : null
-      const at3d = { model, surfaceFor, holes, snaps, cut, surfaces, raycaster }
+      const at3d = { model, geometry, surfaceFor, holes, cut, surfaces, raycaster }
       const found = underPointer(at3d, screen, reach && { reach, heldLine })
       onPart = found !== null
       if (!reach) heldCorner = null
@@ -302,21 +294,7 @@ export const useMeasurePointer = (
       hint.remove()
       setShown(null)
     }
-  }, [
-    active,
-    gl,
-    camera,
-    size,
-    scene,
-    model,
-    geometry,
-    surfaceFor,
-    holes,
-    snaps,
-    cut,
-    pairs,
-    handlers,
-  ])
+  }, [active, gl, camera, size, scene, model, geometry, surfaceFor, holes, cut, pairs, handlers])
 
   return shown
 }
@@ -334,22 +312,3 @@ const samePoints = (a: readonly Point[] | null, b: readonly Point[] | null): boo
 /** Whether two reads paint the same, so the part need not be painted again. */
 const sameShown = (a: PointerShown | null, b: PointerShown | null): boolean =>
   a === b || (a !== null && b !== null && a.region === b.region && samePoints(a.edge, b.edge))
-
-/**
- * The part's edges to snap to, and its re-sampler for a section cut, built
- * once per part while the tool is up and let go with it.
- */
-const useEdgeSnaps = (
-  model: PartModel,
-  geometry: BufferGeometry,
-): { snaps: EdgeSnaps | null; cut: CutSampler } => {
-  const edges = useMemo(() => regionEdgesGeometry(geometry, model), [geometry, model])
-  useEffect(() => () => edges.dispose(), [edges])
-  return useMemo(() => {
-    const positions = edges.getAttribute('position')?.array ?? null
-    return {
-      snaps: positions ? edgeSnaps(positions) : null,
-      cut: cutSampler(geometry, model, positions),
-    }
-  }, [edges, geometry, model])
-}

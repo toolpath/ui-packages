@@ -1,5 +1,6 @@
 import type { PartModel } from '../model/types.js'
 import { type ViewerCamera, type ViewportSize } from './camera.js'
+import { regionEdgesGeometry } from './edges.js'
 import { screenPoint } from './measure.js'
 import {
   Matrix4,
@@ -43,11 +44,42 @@ export interface EdgeSnaps {
 }
 
 /** The snaps on edges given as segments, six floats each, the layout `regionEdgesGeometry` draws. */
-export const edgeSnaps = (positions: ArrayLike<number>): EdgeSnaps => ({
+const edgeSnaps = (positions: ArrayLike<number>): EdgeSnaps => ({
   corners: edgeCorners(positions),
   lines: edgeLines(positions),
   linePoints: new Map(),
 })
+
+/** A part's edges as segments (`regionEdgesGeometry`), and the snaps on them, for the model they were found for. */
+interface PartEdges {
+  model: PartModel
+  positions: ArrayLike<number> | null
+  snaps: EdgeSnaps | null
+}
+
+const edgesByGeometry = new WeakMap<BufferGeometry, PartEdges>()
+
+/**
+ * The part's edges, found once per part, the first time a point is snapped on
+ * it, and kept with its geometry: finding them walks every triangle, which no
+ * click or tap should wait on twice, and a plain click on a face needs none.
+ * Only their positions are read, so the edges' geometry is let go at once.
+ */
+const partEdges = (model: PartModel, geometry: BufferGeometry): PartEdges => {
+  const known = edgesByGeometry.get(geometry)
+  // A new model of the same geometry (an analysis's) has regions of its own.
+  if (known?.model === model) return known
+  const edges = regionEdgesGeometry(geometry, model)
+  const positions = edges.getAttribute('position')?.array ?? null
+  edges.dispose()
+  const found = { model, positions, snaps: positions ? edgeSnaps(positions) : null }
+  edgesByGeometry.set(geometry, found)
+  return found
+}
+
+/** The part's edges to snap to, when nothing cuts it (`partEdges`). Null for a part with no edges. */
+export const edgeSnapsFor = (model: PartModel, geometry: BufferGeometry): EdgeSnaps | null =>
+  partEdges(model, geometry).snaps
 
 /** Where a section plane passes through solid material, in the mesh's own space. */
 interface CutFace {
@@ -63,8 +95,8 @@ interface CutFace {
  * cut made, which are solid on screen and have corners of their own.
  */
 interface CutPart {
-  /** The edges left after the cut, with each cut face's outline. */
-  snaps: EdgeSnaps
+  /** The edges left after the cut, with each cut face's outline: found the first time a point is snapped. */
+  snaps: () => EdgeSnaps
   faces: readonly CutFace[]
 }
 
@@ -74,13 +106,9 @@ export type CutSampler = (surface: Mesh) => CutPart | null
 /**
  * Re-samples the part each time its cut moves, and only then: the sample is
  * kept by the planes' numbers, as a drag writes new numbers into one `Plane`.
- * `edges` are the part's own (`regionEdgesGeometry`), in the mesh's space.
+ * The part's own edges (`partEdges`) are read only once a point is snapped.
  */
-export const cutSampler = (
-  geometry: BufferGeometry,
-  model: PartModel,
-  edges: ArrayLike<number> | null,
-): CutSampler => {
+export const cutSampler = (geometry: BufferGeometry, model: PartModel): CutSampler => {
   let triangles: { positions: ArrayLike<number>; regionOf: Int32Array } | null = null
   const held = new Map<Mesh, { key: string; part: CutPart }>()
   return (surface) => {
@@ -95,7 +123,7 @@ export const cutSampler = (
     const toLocal = new Matrix4().copy(surface.matrixWorld).invert()
     const part = cutPart(
       triangles,
-      edges ?? [],
+      () => partEdges(model, geometry).positions ?? [],
       planes.map((plane) => plane.clone().applyMatrix4(toLocal)),
     )
     held.set(surface, { key, part })
@@ -118,7 +146,7 @@ const trianglesOf = (
 /** Each plane's face, trimmed by the others; the part's edges, trimmed by all, with the faces' outlines. */
 const cutPart = (
   { positions, regionOf }: { positions: ArrayLike<number>; regionOf: Int32Array },
-  edges: ArrayLike<number>,
+  edges: () => ArrayLike<number>,
   planes: readonly Plane[],
 ): CutPart => {
   const faces = planes.map((plane, index) => ({
@@ -128,9 +156,17 @@ const cutPart = (
       sectionContour(positions, regionOf, plane),
     ),
   }))
-  const kept = planes.reduce<ArrayLike<number>>((left, plane) => clipSegments(left, plane), edges)
-  const all = [...Array.from(kept), ...faces.flatMap((face) => Array.from(face.contour))]
-  return { snaps: edgeSnaps(all), faces }
+  let snaps: EdgeSnaps | null = null
+  const snapsLeft = (): EdgeSnaps => {
+    if (snaps) return snaps
+    const kept = planes.reduce<ArrayLike<number>>(
+      (left, plane) => clipSegments(left, plane),
+      edges(),
+    )
+    snaps = edgeSnaps([...Array.from(kept), ...faces.flatMap((face) => Array.from(face.contour))])
+    return snaps
+  }
+  return { snaps: snapsLeft, faces }
 }
 
 const clippingPlanesOf = (surface: Mesh): readonly Plane[] => {
@@ -141,10 +177,10 @@ const clippingPlanesOf = (surface: Mesh): readonly Plane[] => {
 /** What `underPointer` needs of the part. */
 export interface PartAt {
   model: PartModel
+  /** The part's geometry, whose edges a point snaps to where nothing cuts it (`edgeSnapsFor`). */
+  geometry: BufferGeometry
   surfaceFor: SurfaceFor
   holes: HoleIndex
-  /** The part's edges whole, for when nothing cuts it. */
-  snaps: EdgeSnaps | null
   cut: CutSampler
   surfaces: readonly Mesh[]
   raycaster: Raycaster
@@ -268,7 +304,8 @@ const snapNear = (
   const onFace = landing
     ? { snap: faceSnap(toMesh(landing.point, landing.surface)), line: null }
     : null
-  const snaps = surface ? (part.cut(surface)?.snaps ?? part.snaps) : null
+  const cut = surface ? part.cut(surface) : null
+  const snaps = cut ? cut.snaps() : edgeSnapsFor(part.model, part.geometry)
   if (!snaps || !surface) return onFace
   // Taken before `canSee` aims the raycaster elsewhere.
   const ray = raycaster.ray.clone()
