@@ -143,3 +143,93 @@ test('a hidden body in front lets the body behind it take the pointer', async ({
     .poll(async () => JSON.parse((await page.getByTestId('picks').textContent())!))
     .toEqual(['left'])
 })
+test('an exploded body moves with its picks, and the shared bounds hold it apart', async ({
+  page,
+}) => {
+  await page.goto('/tests/fixtures/collection.html')
+  await expect(page.getByTestId('scene')).not.toHaveText('')
+  await page.getByRole('button', { name: 'Overlap', exact: true }).click()
+  const scene = async () => JSON.parse((await page.getByTestId('scene').textContent())!)
+  await expect.poll(async () => (await scene()).width).toBeLessThan(70)
+  const assembled = (await scene()).width
+  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await page.getByRole('button', { name: 'Explode', exact: true }).click()
+  await expect.poll(async () => (await scene()).width).toBeCloseTo(assembled + 70)
+  const picks = async () => JSON.parse((await page.getByTestId('picks').textContent())!)
+  const canvas = page.locator('canvas')
+  // At amount 0 the right body still lies over the left one.
+  await canvas.click({ position: (await scene()).centers[0] })
+  await expect.poll(picks).toEqual(['right'])
+  // Set outside React: the next frame moves it, and the left body takes the pointer.
+  await page.getByRole('button', { name: 'Apart', exact: true }).click()
+  await canvas.click({ position: (await scene()).centers[0] })
+  await expect.poll(picks).toEqual(['right', 'left'])
+  // Framed again, the moved body is in view where it now is.
+  await page.getByRole('button', { name: 'Top', exact: true }).click()
+  await expect
+    .poll(async () => {
+      const { x, y } = (await scene()).centers[1]
+      return x > 0 && x < 800 && y > 0 && y < 600
+    })
+    .toBe(true)
+  await canvas.click({ position: (await scene()).centers[1] })
+  await expect.poll(picks).toEqual(['right', 'left', 'right'])
+})
+/** The mean colour of a square patch of the canvas, centred on `at`. */
+const meanColour = async (page: Page, at: { x: number; y: number }) => {
+  const png = (await page.locator('canvas').screenshot()).toString('base64')
+  return page.evaluate(
+    async ({ png, at }) => {
+      const image = new Image()
+      image.src = `data:image/png;base64,${png}`
+      await image.decode()
+      const canvas = document.createElement('canvas')
+      canvas.width = image.width
+      canvas.height = image.height
+      const context = canvas.getContext('2d')!
+      context.drawImage(image, 0, 0)
+      const scale = image.width / document.querySelector('canvas')!.clientWidth
+      const side = Math.round(30 * scale)
+      const { data } = context.getImageData(
+        Math.round(at.x * scale) - side / 2,
+        Math.round(at.y * scale) - side / 2,
+        side,
+        side,
+      )
+      const sum = [0, 0, 0]
+      for (let i = 0; i < data.length; i += 4) {
+        for (const channel of [0, 1, 2]) sum[channel]! += data[i + channel]!
+      }
+      return sum.map((total) => total / (data.length / 4))
+    },
+    { png, at },
+  )
+}
+test('the section cap follows an exploded body', async ({ page }) => {
+  await page.goto('/tests/fixtures/collection.html')
+  await expect(page.getByTestId('scene')).not.toHaveText('')
+  await page.getByRole('button', { name: 'Explode', exact: true }).click()
+  await page.getByRole('button', { name: 'Apart', exact: true }).click()
+  await page.getByRole('button', { name: 'Cut', exact: true }).click()
+  // The cut keeps the upper half, so the cap faces down.
+  await page.getByRole('button', { name: 'Bottom', exact: true }).click()
+  const scene = async () => JSON.parse((await page.getByTestId('scene').textContent())!)
+  await expect
+    .poll(async () => {
+      const { x, y } = (await scene()).centers[2]
+      return x > 0 && x < 800 && y > 0 && y < 600
+    })
+    .toBe(true)
+  await expect.poll(async () => (await scene()).caps).toBe(1)
+  // The moved body's cut is capped as the body left in place is, not open onto its inside.
+  const { centers } = await scene()
+  await expect
+    .poll(async () => {
+      const [still, moved] = [
+        await meanColour(page, centers[0]),
+        await meanColour(page, centers[2]),
+      ]
+      return Math.max(...still.map((value, channel) => Math.abs(value - moved[channel]!)))
+    })
+    .toBeLessThan(12)
+})

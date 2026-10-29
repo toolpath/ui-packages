@@ -6,6 +6,7 @@ import { Button } from '@toolpath/ui'
 import {
   PartCollection,
   Viewer,
+  createExplodeAmount,
   useContentBox,
   type PartPick,
   type ViewerHandle,
@@ -37,7 +38,8 @@ const Probe = ({ report }: { report: (value: string) => void }) => {
       const point = new Vector3(x, 0, z).project(camera)
       return { x: ((point.x + 1) * size.width) / 2, y: ((1 - point.y) * size.height) / 2 }
     }
-    const centers = [-35, 35].map((x) => toScreen(x, 0))
+    // The two bodies apart, and the right one moved a further 70 mm by `Explode`.
+    const centers = [-35, 35, 105].map((x) => toScreen(x, 0))
     // In the staggered layout: on the left body alone, and where the right one covers it.
     const alone = toScreen(-42, 12.7)
     const covered = toScreen(-28, 22.7)
@@ -62,6 +64,10 @@ const App = () => {
   const [tint, setTint] = useState(false)
   const [raised, setRaised] = useState(false)
   const [hidden, setHidden] = useState(false)
+  // The right body pulled 70 mm along X; `Apart` moves it with no React render.
+  const [exploding, setExploding] = useState(false)
+  const [amount] = useState(() => createExplodeAmount(0))
+  const offsets = useMemo(() => new Map([['right', { x: 70, y: 0, z: 0 }]]), [])
   const [pick, setPick] = useState<{ id: string; pick: PartPick } | null>(null)
   const [picks, setPicks] = useState<Array<string>>([])
   const [hover, setHover] = useState<string | null>(null)
@@ -107,6 +113,7 @@ const App = () => {
   return (
     <>
       <Button onClick={() => viewer.current?.setView('top')}>Top</Button>
+      <Button onClick={() => viewer.current?.setView('bottom')}>Bottom</Button>
       <Button onClick={() => setLayout('overlap')}>Overlap</Button>
       <Button onClick={() => setLayout('stagger')}>Stagger</Button>
       <Button onClick={() => setGhost(true)}>Ghost</Button>
@@ -114,6 +121,8 @@ const App = () => {
       <Button onClick={() => setTint(true)}>Tint</Button>
       <Button onClick={() => setRaised(true)}>Raise</Button>
       <Button onClick={() => setHidden(true)}>Hide</Button>
+      <Button onClick={() => setExploding(true)}>Explode</Button>
+      <Button onClick={() => amount.set(1)}>Apart</Button>
       <Button
         onClick={() =>
           viewer.current?.setSection({ enabled: true, normal: { x: 0, y: 0, z: 1 }, offset: 0.5 })
@@ -125,6 +134,7 @@ const App = () => {
         <Viewer ref={viewer}>
           <PartCollection
             items={items}
+            explode={exploding ? { amount, offsets } : undefined}
             onPick={(id, value) => {
               setPick({ id, pick: value })
               setPicks((old) => [...old, id])
