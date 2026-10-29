@@ -1,5 +1,53 @@
 # @toolpath/viewer
 
+## 3.2.0
+
+### Minor Changes
+
+- 79e4351: `<ExplodedPart>` now covers what each application rebuilt around it: placement, motion, paint
+  and picking. Everything added is optional; existing layouts and controllers keep working.
+  - `explodeLayout(model, geometry, assignments)` places pieces along their approaches, clear of
+    the part and of each other. `explodeFits` and `EXPLODE_LIMITS` (4096 pieces, one million
+    copied triangles) say whether a layout draws; past them `<ExplodedPart>` draws nothing.
+  - `createExplodeMotion` is an explode amount that animates itself: easing, real elapsed time, a
+    pause while the tab is hidden, reduced motion, and moves that wait until the pieces they
+    drive have warmed their shaders. `ExplodeAmount` gains an optional `hold`.
+  - Inside `<PartMesh>` or `<EnginePart>`, `<ExplodedPart>` reads the part's model and mesh.
+    `<PartMesh visible={false}>` also hides the part's overlays from picking, and
+    `<VisibilityGroup>` hides what an application draws beside the part the same way.
+  - Groups take optional `featureTags` and `direction`. Picks on such a group rank only its
+    features and report `explodeDirection`. `selectedFeatures`, `hoveredFeatures` and `hover`
+    select and hover pieces by feature tag, and `highlights`/`regionHighlights` paint them as
+    `<PartMesh>` paints the assembled part.
+  - Picking matches `<PartMesh>`: ranked from the orbit target, right-click on release, double
+    click reported and re-aiming the orbit, hover reported once per piece and face, no picks
+    while a `<SectionTool>` holds the pointer, and a pick that finds nothing passes through.
+  - `ViewerToolbar` gains an `explode` control and `ExplodeButton`, and every control a
+    `disabled` flag.
+  - `applyHighlightLayers` takes a `PaintTarget`, now exported: the part's `model` and its paint
+    methods. A `PartObject` still fits.
+
+  Changed defaults:
+  - `<PartMesh visible={false}>` keeps its children mounted and drawn; 3.1.0 unmounted them. An
+    `<ExplodedPart>` inside stands in for the hidden part. To hide other children with the part,
+    stop rendering them while it is hidden. A hidden part is also left out of Fit and of the
+    bounds overlays are sized to, unless it is a `<PartCollection>` item, which still counts.
+  - Without a theme, pieces use the part's edge color and opacity and tint toward the viewer's
+    selection and hover colors (toward blue where the pieces' own colors are mostly warm), rather
+    than toward white. The piece under the pointer is tinted when `hovered` is not given. Pass
+    `theme` or `hovered` to keep the earlier look.
+  - The ghost of the assembled part is outlined in `DEFAULT_THEME.edge` (black) rather than pale
+    blue `0xa5b7d1`. `theme.edge` sets it, and the piece edges with it: `theme={{ edge: 0xa5b7d1 }}`
+    brings the pale outline back, on the pieces too.
+  - `<PartMesh>` puts the part, and its section, inside one more `<group>`, which hides them. Code
+    that walks the scene graph and expects the part's mesh as a direct child of where `<PartMesh>`
+    is placed should search its descendants instead, for example with `traverse`.
+
+- 5734e4c: Leave out features nothing machines, the same way in every app.
+  - `@toolpath/dfm`: `featureSheet` marks `invalidGeometry` where the Engine measured a feature and found it is not one of its kind (a T-slot with `facts.isInvalidGeometry`, or an all-zero cutter band from an older kernel), and `unplannable` where Toolpath plans no pass for it whatever the tools (invalid geometry, a failed clearance measurement, or a clearance that admits no tool; never a chamfer). `invalidFeatureTags(sheets)` and `unplannableFeatureTags(sheets)` list them by tag. A dovetail's deprecated `isInvalidGeometry`, a failed measurement, is never read as invalid geometry. `isNoReading` now reads `facts.isInvalidGeometry` and leaves the slot's blend radius out of the zero check, so it finds the invalid T-slots the Engine sends; a T-slot whose measurement failed is not among them. Feature details say "None fits" for an invalid groove and keep "Not measured" for a failed measurement.
+  - `@toolpath/viewer`: `withoutFeatures(model, tags)`, a `withoutFeatures` option on `normalizePartReport` and a `withoutFeatures` prop on `EnginePart` leave features out of the model and its region index, so picks and the direction wash go to the faces' other owners while every face stays drawn. `EnginePart` reads the list by its tags and keeps the loaded mesh.
+  - `@toolpath/plan`: an optional `PlanRules.unplannable` refuses a pin that adds a feature Toolpath plans no pass for ("No tool can cut that feature, so a pin machines nothing.") and `actionsFor` stops offering one. A feature pinned already can still be let go or moved. Without it, nothing changes.
+
 ## 3.1.0
 
 ### Minor Changes

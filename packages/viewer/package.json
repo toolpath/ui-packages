@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/viewer",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "React Three Fiber viewer for Toolpath Engine part reports",
   "license": "MIT",
   "engines": {

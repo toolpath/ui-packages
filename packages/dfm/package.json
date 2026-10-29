@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/dfm",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Toolpath DFM rules: the rules, the part checker, and the rule-set file. Logic only; the views are in @toolpath/ui",
   "license": "MIT",
   "engines": {
