@@ -12,8 +12,8 @@ and picking. Everything added is optional; existing layouts and controllers keep
   pause while the tab is hidden, reduced motion, and moves that wait until the pieces they
   drive have warmed their shaders. `ExplodeAmount` gains an optional `hold`.
 - Inside `<PartMesh>` or `<EnginePart>`, `<ExplodedPart>` reads the part's model and mesh.
-  `<PartMesh visible={false}>` hides the part from drawing, framing and picking, keeping it
-  mounted, and `<VisibilityGroup>` does the same for what an application draws beside it.
+  `<PartMesh visible={false}>` also hides the part's overlays from picking, and
+  `<VisibilityGroup>` hides what an application draws beside the part the same way.
 - Groups take optional `featureTags` and `direction`. Picks on such a group rank only its
   features and report `explodeDirection`. `selectedFeatures`, `hoveredFeatures` and `hover`
   select and hover pieces by feature tag, and `highlights`/`regionHighlights` paint them as
@@ -27,6 +27,11 @@ and picking. Everything added is optional; existing layouts and controllers keep
   methods. A `PartObject` still fits.
 
 Changed defaults:
+
+- `<PartMesh visible={false}>` keeps its children mounted and drawn; 3.1.0 unmounted them. An
+  `<ExplodedPart>` inside stands in for the hidden part. To hide other children with the part,
+  stop rendering them while it is hidden. A hidden part is also left out of Fit and of the
+  bounds overlays are sized to, unless it is a `<PartCollection>` item, which still counts.
 
 - Without a theme, pieces use the part's edge color and opacity and tint toward the viewer's
   selection and hover colors (toward blue where the pieces' own colors are mostly warm), rather
