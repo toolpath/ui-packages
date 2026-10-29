@@ -1,9 +1,23 @@
-import { sameJson, sameStock, type PlanRules, type SessionRules } from '@toolpath/plan'
-import type { Intent, PartInputsHeld } from './plan-draft'
+import {
+  isHeld,
+  planSession,
+  sameJson,
+  startSession,
+  type PlanRules,
+  type PlanSession,
+  type SessionEvent,
+  type SessionRules,
+} from '@toolpath/plan'
+
+import { sameStock } from '../inputs/stock'
+import type { Intent, PartInputsHeld, PlanDraft } from './plan-draft'
+
+export type { DraftAction, DraftFacts, PlanRules } from '@toolpath/plan'
 
 /*
   The quoting app's Plan page holds an `Intent` in its `PlanSession`: the constraints and the part's
-  inputs, with no save stamps. These are the rules that session needs beyond plan mode's own.
+  inputs, with no save stamps. These are the rules that session needs beyond plan mode's own, and
+  the session with them in place (`quotingPlan`), so the app has no rules of its own to forget.
 */
 
 /** The setups, done faces and inputs alone: a draft's save stamps are left out of the session. */
@@ -70,3 +84,47 @@ export const intentSessionRules = (rules: PlanRules): SessionRules<Intent> => ({
   same: sameIntent,
   rebase: rebaseIntent,
 })
+
+/** The quoting app's Plan page session: its edits to a part's constraints and inputs. */
+export type IntentSession = PlanSession<Intent>
+
+/** Everything an `IntentSession` can be told. */
+export type IntentEvent = SessionEvent<Intent>
+
+/** What an `IntentSession` reads of the part, and whether the plan can be changed now. */
+export interface IntentRules extends PlanRules {
+  locked?: boolean
+}
+
+/**
+ * The quoting app's Plan page session, with its rules (`sameIntent`, `rebaseIntent`) in place: the
+ * app gives only what it reads of the part, and whether the plan is locked.
+ */
+export const quotingPlan = {
+  /**
+   * A session on the plan as saved, at its save version, with `held` — edits kept from before a
+   * reload — if any.
+   */
+  start: (saved: PlanDraft, held?: Intent | null): IntentSession =>
+    startSession(intentOf(saved), { held: held ?? undefined, version: saved.version }),
+
+  /**
+   * The session after `event`: a new session, the one given left as it was (`@toolpath/plan`'s
+   * `planSession`, with the app's rules).
+   */
+  update: (session: IntentSession, event: IntentEvent, rules: IntentRules): IntentSession =>
+    planSession(session, event, { ...intentSessionRules(rules), locked: rules.locked }),
+
+  /**
+   * Whether the page has edits not applied yet: the draft is not the plan as applied. What Apply
+   * and Discard need. `@toolpath/plan`'s `isHeld`, compared by `sameIntent`.
+   */
+  hasEdits: (session: IntentSession): boolean => isHeld(session, { same: sameIntent }),
+
+  /** The plan as saved, read again, as an event: its save stamps left out, its version kept. */
+  read: (saved: PlanDraft): IntentEvent => ({
+    type: 'read',
+    saved: intentOf(saved),
+    version: saved.version,
+  }),
+}

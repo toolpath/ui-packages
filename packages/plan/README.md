@@ -12,11 +12,13 @@ pnpm add @toolpath/plan
 ```
 
 ```ts
-import { actionsFor, applyDraftAction, classifyFaces, statementOf } from '@toolpath/plan'
+import { actionsFor, applyDraftAction, planDetails, statementOf } from '@toolpath/plan'
 ```
 
-The package is logic only: no React, no DOM and no CSS. Its one dependency is `@toolpath/tool-support`, for the inch. A view over these rules
-belongs in `@toolpath/ui`.
+The package is logic only: no React, no DOM and no CSS, and no dependencies. A view over these
+rules belongs in `@toolpath/ui`. `@toolpath/plan/parts` and `@toolpath/plan/clicks` are the other
+entries (see [The plan's details](#the-plans-details-plandetails)). The stock, the tool crib and units are in
+[`@toolpath/quoting`](../quoting): `@toolpath/quoting/inputs` and `@toolpath/quoting/units`.
 
 ## Your app's own fields
 
@@ -62,10 +64,10 @@ ignored faces, `withIgnored` and `withoutIgnored`. These return `{ refused }` wi
 when the edit cannot be made: `setSetupProcess`, `setToolOrientation`, `moveFolder`,
 `moveFeature`, `pinInto` and `pinFrom`. Nothing here throws on typed input; read a stored draft
 through `parseDraftSetups` first.
-`parseDraftSetups` and `parseStock` check stored data before it is used.
+`parseDraftSetups` checks stored data before it is used.
 
-`classifyFaces` reads what the draft and the plan leave of each face: pinned, ignored, open,
-machined or not machined (`COVERAGE_KINDS`). A viewer paints faces from it.
+`classifyFaces` (in `/parts`) reads what the draft and the plan leave of each face: pinned,
+ignored, open, machined or not machined (`COVERAGE_KINDS`). A viewer paints faces from it.
 
 ### Trimmed features
 
@@ -97,9 +99,10 @@ same way from the latest plan, and as the part labels it with none. `planFromRes
 What the app does:
 
 - Parse the plan's `trimmedFeatures` into `EnginePlan`.
-- Pass `planFeaturesOf` to `classifyFaces` and `groupFaces`: with the pins (`pinned`) in the
-  constraints view, without them in the results view.
-- Pass the latest plan to `draftView`.
+- With `planDetails`, nothing more for the views: it passes `planFeaturesOf` to `classifyFaces` and
+  `groupFaces`, and the latest plan to `draftView`. An app that builds its page from `/parts`
+  passes `planFeaturesOf` with the pins (`pinned`) in the constraints view, without them in the
+  results view, and the latest plan to `draftView`.
 - Look a tag's faces up for selection, zoom and `PlanRules.regionsOf` through `planFeaturesOf`,
   so a trimmed tag resolves to its own faces.
 - DFM: count a trimmed tag's time and flags under its `fromFeatureTag`'s rules. The rules are the
@@ -174,7 +177,7 @@ of any kind, does what pinning does there: the person's pins whose every face it
 and its own faces are no longer ignored. Pinning a feature where it is pinned already lets it go, as
 a right click does. A left click on a feature in the open folder already sends nothing: it stays,
 and a pick among its readings (`choosePinReading`, `target: 'add'`) pins another beside it. With
-Ignore open, `ignoreClick` says what a click does: a left click ignores, a right click lets go.
+Ignore open, `ignoreClick` (in `/clicks`) says what a click does: a left click ignores, a right click lets go.
 
 `facts` say what the action did beyond the draft, for the status line: the pins a pin `replaced`,
 the faces it `unignored`, the pins an ignore `unpinned`, whether a pin `added` a setup, whether it
@@ -278,20 +281,57 @@ The package says no only where it must. Each refusal is one of these:
 
 An "our choice" refusal can become a yes in a later release. Until then, it stays as it is.
 
-## Clicks on the part, and what it shows
+## The plan's details: `planDetails`
 
-These are the helpers behind the Plan page of Toolpath's own app. Each is a plain function of plain data:
+```ts
+import { planDetails, PART_ROW } from '@toolpath/plan'
 
-- Pins: `pinEdit`, `withPin`, `folderClick`, `chooseReading`, `takeBack` and `replacedBy`. Ignore:
-  `ignoreEdit`, `unignoreEdit`, `ignoreClick` and `ignoreSelection`. `readingsFor` lists the
-  features a click on a face can mean.
-- The tree: `draftView` lays out the draft, `planView` and `resultsView` the plan. The setups of
-  `resultsView` can be passed to `planFromResults`, trimmed rows too. `flattenFolders`,
-  `projectFolder` and `gapAt` place a folder being dragged, and say where it lands as a `DropAt`.
-- Paint: `planPaint` and `planHatch` color each face from `classifyFaces`
-  (`DONE_COLOR`, `UNMACHINED_FACE_COLOR`, `OTHER_FOLDER_COLOR`).
-- Before Apply: `planChecks` and `confirmChecks` list what the person should check.
-  `directionAnalysis` says whether a direction has been analyzed.
+const details = planDetails({ draft, saved, plan, part, analysis, planIsOfSaved })
+details.constraints.setups // the tree of the constraints
+details.results.confirm // the checklist before the part moves on
+details.find.pinOf(tag) // the folder a feature is pinned in
+details.paint({ tab: 'constraints', openId: PART_ROW, colorOf }) // { faces, hatches }
+```
+
+`planDetails` gives an app everything it shows of a plan, from one set of inputs. Call it again when
+an input changes. Each part is worked out only when it is read, and only once.
+
+- **Inputs.** Toolpath's data only: the constraints held now (`draft`) and as applied (`saved`,
+  with whether they `changed` since Toolpath's plan), Toolpath's plan, and the part's analysis
+  (its faces and features, the `kernelVersion` that read it, and its `directions`). Any draft that
+  holds the constraints works, with the `kernelVersion` its pins name: a session's draft has none,
+  so lay it over the plan as saved (`{ ...saved, ...session.draft }`). The app says whether the
+  plan is of `saved` (`planIsOfSaved`). `part` is how a tag reads (`PlanPart`), and each feature
+  the checks name. The quoting app's version is `quotingPlanDetails` in `@toolpath/quoting/plan`: it makes
+  these inputs from its session.
+- **`details.constraints`**: the tree (`setups`, `folders`), each face pinned, ignored or open
+  (`coverage`), the faces ignored, the counts, and the checks before Apply.
+- **`details.results`**: Toolpath's setups, named by the folders they are from while the plan is of
+  `saved`; each face machined, ignored or not machined; the Not machined list; the counts; whether
+  the constraints changed since; and the checklist before the part moves on (`confirm`, `allClear`).
+- **`details.find`**: a folder, its path, a pin, where a pin from a direction goes, the setup that
+  machines a feature, and whether a folder or a setup holds one.
+- **`details.paint(shown)`**: the colour of each face, and the lines across faces other folders take.
+  The app chooses the tab, the open folder, the colour of each direction (`colorOf`), and whether
+  every folder paints.
+
+### The other entries
+
+- **`@toolpath/plan/parts`**: the functions `planDetails` is built from, for an app that shows the plan
+  another way. The trees: `draftView`, `resultsView` (its setups can be passed to
+  `planFromResults`), `allFolders`, `folderPath`, `listsTag`. Faces: `classifyFaces`, `groupFaces`,
+  `planTags`, `tagSet`, `currentFor`. Checks: `planChecks`, `confirmChecks`, `allClear`,
+  `changedSinceResults`. Counts and paint: `planCounts`, `planPaint`, `planHatch` (`DONE_COLOR`,
+  `UNMACHINED_FACE_COLOR` and `OTHER_FOLDER_COLOR` are on the main entry). Lookups: `findPlaced`,
+  `framesOf`, `pinOf`, `pinnedIn`, `pinTargetOf`, `setupOf`, `machines`.
+- **`@toolpath/plan/clicks`**: what a click on the part means. `readingsFor` lists the features a
+  click on a face can mean; `ignoreClick`, `ignoreSelection` and `featuresAt` say what a click does
+  while Ignore is open; `faceRegions` lists the regions split from the same face.
+
+On the main entry, the edits a click makes: `pinEdit`, `withPin`, `folderClick`, `chooseReading`,
+`takeBack` and `replacedBy` for pins, `ignoreEdit` and `unignoreEdit` for Ignore. `flattenFolders`,
+`projectFolder` and `gapAt` place a folder being dragged, and say where it lands as a `DropAt`.
+`directionAnalysis` says whether a direction has been analyzed.
 
 `tests/sdk-contract.test.ts` checks these types against `@toolpath/api`'s. The type checker
 (`pnpm check-types`) runs that check; `vitest` alone does not.

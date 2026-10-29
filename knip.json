@@ -15,15 +15,17 @@
       "project": ["src/**/*.ts", "tests/**/*.ts"]
     },
     "packages/plan": {
-      "entry": ["src/index.ts", "tests/**/*.test.ts"],
+      "entry": ["src/index.ts", "src/clicks/index.ts", "src/parts/index.ts", "tests/**/*.test.ts"],
       "project": ["src/**/*.ts", "tests/**/*.ts"]
     },
     "packages/quoting": {
       "entry": [
         "src/index.ts",
+        "src/inputs/index.ts",
         "src/model/index.ts",
         "src/pipeline/index.ts",
         "src/plan/index.ts",
+        "src/units/index.ts",
         "tests/**/*.test.ts"
       ],
       "project": ["src/**/*.ts", "tests/**/*.ts"]

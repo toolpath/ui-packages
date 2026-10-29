@@ -1,7 +1,7 @@
 {
   "name": "@toolpath/quoting",
   "version": "0.3.1",
-  "description": "The quote flow: where a part, a quote, a revision and a payment stand, what moving a part means, and the quoting app's plan draft. Logic only; views belong in @toolpath/ui",
+  "description": "The quote flow: where a part, a quote, a revision and a payment stand, what moving a part means, the quoting app's plan draft, its stock and tool crib, and how units show. Logic only; views belong in @toolpath/ui",
   "license": "MIT",
   "engines": {
     "node": ">=20"
@@ -25,6 +25,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./inputs": {
+      "types": "./dist/inputs/index.d.ts",
+      "import": "./dist/inputs/index.js"
+    },
     "./model": {
       "types": "./dist/model/index.d.ts",
       "import": "./dist/model/index.js"
@@ -37,6 +41,10 @@
       "types": "./dist/plan/index.d.ts",
       "import": "./dist/plan/index.js"
     },
+    "./units": {
+      "types": "./dist/units/index.d.ts",
+      "import": "./dist/units/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -46,12 +54,13 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsup src/index.ts src/model/index.ts src/pipeline/index.ts src/plan/index.ts --format esm --dts --clean",
+    "build": "tsup src/index.ts src/inputs/index.ts src/model/index.ts src/pipeline/index.ts src/plan/index.ts src/units/index.ts --format esm --dts --clean",
     "check-types": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "@toolpath/plan": "workspace:^"
+    "@toolpath/plan": "workspace:^",
+    "@toolpath/tool-support": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

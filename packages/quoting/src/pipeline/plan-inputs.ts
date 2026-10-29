@@ -1,12 +1,7 @@
-import {
-  statementOf,
-  stockRequest,
-  withFolders,
-  type DraftSetup,
-  type Statement,
-  type StockOption,
-  type ToolCrib,
-} from '@toolpath/plan'
+import { statementOf, withFolders, type DraftSetup, type Statement } from '@toolpath/plan'
+
+import { stockRequest, type StockOption } from '../inputs/stock'
+import type { ToolCrib } from '../inputs/tool-crib'
 
 /*
   What a part is planned from, and the one text that says it. Every run, plan and estimate is stamped

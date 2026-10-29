@@ -2,10 +2,12 @@
  * What each entry point drags in, asserted from the import graph. The package is the quote flow —
  * logic, data types and functions — plain rules a server, a browser or a worker can import alike; a
  * view over them belongs in `@toolpath/ui`. The root and `/model` reach no package, because the root
- * is `/model` under a shorter name. `/plan` reaches `@toolpath/plan` alone, whose constraints the
- * app's draft holds, and so does `/pipeline`, which states them for Toolpath. The graph is walked
- * rather than rostered, so a module added under `src/` lands covered. `ts.preProcessFile` returns
- * every specifier without type checking.
+ * is `/model` under a shorter name. `/units` reaches `@toolpath/tool-support` alone, for the inch.
+ * `/inputs` reaches it through `/units`, and `@toolpath/plan` for the direction a stock faces.
+ * `/plan` reaches both, whose constraints and inputs the app's draft holds, and so does
+ * `/pipeline`, which states them for Toolpath. The graph is walked rather than rostered, so a module
+ * added under `src/` lands covered. `ts.preProcessFile` returns every specifier without type
+ * checking.
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
@@ -53,9 +55,11 @@ const packagesFrom = (entry: string, seen = new Set<string>()): Set<string> => {
 
 describe.each([
   { entry: 'index.ts', reaches: [] },
+  { entry: 'inputs/index.ts', reaches: ['@toolpath/plan', '@toolpath/tool-support'] },
   { entry: 'model/index.ts', reaches: [] },
-  { entry: 'pipeline/index.ts', reaches: ['@toolpath/plan'] },
-  { entry: 'plan/index.ts', reaches: ['@toolpath/plan'] },
+  { entry: 'pipeline/index.ts', reaches: ['@toolpath/plan', '@toolpath/tool-support'] },
+  { entry: 'plan/index.ts', reaches: ['@toolpath/plan', '@toolpath/tool-support'] },
+  { entry: 'units/index.ts', reaches: ['@toolpath/tool-support'] },
 ])('src/$entry', ({ entry, reaches }) => {
   it(`reaches ${reaches.length === 0 ? 'no package at all' : reaches.join(', ')}`, () => {
     const path = join(SRC, entry)

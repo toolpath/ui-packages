@@ -1,10 +1,9 @@
 /**
- * What the entry point drags in, asserted from the import graph: `@toolpath/tool-support` alone,
- * for the one inch the repo states. The package is plan mode — logic, data types and functions —
- * plain rules a server, a browser or a worker can import alike;
- * a view over them belongs in `@toolpath/ui`. The graph is walked rather than rostered, so a module
- * added under `src/` lands covered. `ts.preProcessFile` returns every specifier without type
- * checking.
+ * What each entry point drags in, asserted from the import graph: no package at all. The package is
+ * plan mode — logic, data types and functions — plain rules a server, a browser or a worker can
+ * import alike; a view over them belongs in `@toolpath/ui`. The graph is walked rather than
+ * rostered, so a module added under `src/` lands covered. `ts.preProcessFile` returns every
+ * specifier without type checking.
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
@@ -50,11 +49,11 @@ const packagesFrom = (entry: string, seen = new Set<string>()): Set<string> => {
   return packages
 }
 
-describe('src/index.ts', () => {
-  it('reaches only @toolpath/tool-support, for the inch', () => {
-    const path = join(SRC, 'index.ts')
+describe.each(['index.ts', 'clicks/index.ts', 'parts/index.ts'])('src/%s', (entry) => {
+  it('reaches no package at all', () => {
+    const path = join(SRC, entry)
     expect(existsSync(path)).toBe(true)
-    expect([...packagesFrom(path)]).toEqual(['@toolpath/tool-support'])
+    expect([...packagesFrom(path)]).toEqual([])
   })
 })
 

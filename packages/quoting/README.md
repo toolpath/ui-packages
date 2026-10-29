@@ -15,8 +15,8 @@ import { moveFor, partArtifactsOf, partStateOf, quoteStatus } from '@toolpath/qu
 ```
 
 The package is logic only: no React, no DOM and no CSS. `@toolpath/quoting/model` is the same
-entry under a second name. A view over these rules, such as a stage timeline, belongs in
-`@toolpath/ui`.
+entry under a second name. `/inputs`, `/units`, `/plan` and `/pipeline` are the other entries.
+A view over these rules, such as a stage timeline, belongs in `@toolpath/ui`.
 
 ## Part: state
 
@@ -110,7 +110,19 @@ purchase order) → `payable`.
 ## The quoting app's plan draft: `@toolpath/quoting/plan`
 
 ```ts
-import { intentSessionRules, type PlanDraft } from '@toolpath/quoting/plan'
+import { quotingPlanDetails, quotingPlan, type PlanDraft } from '@toolpath/quoting/plan'
+
+let session = quotingPlan.start(saved)
+session = quotingPlan.update(session, { type: 'act', action }, { regionsOf, kernel, locked })
+session = quotingPlan.update(session, quotingPlan.read(savedAgain), { regionsOf, kernel, locked })
+
+const details = quotingPlanDetails({
+  loaded: { saved, session },
+  plan,
+  planSettled,
+  part,
+  analysis,
+})
 ```
 
 Plan mode itself is [`@toolpath/plan`](../plan): the constraints a person states, every edit to
@@ -124,13 +136,52 @@ constraints on each part:
 - `StockState`, `StockProfileInput` and `StockProfileSummary`: a part's saved stock and the shop's
   stock profiles.
 - The Plan page's session holds an `Intent`, with no save stamps (`intentOf`).
-  `intentSessionRules(rules)` gives `planSession` the app's rules for it: `sameIntent` compares
-  a stock as a policy, whatever its key order, and `rebaseIntent` keeps the inputs edited here when
-  the plan is read again, and takes the others from it.
+  `quotingPlan.start`, `.update` and `.hasEdits` are `@toolpath/plan`'s `startSession`,
+  `planSession` and `isHeld` with the app's rules in place: `sameIntent` compares a stock as a
+  policy, whatever its key order, and DFM rule sets in any order, and `rebaseIntent` keeps the
+  inputs edited here when the plan is read again, and takes the others from it.
+  `quotingPlan.read(saved)` is the event for a plan read again. The app gives only what it reads
+  of the part (`IntentRules`: `regionsOf`, `kernel`, `locked`). `intentSessionRules(rules)` is the
+  same rules, for an app that calls `planSession` itself.
+- `quotingPlanDetails` is the plan's details (`@toolpath/plan`'s `planDetails`) made from that session. The app
+  gives the plan as saved and its session (`loaded`), Toolpath's plan, whether a newer one is on
+  its way (`planSettled`), the part, and its analysis. Its draft is the session's edits over
+  the plan as saved, with the kernel its pins name. Toolpath's setups are named by their folders
+  only while no edits are held, the plan has not changed since, and no newer plan is on its way.
 
 `applyDraftAction` from `@toolpath/plan` takes a `PlanDraft` and gives a `PlanDraft` back, with
-these fields as they were. The package depends on `@toolpath/plan` for these; the root entry and
-`/model` import nothing.
+these fields as they were. The package depends on `@toolpath/plan` for these, and on
+`@toolpath/tool-support` for the inch in `/units`; the root entry and `/model` import nothing.
+
+## A part's stock and tool crib: `@toolpath/quoting/inputs`
+
+```ts
+import { parseStock, stockPlacement, stockRequest, startingLibrary } from '@toolpath/quoting/inputs'
+```
+
+A part is planned from its constraints and from these inputs:
+
+- **Stock.** `StockOption` is the stock a part is cut from: automatic (Toolpath sizes a flat bar or
+  round stock around the model) or fixed (a box or a cylinder of given size). Every length is in
+  millimetres. `parseStock` checks a stored stock before it is used, and `sameStock` compares two
+  whatever their key order.
+  `stockRequest` gives the stock as Toolpath is sent it, for the direction the first setup faces.
+  `stockPlacement` says where a stock sits on the model, and `fixedBoxCheck` says whether a fixed
+  box can be sent and how far the part stands outside it.
+- **Tool crib.** `ToolCrib` is the tool libraries a part draws its tools from. `startingLibrary`
+  is the library a crib starts on for a material, and `offeredLibraries` is what it offers to add.
+  `addLibrary`, `removeLibrary` and `swapLibraries` edit the list.
+
+## How units show: `@toolpath/quoting/units`
+
+```ts
+import { formatLength, fromInput, toInput, type Units } from '@toolpath/quoting/units'
+```
+
+The app stores and sends every value in metric. `Units` (`'mm'` or `'in'`) is a person's display
+choice only. `formatLength`, `formatArea`, `formatWeight` and the other `format` functions show a
+stored value in that choice. `toInput` and `fromInput` turn a stored value into what a field
+shows, and what a person types back into the stored value.
 
 ## Sending a part to Toolpath: `@toolpath/quoting/pipeline`
 

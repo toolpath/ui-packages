@@ -9,7 +9,7 @@ import {
   suitsMaterial,
   swapLibraries,
   type ToolCrib,
-} from '../src/tool-crib'
+} from '../../src/inputs/tool-crib'
 
 describe('suitsMaterial', () => {
   it('suits a part in one of the families a library is meant for', () => {
