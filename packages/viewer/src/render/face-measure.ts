@@ -46,19 +46,61 @@ const RADIAL_SLACK = 0.005
 /** The same, mm, for a hole so small that a share of its radius is nothing. */
 const RADIAL_SLACK_MM = 0.002
 
-/**
- * Every region of the face `region` is part of. An analysis can split a face
- * in two; the halves share a `splitOrigin`, and a measurement wants the whole.
- */
-export const faceRegions = (model: PartModel, region: number): number[] => {
-  const origin = model.regions.find((each) => each.idx === region)?.splitOrigin
-  if (origin === undefined) return [region]
-  return model.regions.filter((each) => each.splitOrigin === origin).map((each) => each.idx)
+type Region = PartModel['regions'][number]
+
+/** A model's regions by their `idx`, and each face's regions, lowest first, by its `splitOrigin`. */
+interface RegionTable {
+  byIdx: Map<number, Region>
+  faces: Map<number, number[]>
 }
+
+/**
+ * Each model's region table, made once on first asking. A click reads a
+ * face's regions many times over, for every face of the part on the first
+ * one, and a search of the region list each time would cost the square of
+ * their count.
+ */
+const regionTables = new WeakMap<PartModel, RegionTable>()
+
+const regionTable = (model: PartModel): RegionTable => {
+  const known = regionTables.get(model)
+  if (known) return known
+  const byIdx = new Map<number, Region>()
+  const faces = new Map<number, number[]>()
+  for (const region of model.regions) {
+    byIdx.set(region.idx, region)
+    const face = faces.get(region.splitOrigin)
+    if (face) {
+      face.push(region.idx)
+    } else {
+      faces.set(region.splitOrigin, [region.idx])
+    }
+  }
+  for (const face of faces.values()) face.sort((a, b) => a - b)
+  const table = { byIdx, faces }
+  regionTables.set(model, table)
+  return table
+}
+
+/** The face's regions as the table keeps them: not to be changed. */
+const regionsOfFace = (model: PartModel, region: number): readonly number[] => {
+  const table = regionTable(model)
+  const origin = table.byIdx.get(region)?.splitOrigin
+  return (origin === undefined ? undefined : table.faces.get(origin)) ?? [region]
+}
+
+/**
+ * Every region of the face `region` is part of, lowest first. An analysis can
+ * split a face in two; the halves share a `splitOrigin`, and a measurement
+ * wants the whole.
+ */
+export const faceRegions = (model: PartModel, region: number): number[] => [
+  ...regionsOfFace(model, region),
+]
 
 /** The region a face is named by: its first, so either half of a split face is the same face. */
 const faceKey = (model: PartModel, region: number): number =>
-  Math.min(...faceRegions(model, region))
+  regionsOfFace(model, region)[0] ?? region
 
 interface Facet {
   normal: Vector3
@@ -79,9 +121,10 @@ const readFace = (model: PartModel, geometry: BufferGeometry, region: number): F
     new Vector3().fromBufferAttribute(position, index ? index.getX(corner) : corner)
   const facets: Facet[] = []
   const points: Vector3[] = []
-  const regions = new Set(faceRegions(model, region))
-  for (const each of model.regions) {
-    if (!regions.has(each.idx)) continue
+  const { byIdx } = regionTable(model)
+  for (const idx of regionsOfFace(model, region)) {
+    const each = byIdx.get(idx)
+    if (!each) continue
     for (let triangle = each.triangles.start; triangle < each.triangles.end; triangle++) {
       const a = vertex(triangle * 3)
       const b = vertex(triangle * 3 + 1)
@@ -420,10 +463,20 @@ export const holeIndex = (model: PartModel, surfaceFor: SurfaceFor): HoleIndex =
       root[at] = top
       return top
     }
-    for (let a = 0; a < cylinders.length; a += 1) {
-      for (let b = a + 1; b < cylinders.length; b += 1) {
-        const [one, other] = [cylinders[a], cylinders[b]]
-        if (one && other && coaxial(one.cylinder, other.cylinder)) {
+    // Only cylinders of about one radius can be one hole: taken smallest first, each is tried
+    // against the larger ones until they are too large, rather than against every other.
+    const byRadius = cylinders
+      .map((_, at) => at)
+      .sort((a, b) => (cylinders[a]?.cylinder.radius ?? 0) - (cylinders[b]?.cylinder.radius ?? 0))
+    for (let i = 0; i < byRadius.length; i += 1) {
+      const a = byRadius[i] ?? 0
+      const one = cylinders[a]?.cylinder
+      for (let j = i + 1; one && j < byRadius.length; j += 1) {
+        const b = byRadius[j] ?? 0
+        const other = cylinders[b]?.cylinder
+        if (!other) continue
+        if (other.radius - one.radius > coaxialSlack(other.radius)) break
+        if (coaxial(one, other)) {
           const [low, high] = [find(a), find(b)].sort((x, y) => x - y)
           if (low !== undefined && high !== undefined) root[high] = low
         }
@@ -432,7 +485,12 @@ export const holeIndex = (model: PartModel, surfaceFor: SurfaceFor): HoleIndex =
     const sets = new Map<number, { region: number; cylinder: Cylinder }[]>()
     cylinders.forEach((face, at) => {
       const top = find(at)
-      sets.set(top, [...(sets.get(top) ?? []), face])
+      const set = sets.get(top)
+      if (set) {
+        set.push(face)
+      } else {
+        sets.set(top, [face])
+      }
     })
     const byFace = new Map<number, Hole>()
     const holes: Hole[] = []
