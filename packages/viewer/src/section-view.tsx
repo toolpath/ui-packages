@@ -1,5 +1,5 @@
 import { type ThreeEvent, useFrame, useThree } from '@react-three/fiber'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   type Box3,
   type BufferGeometry,
@@ -46,6 +46,7 @@ import {
 } from './render/section-cap.js'
 import { EXCLUDE_FROM_FRAME, type ViewerCamera, screenLength } from './render/camera.js'
 import type { ViewerTheme } from './render/theme.js'
+import { useStableList } from './stable-list.js'
 
 export type { SectionOptions, SectionState }
 
@@ -91,7 +92,8 @@ export function resolveSectionPlane(
 }
 
 interface SectionViewProps {
-  geometry: BufferGeometry
+  /** The mesh the cap is stenciled from, or every mesh one cut passes through. */
+  geometry: BufferGeometry | ReadonlyArray<BufferGeometry>
   box: Box3
   plane: Plane
   theme: ViewerTheme
@@ -132,6 +134,7 @@ export const SectionView = ({
   showHandle,
   onDrag,
 }: SectionViewProps) => {
+  const geometries = useGeometryList(geometry)
   const camera = useThree((state) => state.camera) as ViewerCamera
   const size = useThree((state) => state.size)
   const dpr = useThree((state) => state.viewport.dpr)
@@ -195,16 +198,18 @@ export const SectionView = ({
 
   const maskScene = useMemo(() => {
     const scene = new Scene()
-    const [back, front] = stencils
-    const backMesh = new Mesh(geometry, back)
-    backMesh.renderOrder = SECTION_RENDER_ORDER.stencil
-    const frontMesh = new Mesh(geometry, front)
-    frontMesh.renderOrder = SECTION_RENDER_ORDER.stencil
+    for (const each of geometries) {
+      for (const material of stencils) {
+        const stencil = new Mesh(each, material)
+        stencil.renderOrder = SECTION_RENDER_ORDER.stencil
+        scene.add(stencil)
+      }
+    }
     const maskMesh = new Mesh(quad, createMaskMaterial())
     maskMesh.renderOrder = SECTION_RENDER_ORDER.cap
-    scene.add(backMesh, frontMesh, maskMesh)
+    scene.add(maskMesh)
     return { scene, maskMesh }
-  }, [geometry, quad, stencils])
+  }, [geometries, quad, stencils])
   useEffect(() => () => (maskScene.maskMesh.material as { dispose(): void }).dispose(), [maskScene])
 
   useEffect(() => {
@@ -330,19 +335,24 @@ export const SectionView = ({
     // than the part and leave the part a speck in the middle of it.
     <group userData={FURNITURE}>
       {/* The stencil pass. Back faces increment and front faces decrement, so
-          what is left marks where the plane is inside solid material. */}
-      <mesh
-        geometry={geometry}
-        material={stencils[0]}
-        renderOrder={SECTION_RENDER_ORDER.stencil}
-        raycast={() => null}
-      />
-      <mesh
-        geometry={geometry}
-        material={stencils[1]}
-        renderOrder={SECTION_RENDER_ORDER.stencil}
-        raycast={() => null}
-      />
+          what is left marks where the plane is inside solid material — of any
+          of the meshes, since the counts of separate bodies only add. */}
+      {geometries.map((each) => (
+        <Fragment key={each.uuid}>
+          <mesh
+            geometry={each}
+            material={stencils[0]}
+            renderOrder={SECTION_RENDER_ORDER.stencil}
+            raycast={() => null}
+          />
+          <mesh
+            geometry={each}
+            material={stencils[1]}
+            renderOrder={SECTION_RENDER_ORDER.stencil}
+            raycast={() => null}
+          />
+        </Fragment>
+      ))}
 
       {/* The cap: a quad over the whole cut, filled only where the stencil says
           the plane is inside material. */}
@@ -401,4 +411,15 @@ export const SectionView = ({
       ) : null}
     </group>
   )
+}
+
+/**
+ * The meshes as a list, with an identity that changes only when one of them
+ * does: a collection hands over a fresh array with every move of a drag, and
+ * the mask scene built from it should not be rebuilt for each one.
+ */
+function useGeometryList(
+  geometry: BufferGeometry | ReadonlyArray<BufferGeometry>,
+): ReadonlyArray<BufferGeometry> {
+  return useStableList('isBufferGeometry' in geometry ? [geometry] : geometry)
 }

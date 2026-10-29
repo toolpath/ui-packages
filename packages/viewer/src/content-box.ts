@@ -1,7 +1,8 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { useRef, useState } from 'react'
+import { useContext, useRef, useState } from 'react'
 import { Box3 } from 'three'
 import { partBounds } from './render/camera.js'
+import { CollectionBoundsContext } from './collection-context.js'
 
 /**
  * The bounds of the part, for the overlays that have to be sized against it.
@@ -14,12 +15,13 @@ import { partBounds } from './render/camera.js'
  * Scene furniture and stock are excluded, so tools stay sized to the finished part.
  */
 export function useContentBox(): Box3 {
+  const collection = useContext(CollectionBoundsContext)
   const scene = useThree((state) => state.scene)
   const [box, setBox] = useState(() => new Box3())
   const measured = useRef(false)
 
   useFrame(() => {
-    if (measured.current) return
+    if (collection || measured.current) return
     const next = new Box3()
     partBounds(scene, next)
     if (next.isEmpty()) return
@@ -27,5 +29,5 @@ export function useContentBox(): Box3 {
     setBox(next)
   })
 
-  return box
+  return collection ?? box
 }

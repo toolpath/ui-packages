@@ -6,12 +6,16 @@ export default defineConfig({
     rolldownOptions: {
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        collection: fileURLToPath(new URL('./tests/fixtures/collection.html', import.meta.url)),
         enginePart: fileURLToPath(new URL('./tests/fixtures/engine-part.html', import.meta.url)),
         explodePolicy: fileURLToPath(
           new URL('./tests/fixtures/explode-policy.html', import.meta.url),
         ),
         explodePrimitives: fileURLToPath(
           new URL('./tests/fixtures/explode-primitives.html', import.meta.url),
+        ),
+        usePartCollection: fileURLToPath(
+          new URL('./tests/fixtures/use-part-collection.html', import.meta.url),
         ),
       },
     },

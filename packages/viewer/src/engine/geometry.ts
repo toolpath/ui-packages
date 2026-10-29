@@ -2,6 +2,7 @@ import { type BufferGeometry, Matrix4, Mesh, type Object3D } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js'
 import type { PartMeshRefs } from '../model/types.js'
+import { toError } from './guards.js'
 
 /**
  * A mesh that cannot be paired with its report.
@@ -93,7 +94,7 @@ export async function loadPartMesh(
     try {
       return await loadPartGeometry(asset.url, mesh, { ...options, format: asset.format })
     } catch (error) {
-      failures.push(error instanceof Error ? error : new Error(String(error)))
+      failures.push(toError(error))
     }
   }
   throw new AggregateError(failures, 'Could not load the part mesh.')

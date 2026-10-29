@@ -228,9 +228,9 @@ const Picker = ({ box, theme }: PickerProps) => {
   })
 
   const planeHandlers = (plane: AxesPlane) => ({
-    // A plane is behind the part, and the part does not stop propagation: a
-    // click on a face reaches the plane behind it too. The preview says which
-    // one the pointer is really on.
+    // A plane is behind the part, and a part outside a `PartCollection` does
+    // not stop propagation: a click on a face reaches the plane behind it too.
+    // The preview says which one the pointer is really on.
     onPointerOver: (event: ThreeEvent<PointerEvent>) => {
       if (hover.current) return
       event.stopPropagation()

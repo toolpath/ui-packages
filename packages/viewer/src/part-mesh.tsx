@@ -3,6 +3,7 @@ import { useThree } from '@react-three/fiber'
 import {
   type ReactNode,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -36,6 +37,7 @@ import { trackDoubleTaps } from './render/tap.js'
 import { useRetarget, useSectionStore, useViewerControls } from './viewer.js'
 import { SectionView, resolveSectionPlane } from './section-view.js'
 import { useContentBox } from './content-box.js'
+import { CollectionSectionsContext } from './collection-context.js'
 import { type ViewerTheme, resolveTheme, themesEqual } from './render/theme.js'
 import type { ViewerCamera } from './render/camera.js'
 
@@ -156,6 +158,27 @@ export interface PartMeshProps {
   /** Wireframe shows region boundaries and any hovered/painted faces, with no triangle diagonals. */
   display?: PartDisplay
   /**
+   * The whole part's opacity, 0–1. Below 1 it is see-through: drawn after the
+   * solid parts and writing no depth, so it never hides one, with its edges
+   * faded alike. It still takes the pointer. 1 by default.
+   */
+  opacity?: number
+  /**
+   * Where this part's surface lies on another part's, as the bodies of a file
+   * saved one on another do, the part on the lower layer is drawn rather than
+   * the two fighting over each pixel. 0 to 63, 0 by default; `PartCollection`
+   * gives each item its position in `items` unless it sets one.
+   */
+  depthLayer?: number
+  /**
+   * False hides the part without unmounting it: it draws nothing, takes no
+   * pointer events, so a part behind it takes them, and is not cut by a
+   * section. Its `children` unmount while it is hidden. Showing it again is
+   * immediate. In a `PartCollection` a hidden item still counts toward the
+   * shared bounds, so the frame, grid and section do not jump. True by default.
+   */
+  visible?: boolean
+  /**
    * Objects drawn on the part, such as `<ToolMarks>`. They can read its model
    * and mesh with `usePartContext`.
    */
@@ -195,6 +218,9 @@ export const PartMesh = ({
   sharpCorners = null,
   threads = null,
   display = 'solid',
+  opacity = 1,
+  depthLayer = 0,
+  visible = true,
   children,
 }: PartMeshProps) => {
   const { camera, controls, invalidate, size } = useThree()
@@ -318,6 +344,21 @@ export const PartMesh = ({
     part.setDisplay(display, showEdges)
     invalidate()
   }, [display, invalidate, part, showEdges])
+
+  useLayoutEffect(() => {
+    part.setOpacity(opacity)
+    invalidate()
+  }, [invalidate, opacity, part])
+
+  useLayoutEffect(() => {
+    part.setDepthLayer(depthLayer)
+    invalidate()
+  }, [depthLayer, invalidate, part])
+
+  useLayoutEffect(() => {
+    part.setVisible(visible)
+    invalidate()
+  }, [invalidate, part, visible])
 
   useLayoutEffect(() => {
     part.setClippingPlanes(cut ? [cut.plane] : null)
@@ -467,6 +508,22 @@ export const PartMesh = ({
     [box, controlled, cut, onSectionChange, options, store],
   )
 
+  const showHandle = !controlled || onSectionChange !== undefined
+  const onDrag = !controlled || onSectionChange ? dragSection : undefined
+  const handleColor = theme?.sectionHandle
+  // In a collection the collection draws the cut once over every item: one cap
+  // stenciled from all of them and one handle, rather than one stacked per body.
+  const sections = useContext(CollectionSectionsContext)
+  useLayoutEffect(() => {
+    sections?.set(
+      part,
+      cut && visible
+        ? { geometry, plane: cut.plane, theme: resolved, handleColor, showHandle, onDrag }
+        : null,
+    )
+  }, [cut, geometry, handleColor, onDrag, part, resolved, sections, showHandle, visible])
+  useLayoutEffect(() => () => sections?.set(part, null), [part, sections])
+
   return (
     <>
       <primitive
@@ -475,6 +532,11 @@ export const PartMesh = ({
           pressedWhileEngaged.current = engaged
         }}
         onPointerMove={(event: ThreeEvent<PointerEvent>) => {
+          // In a collection the nearest body answers, and the bodies behind it
+          // do not. A lone part passes the pointer on to whatever is behind it.
+          if (sections) {
+            event.stopPropagation()
+          }
           if (!engaged && hover) emitHover(pickFor(event))
         }}
         onPointerOut={() => {
@@ -492,6 +554,9 @@ export const PartMesh = ({
           doubles.reset()
         }}
         onClick={(event: ThreeEvent<MouseEvent>) => {
+          if (sections) {
+            event.stopPropagation()
+          }
           if (engaged || pressedWhileEngaged.current) return
           /*
            * The end of an orbit is not a request to select whatever it ended
@@ -562,8 +627,12 @@ export const PartMesh = ({
          * needed for: suppressing the browser's own menu over geometry.
          */
         onPointerUp={(event: ThreeEvent<PointerEvent>) => {
-          if (engaged || pressedWhileEngaged.current) return
           if (event.nativeEvent.button !== 2) return
+          // In a collection the nearest part answers, as it does for a left click.
+          if (sections) {
+            event.stopPropagation()
+          }
+          if (engaged || pressedWhileEngaged.current) return
           if (!isTap(event.nativeEvent)) return
 
           const pick = pickFor(event)
@@ -575,18 +644,18 @@ export const PartMesh = ({
           if (pickFor(event)) event.nativeEvent.preventDefault()
         }}
       />
-      {cut ? (
+      {cut && visible && !sections ? (
         <SectionView
           geometry={geometry}
           box={box}
           plane={cut.plane}
           theme={resolved}
-          handleColor={theme?.sectionHandle}
-          showHandle={!controlled || onSectionChange !== undefined}
-          onDrag={!controlled || onSectionChange ? dragSection : undefined}
+          handleColor={handleColor}
+          showHandle={showHandle}
+          onDrag={onDrag}
         />
       ) : null}
-      {children ? (
+      {children && visible ? (
         <PartContext.Provider value={context}>
           <PartPaintContext.Provider value={setToolPaint}>{children}</PartPaintContext.Provider>
         </PartContext.Provider>

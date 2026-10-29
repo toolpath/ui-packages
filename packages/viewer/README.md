@@ -384,6 +384,9 @@ fails or is absent. It does not fetch a report or start an Engine job.
 | `focus`, `focusFeature`              | Selection X-ray rendering versus camera framing.                                                                      |
 | `activeDirection`                    | Candidate-direction index; `null`/omitted means all directions.                                                       |
 | `display`, `showEdges`               | `solid` or `wireframe`; outlines default on. Wireframe always shows semantic face boundaries, not triangle diagonals. |
+| `opacity`                            | 0–1, default 1. Below 1 the part is see-through, drawn after solid parts; it still takes the pointer.                 |
+| `depthLayer`                         | 0–63, default 0. Where two parts' surfaces coincide, the lower layer is drawn.                                        |
+| `visible`                            | Default true. False draws nothing, lets the pointer through, skips the section, and unmounts `children`.              |
 | `sharpCorners`                       | `{ features: tags }` for externally flagged features, or `null`.                                                      |
 | `threads`                            | `{ threads: marks }` to draw threads in their holes, or `null`. See "Showing threads".                                |
 | `section`, `onSectionChange`         | Controlled section options and change reporting. Omit `section` to follow the viewer's section store.                 |
@@ -507,6 +510,100 @@ At stationary zero, the example gives rendering and picking back to its ordinary
 That assembled/exploded mode switch and its toolbar are application UI. The example's candidate
 grouping, colors, translation spacing, and rendering-budget policy stay in
 `examples/react-viewer/src/explode/` and are not exported by the package.
+
+### `<PartCollection>`
+
+Use `PartCollection` for a complete multi-body scene: meshes in a shared CAD
+coordinate frame. Each item has a caller-owned `id` plus the existing `PartMesh`
+props. Pick and hover callbacks receive `(id, pick)`, and an item's leave is
+reported before the next item's entry. Feature tags and region
+numbers remain local to their item. Put scene tools inside the collection so
+sections and grids use its combined bounds. Selection and visibility remain
+controlled by the application. The collection draws one section cap and handle
+for all of its items.
+
+Inside a collection the nearest item stops pointer moves, clicks, and
+right-button picks, so the bodies behind it, and handlers on the collection's
+parent groups, do not receive them. A `<PartMesh>` on its own passes them on.
+
+In React, load the meshes with `usePartCollection(models, { concurrency? })`
+from `/engine`. Pass every body as `{ id, model }`, keeping each model object the
+same while it is unchanged, or as `{ id, key, model: () => PartModel }`, which
+builds the model only when the key changes, such as a report's job id. A builder
+that throws is that body's failure. `items` is `null` until every body has
+loaded, so the scene appears complete. `failures` lists the bodies whose latest
+build or load failed, with `kind` saying which, and `retry(id?)` tries them
+again, reusing the meshes that loaded. A new model for a body, such as its DFM analysis, loads while the body's
+current mesh stays on screen, listed in `waiting`, and replaces it once ready;
+paint the analysis's features only once the body has left `waiting`. The hook
+frees meshes the scene stops showing, drops results for models since replaced,
+and aborts loading on unmount. Geometry stays in CAD coordinates, and normals
+are smoothed within regions.
+
+```tsx
+import { Grid, PartCollection, SectionTool, Viewer, ViewCube } from '@toolpath/viewer'
+import { usePartCollection } from '@toolpath/viewer/engine'
+
+// models: [{ id: 'body-0', model }, { id: 'body-1', model }], each model kept stable
+const Scene = ({ models }) => {
+  const bodies = usePartCollection(models)
+  if (!bodies.items) {
+    return bodies.failures.length ? (
+      <button onClick={() => bodies.retry()}>Retry failed bodies</button>
+    ) : (
+      <p>Loading every body…</p>
+    )
+  }
+  return (
+    <Viewer>
+      <PartCollection items={bodies.items} onPick={(id, pick) => inspect(id, pick)}>
+        <Grid />
+        <SectionTool />
+        <ViewCube />
+      </PartCollection>
+    </Viewer>
+  )
+}
+```
+
+Without React, `createPartCollectionLoader({ fetch?, signal?, concurrency? })`
+from `/engine` is what the hook runs on. `load` accepts `{ id, model }` items and
+resolves with ordered `items` and `failures` once every request has finished;
+successful meshes stay cached for retries. After the scene renders a result,
+pass everything it shows to `keep(items)`: meshes it showed before and no
+longer does are freed, and meshes a load returned that it has not shown yet are
+held for it. `discard(item)` frees a mesh a load returned that will not be
+shown, such as a result for a model replaced while it loaded. Call `dispose()`
+after unmounting the collection. The loader owns
+geometry; `PartCollection` does not.
+
+To draw a body before its analysis, make its model from its part's display mesh
+with `displayMeshModel(mesh)` from `/engine`: pass the **Get part mesh**
+(`GET /v1/parts/{id}/mesh`) response as it is. Each face of the body becomes one
+region, which draws its edges and shades each face on its own. A mesh without
+face spans has no regions: it is drawn without edges, shaded flat, and offers
+nothing to pick.
+
+Each item takes the `PartMesh` props, so bodies can look different:
+`theme={{ part, partEmissive, hover }}` colours one, and an `opacity` below 1
+draws it see-through, for stock or a body that is not quoted. `bodyColors(ids)`
+gives each id a colour from `BODY_PALETTE`, distinct for the first sixteen and
+apart from the default hover; give copies of one body the same id to share one.
+Bodies saved one on another, as successive stages of one part often are, share
+surfaces. Where they do, the item earlier in `items` is drawn, rather than the
+two fighting over each pixel; set an item's `depthLayer` (0 to 63, lower in
+front) to put another body there, such as the one being pointed at. To show
+one body at a time, as when stepping through a list of them, set the others'
+`visible` to false: a hidden item draws nothing, lets the pointer through, and
+unmounts its children, and showing it again rebuilds nothing. It still counts
+toward the shared bounds, so the frame, grid, and section do not jump when a
+body is hidden.
+To show a whole file and also one body as a part, switch between
+`<PartCollection>` and `<EnginePart>` inside one `<Viewer>`, and call
+`ViewerHandle.fit()` after switching, since the viewer frames its first content
+only.
+
+The collection never uploads files or starts Engine analysis.
 
 ### `<ViewCube>`, `<Grid>`, and `<Axes>`
 

@@ -35,6 +35,15 @@ import {
 import type { ViewerTheme } from './theme.js'
 import { THREAD_TEXTURE_ROWS, type ThreadOptions, threadKey, writeThreadTexels } from './threads.js'
 
+/**
+ * Depth-buffer steps between two depth layers. Two coplanar surfaces
+ * triangulated differently still interpolate the same plane to within a step or
+ * two, so four always settles which is in front.
+ */
+const DEPTH_LAYER_UNITS = 4
+/** Layers past this share it: 63 × 4 steps is still well under any visible gap. */
+const MAX_DEPTH_LAYER = 63
+
 /** The vertex attribute carrying each vertex's column in the state texture. */
 export const REGION_ATTRIBUTE = 'aRegion'
 
@@ -97,6 +106,19 @@ export interface PartObject {
   setTheme(theme: ViewerTheme): void
   /** Semantic edges only in wireframe; painted faces remain visible for interaction. */
   setDisplay(display: PartDisplay, showEdges?: boolean): void
+  /** The whole part's opacity, 0–1: below 1 it is see-through, and its edges fade with it. */
+  setOpacity(opacity: number): void
+  /**
+   * Pushes the surface back by `layer` depth steps, 0 to 63, so that where it
+   * lies on another part's surface the part on the lower layer is drawn,
+   * rather than the two fighting over each pixel.
+   */
+  setDepthLayer(layer: number): void
+  /**
+   * Hides the part and takes it out of picking, so it neither draws nor stands
+   * between the pointer and a part behind it. Nothing is rebuilt to show it again.
+   */
+  setVisible(visible: boolean): void
   /**
    * Draws the sharp corners of the features the DFM rules flag, bold and
    * through the part — see `render/sharp-corners.ts`. `null` hides them. Setting what is already drawn
@@ -236,6 +258,9 @@ export function createPart(
   const wireframe = { value: false }
   let focused = false
   let currentTheme = theme
+  let partOpacity = 1
+  // What a shown part picks with, kept while it is hidden.
+  let shownRaycast: Mesh['raycast'] = () => {}
   let clipping: Plane[] | null = null
 
   // Found and built on first use: most parts are never asked for them, and
@@ -409,13 +434,25 @@ export function createPart(
   focusMesh.visible = false
   focusMesh.raycast = () => {}
 
+  const edgeOpacity = () => (wireframe.value ? 1 : currentTheme.edgeOpacity) * partOpacity
+
   const syncTransparency = () => {
-    const transparent = wireframe.value || focused
+    const seeThrough = partOpacity < 1
+    const transparent = wireframe.value || focused || seeThrough
+    material.opacity = partOpacity
     if (material.transparent !== transparent || material.depthWrite !== !transparent) {
       material.transparent = transparent
       material.depthWrite = !transparent
       material.needsUpdate = true
     }
+    // The x-ray's solid pass fades with the rest, so a see-through part stays see-through.
+    focusMaterial.opacity = partOpacity
+    if (focusMaterial.transparent !== seeThrough) {
+      focusMaterial.transparent = seeThrough
+      focusMaterial.depthWrite = !seeThrough
+      focusMaterial.needsUpdate = true
+    }
+    edgeMaterial.opacity = edgeOpacity()
     focusState.value = focused
     focusMesh.visible = focused
     // A part writing no depth of its own leaves the corners none to be hidden by.
@@ -542,7 +579,7 @@ export function createPart(
       focusMaterial.color.setHex(next.part)
       focusMaterial.emissive.setHex(next.partEmissive)
       edgeMaterial.color.setHex(wireframe.value ? next.part : next.edge)
-      edgeMaterial.opacity = wireframe.value ? 1 : next.edgeOpacity
+      edgeMaterial.opacity = edgeOpacity()
       sharpLines?.setTheme(next)
     },
 
@@ -554,7 +591,31 @@ export function createPart(
       }
       edges.visible = enabled || showEdges
       edgeMaterial.color.setHex(enabled ? currentTheme.part : currentTheme.edge)
-      edgeMaterial.opacity = enabled ? 1 : currentTheme.edgeOpacity
+      edgeMaterial.opacity = edgeOpacity()
+    },
+
+    setOpacity(opacity) {
+      const next = Math.min(Math.max(opacity, 0), 1)
+      if (next === partOpacity) return
+      partOpacity = next
+      syncTransparency()
+    },
+
+    setVisible(visible) {
+      if (visible === object.visible) return
+      object.visible = visible
+      if (visible) {
+        mesh.raycast = shownRaycast
+      } else {
+        shownRaycast = mesh.raycast
+        mesh.raycast = () => {}
+      }
+    },
+
+    setDepthLayer(layer) {
+      const steps = Math.min(Math.max(Math.round(layer), 0), MAX_DEPTH_LAYER)
+      // On top of the step every part takes for its own edges.
+      material.polygonOffsetUnits = 1 + DEPTH_LAYER_UNITS * steps
     },
 
     setSharpCorners(options) {
