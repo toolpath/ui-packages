@@ -49,6 +49,168 @@ describe('Engine geometry cache', () => {
     expect(dispose).toHaveBeenCalledOnce()
   })
 
+  it('disposes a closed part at capacity as soon as the next part opens', async () => {
+    const loader = vi.fn(async () => new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader, 1)
+    const closed = cache.get(part('closed'))
+    await closed.promise
+    const dispose = vi.fn()
+    closed.geometry!.addEventListener('dispose', dispose)
+    cache.retain(closed)
+    cache.release(closed)
+
+    const open = cache.get(part('open'))
+    await open.promise
+    cache.retain(open)
+
+    expect(dispose).toHaveBeenCalledOnce()
+  })
+
+  it('keeps geometry read for a part that has not retained it yet when another opens', async () => {
+    const loader = vi.fn(async () => new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader, 1)
+    const closed = cache.get(part('closed'))
+    await closed.promise
+    cache.retain(closed)
+    cache.release(closed)
+
+    // Two parts mounting in one commit: both read during the render, then
+    // retained one effect at a time.
+    const first = cache.get(part('first'))
+    const second = cache.get(part('second'))
+    await Promise.all([first.promise, second.promise])
+    const dispose = vi.fn()
+    second.geometry!.addEventListener('dispose', dispose)
+    cache.retain(first)
+
+    expect(dispose).not.toHaveBeenCalled()
+    expect(cache.get(part('second'))).toBe(second)
+    expect(loader).toHaveBeenCalledTimes(3)
+  })
+
+  it('keeps geometry a part let go and another part read again when a third opens', async () => {
+    const loader = vi.fn(async () => new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader, 1)
+    const closed = cache.get(part('closed'))
+    await closed.promise
+    const dispose = vi.fn()
+    closed.geometry!.addEventListener('dispose', dispose)
+    cache.retain(closed)
+    cache.release(closed)
+
+    // Two parts mounting in one commit: one reads the closed geometry again,
+    // the other reads new geometry and retains first.
+    const again = cache.get(part('closed'))
+    const fresh = cache.get(part('new'))
+    await fresh.promise
+    cache.retain(fresh)
+
+    expect(again).toBe(closed)
+    expect(dispose).not.toHaveBeenCalled()
+    cache.retain(again)
+    expect(cache.get(part('closed'))).toBe(closed)
+    expect(loader).toHaveBeenCalledTimes(2)
+
+    // Letting it go is what disposes it.
+    cache.release(again)
+    expect(dispose).toHaveBeenCalledOnce()
+  })
+
+  it('disposes the part let go, not geometry read for a part yet to retain it', async () => {
+    const loader = vi.fn(async () => new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader, 1)
+    const held = cache.get(part('held'))
+    await held.promise
+    const heldDisposed = vi.fn()
+    held.geometry!.addEventListener('dispose', heldDisposed)
+    cache.retain(held)
+
+    // Read during a render, not retained yet; the other part's cleanup runs first.
+    const late = cache.get(part('late'))
+    await late.promise
+    const lateDisposed = vi.fn()
+    late.geometry!.addEventListener('dispose', lateDisposed)
+    cache.release(held)
+    expect(heldDisposed).toHaveBeenCalledOnce()
+    expect(lateDisposed).not.toHaveBeenCalled()
+
+    cache.retain(late)
+    cache.release(late)
+    expect(lateDisposed).not.toHaveBeenCalled()
+    expect(cache.get(part('late'))).toBe(late)
+    expect(loader).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the new part when one part replaces another in one commit', async () => {
+    const loader = vi.fn(async () => new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader, 1)
+    const closing = cache.get(part('closing'))
+    await closing.promise
+    const closingDisposed = vi.fn()
+    closing.geometry!.addEventListener('dispose', closingDisposed)
+    cache.retain(closing)
+
+    // The new part suspends on its read, then renders again with the geometry.
+    // React commits the swap by running the old part's cleanup, then the new
+    // part's effect.
+    await cache.get(part('opening')).promise
+    const opening = cache.get(part('opening'))
+    const openingDisposed = vi.fn()
+    opening.geometry!.addEventListener('dispose', openingDisposed)
+    cache.release(closing)
+    cache.retain(opening)
+
+    expect(closingDisposed).toHaveBeenCalledOnce()
+    expect(openingDisposed).not.toHaveBeenCalled()
+    // Its next render finds the geometry, rather than suspending to load it again.
+    expect(cache.get(part('opening'))).toBe(opening)
+    expect(opening.status).toBe('fulfilled')
+    expect(loader).toHaveBeenCalledTimes(2)
+  })
+
+  it('evicts geometry only read when a release leaves nothing let go to evict', async () => {
+    const loader = vi.fn(async () => new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader, 1)
+    const held = cache.get(part('held'))
+    await held.promise
+    cache.retain(held)
+
+    // Read and never retained: a render React threw away.
+    const older = cache.get(part('older'))
+    const newer = cache.get(part('newer'))
+    await Promise.all([older.promise, newer.promise])
+    const olderDisposed = vi.fn()
+    older.geometry!.addEventListener('dispose', olderDisposed)
+    const newerDisposed = vi.fn()
+    newer.geometry!.addEventListener('dispose', newerDisposed)
+    cache.release(held)
+
+    expect(olderDisposed).toHaveBeenCalledOnce()
+    expect(newerDisposed).not.toHaveBeenCalled()
+    expect(cache.get(part('newer'))).toBe(newer)
+    expect(loader).toHaveBeenCalledTimes(3)
+  })
+
+  it('disposes geometry evicted before its part retained it once the part lets go', async () => {
+    const loader = vi.fn(async () => new THREE.BufferGeometry())
+    const cache = createEngineGeometryCache(loader, 1)
+    const held = cache.get(part('held'))
+    await held.promise
+    cache.retain(held)
+    const evicted = cache.get(part('evicted'))
+    const kept = cache.get(part('kept'))
+    await Promise.all([evicted.promise, kept.promise])
+    const dispose = vi.fn()
+    evicted.geometry!.addEventListener('dispose', dispose)
+    cache.release(held)
+    expect(dispose).toHaveBeenCalledOnce()
+
+    // A part that read it before the eviction still retains and lets it go.
+    cache.retain(evicted)
+    cache.release(evicted)
+    expect(dispose).toHaveBeenCalledTimes(2)
+  })
+
   it('keys on the artifact path, so a re-presigned URL is still a hit', async () => {
     const loader = vi.fn(async () => new THREE.BufferGeometry())
     const cache = createEngineGeometryCache(loader)

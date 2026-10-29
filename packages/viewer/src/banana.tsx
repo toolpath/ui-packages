@@ -1,4 +1,5 @@
-import { useGLTF } from '@react-three/drei'
+// drei's modules one by one, not its root: on React Native the root loads every module drei has.
+import { useGLTF } from '@react-three/drei/core/Gltf.js'
 import { useThree } from '@react-three/fiber'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { Box3, type BufferGeometry, type Group, type Mesh } from 'three'

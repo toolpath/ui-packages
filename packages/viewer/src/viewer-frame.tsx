@@ -1,27 +1,22 @@
-import { Canvas, type CanvasProps } from '@react-three/fiber'
+import { Canvas } from '@react-three/fiber'
 import { useCallback, useRef, useSyncExternalStore } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
-import type { Projection } from './render/camera.js'
+import type { FrameSettings } from './frame-settings.js'
 import { type TapTracker, trackTaps } from './render/tap.js'
 import { webGLAvailableSnapshot } from './render/webgl.js'
 import { WebGLUnavailable } from './webgl-unavailable.js'
 
-/** What `<Viewer>` asks of its canvas, whichever frame draws it. */
-export interface CanvasSettings {
-  projection: Projection
-  camera: NonNullable<CanvasProps['camera']>
-  gl: NonNullable<CanvasProps['gl']>
-  frameloop: NonNullable<CanvasProps['frameloop']>
-}
-
-interface ViewerFrameProps {
+/** What `<Viewer>` takes for the element it draws into, on the web. */
+export interface ViewerFrameProps {
   className?: string
   style?: CSSProperties
-  canvas: CanvasSettings
-  onPointerMissed?: () => void
-  /** `<Viewer>`'s `webglUnavailable`: shown in place of the canvas without WebGL. */
+  /**
+   * What to show in place of the canvas when the browser will not create a
+   * WebGL context — hardware acceleration off, or the GPU blocklisted. It goes
+   * inside a `role="alert"` element (`viewer-webgl-unavailable`), and replaces
+   * the default message asking the user to turn acceleration on.
+   */
   webglUnavailable?: ReactNode
-  children: ReactNode
 }
 
 // Support does not change while the page is open, so there is nothing to subscribe to.
@@ -42,7 +37,7 @@ export const ViewerFrame = ({
   onPointerMissed,
   webglUnavailable,
   children,
-}: ViewerFrameProps) => {
+}: ViewerFrameProps & FrameSettings) => {
   // The server assumes WebGL, so its markup hydrates as the canvas; a blocked
   // browser then re-renders into the alert.
   const webglAvailable = useSyncExternalStore(subscribeNever, webGLAvailableSnapshot, () => true)

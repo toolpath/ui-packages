@@ -55,7 +55,6 @@ export { DirectionArrows } from './direction-arrows.js'
 export { SectionView, resolveSectionPlane } from './section-view.js'
 export { SectionTool } from './section-tool.js'
 export { MeasureTool } from './measure-tool.js'
-export { MEASURE_HINT_CLASS } from './measure-hint.js'
 export { ToolMarks } from './tool-marks.js'
 export { SceneLabel } from './scene-label.js'
 export {
@@ -63,6 +62,7 @@ export {
   AXIS_COLORS,
   ANGLE_ARC_SEGMENTS,
   DELTA_DASH_PIXELS,
+  MEASURE_HINT_CLASS,
   MEASURE_LABEL_CLASS,
   MEASURE_LINE_PIXELS,
   MEASURE_MARKER_PIXELS,
@@ -196,6 +196,7 @@ export {
 } from './model/directions.js'
 export { regionNormals } from './model/normals.js'
 export {
+  DEFAULT_LABELS,
   DEFAULT_THEME,
   DIRECTION_COLORS,
   HIGHLIGHT_COLORS,

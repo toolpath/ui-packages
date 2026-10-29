@@ -36,7 +36,8 @@ export function engineGeometryResourceKey(mesh: PartMeshRefs): string {
 /**
  * A small reference-aware LRU cache for Engine mesh artifacts. Rendered parts
  * retain their source geometry; released entries are evicted and disposed once
- * the cache exceeds its capacity.
+ * the cache exceeds its capacity, as soon as a part is retained or released.
+ * A memory-tight host (a phone) passes a `maximumEntries` of 1.
  */
 export function createEngineGeometryCache(
   loadGeometry: (part: CacheablePart) => Promise<BufferGeometry> = async (part) => {
@@ -50,13 +51,17 @@ export function createEngineGeometryCache(
 ): EngineGeometryCache {
   const resources = new Map<string, EngineGeometryResource>()
   const requests = new WeakMap<EngineGeometryResource, string>()
+  const keys = new WeakMap<EngineGeometryResource, string>()
   let failures = new WeakMap<CacheablePart, EngineGeometryResource>()
   let accessSequence = 0
   const touch = (resource: EngineGeometryResource) => {
     resource.lastAccess = ++accessSequence
   }
 
-  const evictReleasedResources = () => {
+  /** Resources a part has held and not been handed out again since; see `retain`. */
+  const retained = new WeakSet<EngineGeometryResource>()
+
+  const evictReleasedResources = (onlyOnceRetained: boolean) => {
     while (resources.size > maximumEntries) {
       let oldest: [string, EngineGeometryResource] | undefined
       for (const entry of resources) {
@@ -64,6 +69,7 @@ export function createEngineGeometryCache(
         if (
           resource.status !== 'fulfilled' ||
           resource.references > 0 ||
+          (onlyOnceRetained && !retained.has(resource)) ||
           (oldest && oldest[1].lastAccess <= resource.lastAccess)
         ) {
           continue
@@ -95,6 +101,10 @@ export function createEngineGeometryCache(
       const existing = resources.get(key)
       if (existing?.status === 'fulfilled') {
         failures.delete(part)
+        // Read again after being let go: a part is about to retain it, so
+        // another part retaining first must not evict it. A held resource keeps
+        // its mark, as its parts read it on every render.
+        if (existing.references === 0) retained.delete(existing)
         touch(existing)
         return existing
       }
@@ -120,6 +130,7 @@ export function createEngineGeometryCache(
         lastAccess: ++accessSequence,
       }
       requests.set(resource, requestKey)
+      keys.set(resource, key)
       resource.promise = loadGeometry(part).then(
         (geometry) => {
           resource.status = 'fulfilled'
@@ -137,12 +148,33 @@ export function createEngineGeometryCache(
     },
     retain(resource) {
       resource.references += 1
+      retained.add(resource)
       touch(resource)
+      // A part opening is when a closed one's geometry is no longer worth
+      // keeping: at a capacity of one, waiting for the next release would hold
+      // a closed part's geometry for as long as the open one is on screen.
+      // Only geometry a part has held and let go: parts mounting together read
+      // theirs during the render and retain it one effect at a time, and one
+      // of them retaining first must not evict another's before it does.
+      evictReleasedResources(true)
     },
     release(resource) {
       resource.references = Math.max(0, resource.references - 1)
       touch(resource)
-      evictReleasedResources()
+      // Evicted (or cleared) while a part was still to retain it: the cache no
+      // longer tracks it, so the last part to let it go disposes it.
+      const key = keys.get(resource)
+      if (resource.references === 0 && (key === undefined || resources.get(key) !== resource)) {
+        resource.geometry?.dispose()
+      }
+      // Geometry a part has let go before geometry only read. Swapping one part
+      // for another in a commit runs the old part's cleanup before the new
+      // part's effect, and the touch above makes the old part's geometry the
+      // newest: oldest first alone would dispose what the new part read and
+      // keep what was closed. Only read, it still goes once nothing let go is
+      // left, so reads React threw away do not pile up past the capacity.
+      evictReleasedResources(true)
+      evictReleasedResources(false)
     },
     clear() {
       for (const resource of resources.values()) resource.geometry?.dispose()

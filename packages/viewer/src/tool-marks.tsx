@@ -1,4 +1,5 @@
-import { Line } from '@react-three/drei'
+// drei's modules one by one, not its root: on React Native the root loads every module drei has.
+import { Line } from '@react-three/drei/core/Line.js'
 import { useMemo } from 'react'
 import { DoubleSide } from 'three'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'

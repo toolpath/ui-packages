@@ -11,11 +11,11 @@ export interface SceneLabelProps {
   kind: string
   /** `data-axis` */
   axis?: 'x' | 'y' | 'z'
-  /** Web: sets `--measure-color`. Native: the label's border colour. */
+  /** Sets `--measure-color`. */
   color?: string
-  /** Web only: added after {@link MEASURE_LABEL_CLASS}. */
+  /** Added after {@link MEASURE_LABEL_CLASS}. */
   className?: string
-  /** Web: drei's `zIndexRange` is `[layer, 0]`. Default 0. */
+  /** drei's `zIndexRange` is `[layer, 0]`. Default 0. */
   layer?: number
 }
 

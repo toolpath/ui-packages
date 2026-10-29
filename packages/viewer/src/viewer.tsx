@@ -9,7 +9,7 @@ import {
   useMemo,
   useRef,
 } from 'react'
-import type { CSSProperties, PropsWithChildren, ReactNode } from 'react'
+import type { PropsWithChildren, ReactNode } from 'react'
 import { Box3, Group, Vector3 } from 'three'
 import { CadCameraControls } from './camera.js'
 import { readPointer } from './render/pointer.js'
@@ -38,7 +38,8 @@ import {
 import type { ControlScheme, ExtendedCameraControls } from './render/controls.js'
 import { type ViewerTheme, resolveTheme } from './render/theme.js'
 import { TargetMarker } from './target-marker.js'
-import { type CanvasSettings, ViewerFrame } from './viewer-frame.js'
+import type { CanvasSettings } from './frame-settings.js'
+import { ViewerFrame, type ViewerFrameProps } from './viewer-frame.js'
 import { squaredUp } from './render/view-cube.js'
 import type { VectorLike, ViewerControls, ViewerHandle, ViewerView } from './types.js'
 
@@ -531,10 +532,13 @@ const ViewerScene = ({
   )
 }
 
-export interface ViewerProps {
+/**
+ * `<Viewer>`'s props. The frame's — `className`, `style` and `webglUnavailable`
+ * on the web; `style`, `accessibilityLabel` and `accessibilityHint` on React
+ * Native — are each platform's own.
+ */
+export interface ViewerProps extends ViewerFrameProps {
   children?: ReactNode
-  className?: string
-  style?: CSSProperties
   /**
    * **Orthographic by default.** It is what a machinist reads a part in:
    * parallel edges stay parallel, so a wall that looks square is square, and
@@ -610,20 +614,11 @@ export interface ViewerProps {
    * section handle. The usual meaning is "put the selection down".
    */
   onPointerMissed?: () => void
-  /**
-   * What to show in place of the canvas when the browser will not create a
-   * WebGL context — hardware acceleration off, or the GPU blocklisted. It goes
-   * inside a `role="alert"` element (`viewer-webgl-unavailable`), and replaces
-   * the default message asking the user to turn acceleration on.
-   */
-  webglUnavailable?: ReactNode
 }
 
 export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
   {
     children,
-    className,
-    style,
     projection = 'orthographic',
     controls = 'toolpath',
     freeOrbit = true,
@@ -633,7 +628,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     showOrbitTarget = false,
     theme,
     onPointerMissed,
-    webglUnavailable,
+    ...frame
   },
   ref,
 ) {
@@ -662,11 +657,10 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     <ViewerControlsContext.Provider value={proxy}>
       <SectionStoreContext.Provider value={sectionStore}>
         <ViewerFrame
-          className={className}
-          style={style}
+          {...frame}
           canvas={canvasSettings(projection)}
+          labels={resolved.labels}
           onPointerMissed={onPointerMissed}
-          webglUnavailable={webglUnavailable}
         >
           <ViewerScene
             setControls={setControls}

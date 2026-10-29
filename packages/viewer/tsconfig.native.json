@@ -1,0 +1,21 @@
+{
+  // The React Native build's graph: each import resolves to its `.native` file
+  // where there is one, as Metro does.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // DOM types: @react-three/fiber types its events as
+    // DOM events on every platform, its native build included. That the DOM's
+    // globals stay out of this graph is `tests/platform-boundary.test.ts`'s job.
+    "lib": ["ES2022", "DOM"],
+    "types": ["react-native"],
+    "moduleSuffixes": [".native", ""],
+    "customConditions": ["react-native"]
+  },
+  "include": [
+    "src/index.native.ts",
+    "src/engine/index.ts",
+    "src/banana/index.ts",
+    "src/assets.d.ts"
+  ],
+  "exclude": []
+}

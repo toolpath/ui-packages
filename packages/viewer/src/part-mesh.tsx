@@ -33,6 +33,7 @@ import { type ThreadOptions, threadKey } from './render/threads.js'
 import { regionAdjacency } from './render/adjacency.js'
 import { type PartPick, buildPick, viewDirection } from './render/picking.js'
 import { preventPointerDefault, readPointer } from './render/pointer.js'
+import { POINTER_HOVER } from './render/pointer-hover.js'
 import { trackDoubleTaps } from './render/tap.js'
 import { useRetarget, useSectionStore, useViewerControls } from './viewer.js'
 import { SectionView, resolveSectionPlane } from './section-view.js'
@@ -113,7 +114,8 @@ export interface PartMeshProps {
    */
   onSectionChange?: (state: SectionState) => void
   /**
-   * Which faces touch which, once the mesh is in.
+   * Which faces touch which, once the mesh is in. Worked out only when this is
+   * passed: it walks every triangle.
    *
    * The consumer cannot work this out: it has a region table with areas and
    * shape kinds, and the topology only exists in the geometry. Handed over
@@ -285,12 +287,7 @@ export const PartMesh = ({
 
   useEffect(() => () => part.dispose(), [part])
 
-  // Once per mesh: the topology is a property of the geometry, and a report
-  // gaining a feature does not move a single triangle.
-  const adjacency = useMemo(() => regionAdjacency(model, geometry), [model, geometry])
-  useEffect(() => {
-    onAdjacency?.(adjacency)
-  }, [adjacency, onAdjacency])
+  useAdjacencyReport(model, geometry, onAdjacency)
 
   const framed = useRef<FeatureTag | null>(null)
   useEffect(() => {
@@ -475,23 +472,37 @@ export const PartMesh = ({
         onPointerDown={() => {
           pressedWhileEngaged.current = engaged
         }}
-        onPointerMove={(event: ThreeEvent<PointerEvent>) => {
-          if (!engaged && hover) emitHover(pickFor(event))
-        }}
-        onPointerOut={() => {
-          emitHover(null)
-          /*
-           * The pointer leaving the part breaks the double-click pair.
-           *
-           * Time and distance cannot tell "clicked this face twice" from
-           * "clicked it, pressed something in a panel, clicked it again" — the
-           * second is three gestures and lands well inside the window, and it
-           * is an ordinary way to work: read a face, act on it, read it again.
-           * Without this that second click was swallowed and the view re-aimed
-           * instead, which is the wrong answer twice over.
-           */
-          doubles.reset()
-        }}
+        /*
+         * Only where the pointer hovers (`render/pointer-hover.ts`): each of
+         * these two has fiber raycast the part on every pointer move. Without
+         * them a tap on a panel between two taps on a face can't break the
+         * pair, but with a finger that is three taps inside 400 ms.
+         */
+        onPointerMove={
+          POINTER_HOVER
+            ? (event: ThreeEvent<PointerEvent>) => {
+                if (!engaged && hover) emitHover(pickFor(event))
+              }
+            : undefined
+        }
+        onPointerOut={
+          POINTER_HOVER
+            ? () => {
+                emitHover(null)
+                /*
+                 * The pointer leaving the part breaks the double-click pair.
+                 *
+                 * Time and distance cannot tell "clicked this face twice" from
+                 * "clicked it, pressed something in a panel, clicked it again" — the
+                 * second is three gestures and lands well inside the window, and it
+                 * is an ordinary way to work: read a face, act on it, read it again.
+                 * Without this that second click was swallowed and the view re-aimed
+                 * instead, which is the wrong answer twice over.
+                 */
+                doubles.reset()
+              }
+            : undefined
+        }
         onClick={(event: ThreeEvent<MouseEvent>) => {
           if (engaged || pressedWhileEngaged.current) return
           /*
@@ -627,4 +638,28 @@ function useStableTheme(theme: Partial<ViewerTheme> | undefined): ViewerTheme {
   const next = resolveTheme(theme)
   if (held.current === null || !themesEqual(held.current, next)) held.current = next
   return held.current
+}
+
+/**
+ * Hands `onAdjacency` the mesh's face adjacency, and works it out only when
+ * there is an `onAdjacency` to hand it to: it walks every triangle, which
+ * blocks a phone's JS thread for long enough to notice.
+ *
+ * Worked out once per mesh, because the topology is a property of the
+ * geometry, and a report gaining a feature does not move a single triangle. A
+ * new callback is handed the same result.
+ */
+export const useAdjacencyReport = (
+  model: PartModel,
+  geometry: BufferGeometry,
+  onAdjacency: PartMeshProps['onAdjacency'],
+): void => {
+  const wantsAdjacency = onAdjacency !== undefined
+  const adjacency = useMemo(
+    () => (wantsAdjacency ? regionAdjacency(model, geometry) : null),
+    [model, geometry, wantsAdjacency],
+  )
+  useEffect(() => {
+    if (adjacency) onAdjacency?.(adjacency)
+  }, [adjacency, onAdjacency])
 }

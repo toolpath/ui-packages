@@ -1,3 +1,5 @@
+import { AXIS_COLORS } from './measure.js'
+
 /**
  * Viewer colors.
  *
@@ -63,6 +65,20 @@ export interface ViewerTheme {
   readonly cube: number
   readonly cubeEdge: number
   readonly cubeLabel: number
+  /**
+   * Scene labels drawn over a React Native canvas, which has no DOM for an
+   * application stylesheet to reach: their text, fill, border and size. A
+   * label's own `color` replaces `border`, and an axis label takes its axis's
+   * colour. CSS colour strings, since React Native styles them. Ignored on
+   * the web, where labels are DOM elements styled by the application.
+   */
+  readonly labels?: {
+    readonly text: string
+    readonly background: string
+    readonly border: string
+    readonly axis: { readonly x: string; readonly y: string; readonly z: string }
+    readonly fontSize: number
+  }
 }
 
 /**
@@ -123,6 +139,27 @@ export const DIRECTION_COLORS = [
   0x1e3a8a, // deep navy
 ] as const
 
+/*
+ * A cool blue, and the snap a lighter one. Warm is spoken for — hover, picked
+ * and the selection are all on that side of the wheel — and the section tool's
+ * teal is the nearest neighbour, which a measurement line crossing a cutting
+ * plane has to stay legible against.
+ */
+const MEASURE = 0x4f8ef7
+
+/**
+ * {@link ViewerTheme.labels} by default: the web measure tool's look. Dark
+ * text on a near-white chip, bordered in the measure colour, with each axis
+ * label in its axis's colour.
+ */
+export const DEFAULT_LABELS: NonNullable<ViewerTheme['labels']> = {
+  text: '#1f2330',
+  background: 'rgba(255,255,255,0.92)',
+  border: cssHex(MEASURE),
+  axis: { x: cssHex(AXIS_COLORS.x), y: cssHex(AXIS_COLORS.y), z: cssHex(AXIS_COLORS.z) },
+  fontSize: 12,
+}
+
 export const DEFAULT_THEME: ViewerTheme = {
   background: null,
   hemisphereSky: 0xffffff,
@@ -153,17 +190,12 @@ export const DEFAULT_THEME: ViewerTheme = {
   sectionOutline: 0x6bb0b3,
   sectionHandle: 0xf2f3f7,
   sectionHandleOutline: 0x3c4051,
-  /*
-   * A cool blue, and the snap a lighter one. Warm is spoken for — hover,
-   * picked and the selection are all on that side of the wheel — and the
-   * section tool's teal is the nearest neighbour, which a measurement line
-   * crossing a cutting plane has to stay legible against.
-   */
-  measure: 0x4f8ef7,
+  measure: MEASURE,
   measureSnap: 0xbfd7ff,
   cube: 0xd6d9e2,
   cubeEdge: 0x71768d,
   cubeLabel: 0x3c4051,
+  labels: DEFAULT_LABELS,
 }
 
 export function resolveTheme(overrides?: Partial<ViewerTheme>): ViewerTheme {
@@ -202,7 +234,22 @@ export function themesEqual(a: ViewerTheme, b: ViewerTheme): boolean {
     a.measureSnap === b.measureSnap &&
     a.cube === b.cube &&
     a.cubeEdge === b.cubeEdge &&
-    a.cubeLabel === b.cubeLabel
+    a.cubeLabel === b.cubeLabel &&
+    labelsEqual(a.labels, b.labels)
+  )
+}
+
+function labelsEqual(a: ViewerTheme['labels'], b: ViewerTheme['labels']): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return (
+    a.text === b.text &&
+    a.background === b.background &&
+    a.border === b.border &&
+    a.axis.x === b.axis.x &&
+    a.axis.y === b.axis.y &&
+    a.axis.z === b.axis.z &&
+    a.fontSize === b.fontSize
   )
 }
 
@@ -212,4 +259,9 @@ export function directionColor(index: number): number {
   // `noUncheckedIndexedAccess`: the modulo guarantees a hit, but only for a
   // non-negative integer index, which a caller could still get wrong.
   return DIRECTION_COLORS[wrapped] ?? HIGHLIGHT_COLORS.default
+}
+
+/** A colour as a CSS hex string, `#rrggbb`, for what takes CSS rather than a number. */
+export function cssHex(color: number): string {
+  return `#${color.toString(16).padStart(6, '0')}`
 }
