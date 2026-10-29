@@ -26,7 +26,7 @@ import { formatMillimetres } from './render/measure.js'
 import { clickPick, dropLastPick, isFace, type MeasureGroup } from './render/measure-picks.js'
 import { HOVER_WEIGHT, type RegionHighlight } from './render/paint.js'
 import type { ViewCubeProps } from './primitives.js'
-import { useSectionStore } from './viewer.js'
+import { useRetarget, useSectionStore } from './viewer.js'
 
 export interface MeasureToolProps {
   /**
@@ -72,7 +72,8 @@ const CUBE_AS_DRAWN = {}
  *
  * A click starts afresh; Shift keeps what is on screen. A click on a face
  * already held drops it, Delete drops the last pick, and a click off the
- * part clears them all.
+ * part clears them all. A double click aims the orbit at the point clicked,
+ * as it does without the tool, and measures once.
  *
  * It measures the part as a section cut leaves it. The cut faces are solid
  * on screen and solid to the tool: an Alt point lands on them and snaps to
@@ -120,12 +121,16 @@ export const MeasureTool = ({
 
   const surfaceFor = useMemo(() => surfaceCache(model, geometry), [model, geometry])
   const holes = useMemo(() => holeIndex(model, surfaceFor), [model, surfaceFor])
+  // The part's own double click is off while the tool has its clicks, so the tool re-aims for it.
+  const retarget = useRetarget()
   const handlers = useRef<PointerHandlers>({
     onPick: (pick, keep, pairs) => commit(clickPick(latest.current.groups, pick, keep, pairs)),
     onClear: () => commit(NONE),
+    onDouble: (at) => retarget?.(at),
     format,
     viewCube,
   })
+  handlers.current.onDouble = (at) => retarget?.(at)
   handlers.current.format = format
   handlers.current.viewCube = viewCube
 
