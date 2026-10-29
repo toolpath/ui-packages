@@ -37,11 +37,10 @@
  * the repository, the DFM views included: `@toolpath/dfm` is the rules and
  * the checker, and the rule list, feature panel and reach chart that render
  * them live here. A view may read logic; it may not read another package's
- * state, storage, routes or rendering. `@toolpath/dfm` and
- * `@toolpath/tool-support` each prove from their own import graph that they
- * reach no React, no DOM and no CSS, so taking them on adds no renderer and
- * no stylesheet. `app-support`, `viewer`, `tool-drawing`, `tool-scraper` and
- * `api` stay out.
+ * state, storage, routes or rendering. `@toolpath/dfm` proves from its own
+ * import graph that it reaches no React, no DOM and no CSS, so taking it on
+ * adds no renderer and no stylesheet. `tool-support`, `app-support`,
+ * `viewer`, `tool-drawing`, `tool-scraper` and `api` stay out.
  *
  * Read from the tree and the manifest rather than from a list, in the shape
  * `tool-support`'s `boundary.test.ts` uses and for the same reason: a rostered
@@ -97,8 +96,12 @@ const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as
   peerDependencies?: Record<string, string>
 }
 
-/** The Toolpath siblings this kit may import: logic only, proven so by their own tests. */
-const LOGIC_PACKAGES = ['@toolpath/dfm', '@toolpath/tool-support']
+/**
+ * The Toolpath siblings this kit may import: logic only, proven so by their own
+ * tests. `@toolpath/tool-support` is not one: the DFM views reach the
+ * cutting-tool domain only through `@toolpath/dfm`.
+ */
+const LOGIC_PACKAGES = ['@toolpath/dfm']
 
 /** A Toolpath sibling that is not on the allow-list. */
 const isForbiddenSibling = (spec: string): boolean =>
@@ -157,6 +160,12 @@ describe('the kit reaches for no Toolpath sibling but the logic-only ones', () =
       ).toEqual([])
     },
   )
+
+  it('flags a sibling outside the allow-list, the cutting-tool domain included', () => {
+    expect(isForbiddenSibling('@toolpath/tool-support')).toBe(true)
+    expect(isForbiddenSibling('@toolpath/viewer')).toBe(true)
+    expect(isForbiddenSibling('@toolpath/dfm')).toBe(false)
+  })
 
   it('declares no dependency on a Toolpath sibling outside the allow-list', () => {
     const declared = [

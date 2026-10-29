@@ -1,7 +1,52 @@
-import { runStart, type ReachCurve } from '@toolpath/dfm'
+import { runStart, type ReachCurve } from './reach.js'
 
-/** Room around the section for its dimensions, CSS pixels. */
-export const SECTION_PAD = { left: 12, right: 64, top: 24, bottom: 62 }
+/*
+ * The section drawing's measurements are drawing pixels: CSS pixels on the
+ * web, points on React Native.
+ */
+
+/**
+ * The drawing's type sizes. The layout's width guesses — `READ_CHAR_PX`,
+ * `HEADING_CHAR_PX`, `AXIS_LABEL_HALF_PX` — are made at these sizes, so a
+ * view that draws the section sets its text at them.
+ */
+export const SECTION_TYPE = { heading: 9, label: 10, reading: 11 } as const
+
+/**
+ * Where the drawing's labels sit against what they label. "Above" and "below"
+ * are up and down the drawing from the line or edge named.
+ */
+export const SECTION_LABEL = {
+  /** The headings' baseline, above the drawing's top. */
+  headingAbove: 8,
+  /** `depth`, in from the drawing's left and above the feature's top. */
+  depthInset: 4,
+  depthAbove: 4,
+  /** A height's label, right of the datum; its baseline below its line, to centre a label on it. */
+  heightInset: 4,
+  heightBaseline: 3.5,
+  /** The read run's dimension line, the end of its extension line, and its text, above the ordinates. */
+  runAbove: 8,
+  runEndAbove: 4,
+  runTextAbove: 11,
+  /** An offset's tick runs below the ordinate line, its label below that, then the axis heading. */
+  tickBelow: 4,
+  offsetBelow: 15,
+  axisBelow: 32,
+  /** The reading's baseline, below the drawing's top. */
+  readingBelow: 14,
+  /** The heights' datum line, right of the walls. */
+  datumRight: 8,
+  /** The offsets' ordinate line, below the floor. */
+  ordinatesBelow: 22,
+  /** An offset's extension line starts this far below the step it measures. */
+  extensionGap: 2,
+  /** A height's extension line starts this far inside the wall it measures. */
+  leaderOverlap: 2,
+} as const
+
+/** Room around the section for its dimensions. */
+export const SECTION_PAD = { left: 12, right: 64, top: 24, bottom: 62 } as const
 export const SECTION_MAX_H = 380
 export const SECTION_MIN_H = 120
 /**
@@ -17,27 +62,32 @@ export const FEATURE_SHARE = 0.4
  */
 export const FEATURE_SHARE_MIN = 0.06
 export const FEATURE_SHARE_MAX = 0.6
-/** The least room between two dimension labels on one line, CSS pixels. */
+/** The least room between two dimension labels on one line. */
 export const LABEL_GAP_X = 40
 export const LABEL_GAP_Y = 14
 /**
- * The least room between the wall's 0 and an offset's label beside it, CSS
- * pixels: half a label and the 0, which is one character, with a little air.
+ * The least room between the wall's 0 and an offset's label beside it: half
+ * a label and the 0, which is one character, with a little air.
  */
 export const WALL_LABEL_GAP_X = 30
+/*
+ * The three widths below are estimates for a sans-serif face at the
+ * `SECTION_TYPE` sizes, not measurements: they keep text inside the drawing
+ * without measuring it, on the web and on React Native alike.
+ */
 /** A rough width per character of the 11 px reading, to keep it inside the drawing. */
 export const READ_CHAR_PX = 6.4
 /** A rough width per character of the 9 px bold headings, to keep them inside the drawing. */
 export const HEADING_CHAR_PX = 6.5
 /** How far the reading sits from the pointer's line, and from the drawing's edges. */
 export const READ_INSET = 8
-/** Half the width of the offsets' axis label at 9 px, to hold it inside the drawing, CSS pixels. */
+/** Half the width of the offsets' axis label at 9 px, to hold it inside the drawing. */
 export const AXIS_LABEL_HALF_PX = 84
-/** How thick the floor strip under the drawing is, CSS pixels. */
+/** How thick the floor strip under the drawing is. */
 export const FLOOR_STRIP = 6
-/** The least width of the feature for "depth" to be written over its top, CSS pixels. */
+/** The least width of the feature for "depth" to be written over its top. */
 export const DEPTH_WORD_PX = 34
-/** How far apart the teeth of a break are, and how far each sways, CSS pixels. */
+/** How far apart the teeth of a break are, and how far each sways. */
 const BREAK_STEP = 8
 const BREAK_SWAY = 3
 

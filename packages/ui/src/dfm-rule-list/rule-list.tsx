@@ -1,6 +1,12 @@
-import { useMemo, useState, type FC, type ReactElement } from 'react'
+import { useState, type FC, type ReactElement } from 'react'
 import { ScrollArea } from '../scroll-area'
-import { MILLING_RULES, PRESENCE_METRIC, makeRule, type DfmRule } from '@toolpath/dfm'
+import {
+  MILLING_RULES,
+  PRESENCE_METRIC,
+  makeRule,
+  ruleListOrder,
+  type ListedRule,
+} from '@toolpath/dfm'
 import { listKeys } from './list-keys'
 import { NewRule } from './new-rule'
 import { RuleRow } from './rule-row'
@@ -48,29 +54,15 @@ export const RuleList: FC<RuleListProps> = ({
       if (!next.delete(id)) next.add(id)
       return next
     })
-  const byId = useMemo(
-    () => new Map(check?.byRule.map((result) => [result.rule.id, result])),
-    [check],
-  )
-  // Once the check is in, rules nothing breaks sink below the rest, dimmed and saying so. Where
-  // any rule sits changes no colour — the palette's order settles that — so they can move. One
-  // just added stays put, so it does not jump away as it is made.
-  const found = (rule: DfmRule): boolean => {
-    const result = byId.get(rule.id)
-    return (
-      check === null ||
-      rule.id === added ||
-      (result?.tags.length ?? 0) + (result?.otherTags.length ?? 0) > 0
-    )
-  }
-  const active = rules.rules.filter(found)
-  const none = rules.rules.filter((rule) => !found(rule))
-  const row = (rule: DfmRule): ReactElement => (
+  // Rules nothing breaks sink below the rest, dimmed and saying so; one just added stays put.
+  const ordered = ruleListOrder(rules.rules, check, added)
+  const row = ({ rule, result, quiet }: ListedRule): ReactElement => (
     <RuleRow
       key={rule.id}
       rule={rule}
-      result={byId.get(rule.id) ?? null}
+      result={result}
       checking={check === null}
+      quiet={quiet}
       open={openIds.has(rule.id)}
       focusOnMount={added === rule.id}
       onToggle={() => toggleOpen(rule.id)}
@@ -89,8 +81,7 @@ export const RuleList: FC<RuleListProps> = ({
     // Grows with its rules, and scrolls once the panel can grow no more.
     <ScrollArea className="min-h-0 flex-auto">
       <ul className="flex flex-col gap-0.5 pt-2 pr-4 pl-2">
-        {active.map(row)}
-        {none.map(row)}
+        {ordered.map(row)}
         <NewRule
           vocabulary={vocabulary}
           onAdd={(subject) => {

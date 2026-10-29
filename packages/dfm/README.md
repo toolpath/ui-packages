@@ -7,6 +7,22 @@ no DOM, no CSS — so a server route can import it as readily as a browser.
 
 The views that show and edit the rules — `RuleList`, `ReachChart`,
 `FeaturePanel` — are in [`@toolpath/ui`](https://www.npmjs.com/package/@toolpath/ui).
+The logic they read is here, so a view in another renderer (React Native, say)
+builds the same thing:
+
+- the views' data types (`CandidateRowData`, `InspectedFaceData`, `ComparedFace`,
+  `DfmRules`, `Choices`)
+- the rule editor's choices (`subjectChoices`, `metricChoices`,
+  `comparisonChoices`, `rangeLowChoices`, `rangeHighChoices`, `OP_TITLES`,
+  `rangeEnd`) and `takesNumber`, for a measure with no number to compare
+- the rule list's order (`ruleListOrder`) and what an import says
+  (`importNote`, `importError`)
+- the feature panel's comparison (`comparisonRows`, `faceLetter`) and its fold
+  store (`storageFolds`, with `shutAtFirst` for sections that start shut)
+- the reach chart's section geometry and type (`sectionGeometry`,
+  `SECTION_PAD`, `SECTION_TYPE`, `SECTION_LABEL`), in drawing pixels — CSS
+  pixels on the web, points on React Native — and its reading under a pointer
+  or finger (`readingAt`, `readingText`, `offsetUnder`, `readingLabelX`)
 
 ## Install
 
@@ -20,6 +36,27 @@ npm install @toolpath/dfm
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `@toolpath/dfm`       | The rules and both vocabularies (`MILLING_RULES`, `TURNING_RULES`), `checkPart` and `checkTurnedPart`, the rule-set file and `llmRulePrompt`, the feature panel's rows, pinch points |
 | `@toolpath/dfm/model` | The same entry, under its name from before the views moved                                                                                                                           |
+
+Both are ES modules. A resolver that asks for `require` rather than `import`
+gets the same files through the `default` condition, as it does for the one
+package dfm imports, `@toolpath/tool-support`. The files are still ESM-only: a
+plain Node `require()` of them needs Node 20.19+ or 22.12+; earlier Node uses
+`import`, or a resolver that transforms them, as the Jest setup below does.
+
+### Testing with Jest
+
+Jest runs CommonJS, so an app's Jest (`jest-expo`, say) must transform the
+package. A `transformIgnorePatterns` setting replaces jest-expo's own list
+rather than adding to it, so this one starts from jest-expo 58's (copy it from
+your version's `jest-preset.js`) and adds `@toolpath`:
+
+```js
+transformIgnorePatterns: [
+  '/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|standard-navigation|@toolpath))',
+  '/node_modules/react-native-reanimated/plugin/',
+  '/node_modules/@react-native/babel-preset/',
+],
+```
 
 ## The rules are an input
 

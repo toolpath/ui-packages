@@ -1,7 +1,7 @@
 import { hitFigure } from './dfm-explain.js'
-import type { DfmCheck, DfmHit } from './dfm-flags.js'
+import type { DfmCheck, DfmHit, RuleResult } from './dfm-flags.js'
 import { MILLING_RULES, type RuleVocabulary } from './dfm-metrics.js'
-import { compareColors, describeRule } from './dfm-rules.js'
+import { compareColors, describeRule, type DfmRule } from './dfm-rules.js'
 import type { Units } from './units.js'
 
 /**
@@ -84,4 +84,36 @@ export const featureColor = (
   if (whole) return whole.color
   if (!check.required.has(key)) return undefined
   return byColor(check.hitsByTag.get(key) ?? [])[0]?.rule.color
+}
+
+/**
+ * A rule in the list: its result from the check, when there is one, and
+ * whether it is quiet — the check is in, nothing breaks it, and it is not the
+ * rule just added. A view sinks quiet rules and dims them.
+ */
+export interface ListedRule {
+  readonly rule: DfmRule
+  readonly result: RuleResult | null
+  readonly quiet: boolean
+}
+
+/**
+ * The rules in the order the list shows them. Once the check is in, rules
+ * nothing breaks sink below the rest, quiet. Where a rule sits changes no
+ * colour — the palette's order settles that — so they can move. `keep`, a
+ * rule just added, stays where it is, so it does not jump away as it is made.
+ * Before the check (`check` null), the list is as it is kept.
+ */
+export const ruleListOrder = (
+  rules: readonly DfmRule[],
+  check: DfmCheck | null,
+  keep: string | null = null,
+): ListedRule[] => {
+  const byId = new Map(check?.byRule.map((result) => [result.rule.id, result]))
+  const listed = rules.map((rule): ListedRule => {
+    const result = byId.get(rule.id) ?? null
+    const found = (result?.tags.length ?? 0) + (result?.otherTags.length ?? 0) > 0
+    return { rule, result, quiet: check !== null && rule.id !== keep && !found }
+  })
+  return [...listed.filter((each) => !each.quiet), ...listed.filter((each) => each.quiet)]
 }

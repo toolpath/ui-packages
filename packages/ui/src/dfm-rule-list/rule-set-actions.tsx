@@ -1,7 +1,13 @@
 import { useRef, type FC, type ReactElement, type ReactNode } from 'react'
 import { DownloadSimpleIcon, UploadSimpleIcon } from '@phosphor-icons/react'
 import { Button } from '../button'
-import { type RuleVocabulary, parseRuleSetFile, serializeRuleSet } from '@toolpath/dfm'
+import {
+  importError,
+  importNote,
+  type RuleVocabulary,
+  parseRuleSetFile,
+  serializeRuleSet,
+} from '@toolpath/dfm'
 import type { DfmRules } from './types'
 import { useTimedValue } from './use-timed-value'
 
@@ -31,16 +37,16 @@ export const RuleSetActions: FC<{
     try {
       text = await file.text()
     } catch {
-      setNote('Could not import: the file could not be read.')
+      setNote(importError('the file could not be read.'))
       return
     }
     const read = parseRuleSetFile(text, vocabulary)
     if ('error' in read) {
-      setNote(`Could not import: ${read.error}`)
+      setNote(importError(read.error))
       return
     }
     rules.replace(read.rules)
-    setNote(importedNote(read.rules.length, read.skipped, read.name))
+    setNote(importNote(read))
   }
 
   return (
@@ -97,11 +103,4 @@ const downloadRuleSet = (rules: DfmRules, vocabulary: RuleVocabulary): void => {
   link.download = vocabulary.fileName
   link.click()
   URL.revokeObjectURL(url)
-}
-
-const importedNote = (count: number, skipped: number, name: string | undefined): string => {
-  const rulesRead = `Imported ${count} rule${count === 1 ? '' : 's'}`
-  const named = name ? ` (${name})` : ''
-  const skippedSome = skipped > 0 ? `, ${skipped} skipped` : ''
-  return `${rulesRead}${named}${skippedSome}`
 }

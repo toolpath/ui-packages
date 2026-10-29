@@ -1096,6 +1096,40 @@ axis's colour.
 Each label view has the `testID` `scene-label-<kind>`, from its `kind`, for an
 app's tests to find it by. A pressable label is announced as a button.
 
+### Testing with Jest
+
+`jest-expo` resolves the package through its `react-native` condition, to the
+native build: ES modules that import three.js, React Three Fiber and drei, which
+ship as ES modules too, and drei's `@babel/runtime` helpers. A
+`transformIgnorePatterns` setting replaces jest-expo's own list rather than
+adding to it, so the one below starts from jest-expo 58's (copy it from your
+version's `jest-preset.js`) and adds `@toolpath`, `@react-three`, `three` and
+`@babel/runtime`.
+
+Code that imports `@toolpath/viewer/banana` also loads the banana model: map it
+to a stub module of your own. `expo-asset` reads it with `Asset.fromModule`,
+which takes an object with a `uri`; a number such as `module.exports = 1` is
+looked up in the asset registry and throws.
+
+```js
+// jest.config.js
+module.exports = {
+  preset: 'jest-expo',
+  transformIgnorePatterns: [
+    '/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|standard-navigation|@toolpath|@react-three|three|@babel/runtime))',
+    '/node_modules/react-native-reanimated/plugin/',
+    '/node_modules/@react-native/babel-preset/',
+  ],
+  // Only when a test imports @toolpath/viewer/banana:
+  moduleNameMapper: { '\\.glb$': '<rootDir>/tests/asset-stub.cjs' },
+}
+```
+
+```js
+// tests/asset-stub.cjs
+module.exports = { uri: 'banana.glb' }
+```
+
 ## Working with the Toolpath API
 
 Keep analysis/job orchestration outside the viewer. A server-side

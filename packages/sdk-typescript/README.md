@@ -9,6 +9,10 @@ and to wait for a job.
 npm install @toolpath/api
 ```
 
+The package is ES modules only. A resolver that asks for `require` rather than `import` gets the same
+files through the `default` condition, but a plain Node `require()` of them needs Node 20.19+ or
+22.12+; earlier Node uses `import`.
+
 Create an API key in the [Toolpath portal](https://portal.toolpath.com/api-keys), then create a client:
 
 ```ts

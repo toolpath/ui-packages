@@ -3,6 +3,8 @@ import { FEATURE_METRICS, FEATURE_SUBJECTS } from '../../src/model/dfm-metrics.j
 import type { DfmRule } from '../../src/model/dfm-rules.js'
 import {
   FILE_KIND,
+  importError,
+  importNote,
   llmRulePrompt,
   parseRuleSetFile,
   serializeRuleSet,
@@ -172,5 +174,22 @@ describe('turning rule sets', () => {
     const example = prompt.split('## Example')[1]?.split('```json')[1]?.split('```')[0] ?? ''
     const read = parseRuleSetFile(example, TURNING_RULES)
     expect('rules' in read && read.rules.length).toBe(4)
+  })
+})
+
+describe('what an import says', () => {
+  const read = (count: number, skipped = 0, name?: string) => ({
+    rules: Array.from({ length: count }, () => ({}) as DfmRule),
+    skipped,
+    ...(name ? { name } : {}),
+  })
+
+  it('counts the rules, names the set and says what was skipped', () => {
+    expect(importNote(read(1))).toBe('Imported 1 rule')
+    expect(importNote(read(3, 1, 'Aluminium'))).toBe('Imported 3 rules (Aluminium), 1 skipped')
+  })
+
+  it('gives the reason it could not import', () => {
+    expect(importError('This is not JSON.')).toBe('Could not import: This is not JSON.')
   })
 })
