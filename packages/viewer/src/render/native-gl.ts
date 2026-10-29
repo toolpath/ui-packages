@@ -2,8 +2,8 @@ import type { Material, Object3D, Texture } from 'three'
 
 /**
  * The GPU side of React Native's frame, without React or expo-gl: how a frame
- * reaches the screen, and how everything a canvas holds on the GPU is freed.
- * `viewer-frame.native.tsx` wires these to fiber and expo-gl.
+ * reaches the screen, and how what a scene holds on the GPU is freed.
+ * `viewer-frame.native.tsx` wires these to fiber in effects.
  */
 
 /** expo-gl's context: `endFrameEXP` shows what has been drawn. */
@@ -17,57 +17,33 @@ interface PresentingContext {
  * Fiber native presents after every `gl.render`, and the view cube's HUD is a
  * second render each frame — so every other present showed the scene without
  * the cube, and it flickered. `endFrameEXP` here only marks the frame; an
- * after-effect presents it, once, at the end of the frame. Returns the
- * after-effect's remover.
+ * after-effect presents it, once, at the end of the frame.
+ *
+ * Returns its remover, which gives the context back the `endFrameEXP` it had,
+ * its own or its prototype's, so installing it again presents as the first
+ * install did.
  */
 export const createPresenter = (
   context: PresentingContext,
   addAfterEffect: (callback: (timestamp: number) => void) => () => void,
 ): (() => void) => {
+  const own = Object.getOwnPropertyDescriptor(context, 'endFrameEXP')
   const present = context.endFrameEXP.bind(context)
   let dirty = false
   context.endFrameEXP = () => {
     dirty = true
   }
-  return addAfterEffect(() => {
+  const removeAfterEffect = addAfterEffect(() => {
     if (!dirty) return
     dirty = false
     present()
   })
-}
-
-interface Release {
-  gl: { dispose(): void }
-  scene: Object3D
-  /** Destroys the GL context itself. */
-  destroy: () => void
-  /** Removes the presenter's after-effect. */
-  stopPresenting: () => void
-}
-
-/**
- * Frees what the canvas holds on the GPU, once.
- *
- * expo-gl has no `WEBGL_lose_context`, so the context loss fiber asks for when
- * a canvas unmounts does nothing, and expo-gl's view does not destroy its
- * context on unmount either: every canvas a screen mounted kept its buffers.
- * The frame makes this the renderer's `forceContextLoss`, the last thing fiber
- * calls when it tears a root down. It stops presenting, disposes anything
- * still under the scene, disposes the renderer, and destroys the context, in
- * that order; called again, it does nothing. The context goes even if a
- * dispose throws: fiber swallows the error, and nothing would free it after.
- */
-export const createRelease = ({ gl, scene, destroy, stopPresenting }: Release): (() => void) => {
-  let released = false
   return () => {
-    if (released) return
-    released = true
-    try {
-      stopPresenting()
-      disposeTree(scene)
-      gl.dispose()
-    } finally {
-      destroy()
+    removeAfterEffect()
+    if (own) {
+      Object.defineProperty(context, 'endFrameEXP', own)
+    } else {
+      delete (context as Partial<PresentingContext>).endFrameEXP
     }
   }
 }
@@ -103,11 +79,6 @@ const disposablesUnder = (root: Object3D): Set<Disposable> => {
   return found
 }
 
-/** Disposes every geometry, material and texture under `root`, and any render target a material samples. */
-export const disposeTree = (root: Object3D): void => {
-  for (const each of disposablesUnder(root)) each.dispose()
-}
-
 /**
  * Frees what a scene holds when its canvas goes, and not when it is only
  * hidden.
@@ -136,33 +107,23 @@ export const createSceneRelease = (scene: Object3D) => {
   }
 }
 
-/** Fiber's root teardown is done well within this, and calls `forceContextLoss` itself when it is. */
-export const RELEASE_FALLBACK_MS = 2000
-
 /**
- * When a canvas that has gone frees its scene and its context: the scene on
- * the next task, and the context after {@link RELEASE_FALLBACK_MS} if fiber
- * has not freed it by then.
+ * When a canvas that has gone frees its scene: on the next task.
  *
  * React's StrictMode, which fiber carries into the canvas, runs every effect's
  * cleanup and then its setup again on a canvas that stays. Freed in the
  * cleanup itself, the live scene's geometry and materials would all upload
- * again; `mounted` cancels what `unmounted` set off. A real unmount frees the
- * scene well before fiber's own teardown, which waits 500 ms, so the context
- * is still there.
+ * again; `mounted` cancels what `unmounted` set off.
  */
-export const createUnmountRelease = (release: { gone(): void }, forceContextLoss: () => void) => {
-  let pending: Array<ReturnType<typeof setTimeout>> = []
+export const createUnmountRelease = (release: { gone(): void }) => {
+  let pending: ReturnType<typeof setTimeout> | undefined
   return {
     mounted: (): void => {
-      for (const timer of pending) clearTimeout(timer)
-      pending = []
+      clearTimeout(pending)
+      pending = undefined
     },
     unmounted: (): void => {
-      pending = [
-        setTimeout(() => release.gone(), 0),
-        setTimeout(forceContextLoss, RELEASE_FALLBACK_MS),
-      ]
+      pending = setTimeout(() => release.gone(), 0)
     },
   }
 }

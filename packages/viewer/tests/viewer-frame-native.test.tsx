@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, render } from '@testing-library/react'
-import { createElement, type ReactNode } from 'react'
+import { StrictMode, createElement, type ReactNode } from 'react'
+import { BoxGeometry, Mesh, MeshBasicMaterial, Scene } from 'three'
 import { describe, expect, it, vi } from 'vitest'
 
 /** React Native's views, as plain elements that record every set of props they render with. */
@@ -32,18 +33,29 @@ vi.mock('react-native', () => ({
   AppState: appState,
 }))
 // The canvas needs a GL context; the frame around it is what is tested here,
-// and the props it hands the canvas.
+// and the props it hands the canvas. With a `root`, the canvas renders its
+// children against it, as fiber's root would.
 const canvases: Array<Record<string, unknown>> = []
+let root: Record<string, unknown> | null = null
+const useThree = (select: (state: Record<string, unknown>) => unknown) => select(root ?? {})
+/** Fiber's after-effects; `frame()` is the end of a frame. */
+const afterEffects = new Set<() => void>()
+const frame = () => {
+  for (const effect of afterEffects) effect()
+}
 vi.mock('@react-three/fiber/native', () => ({
-  Canvas: (props: Record<string, unknown>) => {
+  Canvas: ({ children, ...props }: { children?: ReactNode }) => {
     canvases.push(props)
-    return null
+    return root ? children : null
   },
-  addAfterEffect: () => () => {},
+  addAfterEffect: (effect: () => void) => {
+    afterEffects.add(effect)
+    return () => afterEffects.delete(effect)
+  },
   useFrame: () => {},
-  useThree: () => undefined,
+  useThree,
 }))
-vi.mock('expo-gl', () => ({ GLView: {} }))
+vi.mock('@react-three/fiber', () => ({ useThree }))
 
 const { ViewerFrame } = await import('../src/viewer-frame.native.js')
 
@@ -99,5 +111,61 @@ describe('ViewerFrame (React Native)', () => {
     act(() => appState.change('background'))
     expect(canvases.at(-1)?.frameloop).toBe('never')
     act(() => appState.change('active'))
+  })
+
+  describe('inside the canvas, under StrictMode', () => {
+    const mount = () => {
+      const present = vi.fn()
+      const context = { endFrameEXP: present }
+      const geometry = new BoxGeometry()
+      const disposed = vi.fn()
+      geometry.addEventListener('dispose', disposed)
+      root = {
+        gl: { getContext: () => context },
+        scene: new Scene().add(new Mesh(geometry, new MeshBasicMaterial())),
+        controls: null,
+        size: { width: 1, height: 1 },
+        invalidate: () => {},
+        frameloop: 'demand',
+      }
+      const { unmount } = render(
+        <StrictMode>
+          <ViewerFrame canvas={canvas}>{null}</ViewerFrame>
+        </StrictMode>,
+      )
+      return { context, present, disposed, unmount }
+    }
+
+    it('presents each frame once, and hands presenting back to the context when it goes', () => {
+      const { context, present, unmount } = mount()
+      try {
+        context.endFrameEXP()
+        context.endFrameEXP()
+        frame()
+        expect(present).toHaveBeenCalledOnce()
+      } finally {
+        unmount()
+        root = null
+      }
+      expect(context.endFrameEXP).toBe(present)
+      expect(afterEffects.size).toBe(0)
+    })
+
+    it('frees the scene on the next task after the canvas goes, and not before', () => {
+      vi.useFakeTimers()
+      try {
+        const { disposed, unmount } = mount()
+        vi.runAllTimers()
+        expect(disposed).not.toHaveBeenCalled()
+
+        unmount()
+        root = null
+        expect(disposed).not.toHaveBeenCalled()
+        vi.advanceTimersByTime(0)
+        expect(disposed).toHaveBeenCalledOnce()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
   })
 })
