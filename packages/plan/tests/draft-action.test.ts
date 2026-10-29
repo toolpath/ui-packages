@@ -854,3 +854,70 @@ describe('actionsFor', () => {
     ])
   })
 })
+
+describe('features Toolpath plans no pass for', () => {
+  // 's' is pinned nowhere and 'p' is pinned in Pockets; Toolpath plans no pass for either.
+  const noPass = new Set(['s', 'p'])
+  const strict: PlanRules = { ...rules, unplannable: (tag) => noPass.has(tag) }
+  const applyStrict = (action: DraftAction, from: Draft = draft) =>
+    applyDraftAction(from, action, strict, draft)
+  const NO_TOOL = 'No tool can cut that feature, so a pin machines nothing.'
+
+  it('refuses every way of pinning one anew', () => {
+    const pins: Array<DraftAction> = [
+      { kind: 'pinInto', tag: 's', direction: up, folderId: 'holes', newId: 'n' },
+      { kind: 'pinFrom', tag: 's', direction: up, newId: 'n' },
+      { kind: 'pinFrom', tag: 's', direction: side, newId: 'n' },
+      { kind: 'moveFeature', tag: 's', direction: up, folderId: 'holes', newId: 'n' },
+    ]
+    for (const pin of pins) {
+      expect(applyStrict(pin)).toEqual({ refused: NO_TOOL })
+      expect('draft' in apply(pin)).toBe(true)
+    }
+  })
+
+  it('refuses a pick among a click’s readings that pins one', () => {
+    const clicked = made(
+      apply({ kind: 'pinInto', tag: 'x', direction: up, folderId: 'holes', newId: 'n' }),
+    )
+    const pick = {
+      kind: 'choosePinReading',
+      tag: 'x',
+      target: 'pin',
+      reading: 's',
+      folderId: 'holes',
+    } as const
+    expect(applyStrict(pick, clicked)).toEqual({ refused: NO_TOOL })
+  })
+
+  it('lets one pinned already be taken out, let go or moved', () => {
+    const takenOut = made(
+      applyStrict({ kind: 'pinInto', tag: 'p', direction: up, folderId: 'pockets', newId: 'n' }),
+    )
+    expect(pinnedIn(takenOut.setups, 'p')).toBeNull()
+    expect(pinnedIn(made(applyStrict({ kind: 'unpin', tag: 'p' })).setups, 'p')).toBeNull()
+    const moved = made(
+      applyStrict({ kind: 'moveFeature', tag: 'p', direction: up, folderId: 'holes', newId: 'n' }),
+    )
+    expect(pinnedIn(moved.setups, 'p')).toBe('holes')
+  })
+
+  it('pins any other feature as it would', () => {
+    const pin: DraftAction = {
+      kind: 'pinInto',
+      tag: 'x',
+      direction: up,
+      folderId: 'holes',
+      newId: 'n',
+    }
+    expect(applyStrict(pin)).toEqual(apply(pin))
+  })
+
+  it('offers no pin of one pinned nowhere, and the rest as before', () => {
+    const at = { feature: 's', direction: up }
+    expect(actionsFor(draft, at, strict)).toEqual([])
+    expect(actionsFor(draft, at, rules)).not.toEqual([])
+    const pinned = { feature: 'p', direction: up }
+    expect(actionsFor(draft, pinned, strict)).toEqual(actionsFor(draft, pinned, rules))
+  })
+})

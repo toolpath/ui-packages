@@ -1,3 +1,4 @@
+import { tagKey } from './coverage'
 import type { PlanDirection } from './engine-plan'
 import { ignoreEdit, takeBackIgnore, unignoreEdit, type IgnoredAs } from './ignore'
 import { chooseReading, folderClick, pinEdit, unignorePinned, withPin } from './pin'
@@ -13,6 +14,7 @@ import {
   moveFeature,
   moveFolder,
   moveWithin,
+  pinHomes,
   pinnedIn,
   pinsWhere,
   placedFolders,
@@ -208,6 +210,32 @@ const TAKEN = 'That id is taken: each folder needs an id of its own.'
 const NOT_AN_ACTION = 'That is not a plan action.'
 const NEEDS_SAVED = 'This needs the plan as applied.'
 const NOT_EMPTY = 'Start from Toolpath’s plan while the plan holds no folders.'
+const NO_TOOL = 'No tool can cut that feature, so a pin machines nothing.'
+
+/**
+ * The kinds that pin a feature someone chose: each is refused where it pins one anew that Toolpath
+ * plans no pass for (`PlanRules.unplannable`).
+ */
+const PINNING: ReadonlySet<DraftActionKind> = new Set([
+  'pinInto',
+  'pinFrom',
+  'moveFeature',
+  'choosePinReading',
+])
+
+/** Whether `after` pins a feature `before` does not that Toolpath plans no pass for. */
+const pinsUnplannable = (
+  before: Constraints,
+  after: Constraints,
+  rules: Pick<PlanRules, 'unplannable'>,
+): boolean => {
+  const { unplannable } = rules
+  if (!unplannable) {
+    return false
+  }
+  const had = pinHomes(before.setups)
+  return [...pinHomes(after.setups).keys()].some((tag) => !had.has(tag) && unplannable(tag))
+}
 
 /**
  * Carry out one action on a draft: the draft after it, every other part of it as it was, or why it
@@ -232,6 +260,9 @@ export const applyDraftAction = <T extends Constraints>(
   const result = carryOut({ draft, rules, saved }, action)
   if ('refused' in result) {
     return result
+  }
+  if (PINNING.has(action.kind) && pinsUnplannable(draft, result.draft, rules)) {
+    return { refused: NO_TOOL }
   }
   const unignored =
     action.kind === 'chooseIgnoreReading' ? [] : ignoredNoLonger(draft, result.draft, rules)
@@ -662,9 +693,9 @@ export type ActionTarget =
 export const actionsFor = (
   draft: Constraints,
   target: ActionTarget,
-  rules: Pick<PlanRules, 'kernel'>,
+  rules: Pick<PlanRules, 'kernel' | 'unplannable'>,
 ): Array<DraftActionKind> => {
-  const allowed = new Set(actionsOn(draft, target, rules.kernel))
+  const allowed = new Set(actionsOn(draft, target, rules))
   return DRAFT_ACTION_KINDS.filter((kind) => allowed.has(kind))
 }
 
@@ -672,16 +703,21 @@ export const actionsFor = (
 const actionsOn = (
   draft: Constraints,
   target: ActionTarget,
-  kernel: string | null,
+  rules: Pick<PlanRules, 'kernel' | 'unplannable'>,
 ): Array<DraftActionKind> => {
   if ('folder' in target) {
     return folderActions(draft.setups, target.folder)
   }
   if ('feature' in target) {
-    return featureActions(draft.setups, target.feature, target.direction)
+    const kinds = featureActions(draft.setups, target.feature, target.direction)
+    // Pinned nowhere, a feature Toolpath plans no pass for can only be left as it is.
+    const unpinnable =
+      rules.unplannable?.(tagKey(target.feature)) === true &&
+      pinnedIn(draft.setups, target.feature) === null
+    return unpinnable ? kinds.filter((kind) => !PINNING.has(kind)) : kinds
   }
   if ('faces' in target) {
-    return faceActions(draft, target.faces, kernel)
+    return faceActions(draft, target.faces, rules.kernel)
   }
   return partActions(draft.setups)
 }

@@ -38,6 +38,32 @@ const check = checkPart(features, { sheets, datasheets, regionAreas }, rules)
 datasheet; `datasheets` is the datasheets as the API sent them, both by
 lower-cased feature tag; `regionAreas` is each face's area by region index.
 
+## Features nothing machines
+
+A sheet says when the Engine found nothing can machine a feature, so every
+view and plan editor can treat it the same way:
+
+- `invalidGeometry`: the Engine measured it and found it is not a feature of
+  its kind, such as a T-slot no disc cutter can cut. `invalidFeatureTags(sheets)`
+  lists them for `@toolpath/viewer`'s `withoutFeatures`, which leaves them out
+  of the part's features so picks and the direction wash go to the faces'
+  other owners.
+- `unplannable`: Toolpath plans no pass for it, whatever the tools: its
+  geometry is invalid, its clearance measurement failed, or its clearance
+  admits no tool. `unplannableFeatureTags(sheets)` lists them for
+  `@toolpath/plan`'s `PlanRules.unplannable`, which refuses pinning them.
+
+```ts
+import { invalidFeatureTags, unplannableFeatureTags } from '@toolpath/dfm'
+
+const leftOut = invalidFeatureTags(sheets) // <EnginePart withoutFeatures={leftOut} />
+const noPass = new Set(unplannableFeatureTags(sheets))
+const rules = { regionsOf, kernel, unplannable: (tag: string) => noPass.has(tag) }
+```
+
+A feature with no sheet yet is in neither list: until its datasheet is read,
+it is shown and can be pinned.
+
 ## Turning rules
 
 `TURNING_RULES` is the turning vocabulary: turned subjects (grooves, threads,

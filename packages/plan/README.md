@@ -132,6 +132,11 @@ After a pick among an Ignore click's readings, the pick is the click: send the n
 `click: { tag, regions: rules.regionsOf(tag) }` for the feature picked.
 
 `rules` (`PlanRules`) reads the part: the faces of each feature, and the kernel that numbers them.
+Its optional `unplannable` says which features Toolpath plans no pass for whatever the tools:
+build it from the part's datasheets with `@toolpath/dfm`'s `unplannableFeatureTags`. Toolpath takes
+a pin of such a feature and plans nothing for it, so a pin that adds one is refused and not offered;
+one pinned already can still be let go or moved. Without it, as before the datasheets are read,
+every feature can be pinned.
 
 ```ts
 import { actionsFor, applyDraftAction, type DraftAction } from '@toolpath/plan'
@@ -275,6 +280,7 @@ The package says no only where it must. Each refusal is one of these:
 | "Only a 3+1 or 3+2 setup has tool orientations."                          | Our choice   | Could instead index the setup, as dropping a folder from another direction does |
 | "Rows stay in folders cut from their own direction."                      | Our choice   | Could instead pin that direction's reading of the same faces                    |
 | "Only a folder inside a setup can be a tool orientation."                 | Our choice   | A setup's direction is fixed when it is made                                    |
+| "No tool can cut that feature, so a pin machines nothing."                | Our choice   | Toolpath takes the pin and plans no pass for it (`PlanRules.unplannable`)       |
 
 An "our choice" refusal can become a yes in a later release. Until then, it stays as it is.
 

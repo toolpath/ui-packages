@@ -1,6 +1,13 @@
 import { PartReportFormatError, UnsupportedKernelVersionError } from '../model/errors.js'
 import { buildRegionIndex } from '../model/region-index.js'
-import type { PartModel, PartModelFeature, PartModelRegion, Vec3 } from '../model/types.js'
+import type {
+  FeatureTag,
+  PartModel,
+  PartModelFeature,
+  PartModelRegion,
+  Vec3,
+} from '../model/types.js'
+import { withoutFeatures } from '../model/without-features.js'
 import {
   isFiniteNumber,
   isNonNegativeInteger,
@@ -14,6 +21,15 @@ import {
  * first that can drive feature selection at all.
  */
 export const MIN_KERNEL_VERSION = '0.3.0'
+
+export interface NormalizePartReportOptions {
+  /**
+   * Features to leave out of the model, by tag, as {@link withoutFeatures} does: for the ones whose
+   * geometry the Engine says is invalid, `@toolpath/dfm`'s `invalidFeatureTags`. The report is
+   * validated whole either way.
+   */
+  readonly withoutFeatures?: readonly FeatureTag[]
+}
 
 /**
  * Validates a part report and projects it into the `PartModel` the renderer
@@ -29,7 +45,10 @@ export const MIN_KERNEL_VERSION = '0.3.0'
  * `PartReportFormatError` (carrying every problem found, not just the first)
  * for anything else.
  */
-export function normalizePartReport(report: unknown): PartModel {
+export function normalizePartReport(
+  report: unknown,
+  options: NormalizePartReportOptions = {},
+): PartModel {
   if (!isRecord(report)) {
     throw new PartReportFormatError(['report is not an object'])
   }
@@ -78,7 +97,7 @@ export function normalizePartReport(report: unknown): PartModel {
     triangleCount: meshTriangleCount,
   })
 
-  return {
+  const model: PartModel = {
     partId,
     kernelVersion,
     features,
@@ -94,6 +113,7 @@ export function normalizePartReport(report: unknown): PartModel {
     regionIndex,
     warnings,
   }
+  return options.withoutFeatures ? withoutFeatures(model, options.withoutFeatures) : model
 }
 
 /**

@@ -72,6 +72,22 @@ export interface FeatureSheet {
   pinchPlaces?: number
   /** No cutter fits anywhere in the feature. */
   noToolFits?: true
+  /**
+   * The Engine measured it and found it is not a feature of its kind at all: for a T-slot, one a
+   * disc cutter cannot cut (`facts.isInvalidGeometry`, or, from an Engine that did not say so yet,
+   * a cutter band that is zero throughout). Nothing machines it, so a view leaves it out of the
+   * part's features ({@link invalidFeatureTags}). Never a dovetail's `isInvalidGeometry`, which is
+   * deprecated and says a width failed to measure.
+   */
+  invalidGeometry?: true
+  /**
+   * Toolpath plans no pass for it, whatever its tools: its clearance admits no tool (`facts.cd`,
+   * every regime's `max` zero), or its measurement failed (`facts.cd.measurementFailed`), or its
+   * geometry is invalid. A plan that names it machines nothing for it, so a plan editor does not
+   * pin it ({@link unplannableFeatureTags}). Never a chamfer: a cone riding its bevel is planned
+   * whatever its surface reading says.
+   */
+  unplannable?: true
   /** For a hole the model threads: its thread. */
   threading?: FeatureThreading
   /** For an undercut — a T-slot or a dovetail: what its cutter is held to. */
@@ -103,8 +119,9 @@ export interface FeatureUndercut {
   /** T-slot: its walls close on themselves in plan view, so a cutter's head comes down through its opening. */
   isClosed?: true
   /**
-   * The Engine could not measure it (`facts.isInvalidGeometry` or
-   * `facts.cd.measurementFailed`), so its figures offer no cutter.
+   * Its figures offer no cutter: the Engine found it is no slot a disc cutter can cut
+   * (`facts.isInvalidGeometry`, which {@link FeatureSheet.invalidGeometry} says apart), or
+   * could not measure it (`facts.cd.measurementFailed`).
    */
   unmeasured?: true
 }
@@ -215,25 +232,74 @@ const pinchCentres = (points: unknown): { x: number; y: number }[] =>
 /** Under this, mm, a cutter band's figure is zero: what the raw view shows as 0, to its four places. */
 const ZERO_MM = 5e-5
 
+/** The clearance regimes a cutter band (`facts.cd`) carries, each a `{ min, max }` pair. */
+const REGIMES = ['ignore', 'deviate', 'effectiveAdaptive'] as const
+
+/** A figure of a cutter band that is zero, whether sent as a number or a string. */
+const isZero = (value: unknown): boolean => {
+  const number = typeof value === 'string' && value.trim() !== '' ? Number(value) : value
+  return typeof number === 'number' && Math.abs(number) < ZERO_MM
+}
+
 /**
- * A T-slot the Engine found no cutter for: every figure in its cutter band
- * (`facts.cd`) is zero, whether sent as a number or a string. Nothing can
- * machine it, so it is no reading of its faces at all, and the analysis
- * leaves it out. One figure that is not zero, and it stays.
+ * A T-slot the Engine found no cutter for: it says the slot is not one a disc cutter can cut
+ * (`facts.isInvalidGeometry`), or, from a kernel before it said so, every figure of every regime
+ * in its cutter band (`facts.cd`) is zero, whether sent as a number or a string. Nothing can
+ * machine it, so it is no reading of its faces at all, and the analysis leaves it out. A
+ * measurement that failed (`facts.cd.measurementFailed`) is not this: its zeros were never read.
+ * The band's corner radius is the slot's blend, and is no figure of this.
  */
 export const isCutterlessTslot = (datasheet: unknown): boolean => {
   const facts = recordOf(recordOf(datasheet).facts)
   if (facts.kind !== 'Tslot') return false
-  const leaves = (value: unknown): unknown[] =>
-    typeof value === 'object' && value !== null ? Object.values(value).flatMap(leaves) : [value]
-  const band = leaves(facts.cd)
-  return (
-    band.length > 0 &&
-    band.every((each) => {
-      const value = typeof each === 'string' && each.trim() !== '' ? Number(each) : each
-      return typeof value === 'number' && Math.abs(value) < ZERO_MM
-    })
+  // Where the Engine says, it is the answer: a slot whose measurement failed says `false`.
+  if (typeof facts.isInvalidGeometry === 'boolean') return facts.isInvalidGeometry
+  const cd = recordOf(facts.cd)
+  if (cd.measurementFailed === true) return false
+  const figures = REGIMES.filter((regime) => regime in cd).flatMap((regime) =>
+    Object.values(recordOf(cd[regime])),
   )
+  return figures.length > 0 && figures.every(isZero)
+}
+
+/**
+ * Whether the Engine says a feature's geometry is invalid: a T-slot it found no cutter for
+ * ({@link isCutterlessTslot}), or any other kind that comes to carry `facts.isInvalidGeometry`.
+ * Not a dovetail's flag of that name, deprecated, which says a width failed to measure.
+ */
+const isInvalidGeometry = (facts: Record<string, unknown>, datasheet: unknown): boolean =>
+  facts.kind === 'Tslot'
+    ? isCutterlessTslot(datasheet)
+    : facts.kind !== 'Dovetail' && facts.isInvalidGeometry === true
+
+/** A band's `max` that admits no tool: zero, or the negative infinity an older kernel sent. */
+const admitsNone = (max: unknown): boolean =>
+  typeof max === 'string'
+    ? /^-inf/i.test(max.trim()) || isZero(max)
+    : max === -Infinity || isZero(max)
+
+/**
+ * Whether a cutter band admits no tool at all: every regime it carries is a measured pair whose
+ * `max`, the largest tool that fits anywhere, is zero. An absent `max` is unbounded, so it admits
+ * one; a band whose measurement failed admits nothing for another reason.
+ */
+const admitsNothing = (cd: Record<string, unknown>): boolean => {
+  const regimes = REGIMES.filter((regime) => regime in cd).map((regime) => recordOf(cd[regime]))
+  return regimes.length > 0 && regimes.every((regime) => admitsNone(regime.max))
+}
+
+/**
+ * Whether Toolpath plans no pass for a feature, whatever its tools: its geometry is invalid, its
+ * clearance measurement failed, or its clearance admits no tool. A chamfer never: the bevel bounds
+ * the cone that rides it, whatever its surface reading says.
+ */
+const isUnplannable = (facts: Record<string, unknown>, datasheet: unknown): boolean => {
+  if (facts.kind === 'Chamfer') return false
+  const cd = recordOf(facts.cd)
+  // A dovetail's deprecated flag is a failed measurement, as `cd.measurementFailed` now says.
+  const failed =
+    cd.measurementFailed === true || (facts.kind === 'Dovetail' && facts.isInvalidGeometry === true)
+  return isInvalidGeometry(facts, datasheet) || failed || admitsNothing(cd)
 }
 
 /**
@@ -296,6 +362,8 @@ export const featureSheet = (datasheet: unknown): FeatureSheet => {
   const sharp = cornerRadius !== undefined && cornerRadius < SHARP_RADIUS_MM && !cramped
   const threading = kind === 'Hole' ? threadingOf(facts) : undefined
   const undercut = undercutOf(facts)
+  const invalidGeometry = isInvalidGeometry(facts, datasheet)
+  const unplannable = isUnplannable(facts, datasheet)
   const pinched = (readPinch(datasheet)?.discs ?? []).filter(
     (disc) => disc.diameter >= PINCH_TOOL_MM,
   )
@@ -313,9 +381,31 @@ export const featureSheet = (datasheet: unknown): FeatureSheet => {
     ...(Object.keys(toolFit).length > 0 ? { toolFitPath } : {}),
     ...(sharp ? { sharpCorners: pinchCentres(sheet.pinchPoints) } : {}),
     ...(cramped ? { noToolFits: true as const } : {}),
+    ...(invalidGeometry ? { invalidGeometry: true as const } : {}),
+    ...(unplannable ? { unplannable: true as const } : {}),
     ...(ballOnly ? { ballOnly: true as const } : {}),
     ...(standsOnAFloor ? { standsOnAFloor: true as const } : {}),
     ...(threading ? { threading } : {}),
     ...(undercut ? { undercut } : {}),
   }
 }
+
+/** The tags of the sheets that say a thing of their feature, in `sheets` order. */
+const tagsWhere = (sheets: FeatureSheets, says: (sheet: FeatureSheet) => boolean): Array<string> =>
+  Object.entries(sheets).flatMap(([tag, sheet]) => (says(sheet) ? [tag] : []))
+
+/**
+ * The features whose geometry the Engine says is invalid ({@link FeatureSheet.invalidGeometry}),
+ * by lower-cased tag: what a view leaves out of the part's features, as `@toolpath/viewer`'s
+ * `withoutFeatures` does. A feature with no sheet yet is not among them.
+ */
+export const invalidFeatureTags = (sheets: FeatureSheets): Array<string> =>
+  tagsWhere(sheets, (sheet) => sheet.invalidGeometry === true)
+
+/**
+ * The features Toolpath plans no pass for, whatever its tools ({@link FeatureSheet.unplannable}),
+ * by lower-cased tag: what a plan editor does not pin, as `@toolpath/plan`'s
+ * `PlanRules.unplannable` refuses. A feature with no sheet yet is not among them.
+ */
+export const unplannableFeatureTags = (sheets: FeatureSheets): Array<string> =>
+  tagsWhere(sheets, (sheet) => sheet.unplannable === true)
