@@ -1,12 +1,18 @@
+// drei's own file, not its root: on React Native the root loads every module drei has.
 import { Line } from '@react-three/drei/core/Line.js'
-import { Html } from '@react-three/drei/web/Html.js'
-import { type CSSProperties, useMemo } from 'react'
+import { useMemo } from 'react'
 import type { Vector3 } from 'three'
-import { cssColor } from './measure-hint.js'
-import type { MeasureLabelKind } from './measure-labels.js'
+import { MeasureLabel, PointMarker } from './measure-labels.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
 import type { HoleIndex, SurfaceFor } from './render/face-measure.js'
-import { MEASURE_LABEL_CLASS, MEASURE_LINE_PIXELS, MEASURE_RENDER_ORDER } from './render/measure.js'
+import {
+  MEASURE_LABEL_CLASS,
+  MEASURE_LINE_PIXELS,
+  MEASURE_RENDER_ORDER,
+  cssColor,
+  labelValue,
+  type LabelPress,
+} from './render/measure.js'
 import { measureReadout, type MeasureGroup, type MeasureReadout } from './render/measure-picks.js'
 
 const FURNITURE = { [EXCLUDE_FROM_FRAME]: true }
@@ -36,16 +42,6 @@ const dashFor = (points: readonly Vector3[]): number => {
 
 const ignoreRay = (): void => undefined
 
-/** The size of a point picked, in CSS pixels, and of the white ring round it. */
-const MARKER_STYLE: CSSProperties = {
-  width: '10px',
-  height: '10px',
-  boxSizing: 'border-box',
-  border: '2px solid #fff',
-  borderRadius: '9999px',
-  boxShadow: '0 1px 3px rgb(0 0 0 / 30%)',
-}
-
 interface MeasurementsProps {
   groups: readonly MeasureGroup[]
   surfaceFor: SurfaceFor
@@ -54,6 +50,10 @@ interface MeasurementsProps {
   format: (mm: number) => string
   /** Added to every label's class, beside {@link MEASURE_LABEL_CLASS}. */
   labelClass: string
+  /** A label pressed. Labels are pressable on React Native only where this is given. */
+  onLabelPress?: (label: LabelPress) => void
+  /** What pressing a label does, for a screen reader on React Native. */
+  labelHint?: string
 }
 
 /**
@@ -64,7 +64,8 @@ interface MeasurementsProps {
  *
  * Each measurement is in its own colour (`measureColor`), its label's border
  * too. Lines show through the part: a hole's diameter is often across the
- * far side of it. Deaf to the pointer and left out of framing.
+ * far side of it. Deaf to the pointer and left out of framing. The labels
+ * and the points are drawn as each platform draws them (`measure-labels.tsx`).
  */
 export const Measurements = ({
   groups,
@@ -72,6 +73,8 @@ export const Measurements = ({
   holes,
   format,
   labelClass,
+  onLabelPress,
+  labelHint,
 }: MeasurementsProps) => {
   const readouts = useMemo(
     () => groups.map((group) => measureReadout(group, surfaceFor, holes, format)),
@@ -86,6 +89,8 @@ export const Measurements = ({
           readout={readout}
           color={measureColor(index)}
           labelClass={labelClass}
+          onLabelPress={onLabelPress}
+          labelHint={labelHint}
         />
       ))}
     </group>
@@ -97,10 +102,21 @@ interface ReadoutProps {
   /** The measurement's colour, for its lines and its label's border. */
   color: number
   labelClass: string
+  onLabelPress: MeasurementsProps['onLabelPress']
+  labelHint: MeasurementsProps['labelHint']
 }
 
-const Readout = ({ readout, color, labelClass }: ReadoutProps) => {
-  const flag = { '--measure-color': cssColor(color) } as CSSProperties
+const Readout = ({ readout, color, labelClass, onLabelPress, labelHint }: ReadoutProps) => {
+  // One handler a label for as long as its text holds: on React Native a new one draws the label again.
+  const presses = useMemo(
+    () =>
+      readout.labels.map((label) =>
+        onLabelPress
+          ? () => onLabelPress({ text: label.text, value: labelValue(label.text) })
+          : undefined,
+      ),
+    [readout, onLabelPress],
+  )
   return (
     <>
       {readout.lines.map((line, index) => (
@@ -117,28 +133,20 @@ const Readout = ({ readout, color, labelClass }: ReadoutProps) => {
           raycast={ignoreRay}
         />
       ))}
-      {readout.labels.map((label, index) => {
-        const kind: MeasureLabelKind = label.axis ? 'delta' : 'face'
-        return (
-          <Html
-            key={`label:${index}`}
-            position={label.at}
-            center
-            zIndexRange={[20, 0]}
-            pointerEvents="none"
-          >
-            <div
-              className={labelClass}
-              data-measure-label={kind}
-              data-axis={label.axis}
-              style={label.axis ? undefined : flag}
-            >
-              {/* What a click on the label copies. */}
-              <span data-measure-value>{label.text}</span>
-            </div>
-          </Html>
-        )
-      })}
+      {readout.labels.map((label, index) => (
+        <MeasureLabel
+          key={`label:${index}`}
+          at={label.at}
+          text={label.text}
+          kind={label.axis ? 'delta' : 'face'}
+          axis={label.axis}
+          // Its border; a leg wears its axis's colour.
+          color={label.axis ? undefined : cssColor(color)}
+          labelClass={labelClass}
+          onPress={presses[index]}
+          hint={labelHint}
+        />
+      ))}
       {readout.markers.map((at, index) => (
         <PointMarker key={`marker:${index}`} at={at} color={color} />
       ))}
@@ -147,23 +155,10 @@ const Readout = ({ readout, color, labelClass }: ReadoutProps) => {
 }
 
 /**
- * Set on the box drei wraps round a dot. Its `pointerEvents` prop does not
- * reach that box unless `transform` is set, and the box, the dot's size,
- * would take a click on the point from the part.
- */
-const DEAF: CSSProperties = { pointerEvents: 'none' }
-
-/** A point picked: a dot on screen, a set size however far off. */
-const PointMarker = ({ at, color }: { at: Vector3; color: number }) => (
-  <Html position={at} center zIndexRange={[20, 0]} style={DEAF}>
-    <div style={{ ...MARKER_STYLE, backgroundColor: cssColor(color) }} />
-  </Html>
-)
-
-/**
  * The edge an Alt point snaps to, or is the middle of, drawn bold and whole
- * while the pointer is on it. The ring and the caption are not drawn here,
- * but over the canvas (`measure-hint.ts`). Nothing here takes the pointer.
+ * while the pointer is on it, or on React Native once a point is tapped
+ * there. The web's ring and caption are not drawn here, but over the canvas
+ * (`measure-hint.ts`). Nothing here takes the pointer.
  */
 export const HoverEdge = ({ points, color }: { points: readonly Vector3[]; color: number }) => {
   // Copied once per edge: a new array each draw would have `Line` build its geometry again.

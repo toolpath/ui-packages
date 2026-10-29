@@ -211,6 +211,8 @@ const NATIVE_FILES = [
   'cube-label.native.tsx',
   'index.native.ts',
   'label-overlay.native.tsx',
+  'measure-labels.native.tsx',
+  'measure-pointer.native.ts',
   'render/keys.native.ts',
   'render/part-picking.native.ts',
   'render/pointer-hover.native.ts',
@@ -236,7 +238,12 @@ describe('the React Native build runs no DOM', () => {
     expect(names).toContain('render/keys.native.ts')
     expect(names).not.toContain('viewer-frame.tsx')
     expect(names).not.toContain('render/keys.ts')
-    expect(names).not.toContain('measure-tool.tsx')
+    // The measure tool is shared; its pointer, its hint and its labels are the web's alone.
+    expect(names).toContain('measure-tool.tsx')
+    expect(names).toContain('measure-pointer.native.ts')
+    expect(names).not.toContain('measure-pointer.ts')
+    expect(names).not.toContain('measure-hint.ts')
+    expect(names).not.toContain('measure-labels.tsx')
   })
 
   it.each(GRAPH.map((path) => [name(path), path] as const))('%s', (_file, path) => {

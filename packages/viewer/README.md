@@ -800,20 +800,24 @@ modes: what a click measures is read off what it lands on.
 
 - A click on a face takes the whole face; on a hole, the whole hole, with how many
   of the same hole the part has.
-- With Alt (Option) held, a click places a point, snapped to a corner, the middle of a
-  straight edge, or an edge where one is near, and on the face where none is.
+- With Alt (Option) held, or with the `points` prop, a click places a point, snapped to
+  a corner, the middle of a straight edge, or an edge where one is near, and on the face
+  where none is.
 - A second pick is read with the first where the two make a dimension: point to point
   (with X/Y/Z legs), point to plane, plane to plane (gap or angle), and a hole's centre
   line to a plane along its axis. Anything else starts a new measurement.
-- Shift keeps what is on screen and starts another. A click on a face already held
-  drops it; Delete/Backspace drops the last pick unless focus is in a form field; a
-  click off the part clears them all.
+- Shift, or the `keep` prop, keeps what is on screen and starts another. A click on a
+  face already held drops it; Delete/Backspace drops the last pick unless focus is in a
+  form field; a click off the part clears them all.
+- A double click aims the orbit at the point clicked, as it does without the tool, and
+  measures once.
 
 `onChange` reports `readonly MeasureGroup[]`, each one pick or two; pass
 `measurements` too to control and retain the list, as the Workbench does. Without
-controlled state, unmounting the tool drops its measurements. Normal part hover/picks
-are suppressed while measuring. Before a click, the face under the pointer is tinted
-and a caption beside the pointer says what a click there takes.
+controlled state, unmounting the tool drops its measurements. An app's own Undo
+button can set `dropLastPick(measurements)`, which is what Delete does. Normal part
+hover/picks are suppressed while measuring. Before a click, the face under the pointer
+is tinted and a caption beside the pointer says what a click there takes.
 
 The tool measures the part as a section cut leaves it. The cut face is solid to the
 tool: an Alt point lands on it and snaps to its outline's corners, and nothing behind
@@ -859,13 +863,26 @@ Labels are unstyled DOM overlays with class `toolpath-measure-label`
 `data-measure-label` is `face` for a reading of the picks or `delta` for one leg of a
 distance, and legs also have `data-axis`. Each measurement has its own colour, set on
 its `face` labels as `--measure-color`. A click on a label copies its number, from its
-`[data-measure-value]`, and marks the label `data-copied` for a moment; a label takes
-the pointer only where the stylesheet gives it `pointer-events: auto`. Labels that
-would overlap are moved apart by their inline `translate`, which leaves a stylesheet's
-`transform` alone. The caption by the pointer has class `toolpath-measure-hint`
-(`MEASURE_HINT_CLASS`) and is placed but not styled. `labelClassName` adds a class.
-Lengths default to millimetres; the `format(mm)` callback changes their displayed
-string, not geometry units or angles (which remain degrees).
+`[data-measure-value]`, and marks the label `data-copied` for a moment. With
+`onLabelPress`, the click calls it with `{ text, value }` instead, the label as drawn
+and its bare number, and nothing is copied. A label takes the pointer only where the
+stylesheet gives it `pointer-events: auto`. Labels that would overlap are moved apart
+by their inline `translate`, which leaves a stylesheet's `transform` alone. The caption
+by the pointer has class `toolpath-measure-hint` (`MEASURE_HINT_CLASS`) and is placed
+but not styled. `labelClassName` adds a class. Lengths default to millimetres; the
+`format(mm)` callback changes their displayed string, not geometry units or angles
+(which remain degrees).
+
+On React Native the same `MeasureTool` takes taps. There is no Alt, Shift or Delete,
+so an app gives the choices as props: `points` for points, `keep` to keep what is on
+screen, and `dropLastPick` for its Undo. A tap off the part clears, a pinch's lift is
+not a tap, and a double tap aims the orbit. With no hover, what was tapped stays
+painted until the measurements are cleared. Labels are drawn as
+[native labels](#labels-on-react-native) (`scene-label-face`, `scene-label-delta`),
+pressable only when `onLabelPress` is given. What a press does is the app's, so
+`labelHint` says it to a screen reader, such as "Copies the measurement"; without it a
+pressable label is announced as a button with no hint. `labelHint` is ignored on the
+web, and `labelClassName` on React Native.
 
 ### Showing threads
 
@@ -965,17 +982,18 @@ Its `react-native` export condition gives Metro a native build of both
 `.native` files where it has them. The native root leaves out the web-only
 exports.
 
-| Export                                                                                                                                              | Web | React Native                        |
-| --------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ----------------------------------- |
-| `Viewer`, `PartMesh`, `EnginePart`, `Stock`, `DirectionArrows`, `SectionView`, `SectionTool`, `ToolMarks`, `Axes`, `Grid`, `ViewCube`, `SceneLabel` | yes | yes                                 |
-| `Banana`, `BANANA_MODEL_URL`                                                                                                                        | yes | from `@toolpath/viewer/banana` only |
-| Every pure function, constant and type from the models, rendering helpers and Engine adapter                                                        | yes | yes                                 |
-| `MeasureTool`, `HoverCard`, `ViewerToolbar`, `viewerToolGroups`, `labelTexture`                                                                     | yes | no: not exported                    |
-| `ViewerToolbarProvider`, `useViewerToolbar`                                                                                                         | yes | yes (the context has no DOM)        |
+| Export                                                                                                                                                             | Web | React Native                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --- | ----------------------------------- |
+| `Viewer`, `PartMesh`, `EnginePart`, `Stock`, `DirectionArrows`, `SectionView`, `SectionTool`, `MeasureTool`, `ToolMarks`, `Axes`, `Grid`, `ViewCube`, `SceneLabel` | yes | yes                                 |
+| `Banana`, `BANANA_MODEL_URL`                                                                                                                                       | yes | from `@toolpath/viewer/banana` only |
+| Every pure function, constant and type from the models, rendering helpers and Engine adapter                                                                       | yes | yes                                 |
+| `HoverCard`, `ViewerToolbar`, `viewerToolGroups`, `labelTexture`                                                                                                   | yes | no: not exported                    |
+| `ViewerToolbarProvider`, `useViewerToolbar`                                                                                                                        | yes | yes (the context has no DOM)        |
 
 On React Native, one finger orbits, two fingers pinch to zoom and pan, and a tap
 picks, as on the web; double tap re-targets. A tap on a face with `SectionTool`
-up cuts, and the handle drags the cut.
+up cuts, and the handle drags the cut. With `MeasureTool` up a tap measures; see
+[Measuring](#measuring).
 
 The `react-native` condition also gives TypeScript the native build's own
 declarations (with `customConditions: ["react-native"]`, which Expo's base
