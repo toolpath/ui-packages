@@ -1,12 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { BoxGeometry, DataTexture, Mesh, MeshBasicMaterial, Scene, ShaderMaterial } from 'three'
 import {
-  RELEASE_FALLBACK_MS,
   createPresenter,
-  createRelease,
   createSceneRelease,
   createUnmountRelease,
-  disposeTree,
 } from '../src/render/native-gl.js'
 
 /** Fiber's `addAfterEffect`, run by hand: `frame()` is the end of a frame. */
@@ -20,6 +17,14 @@ const afterEffects = () => {
     frame: () => {
       for (const callback of callbacks) callback(0)
     },
+  }
+}
+
+/** expo-gl's context, whose `endFrameEXP` is on its prototype. */
+class ExpoContext {
+  presented = vi.fn()
+  endFrameEXP(): void {
+    this.presented()
   }
 }
 
@@ -47,104 +52,73 @@ describe('createPresenter', () => {
     expect(present).not.toHaveBeenCalled()
   })
 
-  it('stops presenting once removed', () => {
+  it('gives the context its own endFrameEXP back once removed', () => {
     const present = vi.fn()
     const context = { endFrameEXP: present }
     const effects = afterEffects()
     const remove = createPresenter(context, effects.add)
 
     remove()
+    expect(context.endFrameEXP).toBe(present)
     context.endFrameEXP()
     effects.frame()
-    expect(present).not.toHaveBeenCalled()
+    expect(present).toHaveBeenCalledOnce()
+  })
+
+  it('leaves no endFrameEXP of its own on a context whose prototype has it', () => {
+    const context = new ExpoContext()
+    const remove = createPresenter(context, afterEffects().add)
+
+    remove()
+    expect(Object.hasOwn(context, 'endFrameEXP')).toBe(false)
+  })
+
+  it('presents a frame once after it is installed, removed and installed again', () => {
+    const present = vi.fn()
+    const context = { endFrameEXP: present }
+    const effects = afterEffects()
+
+    createPresenter(context, effects.add)()
+    createPresenter(context, effects.add)
+    context.endFrameEXP()
+    context.endFrameEXP()
+    effects.frame()
+
+    expect(present).toHaveBeenCalledOnce()
+  })
+
+  it('presents a frame once after it is installed, removed and installed again on expo-gl’s context', () => {
+    const context = new ExpoContext()
+    const effects = afterEffects()
+
+    createPresenter(context, effects.add)()
+    createPresenter(context, effects.add)
+    context.endFrameEXP()
+    context.endFrameEXP()
+    effects.frame()
+
+    expect(context.presented).toHaveBeenCalledOnce()
   })
 })
 
-describe('createRelease', () => {
-  it('stops presenting, empties the scene, disposes the renderer and destroys the context, in order', () => {
-    const order: string[] = []
-    const geometry = new BoxGeometry()
-    geometry.addEventListener('dispose', () => order.push('scene'))
-    const scene = new Scene().add(new Mesh(geometry, new MeshBasicMaterial()))
-    const release = createRelease({
-      gl: { dispose: () => order.push('renderer') },
-      scene,
-      stopPresenting: () => order.push('presenter'),
-      destroy: () => order.push('context'),
-    })
-
-    release()
-    expect(order).toEqual(['presenter', 'scene', 'renderer', 'context'])
-  })
-
-  it('does nothing the second time', () => {
-    const destroy = vi.fn()
-    const dispose = vi.fn()
-    const release = createRelease({
-      gl: { dispose },
-      scene: new Scene(),
-      stopPresenting: () => {},
-      destroy,
-    })
-
-    release()
-    release()
-    expect(dispose).toHaveBeenCalledOnce()
-    expect(destroy).toHaveBeenCalledOnce()
-  })
-
-  it('destroys the context when a dispose throws', () => {
-    const destroy = vi.fn()
-    const release = createRelease({
-      gl: {
-        dispose: () => {
-          throw new Error('dispose failed')
-        },
-      },
-      scene: new Scene(),
-      stopPresenting: () => {},
-      destroy,
-    })
-
-    expect(release).toThrow('dispose failed')
-    release()
-    expect(destroy).toHaveBeenCalledOnce()
-  })
-})
-
-describe('disposeTree', () => {
+describe('createSceneRelease', () => {
   const disposed = (target: { addEventListener: DataTexture['addEventListener'] }) => {
     const spy = vi.fn()
     target.addEventListener('dispose', spy)
     return spy
   }
 
-  it('disposes geometries, materials, and the textures in them and in their uniforms', () => {
-    const map = new DataTexture()
-    const sampled = new DataTexture()
-    const basic = new MeshBasicMaterial({ map })
-    const shader = new ShaderMaterial({ uniforms: { mask: { value: sampled } } })
-    const geometry = new BoxGeometry()
-    const scene = new Scene().add(new Mesh(geometry, [basic, shader]))
-    const spies = [map, sampled, basic, shader, geometry].map(disposed)
-
-    disposeTree(scene)
-    for (const spy of spies) expect(spy).toHaveBeenCalledOnce()
-  })
-})
-
-describe('createSceneRelease', () => {
   const scene = () => {
     const geometry = new BoxGeometry()
     const material = new MeshBasicMaterial()
-    const disposed = vi.fn()
-    geometry.addEventListener('dispose', disposed)
-    material.addEventListener('dispose', disposed)
-    return { scene: new Scene().add(new Mesh(geometry, material)), disposed }
+    const spy = vi.fn()
+    geometry.addEventListener('dispose', spy)
+    material.addEventListener('dispose', spy)
+    return { scene: new Scene().add(new Mesh(geometry, material)), disposed: spy }
   }
 
   it('disposes nothing when the scene is hidden and shown again', () => {
-    const { scene: live, disposed } = scene()
+    const { scene: live, disposed: spy } = scene()
     const release = createSceneRelease(live)
     release.shown()
 
@@ -152,11 +126,11 @@ describe('createSceneRelease', () => {
     release.shown()
     release.gone()
 
-    expect(disposed).not.toHaveBeenCalled()
+    expect(spy).not.toHaveBeenCalled()
   })
 
   it('disposes what the scene held when it went, though it has emptied since', () => {
-    const { scene: live, disposed } = scene()
+    const { scene: live, disposed: spy } = scene()
     const release = createSceneRelease(live)
     release.shown()
 
@@ -164,48 +138,59 @@ describe('createSceneRelease', () => {
     live.clear()
     release.gone()
 
-    expect(disposed).toHaveBeenCalledTimes(2)
+    expect(spy).toHaveBeenCalledTimes(2)
+  })
+
+  it('disposes geometries, materials, and the textures in them and in their uniforms', () => {
+    const map = new DataTexture()
+    const sampled = new DataTexture()
+    const basic = new MeshBasicMaterial({ map })
+    const shader = new ShaderMaterial({ uniforms: { mask: { value: sampled } } })
+    const geometry = new BoxGeometry()
+    const release = createSceneRelease(new Scene().add(new Mesh(geometry, [basic, shader])))
+    const spies = [map, sampled, basic, shader, geometry].map(disposed)
+
+    release.hidden()
+    release.gone()
+    for (const spy of spies) expect(spy).toHaveBeenCalledOnce()
   })
 })
 
 describe('createUnmountRelease', () => {
   const lifetime = () => {
     const gone = vi.fn()
-    const forceContextLoss = vi.fn()
-    return { gone, forceContextLoss, release: createUnmountRelease({ gone }, forceContextLoss) }
+    return { gone, release: createUnmountRelease({ gone }) }
   }
 
-  it('frees nothing when StrictMode runs the effect again', () => {
+  it('disposes nothing when the canvas mounts again, as StrictMode does', () => {
     vi.useFakeTimers()
     try {
-      const { gone, forceContextLoss, release } = lifetime()
+      const { gone, release } = lifetime()
       release.mounted()
 
       release.unmounted()
       release.mounted()
-      vi.advanceTimersByTime(RELEASE_FALLBACK_MS * 2)
+      vi.runAllTimers()
 
       expect(gone).not.toHaveBeenCalled()
-      expect(forceContextLoss).not.toHaveBeenCalled()
     } finally {
       vi.useRealTimers()
     }
   })
 
-  it('frees the scene on the next task, and the context after the fallback', () => {
+  it('disposes on the next task once the canvas has gone', () => {
     vi.useFakeTimers()
     try {
-      const { gone, forceContextLoss, release } = lifetime()
+      const { gone, release } = lifetime()
       release.mounted()
 
       release.unmounted()
       expect(gone).not.toHaveBeenCalled()
       vi.advanceTimersByTime(0)
       expect(gone).toHaveBeenCalledOnce()
-      expect(forceContextLoss).not.toHaveBeenCalled()
 
-      vi.advanceTimersByTime(RELEASE_FALLBACK_MS)
-      expect(forceContextLoss).toHaveBeenCalledOnce()
+      vi.runAllTimers()
+      expect(gone).toHaveBeenCalledOnce()
     } finally {
       vi.useRealTimers()
     }

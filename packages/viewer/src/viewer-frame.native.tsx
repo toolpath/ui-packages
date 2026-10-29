@@ -1,11 +1,4 @@
-import {
-  Canvas,
-  type RootState,
-  addAfterEffect,
-  useFrame,
-  useThree,
-} from '@react-three/fiber/native'
-import { GLView } from 'expo-gl'
+import { Canvas, addAfterEffect, useFrame, useThree } from '@react-three/fiber/native'
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { ComponentRef } from 'react'
 import {
@@ -19,12 +12,7 @@ import {
 import { SceneLabelStoreContext } from './label-context.js'
 import { LabelOverlay } from './label-overlay.js'
 import { type LabelStore, createLabelStore } from './render/label-store.js'
-import {
-  createPresenter,
-  createRelease,
-  createSceneRelease,
-  createUnmountRelease,
-} from './render/native-gl.js'
+import { createPresenter, createSceneRelease, createUnmountRelease } from './render/native-gl.js'
 import type { ViewportSize } from './render/camera.js'
 import { useAppInactive, useRepaintOnResume } from './render/pause-inactive.js'
 import {
@@ -166,10 +154,10 @@ export const ViewerFrame = ({
             frameloop={inactive ? 'never' : canvas.frameloop}
             // Fiber already ignores a press that moved, so a miss is a miss.
             onPointerMissed={onPointerMissed ? () => onPointerMissed() : undefined}
-            onCreated={releaseWithTheCanvas}
           >
             {/* First, so it is torn down before anything below it leaves the scene. */}
             <ReleaseOnUnmount />
+            <PresentOncePerFrame />
             {children}
             <TouchBridge />
             <LabelProjector store={store} />
@@ -243,46 +231,43 @@ const RepaintOnResume = () => {
 type ExpoContext = WebGL2RenderingContext & { endFrameEXP(): void }
 
 /**
- * Presents each frame once (`createPresenter`), and makes the renderer's
- * `forceContextLoss` free everything the canvas holds on the GPU
- * (`createRelease`): expo-gl's own context loss does nothing.
+ * Presents each frame once (see `createPresenter`), from the commit that
+ * mounts the canvas's content until the one that unmounts it.
+ *
+ * A layout effect, so it is in place before fiber's first frame. Removing it
+ * at once loses no frame: fiber stops rendering a root before it unmounts its
+ * content, and a frame's renders and its after-effects run in one task, so no
+ * cleanup runs between a render and its present. A `<Suspense>` that hides the
+ * content removes it too, and the HUD's render with it: `useFrame` subscribes
+ * in a layout effect as well.
  */
-const releaseWithTheCanvas = ({ gl, scene }: RootState) => {
-  const context = gl.getContext() as ExpoContext
-  gl.forceContextLoss = createRelease({
-    gl,
-    scene,
-    stopPresenting: createPresenter(context, addAfterEffect),
-    destroy: () => {
-      void GLView.destroyContextAsync(
-        context as unknown as Parameters<typeof GLView.destroyContextAsync>[0],
-      ).catch(() => undefined)
-    },
-  })
+const PresentOncePerFrame = () => {
+  const gl = useThree((state) => state.gl)
+  useLayoutEffect(() => createPresenter(gl.getContext() as ExpoContext, addAfterEffect), [gl])
+  return null
 }
 
 /**
- * Disposes what the scene holds while it still holds it, and makes sure the
- * context goes.
+ * Disposes what the scene holds while it still holds it.
  *
- * By the time fiber's teardown reaches `forceContextLoss` the scene is empty,
- * and what left it was not all disposed: a mesh rendered as a `<primitive>`,
- * or a geometry a cache keeps for the next mount, still has its buffers on the
- * GPU, and a context's destruction is not guaranteed to free them. A layout
- * effect's cleanup on the canvas's first child runs before anything after it
- * leaves the scene, so it reads what to free there, and the passive cleanup
- * has it freed (see `createSceneRelease`) on the next task, which a StrictMode
- * re-run cancels (see `createUnmountRelease`). Disposing only frees GPU
- * memory: a geometry kept for reuse uploads again the next time it is drawn.
+ * Fiber's own teardown, 500 ms after the canvas unmounts, finds the scene
+ * empty, and what left it was not all disposed: a mesh rendered as a
+ * `<primitive>`, or a geometry a cache keeps for the next mount, still has its
+ * buffers on the GPU. expo-gl destroys the context itself when its view goes;
+ * this dispose is what frees the GPU memory and JS heap. Over 20 openings of a
+ * part on Android, PSS grew 96 MB and the JS heap 5.1 MB with it, and 145 MB
+ * and 21.8 MB without it.
+ *
+ * A layout effect's cleanup on the canvas's first child runs before anything
+ * after it leaves the scene, so it reads what to free there, and the passive
+ * cleanup has it freed (see `createSceneRelease`) on the next task, which a
+ * StrictMode re-run cancels (see `createUnmountRelease`). Disposing destroys
+ * nothing: a geometry kept for reuse uploads again the next time it is drawn.
  */
 const ReleaseOnUnmount = () => {
-  const gl = useThree((state) => state.gl)
   const scene = useThree((state) => state.scene)
   const release = useMemo(() => createSceneRelease(scene), [scene])
-  const lifetime = useMemo(
-    () => createUnmountRelease(release, () => gl.forceContextLoss()),
-    [gl, release],
-  )
+  const lifetime = useMemo(() => createUnmountRelease(release), [release])
 
   useLayoutEffect(() => {
     release.shown()
