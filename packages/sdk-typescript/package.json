@@ -42,7 +42,7 @@
     "typescript": "5.9.3"
   },
   "toolpath": {
-    "openApiSha256": "d3b3b439981101a3c4227f4c1f9b10a20996fb63f6e1af09b37bfd818456fb1f",
-    "openApiVersion": "1.35.0"
+    "openApiSha256": "563a256b7552d37224f218356d21b2930f2af4078baafc23740648172d4c1ec9",
+    "openApiVersion": "1.38.0"
   }
 }

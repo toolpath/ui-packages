@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.cd_data import CdData
     from ..models.offset_length import OffsetLength
+    from ..models.threading import Threading
 
 
 T = TypeVar("T", bound="CircularWallFacts")
@@ -22,7 +23,7 @@ class CircularWallFacts:
     as a hole is of what could be a pocket, and measured as a boss with no blend at its foot is.
 
         Attributes:
-            kind (Literal['CircularWall']): Discriminator for this facts variant.
+            kind (Literal['CircularWall']): Discriminant of a `FeatureFacts`; always `'CircularWall'` here.
             cd (CdData): Clearance-diameter bounds per tolerance regime, plus the flags derived with them.
             diameter (float): The cylinder's diameter, in mm.
             stands_on_a_floor (bool): Whether the cylinder rises from a floor: machined as a boss where it does, and as a
@@ -39,6 +40,7 @@ class CircularWallFacts:
                 Exact for every tool the outline has room for, except at a corner sharper than the tool,
                 where it reads long by that corner's miter — zero for the filleted corners a pocket that
                 admits the tool is made of.
+            threading (Threading | Unset): A thread a hole or stud is to receive, and how it is to be cut.
     """
 
     kind: Literal["CircularWall"]
@@ -46,6 +48,7 @@ class CircularWallFacts:
     diameter: float
     stands_on_a_floor: bool
     wall_length: OffsetLength | Unset = UNSET
+    threading: Threading | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         kind = self.kind
@@ -60,6 +63,10 @@ class CircularWallFacts:
         if not isinstance(self.wall_length, Unset):
             wall_length = self.wall_length.to_dict()
 
+        threading: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.threading, Unset):
+            threading = self.threading.to_dict()
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update(
@@ -72,6 +79,8 @@ class CircularWallFacts:
         )
         if wall_length is not UNSET:
             field_dict["wallLength"] = wall_length
+        if threading is not UNSET:
+            field_dict["threading"] = threading
 
         return field_dict
 
@@ -79,6 +88,7 @@ class CircularWallFacts:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.cd_data import CdData
         from ..models.offset_length import OffsetLength
+        from ..models.threading import Threading
 
         d = dict(src_dict)
         kind = cast(Literal["CircularWall"], d.pop("kind"))
@@ -98,12 +108,20 @@ class CircularWallFacts:
         else:
             wall_length = OffsetLength.from_dict(_wall_length)
 
+        _threading = d.pop("threading", UNSET)
+        threading: Threading | Unset
+        if isinstance(_threading, Unset):
+            threading = UNSET
+        else:
+            threading = Threading.from_dict(_threading)
+
         circular_wall_facts = cls(
             kind=kind,
             cd=cd,
             diameter=diameter,
             stands_on_a_floor=stands_on_a_floor,
             wall_length=wall_length,
+            threading=threading,
         )
 
         return circular_wall_facts

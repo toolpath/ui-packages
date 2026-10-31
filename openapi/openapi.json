@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Toolpath Engine API",
-    "version": "1.35.0",
+    "version": "1.38.0",
     "description": "Public REST API for Toolpath engine operations.\n\n**Waiting for a job.** Every operation that queues work answers `202` with a `jobId`.\nWait for it with **Stream job updates** (`GET /v1/jobs/{id}/events`), a server-sent event\nstream that sends the job at once, sends it again on every change, and closes after\nsending `succeeded` or `failed`. Both are final. An attempt exceeding its configured\ndeadline (default 300 seconds) fails without retry. Exhausted queue deliveries are\nrecovered by the worker from its DLQ, usually within a few minutes after the last\ndelivery with healthy consumers; outages delay recovery. A job still queued after\n24 hours fails. Read the result as soon as the stream sends `succeeded`, and report the `error`\nas soon as it sends `failed`. Do not wait by calling **Get a job** or a result endpoint in\na loop: a stream is one request however long the job runs, while a loop spends one request\nof the key’s rate limit on every call. In a browser, read the stream with `fetch` and an\nSSE parser: `EventSource` cannot send the `Authorization` header.\n\n**Experimental.** Machining plans and toolpath calculation — creating, listing, and reading\nplans, calculating toolpaths, and reading toolpath results and machining time — and\nmulti-body CAD files, under the `Files` tag, are experimental: available now but still\ngaining functionality; planned additions include plan constraints and specifying material and\nstock, among others. You can build against them today, but they may change substantially in a\nminor release — reshaped, renamed, or removed — where the rest of the API keeps breaking\nchanges for a major version, apart from small ones with no material effect on clients. Every\nbreaking change is listed in the release notes, so check them before upgrading. Plan and\ntoolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental\noperation, field, and schema is marked `x-toolpath-experimental`.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis,\nfeature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access\ncan be edited on an existing key in the portal. Every operation states its area in its\n`x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in\n`x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs\nDFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key\nwith no access to the operation’s area is refused with 403 `product_mismatch`; one with read\naccess used for a write is refused with 403 `read_only_key`."
   },
   "tags": [
@@ -311,41 +311,7 @@
             "description": "What the feature is."
           },
           "facts": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/TurnedOutlineFacts"
-              },
-              {
-                "$ref": "#/components/schemas/TurnedFaceFacts"
-              },
-              {
-                "$ref": "#/components/schemas/TurnedGrooveFacts"
-              },
-              {
-                "$ref": "#/components/schemas/TurnedFaceGrooveFacts"
-              },
-              {
-                "$ref": "#/components/schemas/TurnedThreadFacts"
-              },
-              {
-                "$ref": "#/components/schemas/TurnedAxialHoleFacts"
-              }
-            ],
-            "discriminator": {
-              "propertyName": "kind",
-              "mapping": {
-                "OdProfile": "#/components/schemas/TurnedOutlineFacts",
-                "FaceProfile": "#/components/schemas/TurnedOutlineFacts",
-                "IdProfile": "#/components/schemas/TurnedOutlineFacts",
-                "Face": "#/components/schemas/TurnedFaceFacts",
-                "OdGroove": "#/components/schemas/TurnedGrooveFacts",
-                "IdGroove": "#/components/schemas/TurnedGrooveFacts",
-                "FaceGroove": "#/components/schemas/TurnedFaceGrooveFacts",
-                "OdThread": "#/components/schemas/TurnedThreadFacts",
-                "IdThread": "#/components/schemas/TurnedThreadFacts",
-                "AxialHole": "#/components/schemas/TurnedAxialHoleFacts"
-              }
-            },
+            "$ref": "#/components/schemas/TurnedFeatureFacts",
             "description": "What it measures, by kind; narrow on `facts.kind`."
           },
           "zMin": {
@@ -1676,57 +1642,7 @@
             "description": "The places the feature is at its tightest: where the clearance reaches the minimum\n`cd` reports, one point per place, in part coordinates, tightest first and never more\nthan ten.\n\nThe counterpart of a bound rather than another bound: what these answer is *where*\nthe clearance minimum was decided, which the number itself cannot. A drawing is the\naudience, which is why the list is capped — a feature can tie in dozens of places,\nand the eleventh point tells a reader nothing the first ten did not.\n\nRead off the medial axis where the clearance was measured against a single one. Beyond\nthat: a hole is pointed at on its axis at the top of its wall; a dovetail, whose\nminimum is the smallest cutter spanning its undercut, once along each run of its\noverhangs' foot; an inside corner with no radius that zeroed the minimum, whatever the\nkind; a layered kind's minimum that is the widest tool reaching all of it — a ball, a\nbullnose or a flat — where a wider one is stopped or the surface bends too tightly for\nit; and a layered kind's minimum read off one of its slices (a chamfer's), on that slice.\nEmpty where the minimum is unbounded (a facing pass) or its measurement failed, where a\ndovetail's foot could not be read, and where a layered kind's minimum is none of these. Empty is \"nowhere to point at\", never\n\"nowhere is tight\"."
           },
           "facts": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/HoleFacts"
-              },
-              {
-                "$ref": "#/components/schemas/PocketFacts"
-              },
-              {
-                "$ref": "#/components/schemas/BossFacts"
-              },
-              {
-                "$ref": "#/components/schemas/CircularWallFacts"
-              },
-              {
-                "$ref": "#/components/schemas/WallFacts"
-              },
-              {
-                "$ref": "#/components/schemas/FaceFacts"
-              },
-              {
-                "$ref": "#/components/schemas/SurfaceFacts"
-              },
-              {
-                "$ref": "#/components/schemas/ChamferFacts"
-              },
-              {
-                "$ref": "#/components/schemas/ProfileFacts"
-              },
-              {
-                "$ref": "#/components/schemas/DovetailFacts"
-              },
-              {
-                "$ref": "#/components/schemas/TslotFacts"
-              }
-            ],
-            "discriminator": {
-              "propertyName": "kind",
-              "mapping": {
-                "Hole": "#/components/schemas/HoleFacts",
-                "Pocket": "#/components/schemas/PocketFacts",
-                "Boss": "#/components/schemas/BossFacts",
-                "CircularWall": "#/components/schemas/CircularWallFacts",
-                "Wall": "#/components/schemas/WallFacts",
-                "Face": "#/components/schemas/FaceFacts",
-                "Three": "#/components/schemas/SurfaceFacts",
-                "Chamfer": "#/components/schemas/ChamferFacts",
-                "Profile": "#/components/schemas/ProfileFacts",
-                "Dovetail": "#/components/schemas/DovetailFacts",
-                "Tslot": "#/components/schemas/TslotFacts"
-              }
-            },
+            "$ref": "#/components/schemas/FeatureFacts",
             "description": "The per-kind facts; narrow on `facts.kind`."
           }
         },
@@ -1746,7 +1662,7 @@
           "projectedWallArea",
           "facts"
         ],
-        "description": "One feature as machining sees it: static, self-contained, and enough to choose a tool against without having the part in hand. All lengths mm and angles degrees, in the tool frame of the direction the feature is machined from, whose origin is the part’s own: z runs up the tool axis, so `zMin` is the bottom of the feature and `zMax` its top. A pinch point’s `point` is the exception, in part coordinates.\n\nEvery number in it is finite, so it survives a JSON round trip. A limit nothing sets is `null`, so that every value passes it, except where a field’s description says it is absent instead. Any other field that is omitted has no value to read."
+        "description": "One feature as machining sees it: static, self-contained, and enough to choose a tool against without having the part in hand. All lengths mm and angles degrees, in the tool frame of the direction the feature is machined from, whose origin is the part’s own: z runs up the tool axis, so `zMin` is the bottom of the feature and `zMax` its top. A pinch point’s `point` and a surface’s `minCurvatureDiameterAt` are the exceptions, in part coordinates.\n\nEvery number in it is finite, so it survives a JSON round trip. A limit nothing sets is `null`, so that every value passes it, except where a field’s description says it is absent instead. Any other field that is omitted has no value to read."
       },
       "QueuePartJobResponse": {
         "type": "object",
@@ -3432,7 +3348,7 @@
             },
             "minItems": 1,
             "maxItems": 16,
-            "description": "Where tools come from: a tool crib of one to sixteen tool libraries, in priority order — each pass of the plan uses the first library with a tool for it. Each library has a `kind`; today the only kind is `implicit`, a library whose tools are synthesized from settings (explicit libraries of catalog tools will follow). An implicit library has an optional `name` (a label) and enables tool families (faceMill, flatEndmill, bullNose, ballEndmill, drill, chamfer, keyseat, tap, cornerRounding), and each family has its own settings for inch-sized tools and for metric ones — a face mill diameter, diameter ranges and a maximum length-over-diameter, in millimetres; any setting left out takes its default. A family left out is not made, and planning falls back where it can: without drills, holes are milled; without a face mill, facing uses a flat endmill; without chamfer mills, bevels are followed by a bullnose, then a ball. Endmill `minDiameter` is a hard minimum. Inch drills are the fractional, number and letter series, and metric drills the metric series; a library enabling both makes the nearest stocked size of either, one drill per hole, unless its two blocks state different `maxLengthOverDiameter`, when each system's drills are made separately. A drill block that states no `maxDiameter` stocks its whole series, to 4 1/4\" and 57 mm. Corner-rounding diameters are the whole cutter. `tap` is every tool that cuts a thread — cutting and forming taps, and thread mills — each made only for a threaded hole of the process its thread names, a tap at a standard thread size; a thread with no tool for it is planned without its thread, which is reported owed. Omit for one implicit library with every family inch-sized at its defaults, corner rounders off, and drills in both systems with `maxDiameter` stated at 50.8 (2\") and 50 — a part's units are not known before it is uploaded, so a hole takes the nearest stocked drill of either.",
+            "description": "Where tools come from: a tool crib of one to sixteen tool libraries, in priority order — each pass of the plan uses the first library with a tool for it. Each library has a `kind`; today the only kind is `implicit`, a library whose tools are synthesized from settings (explicit libraries of catalog tools will follow). An implicit library has an optional `name` (a label) and enables tool families (faceMill, flatEndmill, bullNose, ballEndmill, drill, chamfer, keyseat, tap, cornerRounding), and each family has its own settings for inch-sized tools and for metric ones — a face mill diameter, diameter ranges and a maximum length-over-diameter, in millimetres; any setting left out takes its default. A family left out is not made, and planning falls back where it can: without drills, holes are milled; without a face mill, facing uses a flat endmill; without chamfer mills, bevels are followed by a bullnose, then a ball. Endmill `minDiameter` is a hard minimum. Inch drills are the fractional, number and letter series, and metric drills the metric series; a library enabling both makes the nearest stocked size of either, one drill per hole, unless its two blocks state different `maxLengthOverDiameter`, when each system's drills are made separately. A drill block that states no `maxDiameter` stocks its whole series, to 4 1/4\" and 57 mm. Corner-rounding diameters are the whole cutter. `tap` is every tool that cuts a thread — cutting and forming taps, and thread mills — each made only for a threaded hole or stud of the process its thread names, a tap at a standard thread size. A stud’s thread is milled, so with `tap` off every stud is planned without its thread. A thread with no tool for it is planned without its thread, which is reported owed. Omit for one implicit library with every family inch-sized at its defaults, corner rounders off, and drills in both systems with `maxDiameter` stated at 50.8 (2\") and 50 — a part's units are not known before it is uploaded, so a hole takes the nearest stocked drill of either.",
             "example": [
               {
                 "kind": "implicit",
@@ -4099,7 +4015,7 @@
             "items": {
               "type": "string"
             },
-            "description": "For `ToolsRefused`, why no tool was invented for those passes, each reason once: the tool crib’s reasons, or with `fallbackTools`, the reasons no fallback tool could be made, reach lifted. They are the kernel’s rejection codes, such as `ClearanceAtSharpCorner`, `DiameterTooSmall`, `FluteLengthTooLong`, `StickoutTooLong`, `LengthOverDiameterTooHigh`, `CannotSynthesizeDrill`, `ToolTypeExcluded` or `MeasurementFailed`; other values may be added. Always empty for a `Thread` pass, which no rejection names; empty when the crib lists no tool head and `fallbackTools` is off; empty for any other cause."
+            "description": "For `ToolsRefused`, why no tool was invented for those passes, each reason once: the tool crib’s reasons, or with `fallbackTools`, the reasons no fallback tool could be made, reach lifted. They are the kernel’s rejection codes, such as `ClearanceAtSharpCorner`, `DiameterTooSmall`, `FluteLengthTooLong`, `StickoutTooLong`, `LengthOverDiameterTooHigh`, `CannotSynthesizeDrill`, `ToolTypeExcluded` or `MeasurementFailed`, and for a `Thread` pass `ThreadNotOnGrid`, `ThreadTapered`, `ThreadEntryObstructed`, `ThreadLeadTooLong` or `TeethLengthTooLong`; other values may be added. Empty when the crib lists no tool head and `fallbackTools` is off; empty for any other cause."
           }
         },
         "required": [
@@ -4325,6 +4241,15 @@
             ],
             "format": "uri",
             "description": "15-minute URL for the exact initial stock mesh (GLB, part coordinates, mm), before the first action. Null when unavailable; fall back to the plan’s stock.resolved figure. A plain GLB, like `meshGlbUrl`: no glTF extension is needed to read it. It is stored gzipped and served with `Content-Encoding: gzip` whatever the request’s `Accept-Encoding`: browsers and `fetch` undo that on their own, but curl without `--compressed`, wget, Python’s `urllib`, and Java’s and .NET’s HTTP clients by default hand back the gzipped bytes, which must be gunzipped before the GLB is parsed."
+          },
+          "camExportUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "x-toolpath-experimental": true,
+            "description": "15-minute URL for the CAM export: a zip another CAM system rebuilds this job from in its own operations. `job.json` states the tools, the features, the setups in machining order and each action as its intent, tool, heights, feeds and the strategy the plan decided, a refused action with its reason; beside it are the part and the faces each action machines as STEP, and each calculated action’s toolpath as binary columns. Its format may change in any release. Null for a plan calculated before 1.37.0, and where the export is unavailable — one of its toolpaths tilts the tool, which it cannot state. **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading."
           }
         },
         "required": [
@@ -4333,7 +4258,8 @@
           "jobId",
           "kernelVersion",
           "setups",
-          "initialStockUrl"
+          "initialStockUrl",
+          "camExportUrl"
         ]
       },
       "ToolpathSetup": {
@@ -4449,7 +4375,7 @@
               "null"
             ],
             "format": "uri",
-            "description": "15-minute URL for the toolpath geometry (JSON: `points`, xyz triples in part coordinates, and `segments`), or null when the action was refused, empty, or its geometry is unavailable. A file written before 1.18.0 also carries a `frame`, and its points are in that frame: place them through it."
+            "description": "15-minute URL for the toolpath geometry, or null when the action was refused, empty, or its geometry is unavailable. The file is JSON: `points`, xyz triples in part coordinates, and `sections`, the path in order. A section is the points from `start` up to `end` (exclusive), counted in points, not numbers; each after the first starts with a copy of the point before it, and one may be empty. Its `kind` is `Cutting`, `Approach`, `LeadIn`, `ConnectionNotClearanceArea`, `ConnectionClearanceArea`, `LeadOut` or `Retract`; kinds may be added in any release, so read an unknown one as a link. A file written before 1.38.0 has no `sections`. `segments` is deprecated: the same ranges, with every kind but `Cutting`, `LeadIn` and `LeadOut` a `RapidMove`. A file written before 1.18.0 also carries a `frame`, and its points are in that frame: place them through it."
           },
           "stockAfterUrl": {
             "type": [
@@ -5384,7 +5310,7 @@
           "kind": {
             "type": "string",
             "const": "Boss",
-            "description": "Discriminator for this facts variant."
+            "description": "Discriminant of a `FeatureFacts`; always `'Boss'` here."
           },
           "cd": {
             "$ref": "#/components/schemas/CdData",
@@ -5559,7 +5485,7 @@
           "kind": {
             "type": "string",
             "const": "Chamfer",
-            "description": "Discriminator for this facts variant."
+            "description": "Discriminant of a `FeatureFacts`; always `'Chamfer'` here."
           },
           "bevel": {
             "$ref": "#/components/schemas/BevelFacts",
@@ -5584,7 +5510,7 @@
           "kind": {
             "type": "string",
             "const": "CircularWall",
-            "description": "Discriminator for this facts variant."
+            "description": "Discriminant of a `FeatureFacts`; always `'CircularWall'` here."
           },
           "cd": {
             "$ref": "#/components/schemas/CdData",
@@ -5601,6 +5527,10 @@
           "standsOnAFloor": {
             "type": "boolean",
             "description": "Whether the cylinder rises from a floor: machined as a boss where it does, and as a\nwall where it does not."
+          },
+          "threading": {
+            "$ref": "#/components/schemas/Threading",
+            "description": "The thread this stud is to receive and how it is cut — an external one, milled; absent\nfor a plain wall."
           }
         },
         "required": [
@@ -5618,7 +5548,7 @@
           "kind": {
             "type": "string",
             "const": "Dovetail",
-            "description": "Discriminator for this facts variant."
+            "description": "Discriminant of a `FeatureFacts`; always `'Dovetail'` here."
           },
           "taperDeg": {
             "type": "number",
@@ -5672,7 +5602,7 @@
           "kind": {
             "type": "string",
             "const": "Face",
-            "description": "Discriminator for this facts variant."
+            "description": "Discriminant of a `FeatureFacts`; always `'Face'` here."
           },
           "isTopFace": {
             "type": "boolean",
@@ -5709,6 +5639,60 @@
           "maxBottomDiameter"
         ],
         "description": "A face: a plane square to the tool axis, cleared by sweeping across it."
+      },
+      "FeatureFacts": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/HoleFacts"
+          },
+          {
+            "$ref": "#/components/schemas/PocketFacts"
+          },
+          {
+            "$ref": "#/components/schemas/BossFacts"
+          },
+          {
+            "$ref": "#/components/schemas/CircularWallFacts"
+          },
+          {
+            "$ref": "#/components/schemas/WallFacts"
+          },
+          {
+            "$ref": "#/components/schemas/FaceFacts"
+          },
+          {
+            "$ref": "#/components/schemas/SurfaceFacts"
+          },
+          {
+            "$ref": "#/components/schemas/ChamferFacts"
+          },
+          {
+            "$ref": "#/components/schemas/ProfileFacts"
+          },
+          {
+            "$ref": "#/components/schemas/DovetailFacts"
+          },
+          {
+            "$ref": "#/components/schemas/TslotFacts"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "Hole": "#/components/schemas/HoleFacts",
+            "Pocket": "#/components/schemas/PocketFacts",
+            "Boss": "#/components/schemas/BossFacts",
+            "CircularWall": "#/components/schemas/CircularWallFacts",
+            "Wall": "#/components/schemas/WallFacts",
+            "Face": "#/components/schemas/FaceFacts",
+            "Three": "#/components/schemas/SurfaceFacts",
+            "Chamfer": "#/components/schemas/ChamferFacts",
+            "Profile": "#/components/schemas/ProfileFacts",
+            "Dovetail": "#/components/schemas/DovetailFacts",
+            "Tslot": "#/components/schemas/TslotFacts"
+          }
+        },
+        "description": "The per-kind facts of a `FeatureDatasheet`: a discriminated union over `kind`."
       },
       "FeatureType": {
         "type": "string",
@@ -5776,7 +5760,7 @@
           "kind": {
             "type": "string",
             "const": "Hole",
-            "description": "Discriminator for this facts variant."
+            "description": "Discriminant of a `FeatureFacts`; always `'Hole'` here."
           },
           "diameter": {
             "type": "number",
@@ -5885,7 +5869,7 @@
         "properties": {
           "threadSpec": {
             "$ref": "#/components/schemas/ThreadSpec",
-            "description": "The catalog thread."
+            "description": "Its sizes, pitch, hand, and form."
           },
           "zMin": {
             "type": "number",
@@ -5961,7 +5945,7 @@
           "kind": {
             "type": "string",
             "const": "Pocket",
-            "description": "Discriminator for this facts variant."
+            "description": "Discriminant of a `FeatureFacts`; always `'Pocket'` here."
           },
           "cd": {
             "$ref": "#/components/schemas/CdData",
@@ -6004,7 +5988,7 @@
           "kind": {
             "type": "string",
             "const": "Profile",
-            "description": "Discriminator for this facts variant."
+            "description": "Discriminant of a `FeatureFacts`; always `'Profile'` here."
           },
           "cd": {
             "$ref": "#/components/schemas/CdData",
@@ -6155,7 +6139,7 @@
           "kind": {
             "type": "string",
             "const": "Three",
-            "description": "Discriminator for this facts variant."
+            "description": "Discriminant of a `FeatureFacts`; always `'Three'` here."
           },
           "filletRadius": {
             "type": "number",
@@ -6184,6 +6168,17 @@
           "maxBottomDiameter": {
             "type": "number",
             "description": "Widest flat bottom that reaches all of the surface, in mm; absent where nothing on the\nsurface limits a flat bottom."
+          },
+          "minCurvatureDiameter": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "The widest ball whose tip follows every bend of the surface, whatever stands around\nit, in mm: `2/κ1` for the largest principal curvature `κ1` over the surface's smooth\ninside, its edges left out. `null` where nothing bends concavely; zero where the\nsurface could not be sampled."
+          },
+          "minCurvatureDiameterAt": {
+            "$ref": "#/components/schemas/Vec3",
+            "description": "Where `minCurvatureDiameter` is read, in part coordinates like a `PinchPoint`; absent\nwhere it is `null` or zero."
           },
           "cd": {
             "$ref": "#/components/schemas/CdData",
@@ -6235,14 +6230,14 @@
           },
           "process": {
             "$ref": "#/components/schemas/ThreadProcess",
-            "description": "The process used to cut the thread."
+            "description": "The process used to cut the thread. An external thread is milled: a tap cuts only a\nhole's."
           }
         },
         "required": [
           "spec",
           "process"
         ],
-        "description": "A thread a hole is to receive, and how it is to be cut."
+        "description": "A thread a hole or stud is to receive, and how it is to be cut."
       },
       "ThreadProcess": {
         "type": "string",
@@ -6253,10 +6248,22 @@
         ],
         "description": "How a thread is to be cut: the three ways there are."
       },
+      "ThreadSide": {
+        "type": "string",
+        "enum": [
+          "Internal",
+          "External"
+        ],
+        "description": "Which side of its thread the part is: `Internal`, a hole, its material outside the thread,\nor `External`, a stud, its material inside."
+      },
       "ThreadSpec": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "side": {
+            "$ref": "#/components/schemas/ThreadSide",
+            "description": "Which side of the thread the part is: `Internal`, a hole, or `External`, a stud. Absent, internal."
+          },
           "basicDiameter": {
             "type": "number",
             "description": "Nominal major diameter of the thread, in mm."
@@ -6277,9 +6284,13 @@
             "type": "number",
             "description": "Smallest allowed major diameter, in mm."
           },
+          "maxMajorDiameter": {
+            "type": "number",
+            "description": "Largest allowed major diameter, in mm; absent, `minMajorDiameter`, as a hole's thread\nclass states no largest. A stud's thread is milled from it."
+          },
           "threadPercentage": {
             "type": "number",
-            "description": "How much of the theoretical thread depth is to be formed, as a percentage."
+            "description": "How much of the theoretical thread depth is to be formed, as a percentage: how far below\nthe major diameter a hole is drilled before its thread is cut. A stud's thread reads\nnone of it."
           },
           "handedness": {
             "$ref": "#/components/schemas/ThreadHandedness",
@@ -6302,7 +6313,7 @@
           "minMajorDiameter",
           "threadPercentage"
         ],
-        "description": "The thread a hole is to receive.\n\nEvery diameter, the pitch and `threadPercentage` are finite and positive,\n`threadPercentage` at most 100, `minMinorDiameter` no more than `maxMinorDiameter`, and\n`minMajorDiameter` above `minMinorDiameter`; the two angles keep the ranges their fields\nstate."
+        "description": "The thread a hole or stud is to receive: a thread class's limits, read on its side.\n\nEvery diameter, the pitch and `threadPercentage` are finite and positive,\n`threadPercentage` at most 100, each minimum no more than its maximum, and the form deeper\nthan nothing — `minMajorDiameter` above `minMinorDiameter` for an internal thread,\n`maxMajorDiameter` above `maxMinorDiameter` for an external one; the two angles keep the\nranges their fields state."
       },
       "ToleranceBand": {
         "type": "object",
@@ -6355,7 +6366,7 @@
           "kind": {
             "type": "string",
             "const": "Tslot",
-            "description": "Discriminator for this facts variant."
+            "description": "Discriminant of a `FeatureFacts`; always `'Tslot'` here."
           },
           "isExternal": {
             "type": "boolean",
@@ -6402,7 +6413,11 @@
           "kind": {
             "type": "string",
             "const": "AxialHole",
-            "description": "Discriminant of the facts union; always `'AxialHole'` here."
+            "description": "Discriminant of a `TurnedFeatureFacts`; always `'AxialHole'` here."
+          },
+          "isThrough": {
+            "type": "boolean",
+            "description": "Whether it runs through the part."
           },
           "through": {
             "type": "boolean",
@@ -6425,7 +6440,7 @@
           },
           "thread": {
             "$ref": "#/components/schemas/HoleThread",
-            "description": "The thread cut in it, along the thread modeled in its narrowest step, the one it is drilled at: the catalog thread the modeled one was taken for. Absent for a plain hole, and where the catalog lists no thread for the modeled one."
+            "description": "The thread cut in it: that of the `IdThread` in its narrowest step, the one it is\ndrilled at, along that thread's stretch. Absent for a hole whose narrowest step\nholds no thread to tap it with: none, an external one, or one read off teeth, which\nhas no spec."
           }
         },
         "required": [
@@ -6443,7 +6458,7 @@
           "kind": {
             "type": "string",
             "const": "Face",
-            "description": "Discriminant of the facts union; always `'Face'` here."
+            "description": "Discriminant of a `TurnedFeatureFacts`; always `'Face'` here."
           },
           "z": {
             "type": "number",
@@ -6463,7 +6478,7 @@
           "kind": {
             "type": "string",
             "const": "FaceGroove",
-            "description": "Discriminant of the facts union; always `'FaceGroove'` here."
+            "description": "Discriminant of a `TurnedFeatureFacts`; always `'FaceGroove'` here."
           },
           "width": {
             "type": "number",
@@ -6480,6 +6495,44 @@
           "depth"
         ],
         "description": "A groove cut axially into a face."
+      },
+      "TurnedFeatureFacts": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TurnedOutlineFacts"
+          },
+          {
+            "$ref": "#/components/schemas/TurnedFaceFacts"
+          },
+          {
+            "$ref": "#/components/schemas/TurnedGrooveFacts"
+          },
+          {
+            "$ref": "#/components/schemas/TurnedFaceGrooveFacts"
+          },
+          {
+            "$ref": "#/components/schemas/TurnedThreadFacts"
+          },
+          {
+            "$ref": "#/components/schemas/TurnedAxialHoleFacts"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "OdProfile": "#/components/schemas/TurnedOutlineFacts",
+            "FaceProfile": "#/components/schemas/TurnedOutlineFacts",
+            "IdProfile": "#/components/schemas/TurnedOutlineFacts",
+            "Face": "#/components/schemas/TurnedFaceFacts",
+            "OdGroove": "#/components/schemas/TurnedGrooveFacts",
+            "IdGroove": "#/components/schemas/TurnedGrooveFacts",
+            "FaceGroove": "#/components/schemas/TurnedFaceGrooveFacts",
+            "OdThread": "#/components/schemas/TurnedThreadFacts",
+            "IdThread": "#/components/schemas/TurnedThreadFacts",
+            "AxialHole": "#/components/schemas/TurnedAxialHoleFacts"
+          }
+        },
+        "description": "What a turned feature measures: a discriminated union over `kind`."
       },
       "TurnedFeatureType": {
         "type": "string",
@@ -6512,7 +6565,7 @@
                 "const": "IdGroove"
               }
             ],
-            "description": "Discriminant of the facts union: the feature's type."
+            "description": "Discriminant of a `TurnedFeatureFacts`: the feature's type."
           },
           "width": {
             "type": "number",
@@ -6549,7 +6602,7 @@
                 "const": "IdProfile"
               }
             ],
-            "description": "Discriminant of the facts union: the feature's type."
+            "description": "Discriminant of a `TurnedFeatureFacts`: the feature's type."
           }
         },
         "required": [
@@ -6572,19 +6625,19 @@
                 "const": "IdThread"
               }
             ],
-            "description": "Discriminant of the facts union: the feature's type."
+            "description": "Discriminant of a `TurnedFeatureFacts`: the feature's type."
           },
           "pitch": {
             "type": "number",
-            "description": "In mm."
+            "description": "In mm: the spec's pitch."
           },
           "depth": {
             "type": "number",
-            "description": "Thread depth, in mm."
+            "description": "Thread depth, in mm: from the wall, as drawn, to the spec's root, its largest minor\ndiameter (in a hole, its smallest major)."
           },
           "threadSpec": {
             "$ref": "#/components/schemas/ThreadSpec",
-            "description": "The catalog thread its modeled thread was taken for. Absent where the catalog lists none."
+            "description": "The thread it is cut to: the catalog thread its modeled thread was taken for or, where no catalog thread fits, the modeled thread as it is. Absent only for a thread the outline shows as a run of teeth; its `pitch` and `depth` are then the teeth’s."
           }
         },
         "required": [
@@ -6620,7 +6673,7 @@
           "kind": {
             "type": "string",
             "const": "Wall",
-            "description": "Discriminator for this facts variant."
+            "description": "Discriminant of a `FeatureFacts`; always `'Wall'` here."
           },
           "cd": {
             "$ref": "#/components/schemas/CdData",

@@ -44,14 +44,14 @@ class PartJobRequest:
             hole, unless its two blocks state different `maxLengthOverDiameter`, when each system's drills are made
             separately. A drill block that states no `maxDiameter` stocks its whole series, to 4 1/4" and 57 mm. Corner-
             rounding diameters are the whole cutter. `tap` is every tool that cuts a thread — cutting and forming taps, and
-            thread mills — each made only for a threaded hole of the process its thread names, a tap at a standard thread
-            size; a thread with no tool for it is planned without its thread, which is reported owed. Omit for one implicit
-            library with every family inch-sized at its defaults, corner rounders off, and drills in both systems with
-            `maxDiameter` stated at 50.8 (2") and 50 — a part's units are not known before it is uploaded, so a hole takes
-            the nearest stocked drill of either. Example: [{'kind': 'implicit', 'name': 'Inch endmills, drills in both',
-            'flatEndmill': {'enabled': True, 'inch': {'enabled': True, 'minDiameter': 3.175, 'maxDiameter': 19.05}},
-            'drill': {'enabled': True, 'inch': {'enabled': True, 'maxDiameter': 50.8}, 'metric': {'enabled': True,
-            'maxDiameter': 50}}}].
+            thread mills — each made only for a threaded hole or stud of the process its thread names, a tap at a standard
+            thread size. A stud’s thread is milled, so with `tap` off every stud is planned without its thread. A thread
+            with no tool for it is planned without its thread, which is reported owed. Omit for one implicit library with
+            every family inch-sized at its defaults, corner rounders off, and drills in both systems with `maxDiameter`
+            stated at 50.8 (2") and 50 — a part's units are not known before it is uploaded, so a hole takes the nearest
+            stocked drill of either. Example: [{'kind': 'implicit', 'name': 'Inch endmills, drills in both', 'flatEndmill':
+            {'enabled': True, 'inch': {'enabled': True, 'minDiameter': 3.175, 'maxDiameter': 19.05}}, 'drill': {'enabled':
+            True, 'inch': {'enabled': True, 'maxDiameter': 50.8}, 'metric': {'enabled': True, 'maxDiameter': 50}}}].
         machine (PartJobRequestMachine | Unset): The machine the part is quoted on: `name`, `maxRpm` (the spindle's top
             speed, rev/min) and `toolChangeSeconds`. Recorded with the plan and echoed back, and carried over by a
             recalculation. `maxRpm` is applied: every synthesized tool is held under it, so machining times move for a

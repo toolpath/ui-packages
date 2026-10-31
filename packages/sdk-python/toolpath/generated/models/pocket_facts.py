@@ -20,7 +20,7 @@ class PocketFacts:
     """A pocket: a walled space with a floor, and the blend where the two meet.
 
     Attributes:
-        kind (Literal['Pocket']): Discriminator for this facts variant.
+        kind (Literal['Pocket']): Discriminant of a `FeatureFacts`; always `'Pocket'` here.
         cd (CdData): Clearance-diameter bounds per tolerance regime, plus the flags derived with them.
         fillet_radius (float): Radius of the floor fillet; 0.0 when unfilleted.
         fillet_height (float): Height of the floor fillet; 0.0 when unfilleted.

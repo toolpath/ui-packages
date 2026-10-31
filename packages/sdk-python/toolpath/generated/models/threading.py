@@ -16,15 +16,16 @@ T = TypeVar("T", bound="Threading")
 
 @_attrs_define
 class Threading:
-    """A thread a hole is to receive, and how it is to be cut.
+    """A thread a hole or stud is to receive, and how it is to be cut.
 
     Attributes:
-        spec (ThreadSpec): The thread a hole is to receive.
+        spec (ThreadSpec): The thread a hole or stud is to receive: a thread class's limits, read on its side.
 
             Every diameter, the pitch and `threadPercentage` are finite and positive,
-            `threadPercentage` at most 100, `minMinorDiameter` no more than `maxMinorDiameter`, and
-            `minMajorDiameter` above `minMinorDiameter`; the two angles keep the ranges their fields
-            state.
+            `threadPercentage` at most 100, each minimum no more than its maximum, and the form deeper
+            than nothing — `minMajorDiameter` above `minMinorDiameter` for an internal thread,
+            `maxMajorDiameter` above `maxMinorDiameter` for an external one; the two angles keep the
+            ranges their fields state.
         process (ThreadProcess): How a thread is to be cut: the three ways there are.
     """
 

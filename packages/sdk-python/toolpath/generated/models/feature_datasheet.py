@@ -34,7 +34,7 @@ class FeatureDatasheet:
     """One feature as machining sees it: static, self-contained, and enough to choose a tool against without having the
     part in hand. All lengths mm and angles degrees, in the tool frame of the direction the feature is machined from,
     whose origin is the part’s own: z runs up the tool axis, so `zMin` is the bottom of the feature and `zMax` its top.
-    A pinch point’s `point` is the exception, in part coordinates.
+    A pinch point’s `point` and a surface’s `minCurvatureDiameterAt` are the exceptions, in part coordinates.
 
     Every number in it is finite, so it survives a JSON round trip. A limit nothing sets is `null`, so that every value
     passes it, except where a field’s description says it is absent instead. Any other field that is omitted has no
@@ -102,7 +102,8 @@ class FeatureDatasheet:
             projected_floor_area (float): Projected area machined floor-wise (perpendicular to the tool axis).
             projected_wall_area (float): Area machined wall-wise (parallel to the tool axis).
             facts (BossFacts | ChamferFacts | CircularWallFacts | DovetailFacts | FaceFacts | HoleFacts | PocketFacts |
-                ProfileFacts | SurfaceFacts | TslotFacts | WallFacts): The per-kind facts; narrow on `facts.kind`.
+                ProfileFacts | SurfaceFacts | TslotFacts | WallFacts): The per-kind facts of a `FeatureDatasheet`: a
+                discriminated union over `kind`.
             floorish_area (float | Unset): Deprecated: use `projectedFloorArea`. Removed in the next API major.
             wallish_area (float | Unset): Deprecated: use `projectedWallArea`. Removed in the next API major.
             areas (SurfaceAreas | Unset): What a feature's surface is made of: every region of it in exactly one bucket, so
@@ -338,88 +339,88 @@ class FeatureDatasheet:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_0 = HoleFacts.from_dict(data)
+                componentsschemas_feature_facts_type_0 = HoleFacts.from_dict(data)
 
-                return facts_type_0
+                return componentsschemas_feature_facts_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_1 = PocketFacts.from_dict(data)
+                componentsschemas_feature_facts_type_1 = PocketFacts.from_dict(data)
 
-                return facts_type_1
+                return componentsschemas_feature_facts_type_1
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_2 = BossFacts.from_dict(data)
+                componentsschemas_feature_facts_type_2 = BossFacts.from_dict(data)
 
-                return facts_type_2
+                return componentsschemas_feature_facts_type_2
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_3 = CircularWallFacts.from_dict(data)
+                componentsschemas_feature_facts_type_3 = CircularWallFacts.from_dict(data)
 
-                return facts_type_3
+                return componentsschemas_feature_facts_type_3
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_4 = WallFacts.from_dict(data)
+                componentsschemas_feature_facts_type_4 = WallFacts.from_dict(data)
 
-                return facts_type_4
+                return componentsschemas_feature_facts_type_4
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_5 = FaceFacts.from_dict(data)
+                componentsschemas_feature_facts_type_5 = FaceFacts.from_dict(data)
 
-                return facts_type_5
+                return componentsschemas_feature_facts_type_5
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_6 = SurfaceFacts.from_dict(data)
+                componentsschemas_feature_facts_type_6 = SurfaceFacts.from_dict(data)
 
-                return facts_type_6
+                return componentsschemas_feature_facts_type_6
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_7 = ChamferFacts.from_dict(data)
+                componentsschemas_feature_facts_type_7 = ChamferFacts.from_dict(data)
 
-                return facts_type_7
+                return componentsschemas_feature_facts_type_7
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_8 = ProfileFacts.from_dict(data)
+                componentsschemas_feature_facts_type_8 = ProfileFacts.from_dict(data)
 
-                return facts_type_8
+                return componentsschemas_feature_facts_type_8
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_9 = DovetailFacts.from_dict(data)
+                componentsschemas_feature_facts_type_9 = DovetailFacts.from_dict(data)
 
-                return facts_type_9
+                return componentsschemas_feature_facts_type_9
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             if not isinstance(data, dict):
                 raise TypeError()
-            facts_type_10 = TslotFacts.from_dict(data)
+            componentsschemas_feature_facts_type_10 = TslotFacts.from_dict(data)
 
-            return facts_type_10
+            return componentsschemas_feature_facts_type_10
 
         facts = _parse_facts(d.pop("facts"))
 

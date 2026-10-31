@@ -33,7 +33,7 @@ class TurningDatasheet:
         Attributes:
             feature_type (TurnedFeatureType): What a turned feature is.
             facts (TurnedAxialHoleFacts | TurnedFaceFacts | TurnedFaceGrooveFacts | TurnedGrooveFacts | TurnedOutlineFacts |
-                TurnedThreadFacts): What it measures, by kind; narrow on `facts.kind`.
+                TurnedThreadFacts): What a turned feature measures: a discriminated union over `kind`.
             z_min (float): Its start along the axis, in mm.
             z_max (float): Its end along the axis, in mm.
             r_min (float): Its nearest to the axis, in mm.
@@ -316,48 +316,48 @@ class TurningDatasheet:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_0 = TurnedOutlineFacts.from_dict(data)
+                componentsschemas_turned_feature_facts_type_0 = TurnedOutlineFacts.from_dict(data)
 
-                return facts_type_0
+                return componentsschemas_turned_feature_facts_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_1 = TurnedFaceFacts.from_dict(data)
+                componentsschemas_turned_feature_facts_type_1 = TurnedFaceFacts.from_dict(data)
 
-                return facts_type_1
+                return componentsschemas_turned_feature_facts_type_1
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_2 = TurnedGrooveFacts.from_dict(data)
+                componentsschemas_turned_feature_facts_type_2 = TurnedGrooveFacts.from_dict(data)
 
-                return facts_type_2
+                return componentsschemas_turned_feature_facts_type_2
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_3 = TurnedFaceGrooveFacts.from_dict(data)
+                componentsschemas_turned_feature_facts_type_3 = TurnedFaceGrooveFacts.from_dict(data)
 
-                return facts_type_3
+                return componentsschemas_turned_feature_facts_type_3
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_4 = TurnedThreadFacts.from_dict(data)
+                componentsschemas_turned_feature_facts_type_4 = TurnedThreadFacts.from_dict(data)
 
-                return facts_type_4
+                return componentsschemas_turned_feature_facts_type_4
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             if not isinstance(data, dict):
                 raise TypeError()
-            facts_type_5 = TurnedAxialHoleFacts.from_dict(data)
+            componentsschemas_turned_feature_facts_type_5 = TurnedAxialHoleFacts.from_dict(data)
 
-            return facts_type_5
+            return componentsschemas_turned_feature_facts_type_5
 
         facts = _parse_facts(d.pop("facts"))
 

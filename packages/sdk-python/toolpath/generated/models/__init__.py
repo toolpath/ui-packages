@@ -261,6 +261,7 @@ from .surface_areas import SurfaceAreas
 from .surface_facts import SurfaceFacts
 from .thread_handedness import ThreadHandedness
 from .thread_process import ThreadProcess
+from .thread_side import ThreadSide
 from .thread_spec import ThreadSpec
 from .threading import Threading
 from .tolerance_band import ToleranceBand
@@ -532,6 +533,7 @@ __all__ = (
     "ThreadHandedness",
     "Threading",
     "ThreadProcess",
+    "ThreadSide",
     "ThreadSpec",
     "ToleranceBand",
     "ToolFitResult",

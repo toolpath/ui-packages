@@ -47,9 +47,14 @@ class ToolpathAction:
             `invalid_argument:` for a pass that cannot be cut as given, such as one whose tool has no feeds for it;
             `internal:` for a fault in the calculation. An action of a plan whose `kernelVersion` is earlier than 0.29.0 may
             begin `geometry:` instead. Codes may be added in any release.
-        toolpath_url (None | str): 15-minute URL for the toolpath geometry (JSON: `points`, xyz triples in part
-            coordinates, and `segments`), or null when the action was refused, empty, or its geometry is unavailable. A file
-            written before 1.18.0 also carries a `frame`, and its points are in that frame: place them through it.
+        toolpath_url (None | str): 15-minute URL for the toolpath geometry, or null when the action was refused, empty,
+            or its geometry is unavailable. The file is JSON: `points`, xyz triples in part coordinates, and `sections`, the
+            path in order. A section is the points from `start` up to `end` (exclusive), counted in points, not numbers;
+            each after the first starts with a copy of the point before it, and one may be empty. Its `kind` is `Cutting`,
+            `Approach`, `LeadIn`, `ConnectionNotClearanceArea`, `ConnectionClearanceArea`, `LeadOut` or `Retract`; kinds may
+            be added in any release, so read an unknown one as a link. A file written before 1.38.0 has no `sections`.
+            `segments` is deprecated: the same ranges, with every kind but `Cutting`, `LeadIn` and `LeadOut` a `RapidMove`.
+            A file written before 1.18.0 also carries a `frame`, and its points are in that frame: place them through it.
         stock_after_url (None | str): 15-minute URL for the in-process stock after this action (GLB, part coordinates,
             mm). Null for a refused or empty action, or an unavailable artifact. Fall back to the preceding available stock
             mesh in machining order, then initialStockUrl, then the plan’s stock.resolved figure. A plain GLB, like

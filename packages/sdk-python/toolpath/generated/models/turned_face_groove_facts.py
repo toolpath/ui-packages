@@ -13,7 +13,7 @@ class TurnedFaceGrooveFacts:
     """A groove cut axially into a face.
 
     Attributes:
-        kind (Literal['FaceGroove']): Discriminant of the facts union; always `'FaceGroove'` here.
+        kind (Literal['FaceGroove']): Discriminant of a `TurnedFeatureFacts`; always `'FaceGroove'` here.
         width (float): Its extent across the axis, in mm.
         depth (float): How far it goes in along the axis, in mm, from a face that looks toward the end it
             is cut from, its feature's `approach`.
