@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from ..models.plan_response_setup_plan_type_0 import PlanResponseSetupPlanType0
     from ..models.plan_response_stock import PlanResponseStock
     from ..models.plan_setup import PlanSetup
+    from ..models.trimmed_feature import TrimmedFeature
 
 
 T = TypeVar("T", bound="PlanResponse")
@@ -54,6 +55,13 @@ class PlanResponse:
             surface, and the kernel version they were read under — or null for none. They are left out of `issues`, of
             machining times and of toolpaths: a plan whose `issues` are empty machines everything it owes *except* these,
             which the caller vouched for.
+        trimmed_features (list[TrimmedFeature] | None): The features of the part as this plan reads it — after its
+            skipped regions and stated features trim it — that `GET /v1/parts/{id}` does not list, whether or not a setup
+            names them. A part feature holding a region the plan skips — a done region, or one its stock body already leaves
+            at size — or a region of a feature the job’s `setupPlan` names, is read as what is left of it, under a tag of
+            its own, which the plan’s `setupPlan`, `featureTags` and `unmachined` may name; each such feature is here, with
+            the part feature it was cut from. Empty where nothing trimmed a feature; null for a plan that skips no region
+            and whose `setupPlan` names no feature, and for plans made before Engine API 1.30.0.
     """
 
     part_id: UUID
@@ -68,6 +76,7 @@ class PlanResponse:
     setups: list[PlanSetup]
     setup_plan: None | PlanResponseSetupPlanType0
     done_regions: None | PlanResponseDoneRegionsType0
+    trimmed_features: list[TrimmedFeature] | None
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -112,6 +121,16 @@ class PlanResponse:
         else:
             done_regions = self.done_regions
 
+        trimmed_features: list[dict[str, Any]] | None
+        if isinstance(self.trimmed_features, list):
+            trimmed_features = []
+            for trimmed_features_type_0_item_data in self.trimmed_features:
+                trimmed_features_type_0_item = trimmed_features_type_0_item_data.to_dict()
+                trimmed_features.append(trimmed_features_type_0_item)
+
+        else:
+            trimmed_features = self.trimmed_features
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -128,6 +147,7 @@ class PlanResponse:
                 "setups": setups,
                 "setupPlan": setup_plan,
                 "doneRegions": done_regions,
+                "trimmedFeatures": trimmed_features,
             }
         )
 
@@ -140,6 +160,7 @@ class PlanResponse:
         from ..models.plan_response_setup_plan_type_0 import PlanResponseSetupPlanType0
         from ..models.plan_response_stock import PlanResponseStock
         from ..models.plan_setup import PlanSetup
+        from ..models.trimmed_feature import TrimmedFeature
 
         d = dict(src_dict)
         part_id = UUID(d.pop("partId"))
@@ -202,6 +223,26 @@ class PlanResponse:
 
         done_regions = _parse_done_regions(d.pop("doneRegions"))
 
+        def _parse_trimmed_features(data: object) -> list[TrimmedFeature] | None:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                trimmed_features_type_0 = []
+                _trimmed_features_type_0 = data
+                for trimmed_features_type_0_item_data in _trimmed_features_type_0:
+                    trimmed_features_type_0_item = TrimmedFeature.from_dict(trimmed_features_type_0_item_data)
+
+                    trimmed_features_type_0.append(trimmed_features_type_0_item)
+
+                return trimmed_features_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[TrimmedFeature] | None, data)
+
+        trimmed_features = _parse_trimmed_features(d.pop("trimmedFeatures"))
+
         plan_response = cls(
             part_id=part_id,
             plan_id=plan_id,
@@ -215,6 +256,7 @@ class PlanResponse:
             setups=setups,
             setup_plan=setup_plan,
             done_regions=done_regions,
+            trimmed_features=trimmed_features,
         )
 
         plan_response.additional_properties = d

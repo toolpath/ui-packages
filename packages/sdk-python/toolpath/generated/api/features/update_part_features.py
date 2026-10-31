@@ -109,7 +109,8 @@ def sync_detailed(
     """Analyze part features
 
      Queues detailed machining datasheets for selected features of an analyzed part and returns a job.
-    Track the job, then read the datasheets with **Get part features** (`GET /parts/{id}/features`).
+    Wait for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the datasheets
+    with **Get part features** (`GET /v1/parts/{id}/features`).
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -144,7 +145,8 @@ def sync(
     """Analyze part features
 
      Queues detailed machining datasheets for selected features of an analyzed part and returns a job.
-    Track the job, then read the datasheets with **Get part features** (`GET /parts/{id}/features`).
+    Wait for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the datasheets
+    with **Get part features** (`GET /v1/parts/{id}/features`).
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -174,7 +176,8 @@ async def asyncio_detailed(
     """Analyze part features
 
      Queues detailed machining datasheets for selected features of an analyzed part and returns a job.
-    Track the job, then read the datasheets with **Get part features** (`GET /parts/{id}/features`).
+    Wait for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the datasheets
+    with **Get part features** (`GET /v1/parts/{id}/features`).
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -207,7 +210,8 @@ async def asyncio(
     """Analyze part features
 
      Queues detailed machining datasheets for selected features of an analyzed part and returns a job.
-    Track the job, then read the datasheets with **Get part features** (`GET /parts/{id}/features`).
+    Wait for the job with **Stream job updates** (`GET /v1/jobs/{id}/events`), then read the datasheets
+    with **Get part features** (`GET /v1/parts/{id}/features`).
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

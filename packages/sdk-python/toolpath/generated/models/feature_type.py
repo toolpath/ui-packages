@@ -7,6 +7,7 @@ class FeatureType(str, Enum):
     BLINDHOLE = "BlindHole"
     BOSS = "Boss"
     CHAMFER = "Chamfer"
+    CIRCULARWALL = "CircularWall"
     CONTOURSURFACE = "ContourSurface"
     FACE = "Face"
     FILLET = "Fillet"

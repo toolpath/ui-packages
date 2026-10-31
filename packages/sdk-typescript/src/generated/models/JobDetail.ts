@@ -2,9 +2,9 @@
 /* eslint-disable */
 /**
  * Toolpath Engine API
- * Public REST API for Toolpath engine operations.  **Experimental.** Machining plans and toolpath calculation — creating, listing, and reading plans, calculating toolpaths, and reading toolpath results and machining time — and turning, the `turning` reading of a part, are experimental: available now but still gaining functionality; planned additions include plan constraints and specifying material and stock, among others. You can build against them today, but they may change substantially in a minor release — reshaped, renamed, or removed — where the rest of the API keeps breaking changes for a major version, apart from small ones with no material effect on clients. Every breaking change is listed in the release notes, so check them before upgrading. Plan and toolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental operation, field, and schema is marked `x-toolpath-experimental`.  **Units.** All dimensional values — in parts and in feature details — are in millimetres; all angles are in degrees. Each part response also states this in its `units` field.  **Browser use.** CORS is per API key: a request only receives an `Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the key used (set when creating or editing the key in the portal). A key with no allowed origins is server-to-server only. A Bearer API key placed in client-side JavaScript is readable by anyone — restrict its origins, prefer a key granted read access only (writes made with it are rejected with 403 `read_only_key`), or proxy requests through your own server.  **Access and billing.** An API key is granted read and write access separately in each area of the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis, feature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access can be edited on an existing key in the portal. Every operation states its area in its `x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in `x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs DFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key with no access to the operation’s area is refused with 403 `product_mismatch`; one with read access used for a write is refused with 403 `read_only_key`.
+ * Public REST API for Toolpath engine operations.  **Waiting for a job.** Every operation that queues work answers `202` with a `jobId`. Wait for it with **Stream job updates** (`GET /v1/jobs/{id}/events`), a server-sent event stream that sends the job at once, sends it again on every change, and closes after sending `succeeded` or `failed`. Both are final. An attempt exceeding its configured deadline (default 300 seconds) fails without retry. Exhausted queue deliveries are recovered by the worker from its DLQ, usually within a few minutes after the last delivery with healthy consumers; outages delay recovery. A job still queued after 24 hours fails. Read the result as soon as the stream sends `succeeded`, and report the `error` as soon as it sends `failed`. Do not wait by calling **Get a job** or a result endpoint in a loop: a stream is one request however long the job runs, while a loop spends one request of the key’s rate limit on every call. In a browser, read the stream with `fetch` and an SSE parser: `EventSource` cannot send the `Authorization` header.  **Experimental.** Machining plans and toolpath calculation — creating, listing, and reading plans, calculating toolpaths, and reading toolpath results and machining time — and multi-body CAD files, under the `Files` tag, are experimental: available now but still gaining functionality; planned additions include plan constraints and specifying material and stock, among others. You can build against them today, but they may change substantially in a minor release — reshaped, renamed, or removed — where the rest of the API keeps breaking changes for a major version, apart from small ones with no material effect on clients. Every breaking change is listed in the release notes, so check them before upgrading. Plan and toolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental operation, field, and schema is marked `x-toolpath-experimental`.  **Units.** All dimensional values — in parts and in feature details — are in millimetres; all angles are in degrees. Each part response also states this in its `units` field.  **Browser use.** CORS is per API key: a request only receives an `Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the key used (set when creating or editing the key in the portal). A key with no allowed origins is server-to-server only. A Bearer API key placed in client-side JavaScript is readable by anyone — restrict its origins, prefer a key granted read access only (writes made with it are rejected with 403 `read_only_key`), or proxy requests through your own server.  **Access and billing.** An API key is granted read and write access separately in each area of the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis, feature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access can be edited on an existing key in the portal. Every operation states its area in its `x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in `x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs DFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key with no access to the operation’s area is refused with 403 `product_mismatch`; one with read access used for a write is refused with 403 `read_only_key`.
  *
- * The version of the OpenAPI document: 1.29.1
+ * The version of the OpenAPI document: 1.38.0
  *
  *
  * NOTE: This class is auto generated by OpenAPI Generator (https://openapi-generator.tech).
@@ -13,6 +13,14 @@
  */
 
 import { mapValues } from '../runtime.js'
+import type { JobDetailBodiesInner } from './JobDetailBodiesInner.js'
+import {
+  JobDetailBodiesInnerFromJSON,
+  JobDetailBodiesInnerFromJSONTyped,
+  JobDetailBodiesInnerToJSON,
+  JobDetailBodiesInnerToJSONTyped,
+} from './JobDetailBodiesInner.js'
+
 /**
  *
  * @export
@@ -20,17 +28,25 @@ import { mapValues } from '../runtime.js'
  */
 export interface JobDetail {
   /**
-   * Identifier of the part this job processes, or null when its subject is a holder.
+   * Identifier of the part this job processes, or null when its subject is a holder or a file.
    * @type {string}
    * @memberof JobDetail
    */
   partUuid: string | null
   /**
-   * Identifier of the holder this job processes, or null when its subject is a part.
+   * Identifier of the holder this job processes, or null when its subject is a part or a file.
    * @type {string}
    * @memberof JobDetail
    */
   holderUuid: string | null
+  /**
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
+   * Identifier of the file this job inspects, or null when its subject is a part or a holder.
+   * @type {string}
+   * @memberof JobDetail
+   */
+  fileUuid: string | null
   /**
    * Identifier of this job.
    * @type {string}
@@ -38,13 +54,13 @@ export interface JobDetail {
    */
   jobUuid: string
   /**
-   * Product operation performed by the job, such as part processing, feature-detail processing, or holder import.
+   * Product operation performed by the job, such as part processing, feature-detail processing, holder import, or file inspection.
    * @type {string}
    * @memberof JobDetail
    */
   productType: string
   /**
-   * Current durable state of the job.
+   * Current state of the job: `queued` until a worker starts it, then `running` until it finishes, including while it waits to be retried after a failed attempt. `succeeded` and `failed` are final: a job in either state never changes again.
    * @type {JobDetailStatusEnum}
    * @memberof JobDetail
    */
@@ -56,11 +72,25 @@ export interface JobDetail {
    */
   progress: number | null
   /**
-   * Failure reason when the job status is failed; otherwise null.
+   * How many more times the job will be attempted if its current attempt fails, counting down to 0 on its last attempt; null until the first attempt starts. A final failure keeps the count last recorded, which may remain above 0 or null after queue recovery.
+   * @type {number}
+   * @memberof JobDetail
+   */
+  retriesRemaining: number | null
+  /**
+   * Failure reason when the job status is failed; otherwise null. Deadline failures say `timed out after <n>s`. Queue recovery uses `job_delivery_exhausted`; jobs queued for more than 24 hours fail with `job_dispatch_failed`.
    * @type {string}
    * @memberof JobDetail
    */
   error: string | null
+  /**
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
+   * The solid bodies of the part’s file, listed when the job failed because the file holds more than one and none was chosen (`error` beginning `multiple_bodies:`), or because the `bodyIndex` chosen is past the last (`body_not_found:`). Upload the file again with **Upload a part** (`POST /v1/parts`), passing `bodyIndex` as the `index` of the body to machine. Absent on every other job.
+   * @type {Array<JobDetailBodiesInner>}
+   * @memberof JobDetail
+   */
+  bodies?: Array<JobDetailBodiesInner>
   /**
    * Identifier of the part result produced by successful processing, or null until available.
    * @type {string}
@@ -110,10 +140,12 @@ export type JobDetailStatusEnum = (typeof JobDetailStatusEnum)[keyof typeof JobD
 export function instanceOfJobDetail(value: object): value is JobDetail {
   if (!('partUuid' in value) || value['partUuid'] === undefined) return false
   if (!('holderUuid' in value) || value['holderUuid'] === undefined) return false
+  if (!('fileUuid' in value) || value['fileUuid'] === undefined) return false
   if (!('jobUuid' in value) || value['jobUuid'] === undefined) return false
   if (!('productType' in value) || value['productType'] === undefined) return false
   if (!('status' in value) || value['status'] === undefined) return false
   if (!('progress' in value) || value['progress'] === undefined) return false
+  if (!('retriesRemaining' in value) || value['retriesRemaining'] === undefined) return false
   if (!('error' in value) || value['error'] === undefined) return false
   if (!('reportId' in value) || value['reportId'] === undefined) return false
   if (!('importId' in value) || value['importId'] === undefined) return false
@@ -134,11 +166,17 @@ export function JobDetailFromJSONTyped(json: any, ignoreDiscriminator: boolean):
   return {
     partUuid: json['partUuid'],
     holderUuid: json['holderUuid'],
+    fileUuid: json['fileUuid'],
     jobUuid: json['jobUuid'],
     productType: json['productType'],
     status: json['status'],
     progress: json['progress'],
+    retriesRemaining: json['retriesRemaining'],
     error: json['error'],
+    bodies:
+      json['bodies'] == null
+        ? undefined
+        : (json['bodies'] as Array<any>).map(JobDetailBodiesInnerFromJSON),
     reportId: json['reportId'],
     importId: json['importId'],
     createdAt: new Date(json['createdAt']),
@@ -162,11 +200,17 @@ export function JobDetailToJSONTyped(
   return {
     partUuid: value['partUuid'],
     holderUuid: value['holderUuid'],
+    fileUuid: value['fileUuid'],
     jobUuid: value['jobUuid'],
     productType: value['productType'],
     status: value['status'],
     progress: value['progress'],
+    retriesRemaining: value['retriesRemaining'],
     error: value['error'],
+    bodies:
+      value['bodies'] == null
+        ? undefined
+        : (value['bodies'] as Array<any>).map(JobDetailBodiesInnerToJSON),
     reportId: value['reportId'],
     importId: value['importId'],
     createdAt: value['createdAt'].toISOString(),

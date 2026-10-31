@@ -6,6 +6,7 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 
 from ..models.thread_handedness import ThreadHandedness
+from ..models.thread_side import ThreadSide
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="ThreadSpec")
@@ -13,12 +14,13 @@ T = TypeVar("T", bound="ThreadSpec")
 
 @_attrs_define
 class ThreadSpec:
-    """The thread a hole is to receive.
+    """The thread a hole or stud is to receive: a thread class's limits, read on its side.
 
     Every diameter, the pitch and `threadPercentage` are finite and positive,
-    `threadPercentage` at most 100, `minMinorDiameter` no more than `maxMinorDiameter`, and
-    `minMajorDiameter` above `minMinorDiameter`; the two angles keep the ranges their fields
-    state.
+    `threadPercentage` at most 100, each minimum no more than its maximum, and the form deeper
+    than nothing — `minMajorDiameter` above `minMinorDiameter` for an internal thread,
+    `maxMajorDiameter` above `maxMinorDiameter` for an external one; the two angles keep the
+    ranges their fields state.
 
         Attributes:
             basic_diameter (float): Nominal major diameter of the thread, in mm.
@@ -26,7 +28,16 @@ class ThreadSpec:
             min_minor_diameter (float): Smallest allowed minor diameter, in mm.
             max_minor_diameter (float): Largest allowed minor diameter, in mm.
             min_major_diameter (float): Smallest allowed major diameter, in mm.
-            thread_percentage (float): How much of the theoretical thread depth is to be formed, as a percentage.
+            thread_percentage (float): How much of the theoretical thread depth is to be formed, as a percentage: how far
+                below
+                the major diameter a hole is drilled before its thread is cut. A stud's thread reads
+                none of it.
+            side (ThreadSide | Unset): Which side of its thread the part is: `Internal`, a hole, its material outside the
+                thread,
+                or `External`, a stud, its material inside.
+            max_major_diameter (float | Unset): Largest allowed major diameter, in mm; absent, `minMajorDiameter`, as a
+                hole's thread
+                class states no largest. A stud's thread is milled from it.
             handedness (ThreadHandedness | Unset): Which way a thread turns.
             thread_profile_deg (float | Unset): The thread's form: the included angle between its flanks, in degrees,
                 strictly between
@@ -46,6 +57,8 @@ class ThreadSpec:
     max_minor_diameter: float
     min_major_diameter: float
     thread_percentage: float
+    side: ThreadSide | Unset = UNSET
+    max_major_diameter: float | Unset = UNSET
     handedness: ThreadHandedness | Unset = UNSET
     thread_profile_deg: float | Unset = UNSET
     thread_taper_deg: float | Unset = UNSET
@@ -62,6 +75,12 @@ class ThreadSpec:
         min_major_diameter = self.min_major_diameter
 
         thread_percentage = self.thread_percentage
+
+        side: str | Unset = UNSET
+        if not isinstance(self.side, Unset):
+            side = self.side.value
+
+        max_major_diameter = self.max_major_diameter
 
         handedness: str | Unset = UNSET
         if not isinstance(self.handedness, Unset):
@@ -83,6 +102,10 @@ class ThreadSpec:
                 "threadPercentage": thread_percentage,
             }
         )
+        if side is not UNSET:
+            field_dict["side"] = side
+        if max_major_diameter is not UNSET:
+            field_dict["maxMajorDiameter"] = max_major_diameter
         if handedness is not UNSET:
             field_dict["handedness"] = handedness
         if thread_profile_deg is not UNSET:
@@ -107,6 +130,15 @@ class ThreadSpec:
 
         thread_percentage = d.pop("threadPercentage")
 
+        _side = d.pop("side", UNSET)
+        side: ThreadSide | Unset
+        if isinstance(_side, Unset):
+            side = UNSET
+        else:
+            side = ThreadSide(_side)
+
+        max_major_diameter = d.pop("maxMajorDiameter", UNSET)
+
         _handedness = d.pop("handedness", UNSET)
         handedness: ThreadHandedness | Unset
         if isinstance(_handedness, Unset):
@@ -125,6 +157,8 @@ class ThreadSpec:
             max_minor_diameter=max_minor_diameter,
             min_major_diameter=min_major_diameter,
             thread_percentage=thread_percentage,
+            side=side,
+            max_major_diameter=max_major_diameter,
             handedness=handedness,
             thread_profile_deg=thread_profile_deg,
             thread_taper_deg=thread_taper_deg,

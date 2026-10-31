@@ -107,7 +107,7 @@ def sync_detailed(
     """List plans
 
      Lists the plans created for a part, newest first. Create them first with **Create a plan** (`POST
-    /parts/{id}/plans`); a part with no plans returns an empty page.
+    /v1/parts/{id}/plans`); a part with no plans returns an empty page.
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -149,7 +149,7 @@ def sync(
     """List plans
 
      Lists the plans created for a part, newest first. Create them first with **Create a plan** (`POST
-    /parts/{id}/plans`); a part with no plans returns an empty page.
+    /v1/parts/{id}/plans`); a part with no plans returns an empty page.
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -186,7 +186,7 @@ async def asyncio_detailed(
     """List plans
 
      Lists the plans created for a part, newest first. Create them first with **Create a plan** (`POST
-    /parts/{id}/plans`); a part with no plans returns an empty page.
+    /v1/parts/{id}/plans`); a part with no plans returns an empty page.
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -226,7 +226,7 @@ async def asyncio(
     """List plans
 
      Lists the plans created for a part, newest first. Create them first with **Create a plan** (`POST
-    /parts/{id}/plans`); a part with no plans returns an empty page.
+    /v1/parts/{id}/plans`); a part with no plans returns an empty page.
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.

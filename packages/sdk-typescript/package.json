@@ -44,7 +44,7 @@
     "vitest": "4.1.10"
   },
   "toolpath": {
-    "openApiSha256": "123854eecdb1ee00468d573654e9a307e1d4764f183f4b3047a693c8fafb4a3c",
-    "openApiVersion": "1.29.1"
+    "openApiSha256": "563a256b7552d37224f218356d21b2930f2af4078baafc23740648172d4c1ec9",
+    "openApiVersion": "1.38.0"
   }
 }

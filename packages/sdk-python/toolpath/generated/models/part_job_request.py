@@ -12,6 +12,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.automatic_flat_bar_stock import AutomaticFlatBarStock
     from ..models.automatic_round_stock import AutomaticRoundStock
+    from ..models.body_stock import BodyStock
     from ..models.fixed_box_stock import FixedBoxStock
     from ..models.fixed_cylinder_stock import FixedCylinderStock
     from ..models.part_job_request_done_regions_type_0 import PartJobRequestDoneRegionsType0
@@ -43,14 +44,14 @@ class PartJobRequest:
             hole, unless its two blocks state different `maxLengthOverDiameter`, when each system's drills are made
             separately. A drill block that states no `maxDiameter` stocks its whole series, to 4 1/4" and 57 mm. Corner-
             rounding diameters are the whole cutter. `tap` is every tool that cuts a thread — cutting and forming taps, and
-            thread mills — each made only for a threaded hole of the process its thread names, a tap at a standard thread
-            size; a thread with no tool for it is planned without its thread, which is reported owed. Omit for one implicit
-            library with every family inch-sized at its defaults, corner rounders off, and drills in both systems with
-            `maxDiameter` stated at 50.8 (2") and 50 — a part's units are not known before it is uploaded, so a hole takes
-            the nearest stocked drill of either. Example: [{'kind': 'implicit', 'name': 'Inch endmills, drills in both',
-            'flatEndmill': {'enabled': True, 'inch': {'enabled': True, 'minDiameter': 3.175, 'maxDiameter': 19.05}},
-            'drill': {'enabled': True, 'inch': {'enabled': True, 'maxDiameter': 50.8}, 'metric': {'enabled': True,
-            'maxDiameter': 50}}}].
+            thread mills — each made only for a threaded hole or stud of the process its thread names, a tap at a standard
+            thread size. A stud’s thread is milled, so with `tap` off every stud is planned without its thread. A thread
+            with no tool for it is planned without its thread, which is reported owed. Omit for one implicit library with
+            every family inch-sized at its defaults, corner rounders off, and drills in both systems with `maxDiameter`
+            stated at 50.8 (2") and 50 — a part's units are not known before it is uploaded, so a hole takes the nearest
+            stocked drill of either. Example: [{'kind': 'implicit', 'name': 'Inch endmills, drills in both', 'flatEndmill':
+            {'enabled': True, 'inch': {'enabled': True, 'minDiameter': 3.175, 'maxDiameter': 19.05}}, 'drill': {'enabled':
+            True, 'inch': {'enabled': True, 'maxDiameter': 50.8}, 'metric': {'enabled': True, 'maxDiameter': 50}}}].
         machine (PartJobRequestMachine | Unset): The machine the part is quoted on: `name`, `maxRpm` (the spindle's top
             speed, rev/min) and `toolChangeSeconds`. Recorded with the plan and echoed back, and carried over by a
             recalculation. `maxRpm` is applied: every synthesized tool is held under it, so machining times move for a
@@ -64,29 +65,33 @@ class PartJobRequest:
             a feature is named under its own direction. The plan made keeps these setups first, in this order, each holding
             at least the features named (and every other offered feature of its direction), and appends setups where the
             part needs more. A plan read serves its own `setupPlan`, which can be edited and sent back. Tags are stable only
-            within one `kernelVersion`, and a feature named has to be offered: one no tool in the crib cuts is not. A
-            statement the kernel cannot honor fails the job, whose `error` begins `refused_user_plan:` and gives one clause
-            per refused statement. Omit or null for the kernel’s own plan; on **Calculate a plan’s toolpaths**, omit to keep
-            the plan’s statement and null to clear it. Example: {'setups': [{'orientations': [{'direction': {'x': 0, 'y': 0,
+            within one `kernelVersion`. A feature named is machined where it is named whatever it needs: one no tool in the
+            crib cuts is planned all the same, its passes left `unmachined`. It also keeps its regions from every other
+            feature, in every direction: a feature that shares one is planned as what is left of it, under a tag of its own
+            that the plan’s `trimmedFeatures` describes, and the plan’s `setupPlan` may name that tag in turn. A statement
+            the kernel cannot honor fails the job, whose `error` begins `refused_user_plan:` and gives one clause per
+            refused statement. Omit or null for the kernel’s own plan; on **Calculate a plan’s toolpaths**, omit to keep the
+            plan’s statement and null to clear it. Example: {'setups': [{'orientations': [{'direction': {'x': 0, 'y': 0,
             'z': 1}, 'features': ['1f3a09c2']}]}, {'orientations': [{'direction': {'x': 0, 'y': 0, 'z': -1}, 'features':
             []}]}]}.
         done_regions (None | PartJobRequestDoneRegionsType0 | Unset): Regions already at their final surface — near-net
             stock, a face finished before the part arrives: `regions`, indices into the part report’s `regions`, and the
             `kernelVersion` of the report they were read from. Region indices are stable only within one kernel release, so
             a job planned by another fails, its `error` beginning `stale_regions:`; an index the part does not have fails it
-            as `unknown_regions:`. A done region is left out of the plan’s `issues`, its machining times and its toolpaths.
-            A feature whose regions are all done is not planned, unless `setupPlan` names it — then it is machined, and its
-            regions still do not count toward `issues`. A done region on the top of a direction turns off facing from that
-            direction, and the part’s other top faces are machined one by one. The stock is unchanged: it is still the block
-            around the part, so the simulation cuts air over a done region. Omit or null for none; on **Calculate a plan’s
-            toolpaths**, omit to keep the plan’s and null to clear them. Example: {'kernelVersion': '0.18.0', 'regions':
-            [12, 13]}.
-        stock (AutomaticFlatBarStock | AutomaticRoundStock | FixedBoxStock | FixedCylinderStock | Unset): Initial stock
-            settings. Omit stock to use automatic Flat Bar on a new plan or keep the saved input on a recalculation. The
-            initial stock to cut from, all lengths mm, told apart by `mode`: automatic Flat Bar or Round Stock sized around
-            the part, or a fixed block or cylinder placed against it. Omit it on a new plan for automatic Flat Bar at the
-            default figures; omit it when recalculating a plan to reuse that plan’s own. Example: {'mode':
-            'automaticFlatBar', 'oversizeX': 1}.
+            as `unknown_regions:`. A done region is left out of the plan’s `issues`, its machining times and its toolpaths,
+            and no feature planned holds one: a part feature that does is planned as what is left of it, under a tag of its
+            own that the plan’s `trimmedFeatures` describes, and one whose regions are all done is not planned. A
+            `setupPlan` may still name such a feature by its part-report tag: what is left of it is stated in its place. A
+            done region on the top of a direction turns off facing from that direction, and the part’s other top faces are
+            machined one by one. The stock is unchanged: it is still the block around the part, so the simulation cuts air
+            over a done region. Omit or null for none; on **Calculate a plan’s toolpaths**, omit to keep the plan’s and null
+            to clear them. Example: {'kernelVersion': '0.18.0', 'regions': [12, 13]}.
+        stock (AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock | Unset):
+            Initial stock settings. Omit stock to use automatic Flat Bar on a new plan or keep the saved input on a
+            recalculation. The initial stock to cut from, all lengths mm, told apart by `mode`: automatic Flat Bar or Round
+            Stock sized around the part, a fixed block or cylinder placed against it, or another body of the part’s own
+            file. Omit it on a new plan for automatic Flat Bar at the default figures; omit it when recalculating a plan to
+            reuse that plan’s own. Example: {'mode': 'automaticFlatBar', 'oversizeX': 1}.
         fallback_tools (bool | Unset): Plan what the tool crib cannot. A pass no tool of the crib can play — a hole
             deeper than its drills reach, a pocket past its endmills’ `maxLengthOverDiameter`, a head no library lists — is
             given a tool from a last, fallback tier with the reach limits lifted, so the part has a time for it. The crib
@@ -98,10 +103,13 @@ class PartJobRequest:
             sized to whatever it closes on, its jaws along each setup’s y, so a jaw blocks the reach it would. The first
             setup grips the initial stock, every later setup the part as cut; the jaws reach 5.35 mm up whatever they close
             on, at most half its height. The planner chooses the first setup among the directions the stock can be gripped
-            in. A job no first setup can start fails, its `error` beginning `invalid_argument: setup planning: no fixture on
-            the initial stock holds a first setup`; a `setupPlan` whose first setup cannot start fails as
-            `refused_user_plan:`. Faces a jaw leaves out of reach are reported as the plan’s `issues`. Omit on **Calculate a
-            plan’s toolpaths** to keep the plan’s. Example: syntheticVise.
+            in. Fixed stock is gripped only in the directions the part fits it squared up in; where it fits in none — or not
+            in the direction a `setupPlan` states its first setup in — the job fails, its `error` beginning
+            `part_outside_initial_stock:` and naming each direction. A job no first setup can start otherwise fails, its
+            `error` beginning `invalid_argument: setup planning: no fixture on the initial stock holds a first setup`; a
+            `setupPlan` whose first setup cannot start fails as `refused_user_plan:`. Faces a jaw leaves out of reach are
+            reported as the plan’s `issues`. Omit on **Calculate a plan’s toolpaths** to keep the plan’s. Example:
+            syntheticVise.
     """
 
     material: PartJobRequestMaterial | Unset = UNSET
@@ -109,7 +117,7 @@ class PartJobRequest:
     machine: PartJobRequestMachine | Unset = UNSET
     setup_plan: None | PartJobRequestSetupPlanType0 | Unset = UNSET
     done_regions: None | PartJobRequestDoneRegionsType0 | Unset = UNSET
-    stock: AutomaticFlatBarStock | AutomaticRoundStock | FixedBoxStock | FixedCylinderStock | Unset = UNSET
+    stock: AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock | Unset = UNSET
     fallback_tools: bool | Unset = UNSET
     workholding: PartJobRequestWorkholding | Unset = UNSET
 
@@ -117,6 +125,7 @@ class PartJobRequest:
         from ..models.automatic_flat_bar_stock import AutomaticFlatBarStock
         from ..models.automatic_round_stock import AutomaticRoundStock
         from ..models.fixed_box_stock import FixedBoxStock
+        from ..models.fixed_cylinder_stock import FixedCylinderStock
         from ..models.part_job_request_done_regions_type_0 import PartJobRequestDoneRegionsType0
         from ..models.part_job_request_setup_plan_type_0 import PartJobRequestSetupPlanType0
         from ..models.part_job_request_tool_crib_item_type_0 import PartJobRequestToolCribItemType0
@@ -164,6 +173,8 @@ class PartJobRequest:
             stock = self.stock.to_dict()
         elif isinstance(self.stock, FixedBoxStock):
             stock = self.stock.to_dict()
+        elif isinstance(self.stock, FixedCylinderStock):
+            stock = self.stock.to_dict()
         else:
             stock = self.stock.to_dict()
 
@@ -199,6 +210,7 @@ class PartJobRequest:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.automatic_flat_bar_stock import AutomaticFlatBarStock
         from ..models.automatic_round_stock import AutomaticRoundStock
+        from ..models.body_stock import BodyStock
         from ..models.fixed_box_stock import FixedBoxStock
         from ..models.fixed_cylinder_stock import FixedCylinderStock
         from ..models.part_job_request_done_regions_type_0 import PartJobRequestDoneRegionsType0
@@ -274,7 +286,7 @@ class PartJobRequest:
 
         def _parse_stock(
             data: object,
-        ) -> AutomaticFlatBarStock | AutomaticRoundStock | FixedBoxStock | FixedCylinderStock | Unset:
+        ) -> AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock | Unset:
             if isinstance(data, Unset):
                 return data
             try:
@@ -301,11 +313,19 @@ class PartJobRequest:
                 return stock_type_2
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                stock_type_3 = FixedCylinderStock.from_dict(data)
+
+                return stock_type_3
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            stock_type_3 = FixedCylinderStock.from_dict(data)
+            stock_type_4 = BodyStock.from_dict(data)
 
-            return stock_type_3
+            return stock_type_4
 
         stock = _parse_stock(d.pop("stock", UNSET))
 

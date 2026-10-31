@@ -9,8 +9,10 @@ from attrs import field as _attrs_field
 if TYPE_CHECKING:
     from ..models.automatic_flat_bar_stock import AutomaticFlatBarStock
     from ..models.automatic_round_stock import AutomaticRoundStock
+    from ..models.body_stock import BodyStock
     from ..models.fixed_box_stock import FixedBoxStock
     from ..models.fixed_cylinder_stock import FixedCylinderStock
+    from ..models.stock_body import StockBody
     from ..models.stock_box import StockBox
     from ..models.stock_cylinder import StockCylinder
 
@@ -23,22 +25,24 @@ class QueuePartJobResponseStock:
     """The queued stock input and its not-yet-calculated geometry.
 
     Attributes:
-        input_ (AutomaticFlatBarStock | AutomaticRoundStock | FixedBoxStock | FixedCylinderStock): The stock policy the
-            job cuts from, all lengths mm, with omitted figures left omitted. The request’s stock policy, or the saved input
-            on a recalculation, or automatic Flat Bar on a new plan and a plan made before stock inputs were recorded. A
-            recalculation without stock reuses this.
-        resolved (None | StockBox | StockCylinder): Always null: not calculated yet. Read the plan after the job
-            succeeds.
+        input_ (AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock): The stock
+            policy the job cuts from, all lengths mm, with omitted figures left omitted. The request’s stock policy, or the
+            saved input on a recalculation, or automatic Flat Bar on a new plan and a plan made before stock inputs were
+            recorded. A recalculation without stock reuses this.
+        resolved (None | StockBody | StockBox | StockCylinder): Always null: not calculated yet. Read the plan after the
+            job succeeds.
     """
 
-    input_: AutomaticFlatBarStock | AutomaticRoundStock | FixedBoxStock | FixedCylinderStock
-    resolved: None | StockBox | StockCylinder
+    input_: AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock
+    resolved: None | StockBody | StockBox | StockCylinder
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.automatic_flat_bar_stock import AutomaticFlatBarStock
         from ..models.automatic_round_stock import AutomaticRoundStock
         from ..models.fixed_box_stock import FixedBoxStock
+        from ..models.fixed_cylinder_stock import FixedCylinderStock
+        from ..models.stock_body import StockBody
         from ..models.stock_box import StockBox
         from ..models.stock_cylinder import StockCylinder
 
@@ -49,6 +53,8 @@ class QueuePartJobResponseStock:
             input_ = self.input_.to_dict()
         elif isinstance(self.input_, FixedBoxStock):
             input_ = self.input_.to_dict()
+        elif isinstance(self.input_, FixedCylinderStock):
+            input_ = self.input_.to_dict()
         else:
             input_ = self.input_.to_dict()
 
@@ -56,6 +62,8 @@ class QueuePartJobResponseStock:
         if isinstance(self.resolved, StockBox):
             resolved = self.resolved.to_dict()
         elif isinstance(self.resolved, StockCylinder):
+            resolved = self.resolved.to_dict()
+        elif isinstance(self.resolved, StockBody):
             resolved = self.resolved.to_dict()
         else:
             resolved = self.resolved
@@ -75,8 +83,10 @@ class QueuePartJobResponseStock:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.automatic_flat_bar_stock import AutomaticFlatBarStock
         from ..models.automatic_round_stock import AutomaticRoundStock
+        from ..models.body_stock import BodyStock
         from ..models.fixed_box_stock import FixedBoxStock
         from ..models.fixed_cylinder_stock import FixedCylinderStock
+        from ..models.stock_body import StockBody
         from ..models.stock_box import StockBox
         from ..models.stock_cylinder import StockCylinder
 
@@ -84,7 +94,7 @@ class QueuePartJobResponseStock:
 
         def _parse_input_(
             data: object,
-        ) -> AutomaticFlatBarStock | AutomaticRoundStock | FixedBoxStock | FixedCylinderStock:
+        ) -> AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
@@ -109,15 +119,23 @@ class QueuePartJobResponseStock:
                 return input_type_2
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                input_type_3 = FixedCylinderStock.from_dict(data)
+
+                return input_type_3
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            input_type_3 = FixedCylinderStock.from_dict(data)
+            input_type_4 = BodyStock.from_dict(data)
 
-            return input_type_3
+            return input_type_4
 
         input_ = _parse_input_(d.pop("input"))
 
-        def _parse_resolved(data: object) -> None | StockBox | StockCylinder:
+        def _parse_resolved(data: object) -> None | StockBody | StockBox | StockCylinder:
             if data is None:
                 return data
             try:
@@ -136,7 +154,15 @@ class QueuePartJobResponseStock:
                 return resolved_type_1
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(None | StockBox | StockCylinder, data)
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                resolved_type_2 = StockBody.from_dict(data)
+
+                return resolved_type_2
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | StockBody | StockBox | StockCylinder, data)
 
         resolved = _parse_resolved(d.pop("resolved"))
 

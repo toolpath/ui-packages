@@ -88,13 +88,14 @@ def sync_detailed(
     """Upload a tool holder
 
      Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
-    the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).
+    the URL, then run **Import a tool holder** (`PATCH /v1/holders/{id}`).
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
             selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`,
-            `.sldprt`, `.catpart`, `.prt`, or `.igs`/`.iges`. Omitting it stores the upload as
-            `.step`, which fails processing for any other format. Example: holder.step.
+            `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`.
+            Omitting it stores the upload as `.step`, which fails processing for any other format.
+            Example: holder.step.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -123,13 +124,14 @@ def sync(
     """Upload a tool holder
 
      Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
-    the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).
+    the URL, then run **Import a tool holder** (`PATCH /v1/holders/{id}`).
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
             selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`,
-            `.sldprt`, `.catpart`, `.prt`, or `.igs`/`.iges`. Omitting it stores the upload as
-            `.step`, which fails processing for any other format. Example: holder.step.
+            `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`.
+            Omitting it stores the upload as `.step`, which fails processing for any other format.
+            Example: holder.step.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -153,13 +155,14 @@ async def asyncio_detailed(
     """Upload a tool holder
 
      Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
-    the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).
+    the URL, then run **Import a tool holder** (`PATCH /v1/holders/{id}`).
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
             selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`,
-            `.sldprt`, `.catpart`, `.prt`, or `.igs`/`.iges`. Omitting it stores the upload as
-            `.step`, which fails processing for any other format. Example: holder.step.
+            `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`.
+            Omitting it stores the upload as `.step`, which fails processing for any other format.
+            Example: holder.step.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -186,13 +189,14 @@ async def asyncio(
     """Upload a tool holder
 
      Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
-    the URL, then run **Import a tool holder** (`PATCH /holders/{id}`).
+    the URL, then run **Import a tool holder** (`PATCH /v1/holders/{id}`).
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
             selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`,
-            `.sldprt`, `.catpart`, `.prt`, or `.igs`/`.iges`. Omitting it stores the upload as
-            `.step`, which fails processing for any other format. Example: holder.step.
+            `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`.
+            Omitting it stores the upload as `.step`, which fails processing for any other format.
+            Example: holder.step.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

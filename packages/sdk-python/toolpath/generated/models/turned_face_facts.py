@@ -13,7 +13,7 @@ class TurnedFaceFacts:
     """A face square to the axis.
 
     Attributes:
-        kind (Literal['Face']): Discriminant of the facts union; always `'Face'` here.
+        kind (Literal['Face']): Discriminant of a `TurnedFeatureFacts`; always `'Face'` here.
         z (float): Where it stands along the axis, in mm. It looks toward the end it is cut from, its
             feature's `approach`.
     """

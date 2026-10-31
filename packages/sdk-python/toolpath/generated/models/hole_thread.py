@@ -17,12 +17,13 @@ class HoleThread:
     """A thread cut in an axial hole.
 
     Attributes:
-        thread_spec (ThreadSpec): The thread a hole is to receive.
+        thread_spec (ThreadSpec): The thread a hole or stud is to receive: a thread class's limits, read on its side.
 
             Every diameter, the pitch and `threadPercentage` are finite and positive,
-            `threadPercentage` at most 100, `minMinorDiameter` no more than `maxMinorDiameter`, and
-            `minMajorDiameter` above `minMinorDiameter`; the two angles keep the ranges their fields
-            state.
+            `threadPercentage` at most 100, each minimum no more than its maximum, and the form deeper
+            than nothing — `minMajorDiameter` above `minMinorDiameter` for an internal thread,
+            `maxMajorDiameter` above `maxMinorDiameter` for an external one; the two angles keep the
+            ranges their fields state.
         z_min (float): Where it starts along the axis, in mm.
         z_max (float): Where it ends along the axis, in mm.
     """

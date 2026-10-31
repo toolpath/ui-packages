@@ -113,9 +113,10 @@ def sync_detailed(
     """Calculate a plan’s toolpaths
 
      Calculates toolpaths for an existing plan and returns a job — for a workflow that creates a plan
-    first with **Create a plan** (`POST /parts/{id}/plans`) and calculates its toolpaths afterward, and
-    for recomputing a plan’s toolpaths. Track the job, then read the result with **Get toolpaths** (`GET
-    /plans/{planId}/toolpaths`) and **Get machining time** (`GET /plans/{planId}/machining-time`).
+    first with **Create a plan** (`POST /v1/parts/{id}/plans`) and calculates its toolpaths afterward,
+    and for recomputing a plan’s toolpaths. Wait for the job with **Stream job updates** (`GET
+    /v1/jobs/{id}/events`), then read the result with **Get toolpaths** (`GET
+    /v1/plans/{planId}/toolpaths`) and **Get machining time** (`GET /v1/plans/{planId}/machining-time`).
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -156,9 +157,10 @@ def sync(
     """Calculate a plan’s toolpaths
 
      Calculates toolpaths for an existing plan and returns a job — for a workflow that creates a plan
-    first with **Create a plan** (`POST /parts/{id}/plans`) and calculates its toolpaths afterward, and
-    for recomputing a plan’s toolpaths. Track the job, then read the result with **Get toolpaths** (`GET
-    /plans/{planId}/toolpaths`) and **Get machining time** (`GET /plans/{planId}/machining-time`).
+    first with **Create a plan** (`POST /v1/parts/{id}/plans`) and calculates its toolpaths afterward,
+    and for recomputing a plan’s toolpaths. Wait for the job with **Stream job updates** (`GET
+    /v1/jobs/{id}/events`), then read the result with **Get toolpaths** (`GET
+    /v1/plans/{planId}/toolpaths`) and **Get machining time** (`GET /v1/plans/{planId}/machining-time`).
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -194,9 +196,10 @@ async def asyncio_detailed(
     """Calculate a plan’s toolpaths
 
      Calculates toolpaths for an existing plan and returns a job — for a workflow that creates a plan
-    first with **Create a plan** (`POST /parts/{id}/plans`) and calculates its toolpaths afterward, and
-    for recomputing a plan’s toolpaths. Track the job, then read the result with **Get toolpaths** (`GET
-    /plans/{planId}/toolpaths`) and **Get machining time** (`GET /plans/{planId}/machining-time`).
+    first with **Create a plan** (`POST /v1/parts/{id}/plans`) and calculates its toolpaths afterward,
+    and for recomputing a plan’s toolpaths. Wait for the job with **Stream job updates** (`GET
+    /v1/jobs/{id}/events`), then read the result with **Get toolpaths** (`GET
+    /v1/plans/{planId}/toolpaths`) and **Get machining time** (`GET /v1/plans/{planId}/machining-time`).
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -235,9 +238,10 @@ async def asyncio(
     """Calculate a plan’s toolpaths
 
      Calculates toolpaths for an existing plan and returns a job — for a workflow that creates a plan
-    first with **Create a plan** (`POST /parts/{id}/plans`) and calculates its toolpaths afterward, and
-    for recomputing a plan’s toolpaths. Track the job, then read the result with **Get toolpaths** (`GET
-    /plans/{planId}/toolpaths`) and **Get machining time** (`GET /plans/{planId}/machining-time`).
+    first with **Create a plan** (`POST /v1/parts/{id}/plans`) and calculates its toolpaths afterward,
+    and for recomputing a plan’s toolpaths. Wait for the job with **Stream job updates** (`GET
+    /v1/jobs/{id}/events`), then read the result with **Get toolpaths** (`GET
+    /v1/plans/{planId}/toolpaths`) and **Get machining time** (`GET /v1/plans/{planId}/machining-time`).
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.

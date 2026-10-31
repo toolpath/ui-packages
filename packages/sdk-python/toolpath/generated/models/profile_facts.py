@@ -20,7 +20,7 @@ class ProfileFacts:
     """A profile: one pass around the part's outline.
 
     Attributes:
-        kind (Literal['Profile']): Discriminator for this facts variant.
+        kind (Literal['Profile']): Discriminant of a `FeatureFacts`; always `'Profile'` here.
         cd (CdData): Clearance-diameter bounds per tolerance regime, plus the flags derived with them.
         length (float): How far the pass travels, mm — the outline's own length, the `radius = 0` term of
             `wallLength`. Prefer `wallLength`, which measures the path of the tool actually used.

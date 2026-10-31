@@ -13,7 +13,7 @@ class TurnedGrooveFacts:
     """A groove cut radially, into the outside or into a hole's wall.
 
     Attributes:
-        kind (Literal['IdGroove'] | Literal['OdGroove']): Discriminant of the facts union: the feature's type.
+        kind (Literal['IdGroove'] | Literal['OdGroove']): Discriminant of a `TurnedFeatureFacts`: the feature's type.
         width (float): Its extent along the axis, in mm.
         depth (float): How far it goes in radially, in mm.
     """

@@ -92,8 +92,8 @@ def sync_detailed(
 ) -> Response[PlanResponse | ProblemDetails]:
     """Get a plan
 
-     Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`)
-    to have run and its job to have succeeded.
+     Returns a plan with its setups and operations. Requires **Create a plan** (`POST
+    /v1/parts/{id}/plans`) to have run and its job to have succeeded.
 
     A toolpath calculation makes the plan readable at `planned` as soon as it has planned the part,
     before it cuts: `jobId` names the job cutting it, so compare it with the job you queued. A plan
@@ -133,8 +133,8 @@ def sync(
 ) -> PlanResponse | ProblemDetails | None:
     """Get a plan
 
-     Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`)
-    to have run and its job to have succeeded.
+     Returns a plan with its setups and operations. Requires **Create a plan** (`POST
+    /v1/parts/{id}/plans`) to have run and its job to have succeeded.
 
     A toolpath calculation makes the plan readable at `planned` as soon as it has planned the part,
     before it cuts: `jobId` names the job cutting it, so compare it with the job you queued. A plan
@@ -169,8 +169,8 @@ async def asyncio_detailed(
 ) -> Response[PlanResponse | ProblemDetails]:
     """Get a plan
 
-     Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`)
-    to have run and its job to have succeeded.
+     Returns a plan with its setups and operations. Requires **Create a plan** (`POST
+    /v1/parts/{id}/plans`) to have run and its job to have succeeded.
 
     A toolpath calculation makes the plan readable at `planned` as soon as it has planned the part,
     before it cuts: `jobId` names the job cutting it, so compare it with the job you queued. A plan
@@ -208,8 +208,8 @@ async def asyncio(
 ) -> PlanResponse | ProblemDetails | None:
     """Get a plan
 
-     Returns a plan with its setups and operations. Requires **Create a plan** (`POST /parts/{id}/plans`)
-    to have run and its job to have succeeded.
+     Returns a plan with its setups and operations. Requires **Create a plan** (`POST
+    /v1/parts/{id}/plans`) to have run and its job to have succeeded.
 
     A toolpath calculation makes the plan readable at `planned` as soon as it has planned the part,
     before it cuts: `jobId` names the job cutting it, so compare it with the job you queued. A plan

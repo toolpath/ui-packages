@@ -15,8 +15,8 @@ class TurnedOutlineFacts:
     a tool.
 
         Attributes:
-            kind (Literal['FaceProfile'] | Literal['IdProfile'] | Literal['OdProfile']): Discriminant of the facts union:
-                the feature's type.
+            kind (Literal['FaceProfile'] | Literal['IdProfile'] | Literal['OdProfile']): Discriminant of a
+                `TurnedFeatureFacts`: the feature's type.
     """
 
     kind: Literal["FaceProfile"] | Literal["IdProfile"] | Literal["OdProfile"]

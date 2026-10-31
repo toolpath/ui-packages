@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 
+from ..models.axial_direction import AxialDirection
 from ..models.mounting_axis import MountingAxis
 from ..models.turned_feature_type import TurnedFeatureType
 from ..types import UNSET, Unset
@@ -32,14 +33,17 @@ class TurningDatasheet:
         Attributes:
             feature_type (TurnedFeatureType): What a turned feature is.
             facts (TurnedAxialHoleFacts | TurnedFaceFacts | TurnedFaceGrooveFacts | TurnedGrooveFacts | TurnedOutlineFacts |
-                TurnedThreadFacts): What it measures, by kind; narrow on `facts.kind`.
+                TurnedThreadFacts): What a turned feature measures: a discriminated union over `kind`.
             z_min (float): Its start along the axis, in mm.
             z_max (float): Its end along the axis, in mm.
             r_min (float): Its nearest to the axis, in mm.
             r_max (float): Its farthest from the axis, in mm.
             mounting (MountingAxis): How a tool must be mounted to reach a feature.
-            slope_spans (list[SlopeSpan]): How steeply each of its curves rises and falls along a feed, in the order they
-                run.
+            slope_spans (list[SlopeSpan]): **Experimental.** Available now and still gaining functionality. It may change in
+                breaking ways in a minor API release; each such change is listed in the release notes, so check them before
+                upgrading.
+
+                How steeply each of its curves rises and falls along a feed, in the order they run.
             radial_reach_minus_z (ReachCurve): Surrounding material height as a function of distance from the feature.
                 Material
                 within `horizontalOffset[i]` rises to `verticalOffset[i]` above the feature. Each
@@ -163,6 +167,7 @@ class TurningDatasheet:
             radial_stock_to_leave (float): Material left across the spindle, in mm.
             tolerance_band (ToleranceBand): How far a machined surface may deviate from the model, in three escalating bands
                 (`0 <= ignore <= deviate <= max`, all finite).
+            approach (AxialDirection | Unset): Which way along the axis something looks or comes from.
             entry_diameter (float | Unset): For a feature in a hole, the narrowest diameter between it and the end it is cut
                 from, in mm: what a bar entering from that end passes on its way in. Absent for any
                 other feature, or where nothing stands between.
@@ -192,6 +197,7 @@ class TurningDatasheet:
     axial_stock_to_leave: float
     radial_stock_to_leave: float
     tolerance_band: ToleranceBand
+    approach: AxialDirection | Unset = UNSET
     entry_diameter: float | Unset = UNSET
     min_concave_radius: float | Unset = UNSET
 
@@ -245,6 +251,10 @@ class TurningDatasheet:
 
         tolerance_band = self.tolerance_band.to_dict()
 
+        approach: str | Unset = UNSET
+        if not isinstance(self.approach, Unset):
+            approach = self.approach.value
+
         entry_diameter = self.entry_diameter
 
         min_concave_radius = self.min_concave_radius
@@ -269,6 +279,8 @@ class TurningDatasheet:
                 "toleranceBand": tolerance_band,
             }
         )
+        if approach is not UNSET:
+            field_dict["approach"] = approach
         if entry_diameter is not UNSET:
             field_dict["entryDiameter"] = entry_diameter
         if min_concave_radius is not UNSET:
@@ -304,48 +316,48 @@ class TurningDatasheet:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_0 = TurnedOutlineFacts.from_dict(data)
+                componentsschemas_turned_feature_facts_type_0 = TurnedOutlineFacts.from_dict(data)
 
-                return facts_type_0
+                return componentsschemas_turned_feature_facts_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_1 = TurnedFaceFacts.from_dict(data)
+                componentsschemas_turned_feature_facts_type_1 = TurnedFaceFacts.from_dict(data)
 
-                return facts_type_1
+                return componentsschemas_turned_feature_facts_type_1
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_2 = TurnedGrooveFacts.from_dict(data)
+                componentsschemas_turned_feature_facts_type_2 = TurnedGrooveFacts.from_dict(data)
 
-                return facts_type_2
+                return componentsschemas_turned_feature_facts_type_2
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_3 = TurnedFaceGrooveFacts.from_dict(data)
+                componentsschemas_turned_feature_facts_type_3 = TurnedFaceGrooveFacts.from_dict(data)
 
-                return facts_type_3
+                return componentsschemas_turned_feature_facts_type_3
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                facts_type_4 = TurnedThreadFacts.from_dict(data)
+                componentsschemas_turned_feature_facts_type_4 = TurnedThreadFacts.from_dict(data)
 
-                return facts_type_4
+                return componentsschemas_turned_feature_facts_type_4
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             if not isinstance(data, dict):
                 raise TypeError()
-            facts_type_5 = TurnedAxialHoleFacts.from_dict(data)
+            componentsschemas_turned_feature_facts_type_5 = TurnedAxialHoleFacts.from_dict(data)
 
-            return facts_type_5
+            return componentsschemas_turned_feature_facts_type_5
 
         facts = _parse_facts(d.pop("facts"))
 
@@ -378,6 +390,13 @@ class TurningDatasheet:
 
         tolerance_band = ToleranceBand.from_dict(d.pop("toleranceBand"))
 
+        _approach = d.pop("approach", UNSET)
+        approach: AxialDirection | Unset
+        if isinstance(_approach, Unset):
+            approach = UNSET
+        else:
+            approach = AxialDirection(_approach)
+
         entry_diameter = d.pop("entryDiameter", UNSET)
 
         min_concave_radius = d.pop("minConcaveRadius", UNSET)
@@ -397,6 +416,7 @@ class TurningDatasheet:
             axial_stock_to_leave=axial_stock_to_leave,
             radial_stock_to_leave=radial_stock_to_leave,
             tolerance_band=tolerance_band,
+            approach=approach,
             entry_diameter=entry_diameter,
             min_concave_radius=min_concave_radius,
         )

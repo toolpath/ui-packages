@@ -103,7 +103,7 @@ def sync_detailed(
     """Get a part
 
      Returns a part and the results of its machining analysis. Requires **Analyze a part** (`PATCH
-    /parts/{id}`) to have run and its job to have succeeded; until then there is no result and this
+    /v1/parts/{id}`) to have run and its job to have succeeded; until then there is no result and this
     returns 404.
 
     Args:
@@ -140,7 +140,7 @@ def sync(
     """Get a part
 
      Returns a part and the results of its machining analysis. Requires **Analyze a part** (`PATCH
-    /parts/{id}`) to have run and its job to have succeeded; until then there is no result and this
+    /v1/parts/{id}`) to have run and its job to have succeeded; until then there is no result and this
     returns 404.
 
     Args:
@@ -172,7 +172,7 @@ async def asyncio_detailed(
     """Get a part
 
      Returns a part and the results of its machining analysis. Requires **Analyze a part** (`PATCH
-    /parts/{id}`) to have run and its job to have succeeded; until then there is no result and this
+    /v1/parts/{id}`) to have run and its job to have succeeded; until then there is no result and this
     returns 404.
 
     Args:
@@ -207,7 +207,7 @@ async def asyncio(
     """Get a part
 
      Returns a part and the results of its machining analysis. Requires **Analyze a part** (`PATCH
-    /parts/{id}`) to have run and its job to have succeeded; until then there is no result and this
+    /v1/parts/{id}`) to have run and its job to have succeeded; until then there is no result and this
     returns 404.
 
     Args:
