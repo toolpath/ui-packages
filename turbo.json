@@ -1,17 +1,12 @@
 {
-  "$schema": "https://turbo.build/schema.json",
+  "$schema": "https://turborepo.com/schema.json",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "build/**", ".react-router/**"]
-    },
-    "@toolpath/example-typescript#build": {
-      "dependsOn": ["^build"],
-      "outputs": []
+      "outputs": ["dist/**"]
     },
     "check-types": {
       "dependsOn": ["^build"],
-      "cache": false,
       "outputs": []
     },
     "test": {
