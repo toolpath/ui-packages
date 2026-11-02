@@ -5,7 +5,18 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@toolpath/example-react-viewer", "@toolpath/example-typescript"],
+  "bumpVersionsWithWorkspaceProtocolOnly": true,
+  "ignore": [],
+  "changedFilePatterns": [
+    "src/**",
+    "tsconfig/**",
+    "tsconfig.build.json",
+    "theme.css",
+    "openapi/**",
+    "codegen/**",
+    "scripts/generate.mjs",
+    "scripts/copy-assets.mjs"
+  ],
   "privatePackages": {
     "version": false,
     "tag": false

@@ -1,0 +1,27 @@
+name: Close pull requests
+
+# This repository is a read-only mirror, so a pull request here can never merge. Explain that
+# and close it. Only pull requests from forks: one from a branch in this repository needs write
+# access to open, so it is left to whoever opened it. Nothing here checks out or runs the pull
+# request's code.
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  close:
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh pr close "$NUMBER" --repo "$GITHUB_REPOSITORY" --comment "$COMMENT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          COMMENT: >-
+            Thank you for the contribution. This repository is a read-only mirror of a private
+            monorepo where development happens, so it cannot accept pull requests. Please open
+            an issue describing the change instead; issues are welcome.

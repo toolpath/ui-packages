@@ -1,6 +1,6 @@
 # Toolpath UI packages
 
-> Open-source SDKs, UI primitives, logic packages and examples for building applications with the Toolpath API. Toolpath analyzes a CAD part so an application can show it, plan how to machine it, and price it.
+> Open-source SDKs, UI primitives and logic packages for building applications with the Toolpath API. Toolpath analyzes a CAD part so an application can show it, plan how to machine it, and price it.
 
 Each package's README is its full documentation, and the npm packages ship it. The API key is a secret: call Toolpath from a server, never from the browser. The logic packages (plan, quoting, dfm, tool-support) store nothing and call nothing; the application keeps its data and makes the API calls.
 
@@ -9,7 +9,7 @@ Each package's README is its full documentation, and the npm packages ship it. T
 - [@toolpath/api](https://github.com/toolpath/ui-packages/blob/main/packages/sdk-typescript/README.md): TypeScript client for the Toolpath Engine API, and the helper that uploads a CAD file to its presigned URL
 - [toolpath (Python)](https://github.com/toolpath/ui-packages/blob/main/packages/sdk-python/README.md): the same API in Python, shipped as a wheel on GitHub releases
 - [API documentation](https://developers.toolpath.com): guides, authentication and the HTTP API
-- [OpenAPI contract](https://github.com/toolpath/ui-packages/blob/main/openapi/openapi.json): the API shapes the SDKs are generated from
+- [OpenAPI contract](https://github.com/toolpath/ui-packages/blob/main/packages/sdk-typescript/openapi/openapi.json): the API shapes the SDKs are generated from
 
 ## Show and edit a part
 
@@ -33,13 +33,10 @@ Each package's README is its full documentation, and the npm packages ship it. T
 
 - [@toolpath/dev-config](https://github.com/toolpath/ui-packages/blob/main/packages/dev-config/README.md): shared ESLint, Prettier and TypeScript configuration, and React Compiler build checks
 
-## Examples and templates
+## Templates
 
-- [TypeScript example](https://github.com/toolpath/ui-packages/blob/main/examples/typescript/README.md): upload a STEP file and read its analysis
-- [Python example](https://github.com/toolpath/ui-packages/blob/main/examples/python/README.md): the same in Python
-- [React viewer example](https://github.com/toolpath/ui-packages/blob/main/examples/react-viewer/README.md): show an analyzed part with `@toolpath/viewer`
 - [Part Viewer template](https://github.com/toolpath/toolpath-template): a starting point for a customer application
 
 ## Optional
 
-- [Contributor guide](https://github.com/toolpath/ui-packages/blob/main/AGENTS.md): for work on these packages, not for building an application with them
+- [Agent guide](https://github.com/toolpath/ui-packages/blob/main/AGENTS.md): how this repository is built and tested, not how to build an application with these packages

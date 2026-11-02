@@ -1,14 +1,2 @@
 packages:
-  - examples/typescript
-  - examples/react-viewer
-  - packages/app-support
-  - packages/dev-config
-  - packages/dfm
-  - packages/plan
-  - packages/quoting
-  - packages/sdk-typescript
-  - packages/tool-drawing
-  - packages/tool-scraper
-  - packages/tool-support
-  - packages/ui
-  - packages/viewer
+  - packages/*
