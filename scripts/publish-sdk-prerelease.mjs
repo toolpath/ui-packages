@@ -8,19 +8,23 @@
  * asks for the publish — the URL is fixed here, the payload only says what the
  * sender expected to find there. Nothing this writes is committed: the checkout
  * is a throwaway, and the version is a snapshot
- * (`<next stable>-staging.<UTC datetime>.g<source sha>`) that cannot collide
- * with a stable one or sort above the next.
+ * (`<latest, patch bumped>-staging.<UTC datetime>.g<source sha>`) that cannot
+ * collide with a stable one or sort above the next.
  *
- * Idempotent by construction: the same contract from the same `ui-packages`
- * commit is already on the tag, so a repeated dispatch publishes nothing.
+ * What to publish is decided from npm, not from this checkout's `main`, which
+ * the mirror may already have moved past staging and npm: a contract that
+ * `@toolpath/api@staging` already records publishes nothing, so a repeated
+ * dispatch is a no-op. See `sdk-prerelease-plan.mjs`.
  */
 
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { appendFile, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { appendFile, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { parseVersion, planPrerelease } from './sdk-prerelease-plan.mjs'
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -68,14 +72,11 @@ const run = async (command, args, cwd = repositoryRoot, options = {}) => {
 const contractUrl = 'https://api.staging.toolpath.com/v1/openapi.json'
 const packageName = '@toolpath/api'
 const manifestPath = join(repositoryRoot, 'packages/sdk-typescript/package.json')
-const releasePath = join(repositoryRoot, 'packages/sdk-typescript/openapi/release.json')
-const changesetRoot = join(repositoryRoot, '.changeset')
 
 const sourceSha = process.env.SOURCE_SHA ?? ''
 const uiPackagesSha = process.env.GITHUB_SHA ?? ''
 const expectedApiVersion = process.env.EXPECTED_API_VERSION || undefined
 const expectedSha256 = process.env.EXPECTED_SHA256 || undefined
-const sourceRunUrl = process.env.SOURCE_RUN_URL || undefined
 const dryRun = process.env.DRY_RUN === 'true'
 
 if (!/^[0-9a-f]{7,40}$/.test(sourceSha)) {
@@ -95,42 +96,6 @@ const summarize = async (markdown) => {
   }
 }
 
-const parseVersion = (version, label) => {
-  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(version ?? '')
-  if (!match) {
-    throw new Error(
-      `${label} must be a stable semantic version, received ${JSON.stringify(version)}`,
-    )
-  }
-  return {
-    value: version,
-    major: Number(match[1]),
-    minor: Number(match[2]),
-    patch: Number(match[3]),
-  }
-}
-
-const compareVersions = (left, right) => {
-  for (const key of ['major', 'minor', 'patch']) {
-    if (left[key] !== right[key]) return left[key] - right[key]
-  }
-  return 0
-}
-
-/** The Changeset bump a contract move earns; the same rule the production promotion applies. */
-const releaseKind = (previous, current) => {
-  if (compareVersions(current, previous) <= 0) {
-    throw new Error(
-      `Engine API OpenAPI contract changed, but its declared version did not. ` +
-        `The SDK records Engine API ${previous.value}, and staging serves ${current.value}. ` +
-        `Bump the declared Engine API version to a higher stable semantic version.`,
-    )
-  }
-  if (current.major !== previous.major) return 'major'
-  if (current.minor !== previous.minor) return 'minor'
-  return 'patch'
-}
-
 /** Staging is behind a load balancer that occasionally drops a connection; a miss is not an answer. */
 const fetchContract = async () => {
   let failure
@@ -148,13 +113,18 @@ const fetchContract = async () => {
   throw failure
 }
 
-/** `npm view` prints nothing, and exits 0, for a tag or field that does not exist. */
-const npmView = async (spec, field) => {
-  const { stdout } = await run('npm', ['view', spec, field, '--json'], repositoryRoot, {
-    capture: true,
-    quiet: true,
-  })
-  return stdout ? JSON.parse(stdout) : undefined
+/** Undefined for a dist-tag that does not exist (E404) or a field it lacks (no output). */
+const npmView = async (spec, ...fields) => {
+  try {
+    const { stdout } = await run('npm', ['view', spec, ...fields, '--json'], repositoryRoot, {
+      capture: true,
+      quiet: true,
+    })
+    return stdout ? JSON.parse(stdout) : undefined
+  } catch (error) {
+    if (error.message.includes('E404')) return undefined
+    throw error
+  }
 }
 
 log(`Fetching ${contractUrl}`)
@@ -184,59 +154,30 @@ if (expectedApiVersion && expectedApiVersion !== apiVersion.value) {
   )
 }
 
-const stagingVersion = await npmView(packageName, 'dist-tags.staging')
-if (stagingVersion) {
-  const published = (await npmView(`${packageName}@${stagingVersion}`, 'toolpath')) ?? {}
-  if (published.openApiSha256 === sha256 && published.uiPackagesSha === uiPackagesSha) {
-    await summarize(
-      `Already published: ${packageName}@${stagingVersion} carries this contract from this commit.`,
-    )
-    process.exit(0)
-  }
-  // The tag only ever moves forward through Engine API versions; a lower one
-  // means staging was rolled back, which a consumer should not silently follow.
-  const publishedVersion = parseVersion(published.openApiVersion, 'The published openApiVersion')
-  if (compareVersions(apiVersion, publishedVersion) < 0) {
-    throw new Error(
-      `Staging serves Engine API ${apiVersion.value}, older than the ${publishedVersion.value} ` +
-        `already on ${packageName}@staging`,
-    )
-  }
-}
-
-// Pending Changesets stay in the private monorepo, so only a contract change has anything to
-// release; without one the snapshot would leave the version alone and npm would refuse the publish.
-const release = JSON.parse(await readFile(releasePath, 'utf8'))
-if (release.sha256 === sha256) {
-  await summarize(`Nothing to publish: the SDK already records this contract.`)
+const plan = planPrerelease({
+  served: { sha256, apiVersion: apiVersion.value },
+  staging: await npmView(`${packageName}@staging`),
+  latest: await npmView(`${packageName}@latest`),
+})
+if (plan.skip) {
+  await summarize(`Nothing to publish: ${plan.skip}`)
   process.exit(0)
 }
-const bump = releaseKind(parseVersion(release.apiVersion, 'The recorded apiVersion'), apiVersion)
-await mkdir(changesetRoot, { recursive: true })
-await writeFile(
-  join(changesetRoot, `staging-engine-api-${apiVersion.value}.md`),
-  `---\n'${packageName}': ${bump}\n---\n\nRegenerate the TypeScript SDK for Engine API ${apiVersion.value}.\n`,
-)
-log(`Wrote a ${bump} Changeset for Engine API ${release.apiVersion} -> ${apiVersion.value}`)
 
 await run('pnpm', ['--filter', packageName, 'openapi:adopt', contractPath])
 await run('pnpm', ['--filter', packageName, 'generate'])
-await run('pnpm', ['exec', 'changeset', 'version', '--snapshot', 'staging'])
 
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
-if (!/^\d+\.\d+\.\d+-staging\.\d{14}$/.test(manifest.version)) {
-  throw new Error(
-    `changeset version --snapshot produced ${manifest.version}, not a staging version`,
-  )
-}
-manifest.version = `${manifest.version}.g${sourceSha.slice(0, 7)}`
+manifest.version = `${plan.version}.g${sourceSha.slice(0, 7)}`
 manifest.toolpath = {
   ...manifest.toolpath,
+  // The next run's skip check reads openApiSha256 back from npm.
+  openApiSha256: sha256,
+  openApiVersion: apiVersion.value,
   channel: 'staging',
   // These key names are published metadata; keep them for existing readers.
   servicesSha: sourceSha,
   uiPackagesSha,
-  ...(sourceRunUrl ? { servicesRunUrl: sourceRunUrl } : {}),
 }
 await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
 log(`Versioned ${packageName}@${manifest.version}`)
@@ -269,7 +210,7 @@ await summarize(
     `${dryRun ? 'Dry run of' : 'Published'} \`${packageName}@${manifest.version}\` (tag \`staging\`)`,
     '',
     `- Engine API ${apiVersion.value}, contract sha256 \`${sha256}\``,
-    `- source \`${sourceSha}\`${sourceRunUrl ? ` (${sourceRunUrl})` : ''}, ui-packages \`${uiPackagesSha}\``,
+    `- source \`${sourceSha}\`, ui-packages \`${uiPackagesSha}\``,
     `- \`latest\` still ${latestAfter}`,
     '',
     '```sh',
