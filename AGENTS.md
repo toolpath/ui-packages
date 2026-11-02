@@ -9,9 +9,10 @@ Each package's README documents its use; to build an application with them, star
 ## Generated from a private monorepo
 
 `packages/` and `pnpm-lock.yaml` are generated from a private monorepo where the packages are
-developed, versioned and reviewed; the root files are maintained here. Do not open pull requests
-that change `packages/`: they are closed automatically and cannot be merged. Report a problem or
-propose a change in an issue instead. Do not edit package versions or changelogs here.
+developed, versioned and reviewed; the root files are maintained here by repository members,
+through pull requests from branches in this repository. Pull requests from forks are closed
+automatically, whatever they change, and `packages/` cannot be changed here at all: report a
+problem or propose a change in an issue instead. Do not edit package versions or changelogs here.
 
 Releases publish from a `release-*` tag the monorepo pushes for each release, never from a push to
 `main` (`.github/workflows/release.yml`).
@@ -27,6 +28,7 @@ Python SDK. Published packages declare their own runtime floors, below the contr
 | One package          | `pnpm --filter @toolpath/viewer test` (or `build`, `check-types`) |
 | Everything           | `pnpm build && pnpm test`                                         |
 | Python wheel         | `pnpm --filter @toolpath/sdk-python package`                      |
+| Release scripts      | `node --test 'scripts/*.test.mjs'`                                |
 
 A release builds and tests every package and builds the Python wheel. Report checks as passed, failed or skipped with a reason; a missing
 prerequisite such as uv is a failure to set up, never a pass.

@@ -38,8 +38,8 @@ application to start from, use [toolpath-template](https://github.com/toolpath/t
 ## Generated from a private monorepo
 
 The packages are developed in a private monorepo, and `packages/` here is generated from it. Issues
-are welcome. Pull requests are closed automatically, because they cannot be merged here; please open
-an issue describing the change instead.
+are welcome. Pull requests from forks are closed automatically, because they cannot be merged here;
+please open an issue describing the change instead.
 
 ## Building from source
 
