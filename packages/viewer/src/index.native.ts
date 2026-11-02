@@ -3,20 +3,25 @@
 // re-exports the adapter's entry points for callers that only ever render a
 // report.
 export { EnginePart, normalizePartReport, smoothRegionNormals } from './engine/index.js'
+export type { NormalizePartReportOptions } from './engine/index.js'
 export { regionAdjacency } from './render/adjacency.js'
 export { featureTriangles } from './render/feature-triangles.js'
 export { PartMesh } from './part-mesh.js'
 export { createExplodeAmount } from './model/explode-amount.js'
 export type { ExplodeAmount } from './model/explode-amount.js'
+export { EXPLODE_LIMITS, explodeFits, explodeLayout } from './render/explode-layout.js'
 export { ExplodedPart } from './exploded-part.js'
 export type { ExplodedPartProps } from './exploded-part.js'
 export type {
+  ExplodeAssignment,
   ExplodeGroup,
   ExplodeGroupIds,
   ExplodeInput,
   ExplodePick,
   ExplodeRegionColors,
 } from './model/explode.js'
+export { VisibilityGroup } from './visibility-group.js'
+export type { VisibilityGroupProps } from './visibility-group.js'
 export { usePartContext } from './part-context.js'
 export { ViewerToolbarProvider, useViewerToolbar } from './viewer-toolbar-context.js'
 export type { ViewerToolbarControl, ViewerToolbarControls } from './viewer-toolbar-context.js'
@@ -173,6 +178,7 @@ export { CONTROL_SCHEME_OPTIONS } from './render/control-schemes.js'
 export { useRetarget, useSectionStore, useViewerControls, Viewer } from './viewer.js'
 export { PartReportFormatError, UnsupportedKernelVersionError } from './model/errors.js'
 export { buildRegionIndex } from './model/region-index.js'
+export { withoutFeatures } from './model/without-features.js'
 export {
   directionIndexOf,
   directionLabel,
@@ -242,7 +248,12 @@ export type { DirectionGroup } from './model/directions.js'
 export type { SurfaceOf } from './model/surfaces.js'
 export type { RankingContext } from './render/selection.js'
 export type { PartObject, RegionPaint } from './render/part.js'
-export type { FeatureHighlight, HighlightLayers, RegionHighlight } from './render/paint.js'
+export type {
+  FeatureHighlight,
+  HighlightLayers,
+  PaintTarget,
+  RegionHighlight,
+} from './render/paint.js'
 export type { FocusOptions } from './render/focus.js'
 export type { ViewerTheme } from './render/theme.js'
 export type { PartMeshProps } from './part-mesh.js'
@@ -297,3 +308,7 @@ export type {
 export type { ExtendedCameraControlsOptions } from './render/controls.js'
 export type { ControlScheme, ControlSchemeOption } from './render/control-schemes.js'
 export type { Retarget, ViewerProps } from './viewer.js'
+export { PartCollection } from './part-collection.js'
+export type { PartCollectionItem, PartCollectionProps } from './part-collection.js'
+export { collectionBounds } from './model/collection.js'
+export { BODY_PALETTE, bodyColors } from './render/body-colors.js'

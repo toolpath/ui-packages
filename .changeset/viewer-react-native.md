@@ -8,7 +8,8 @@ the same way: the `react-native` export condition gives Metro a native build of 
 the app setup.
 
 - On React Native the package exports only what runs there: `HoverCard`, `ViewerToolbar`,
-  `viewerToolGroups` and `labelTexture` are web-only and not exported.
+  `viewerToolGroups`, `labelTexture` and `createExplodeMotion` (which pauses with the browser tab)
+  are web-only and not exported.
 - The `react-native` condition carries its own declarations (`dist/native/*.d.ts`), which TypeScript
   reads with `customConditions: ["react-native"]`, as Expo's base tsconfig sets. There `Viewer`'s
   `style` is a `StyleProp<ViewStyle>` and it takes `accessibilityLabel` and `accessibilityHint`, with
@@ -26,8 +27,8 @@ the app setup.
   what pressing it does, and its touch target is at least 44 tall.
 - On React Native, a screen reader announces `Viewer`'s `accessibilityLabel` and
   `accessibilityHint` for the view, as an image.
-- `PartMesh` has no hover on React Native, and picks through a bounding volume hierarchy, so a large
-  part stays smooth to touch.
+- `PartMesh` and `ExplodedPart` have no hover on React Native, and `PartMesh` picks through a bounding
+  volume hierarchy, so a large part stays smooth to touch.
 - The components React Native runs import drei's modules one by one (`@react-three/drei/core/…`)
   rather than its root, which on React Native loads every drei module as the app starts.
 - `PartMesh` works out which faces touch which only when `onAdjacency` is passed, and once per

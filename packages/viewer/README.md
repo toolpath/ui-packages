@@ -1162,13 +1162,13 @@ Its `react-native` export condition gives Metro a native build of both
 `.native` files where it has them. The native root leaves out the web-only
 exports.
 
-| Export                                                                                                                                                             | Web | React Native                        |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --- | ----------------------------------- |
-| `Viewer`, `PartMesh`, `EnginePart`, `Stock`, `DirectionArrows`, `SectionView`, `SectionTool`, `MeasureTool`, `ToolMarks`, `Axes`, `Grid`, `ViewCube`, `SceneLabel` | yes | yes                                 |
-| `Banana`, `BANANA_MODEL_URL`                                                                                                                                       | yes | from `@toolpath/viewer/banana` only |
-| Every pure function, constant and type from the models, rendering helpers and Engine adapter                                                                       | yes | yes                                 |
-| `HoverCard`, `ViewerToolbar`, `viewerToolGroups`, `labelTexture`                                                                                                   | yes | no: not exported                    |
-| `ViewerToolbarProvider`, `useViewerToolbar`                                                                                                                        | yes | yes (the context has no DOM)        |
+| Export                                                                                                                                                                                                                  | Web | React Native                        |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ----------------------------------- |
+| `Viewer`, `PartMesh`, `EnginePart`, `ExplodedPart`, `PartCollection`, `VisibilityGroup`, `Stock`, `DirectionArrows`, `SectionView`, `SectionTool`, `MeasureTool`, `ToolMarks`, `Axes`, `Grid`, `ViewCube`, `SceneLabel` | yes | yes                                 |
+| `Banana`, `BANANA_MODEL_URL`                                                                                                                                                                                            | yes | from `@toolpath/viewer/banana` only |
+| Every pure function, constant and type from the models, rendering helpers and Engine adapter                                                                                                                            | yes | yes                                 |
+| `HoverCard`, `ViewerToolbar`, `viewerToolGroups`, `labelTexture`, `createExplodeMotion`                                                                                                                                 | yes | no: not exported                    |
+| `ViewerToolbarProvider`, `useViewerToolbar`                                                                                                                                                                             | yes | yes (the context has no DOM)        |
 
 On React Native, one finger orbits, two fingers pinch to zoom and pan, and a tap
 picks, as on the web; double tap re-targets. A tap on a face with `SectionTool`
@@ -1186,11 +1186,12 @@ The canvas has nothing a screen reader can read, so pass `Viewer` an
 controls are) for VoiceOver and TalkBack to announce the view as an image. The
 scene's pressable labels stay reachable on their own.
 
-A finger doesn't hover, so on React Native `PartMesh` lights no face under a
-moving finger, and `onHover` isn't called. Its picks go through a bounding volume
-hierarchy ([`three-mesh-bvh`](https://github.com/gkjohnson/three-mesh-bvh)),
-built once per geometry and kept with it, so a large part stays smooth to touch
-under Hermes.
+A finger doesn't hover, so on React Native `PartMesh` and `ExplodedPart` light no
+face under a moving finger, and `onHover` isn't called. `PartMesh`'s picks go
+through a bounding volume hierarchy
+([`three-mesh-bvh`](https://github.com/gkjohnson/three-mesh-bvh)), built once
+per geometry and kept with it, so a large part stays smooth to touch under
+Hermes.
 
 ### App setup
 
