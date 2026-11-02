@@ -528,15 +528,18 @@ export const PartMesh = ({
     onLeave: () => emitHover(null),
   })
   // In a collection the nearest body answers, and the bodies behind it do not.
+  const move = gestures.onPointerMove
   const handlers = useMemo(
     () =>
       sections
         ? {
             ...gestures,
-            onPointerMove: (event: ThreeEvent<MouseEvent>) => {
-              event.stopPropagation()
-              gestures.onPointerMove(event)
-            },
+            onPointerMove: move
+              ? (event: ThreeEvent<MouseEvent>) => {
+                  event.stopPropagation()
+                  move(event)
+                }
+              : undefined,
             onClick: (event: ThreeEvent<MouseEvent>) => {
               event.stopPropagation()
               gestures.onClick(event)
@@ -549,7 +552,7 @@ export const PartMesh = ({
             },
           }
         : gestures,
-    [gestures, sections],
+    [gestures, move, sections],
   )
 
   // Last, so what this render's effects added to the part is hidden with it.
