@@ -11,6 +11,7 @@ import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { ignoreRay, viewDirection, type PickModifiers } from './render/picking.js'
 import { readTarget } from './render/orbit-target.js'
 import { EXCLUDE_FROM_FRAME } from './render/camera.js'
+import { readPointer } from './render/pointer.js'
 import { regionEdgesGeometry } from './render/edges.js'
 import { usePickGestures } from './pick-gestures.js'
 import { useOptionalSectionStore } from './viewer.js'
@@ -164,18 +165,21 @@ const Ghost = ({
 }
 
 /** The pointer details a pick reports, read in one place. */
-const pointerOf = (
-  source: MouseEvent,
-): { modifiers: PickModifiers } & Pick<ExplodePick, 'pointer'> => ({
-  pointer: { clientX: source.clientX, clientY: source.clientY },
-  modifiers: {
-    alt: source.altKey,
-    ctrl: source.ctrlKey,
-    meta: source.metaKey,
-    shift: source.shiftKey,
-    secondary: source.button === 2,
-  },
-})
+// Through `readPointer`, so a React Native event, which has page rather than client
+// coordinates and no modifier keys, reads the same way.
+const pointerOf = (event: unknown): { modifiers: PickModifiers } & Pick<ExplodePick, 'pointer'> => {
+  const source = readPointer(event)
+  return {
+    pointer: { clientX: source.clientX, clientY: source.clientY },
+    modifiers: {
+      alt: source.altKey,
+      ctrl: source.ctrlKey,
+      meta: source.metaKey,
+      shift: source.shiftKey,
+      secondary: source.button === 2,
+    },
+  }
+}
 
 const NO_ENGAGEMENT = () => () => undefined
 const NOT_ENGAGED = () => false
