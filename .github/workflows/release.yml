@@ -58,6 +58,9 @@ jobs:
         with:
           version: 0.11.28
           python-version: '3.11'
+          # Nothing here needs a uv cache, and with caching on the action's post step fails
+          # when the cache directory was never created.
+          enable-cache: false
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
@@ -95,6 +98,9 @@ jobs:
         with:
           version: 0.11.28
           python-version: '3.11'
+          # Nothing here needs a uv cache, and with caching on the action's post step fails
+          # when the cache directory was never created.
+          enable-cache: false
 
       - run: pnpm install --frozen-lockfile
       - run: npm install --global npm@11.19.0
