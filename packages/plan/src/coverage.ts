@@ -109,16 +109,14 @@ export const planFeaturesOf = (
   )
   return [
     ...reportFeatures.map((feature) => ({ ...feature, fromFeatureTag: null })),
-    ...kept.map(
-      (feature): PlanFeature => ({
-        tag: feature.featureTag,
-        featureType: feature.featureType,
-        regionIdxs: feature.regionIdxs,
-        machiningDirection: feature.machiningDirection,
-        trimmed: true,
-        fromFeatureTag: feature.fromFeatureTag,
-      }),
-    ),
+    ...kept.map((feature): PlanFeature => ({
+      tag: feature.featureTag,
+      featureType: feature.featureType,
+      regionIdxs: feature.regionIdxs,
+      machiningDirection: feature.machiningDirection,
+      trimmed: true,
+      fromFeatureTag: feature.fromFeatureTag,
+    })),
   ]
 }
 

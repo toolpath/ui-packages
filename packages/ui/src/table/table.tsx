@@ -51,8 +51,10 @@ const ROW_HEIGHT_ROOMY = 45
 export const getRowHeight = (density: TableDensity = 'dense') =>
   density === 'roomy' ? ROW_HEIGHT_ROOMY : ROW_HEIGHT
 
-export interface TableProps<T>
-  extends Omit<VirtualizedProps<any>, 'tableList' | 'rowHeight' | 'header' | 'body'> {
+export interface TableProps<T> extends Omit<
+  VirtualizedProps<any>,
+  'tableList' | 'rowHeight' | 'header' | 'body'
+> {
   data: Array<T>
   id?: string
   density?: TableDensity

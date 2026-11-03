@@ -28,8 +28,9 @@ class PlanAction:
             finish, a facing pass, an undercut and a chamfer all read `Finish`.
         tool_name (str): Name of the tool this action uses.
         feature_tags (list[str]): Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from
-            `GET /parts/{id}`). Whole-part roughing names the features its sweep folds in and facing the faces it takes;
-            plans computed before this was recorded list none for either.
+            `GET /v1/parts/{id}`), or, for a feature the plan’s skipped regions trimmed, to the plan’s `trimmedFeatures`.
+            Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before
+            this was recorded list none for either.
         tool (None | PlanActionToolType0): The full synthesized tool spec, or null when the kernel exposes none. Its
             `key` names the tool within this plan only: two actions with equal keys run in one tool, so a change of key
             between consecutive actions is a tool change. It is not an identity across plans or kernel versions, and is

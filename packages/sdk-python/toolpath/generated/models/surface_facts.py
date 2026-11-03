@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from ..models.bullnose_curve import BullnoseCurve
     from ..models.cd_data import CdData
     from ..models.tool_fit_result import ToolFitResult
+    from ..models.vec_3 import Vec3
 
 
 T = TypeVar("T", bound="SurfaceFacts")
@@ -22,7 +23,7 @@ class SurfaceFacts:
     half of a chamfer.
 
         Attributes:
-            kind (Literal['Three']): Discriminator for this facts variant.
+            kind (Literal['Three']): Discriminant of a `FeatureFacts`; always `'Three'` here.
             fillet_radius (float): The blend radius, signed by which way the surface turns: positive rolling over
                 an edge, negative running into a corner, zero for no blend at all.
             max_stepdown (float): The deepest cut taken in one pass down the surface, mm.
@@ -42,6 +43,12 @@ class SurfaceFacts:
             max_bottom_diameter (float | Unset): Widest flat bottom that reaches all of the surface, in mm; absent where
                 nothing on the
                 surface limits a flat bottom.
+            min_curvature_diameter (float | None | Unset): The widest ball whose tip follows every bend of the surface,
+                whatever stands around
+                it, in mm: `2/κ1` for the largest principal curvature `κ1` over the surface's smooth
+                inside, its edges left out. `null` where nothing bends concavely; zero where the
+                surface could not be sampled.
+            min_curvature_diameter_at (Vec3 | Unset):
             bullnose_curve (BullnoseCurve | Unset): The tool geometry a surface's own shape admits, before the layers are
                 consulted: at each
                 corner radius, the widest flat bottom `D − 2r` a bullnose carrying it may have and still
@@ -62,6 +69,8 @@ class SurfaceFacts:
     tool_fit: ToolFitResult
     is_edge_break: bool | Unset = UNSET
     max_bottom_diameter: float | Unset = UNSET
+    min_curvature_diameter: float | None | Unset = UNSET
+    min_curvature_diameter_at: Vec3 | Unset = UNSET
     bullnose_curve: BullnoseCurve | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
@@ -87,6 +96,16 @@ class SurfaceFacts:
 
         max_bottom_diameter = self.max_bottom_diameter
 
+        min_curvature_diameter: float | None | Unset
+        if isinstance(self.min_curvature_diameter, Unset):
+            min_curvature_diameter = UNSET
+        else:
+            min_curvature_diameter = self.min_curvature_diameter
+
+        min_curvature_diameter_at: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.min_curvature_diameter_at, Unset):
+            min_curvature_diameter_at = self.min_curvature_diameter_at.to_dict()
+
         bullnose_curve: dict[str, Any] | Unset = UNSET
         if not isinstance(self.bullnose_curve, Unset):
             bullnose_curve = self.bullnose_curve.to_dict()
@@ -110,6 +129,10 @@ class SurfaceFacts:
             field_dict["isEdgeBreak"] = is_edge_break
         if max_bottom_diameter is not UNSET:
             field_dict["maxBottomDiameter"] = max_bottom_diameter
+        if min_curvature_diameter is not UNSET:
+            field_dict["minCurvatureDiameter"] = min_curvature_diameter
+        if min_curvature_diameter_at is not UNSET:
+            field_dict["minCurvatureDiameterAt"] = min_curvature_diameter_at
         if bullnose_curve is not UNSET:
             field_dict["bullnoseCurve"] = bullnose_curve
 
@@ -120,6 +143,7 @@ class SurfaceFacts:
         from ..models.bullnose_curve import BullnoseCurve
         from ..models.cd_data import CdData
         from ..models.tool_fit_result import ToolFitResult
+        from ..models.vec_3 import Vec3
 
         d = dict(src_dict)
         kind = cast(Literal["Three"], d.pop("kind"))
@@ -146,6 +170,22 @@ class SurfaceFacts:
 
         max_bottom_diameter = d.pop("maxBottomDiameter", UNSET)
 
+        def _parse_min_curvature_diameter(data: object) -> float | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(float | None | Unset, data)
+
+        min_curvature_diameter = _parse_min_curvature_diameter(d.pop("minCurvatureDiameter", UNSET))
+
+        _min_curvature_diameter_at = d.pop("minCurvatureDiameterAt", UNSET)
+        min_curvature_diameter_at: Vec3 | Unset
+        if isinstance(_min_curvature_diameter_at, Unset):
+            min_curvature_diameter_at = UNSET
+        else:
+            min_curvature_diameter_at = Vec3.from_dict(_min_curvature_diameter_at)
+
         _bullnose_curve = d.pop("bullnoseCurve", UNSET)
         bullnose_curve: BullnoseCurve | Unset
         if isinstance(_bullnose_curve, Unset):
@@ -165,6 +205,8 @@ class SurfaceFacts:
             tool_fit=tool_fit,
             is_edge_break=is_edge_break,
             max_bottom_diameter=max_bottom_diameter,
+            min_curvature_diameter=min_curvature_diameter,
+            min_curvature_diameter_at=min_curvature_diameter_at,
             bullnose_curve=bullnose_curve,
         )
 

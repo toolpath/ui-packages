@@ -126,9 +126,10 @@ def sync_detailed(
 ) -> Response[ProblemDetails | UpdatePartResponse]:
     """Analyze a part
 
-     Queues machining analysis for an uploaded part and returns a job. Track the job, then read the
-    result with **Get a part** (`GET /parts/{id}`). A body may add `directions` to analyze the part from
-    beyond those the directions analysis chose.
+     Queues machining analysis for an uploaded part and returns a job. Wait for the job with **Stream job
+    updates** (`GET /v1/jobs/{id}/events`), then read the result with **Get a part** (`GET
+    /v1/parts/{id}`). A body may add `directions` to analyze the part from beyond those the directions
+    analysis chose.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -170,9 +171,10 @@ def sync(
 ) -> ProblemDetails | UpdatePartResponse | None:
     """Analyze a part
 
-     Queues machining analysis for an uploaded part and returns a job. Track the job, then read the
-    result with **Get a part** (`GET /parts/{id}`). A body may add `directions` to analyze the part from
-    beyond those the directions analysis chose.
+     Queues machining analysis for an uploaded part and returns a job. Wait for the job with **Stream job
+    updates** (`GET /v1/jobs/{id}/events`), then read the result with **Get a part** (`GET
+    /v1/parts/{id}`). A body may add `directions` to analyze the part from beyond those the directions
+    analysis chose.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -209,9 +211,10 @@ async def asyncio_detailed(
 ) -> Response[ProblemDetails | UpdatePartResponse]:
     """Analyze a part
 
-     Queues machining analysis for an uploaded part and returns a job. Track the job, then read the
-    result with **Get a part** (`GET /parts/{id}`). A body may add `directions` to analyze the part from
-    beyond those the directions analysis chose.
+     Queues machining analysis for an uploaded part and returns a job. Wait for the job with **Stream job
+    updates** (`GET /v1/jobs/{id}/events`), then read the result with **Get a part** (`GET
+    /v1/parts/{id}`). A body may add `directions` to analyze the part from beyond those the directions
+    analysis chose.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -251,9 +254,10 @@ async def asyncio(
 ) -> ProblemDetails | UpdatePartResponse | None:
     """Analyze a part
 
-     Queues machining analysis for an uploaded part and returns a job. Track the job, then read the
-    result with **Get a part** (`GET /parts/{id}`). A body may add `directions` to analyze the part from
-    beyond those the directions analysis chose.
+     Queues machining analysis for an uploaded part and returns a job. Wait for the job with **Stream job
+    updates** (`GET /v1/jobs/{id}/events`), then read the result with **Get a part** (`GET
+    /v1/parts/{id}`). A body may add `directions` to analyze the part from beyond those the directions
+    analysis chose.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

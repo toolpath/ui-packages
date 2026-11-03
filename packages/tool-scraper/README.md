@@ -123,8 +123,6 @@ without a note, a date and initials does not compile.
   [`docs/HARVEY_PRODUCT_TABLE.md`](docs/HARVEY_PRODUCT_TABLE.md),
   [`docs/MARITOOL_CATALOG.md`](docs/MARITOOL_CATALOG.md) — how each endpoint or table was
   found, and the dead ends tried first.
-- [`../../docs/TOOL-SCRAPER-PLAN.md`](../../docs/TOOL-SCRAPER-PLAN.md) — the structure, the evidence
-  behind it, and what has landed.
 
 ## Tests
 

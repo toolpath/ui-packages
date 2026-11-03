@@ -3,7 +3,7 @@
  *
  * The document is a SQLite database carrying Mastercam's own 79-table schema —
  * `schema.generated.ts` holds it, pinned from a real library by
- * `pnpm mastercam:adopt`. This module fills it: the reference rows Mastercam
+ * `pnpm schema:mastercam:adopt`. This module fills it: the reference rows Mastercam
  * ships, then a tool's eight rows and a holder's three, then the assemblies
  * that put one in the other.
  *

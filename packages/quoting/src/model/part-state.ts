@@ -13,13 +13,7 @@ import type { PartStage } from './part-stage'
  * written — a job Toolpath forgets fails the plan instead — and reads as a plan to send again.
  */
 export type PartPipeline =
-  | 'analyzing'
-  | 'analysis_failed'
-  | 'sending'
-  | 'planning'
-  | 'plan_failed'
-  | 'ready'
-  | 'gone'
+  'analyzing' | 'analysis_failed' | 'sending' | 'planning' | 'plan_failed' | 'ready' | 'gone'
 
 /** What a new part starts as: its analysis running, or — with no CAD file — nothing to machine. */
 export const initialPipeline = (

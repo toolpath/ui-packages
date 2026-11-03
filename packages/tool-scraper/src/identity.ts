@@ -13,9 +13,8 @@
  * harmless only while two brands share a number space by accident.
  *
  * The preset namespace is deliberately absent. Presets are the conversion
- * half, which stays out of this package (see `docs/TOOL-SCRAPER-PLAN.md`,
- * decision 1), and a constant nothing here reads would be a pinned value with
- * nothing pinning it.
+ * half, which stays out of this package, and a constant nothing here reads
+ * would be a pinned value with nothing pinning it.
  */
 
 import { uuid5, NAMESPACE_URL } from './uuid5.js'

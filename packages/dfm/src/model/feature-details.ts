@@ -10,7 +10,7 @@ import { MM_PER_INCH } from '@toolpath/tool-support'
 import { LENGTH_PLACES, type Units } from './units.js'
 
 /*
- * Taken from the quoting app (quoting-ui `src/plan/feature-details.ts`): the
+ * Taken from the quoting app: the
  * same handful of questions for every feature, answered from whichever
  * datasheet fields its kind uses.
  */

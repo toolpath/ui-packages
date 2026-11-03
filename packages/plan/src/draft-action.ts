@@ -192,8 +192,7 @@ export interface DraftFacts {
  * page chooses: Toolpath's own app opens the nearest folder the open one was in, or the part.
  */
 export type DraftResult<T extends Constraints> =
-  | { draft: T; folderId?: string; facts: DraftFacts }
-  | { refused: string }
+  { draft: T; folderId?: string; facts: DraftFacts } | { refused: string }
 
 const NO_FACTS: DraftFacts = Object.freeze({
   replaced: Object.freeze([]),

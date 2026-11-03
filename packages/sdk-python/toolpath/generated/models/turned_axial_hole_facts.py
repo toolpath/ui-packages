@@ -21,10 +21,11 @@ class TurnedAxialHoleFacts:
     """A hole on the axis.
 
     Attributes:
-        kind (Literal['AxialHole']): Discriminant of the facts union; always `'AxialHole'` here.
+        kind (Literal['AxialHole']): Discriminant of a `TurnedFeatureFacts`; always `'AxialHole'` here.
         through (bool): Whether it runs through the part.
         depth (float): Its extent along the axis, in mm.
         steps (list[HoleStep]): Its cylinders, from the mouth inward.
+        is_through (bool | Unset): Whether it runs through the part.
         bottom (HoleBottom | Unset): Where a blind hole ends.
         thread (HoleThread | Unset): A thread cut in an axial hole.
     """
@@ -33,6 +34,7 @@ class TurnedAxialHoleFacts:
     through: bool
     depth: float
     steps: list[HoleStep]
+    is_through: bool | Unset = UNSET
     bottom: HoleBottom | Unset = UNSET
     thread: HoleThread | Unset = UNSET
 
@@ -47,6 +49,8 @@ class TurnedAxialHoleFacts:
         for steps_item_data in self.steps:
             steps_item = steps_item_data.to_dict()
             steps.append(steps_item)
+
+        is_through = self.is_through
 
         bottom: dict[str, Any] | Unset = UNSET
         if not isinstance(self.bottom, Unset):
@@ -66,6 +70,8 @@ class TurnedAxialHoleFacts:
                 "steps": steps,
             }
         )
+        if is_through is not UNSET:
+            field_dict["isThrough"] = is_through
         if bottom is not UNSET:
             field_dict["bottom"] = bottom
         if thread is not UNSET:
@@ -95,6 +101,8 @@ class TurnedAxialHoleFacts:
 
             steps.append(steps_item)
 
+        is_through = d.pop("isThrough", UNSET)
+
         _bottom = d.pop("bottom", UNSET)
         bottom: HoleBottom | Unset
         if isinstance(_bottom, Unset):
@@ -114,6 +122,7 @@ class TurnedAxialHoleFacts:
             through=through,
             depth=depth,
             steps=steps,
+            is_through=is_through,
             bottom=bottom,
             thread=thread,
         )

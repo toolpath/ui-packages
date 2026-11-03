@@ -2,6 +2,7 @@
 /* eslint-disable */
 export * from './DemoApi.js'
 export * from './FeaturesApi.js'
+export * from './FilesApi.js'
 export * from './JobsApi.js'
 export * from './KeysApi.js'
 export * from './PartsApi.js'

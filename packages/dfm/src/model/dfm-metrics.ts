@@ -27,14 +27,7 @@ export type DfmOp = 'gte' | 'gt' | 'lte' | 'lt' | 'eq' | 'ne' | 'between'
  * size" — nothing at all.
  */
 export type DfmQuantity =
-  | 'length'
-  | 'area'
-  | 'angle'
-  | 'ratio'
-  | 'count'
-  | 'percent'
-  | 'flag'
-  | 'presence'
+  'length' | 'area' | 'angle' | 'ratio' | 'count' | 'percent' | 'flag' | 'presence'
 
 /** A datasheet's `facts.kind`: which family of measurements the Engine took. */
 export type FactsKind =

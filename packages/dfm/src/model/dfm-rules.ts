@@ -18,7 +18,7 @@ export type { DfmMetric, DfmOp, DfmQuantity }
  * DFM rules: what a shop wants called out on a part before it quotes it — a
  * hole deeper than eight times its bore, a corner no cutter can make.
  *
- * Taken from the quoting app (quoting-ui `src/common/dfm-rules.ts`), so a
+ * Taken from the quoting app, so a
  * rule means the same thing in both, cut down to its feature rules: every
  * one is answered from the part's geometry, with no plan to wait for. What
  * a rule can test is `dfm-metrics.ts`: every figure the feature datasheet

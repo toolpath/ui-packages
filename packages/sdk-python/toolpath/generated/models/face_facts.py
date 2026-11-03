@@ -17,7 +17,7 @@ class FaceFacts:
     """A face: a plane square to the tool axis, cleared by sweeping across it.
 
     Attributes:
-        kind (Literal['Face']): Discriminator for this facts variant.
+        kind (Literal['Face']): Discriminant of a `FeatureFacts`; always `'Face'` here.
         is_top_face (bool): The face is the highest surface of the part along the tool axis.
         is_facing (bool): The face is to be faced off: a top face the fixture does not rule out.
         cd (CdData): Clearance-diameter bounds per tolerance regime, plus the flags derived with them.

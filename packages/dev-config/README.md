@@ -149,6 +149,23 @@ file, so the baseline only shrinks. Review changes to `eslint-suppressions.json`
 config: rerunning `--suppress-all` would absorb new findings. Suppressions apply to the ESLint CLI
 only; editors still show suppressed findings.
 
+### The packages' own config
+
+The Toolpath packages lint themselves with a smaller, correctness-only config. It runs on ESLint
+9.39 or 10; `createEslintConfig` above needs ESLint 10.4. The config checks
+duplicate keys and cases, unreachable code, `eqeqeq` (allowing `== null`), `no-var`,
+`prefer-const`, unused names (a `_` prefix opts out), and, in `.tsx` files,
+`react/no-unstable-nested-components` and `react-hooks/exhaustive-deps`. With `forbidStyling`,
+`src/` may not import a stylesheet, `@toolpath/ui`, Phosphor, Base UI, Tailwind, `clsx` or
+`tailwind-merge`, or render a `className` or `style`.
+
+```js
+// eslint.config.js
+import { createPackageEslintConfig } from '@toolpath/dev-config/eslint-package'
+
+export default createPackageEslintConfig({ forbidStyling: true, ignores: ['src/generated/**'] })
+```
+
 ## Prettier
 
 ```js

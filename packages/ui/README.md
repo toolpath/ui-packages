@@ -790,9 +790,12 @@ workspace resolution can hide missing files or dependencies.
 
 Keep usage examples consistent with the public exports. Components and their
 helpers belong here; shared application logic belongs in `@toolpath/app-support`.
-See the repository's [contributor guide](https://github.com/toolpath/ui-packages/blob/main/AGENTS.md)
-for release and validation rules, and the [changelog](https://github.com/toolpath/ui-packages/blob/main/packages/ui/CHANGELOG.md)
+See the [changelog](https://github.com/toolpath/ui-packages/blob/main/packages/ui/CHANGELOG.md)
 for published changes.
+
+This repository is generated from a private monorepo, so it does not take pull
+requests. Bug reports and feature requests are welcome as
+[issues](https://github.com/toolpath/ui-packages/issues).
 
 ## License
 

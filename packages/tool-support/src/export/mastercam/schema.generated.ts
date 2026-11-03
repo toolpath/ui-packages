@@ -1,8 +1,8 @@
 /**
  * Mastercam's schema, as the exporter reads it.
  *
- * **Generated. Do not edit.** `pnpm mastercam:adopt` writes this from
- * `mastercam/digest.json`, and `tests/export-mastercam-schema.test.ts` fails
+ * **Generated. Do not edit.** `pnpm schema:mastercam:adopt` writes this from
+ * `schemas/mastercam/digest.json`, and `tests/export-mastercam-schema.test.ts` fails
  * when the two disagree — so a hand edit here survives until the next test run.
  *
  * Mastercam 28.230, schema version 32.

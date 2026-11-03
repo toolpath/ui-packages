@@ -25,7 +25,7 @@ class DovetailFacts:
     measurement that failed — which is what `cd.measurementFailed` reports.
 
         Attributes:
-            kind (Literal['Dovetail']): Discriminator for this facts variant.
+            kind (Literal['Dovetail']): Discriminant of a `FeatureFacts`; always `'Dovetail'` here.
             taper_deg (float): Between the overhanging wall and the tool axis, degrees, positive however the
                 wall leans.
             fillet_radius (float): Radius of the blend between wall and floor; 0.0 for the sharp kind.

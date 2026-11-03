@@ -2,7 +2,7 @@
  * Writing a Mastercam tool library.
  *
  * The format is a SQLite database — Mastercam's own 79-table schema, pinned in
- * `mastercam/digest.json` by `pnpm mastercam:adopt` and carried into this
+ * `schemas/mastercam/digest.json` by `pnpm schema:mastercam:adopt` and carried into this
  * package by `schema.generated.ts`. What comes back is the bytes of a
  * `.TOOLDB`, not a file: where they go is the caller's.
  *

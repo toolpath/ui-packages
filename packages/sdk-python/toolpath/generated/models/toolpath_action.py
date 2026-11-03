@@ -27,8 +27,9 @@ class ToolpathAction:
             finish, a facing pass, an undercut and a chamfer all read `Finish`.
         tool_name (str): Name of the tool this action uses.
         feature_tags (list[str]): Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from
-            `GET /parts/{id}`). Whole-part roughing names the features its sweep folds in and facing the faces it takes;
-            plans computed before this was recorded list none for either.
+            `GET /v1/parts/{id}`), or, for a feature the plan’s skipped regions trimmed, to the plan’s `trimmedFeatures`.
+            Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before
+            this was recorded list none for either.
         machining_time (float | None): Machining time for this action from the cut toolpath’s programmed feeds (links
             and rapids included, tool change excluded), in seconds, or null when the action was refused.
         cutting_length (float | None): Cutting-motion length of the toolpath in mm, or null when the action was refused.
@@ -40,11 +41,20 @@ class ToolpathAction:
         feed_speed (FeedSpeed | None): What this action runs at — spindle speed, cutting feed and the step depths — or
             null. Null covers two cases the plan’s `kernelVersion` tells apart: the action’s tool has no feeds for the pass,
             or the plan was computed before tp-kernel 0.14.0 and carries none at all.
-        refused_reason (None | str): Why the runner refused to cut this action (`unsupported:`/`geometry:`), or null
-            when it cut.
-        toolpath_url (None | str): 15-minute URL for the toolpath geometry (JSON: `points`, xyz triples in part
-            coordinates, and `segments`), or null when the action was refused, empty, or its geometry is unavailable. A file
-            written before 1.18.0 also carries a `frame`, and its points are in that frame: place them through it.
+        refused_reason (None | str): Why the runner refused to cut this action, or null when it cut. It begins with a
+            code: `refused_pass:` for a pass not cut against the stock as it stands, or past its cutting-time limit;
+            `timed_out:` for a calculation stopped at its time limit; `unsupported:` for a pass nothing can cut yet;
+            `invalid_argument:` for a pass that cannot be cut as given, such as one whose tool has no feeds for it;
+            `internal:` for a fault in the calculation. An action of a plan whose `kernelVersion` is earlier than 0.29.0 may
+            begin `geometry:` instead. Codes may be added in any release.
+        toolpath_url (None | str): 15-minute URL for the toolpath geometry, or null when the action was refused, empty,
+            or its geometry is unavailable. The file is JSON: `points`, xyz triples in part coordinates, and `sections`, the
+            path in order. A section is the points from `start` up to `end` (exclusive), counted in points, not numbers;
+            each after the first starts with a copy of the point before it, and one may be empty. Its `kind` is `Cutting`,
+            `Approach`, `LeadIn`, `ConnectionNotClearanceArea`, `ConnectionClearanceArea`, `LeadOut` or `Retract`; kinds may
+            be added in any release, so read an unknown one as a link. A file written before 1.38.0 has no `sections`.
+            `segments` is deprecated: the same ranges, with every kind but `Cutting`, `LeadIn` and `LeadOut` a `RapidMove`.
+            A file written before 1.18.0 also carries a `frame`, and its points are in that frame: place them through it.
         stock_after_url (None | str): 15-minute URL for the in-process stock after this action (GLB, part coordinates,
             mm). Null for a refused or empty action, or an unavailable artifact. Fall back to the preceding available stock
             mesh in machining order, then initialStockUrl, then the plan’s stock.resolved figure. A plain GLB, like

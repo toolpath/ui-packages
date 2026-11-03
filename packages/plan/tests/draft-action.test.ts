@@ -113,14 +113,12 @@ const samplesOf = (
         { kind, id: folder, to: { parentId: null, index: from.setups.length - 1 }, newId: 'new' },
         ...from.setups
           .flatMap((setup) => [setup, ...setup.folders])
-          .map(
-            (each): DraftAction => ({
-              kind,
-              id: folder,
-              to: { parentId: each.id, index: 0 },
-              newId: 'new',
-            }),
-          ),
+          .map((each): DraftAction => ({
+            kind,
+            id: folder,
+            to: { parentId: each.id, index: 0 },
+            newId: 'new',
+          })),
       ]
     case 'moveWithin':
       return [

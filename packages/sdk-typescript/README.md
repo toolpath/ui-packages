@@ -54,8 +54,7 @@ The generated `client.jobs.streamJobEvents()` is not a substitute: it resolves o
 has closed, with the raw event text.
 
 The SDK exports generated request, response, and API types from the Toolpath OpenAPI contract. See the
-[TypeScript example](../../examples/typescript) and [API documentation](https://developers.toolpath.com)
-for a complete analysis flow.
+[API documentation](https://developers.toolpath.com) for a complete analysis flow.
 
 ## License
 

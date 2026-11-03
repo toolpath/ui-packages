@@ -100,8 +100,9 @@ def sync_detailed(
     """Tessellate a part for display
 
      Queues a job that facets the uploaded CAD file into a display mesh without analyzing it — the fast
-    path for a viewer that only needs to draw the part. Poll the job, then read the mesh at GET
-    /parts/{id}/mesh. Each run replaces the part’s previous display mesh.
+    path for a viewer that only needs to draw the part. Wait for the job with **Stream job updates**
+    (`GET /v1/jobs/{id}/events`), then read the mesh at GET /v1/parts/{id}/mesh. Each run replaces the
+    part’s previous display mesh.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -136,8 +137,9 @@ def sync(
     """Tessellate a part for display
 
      Queues a job that facets the uploaded CAD file into a display mesh without analyzing it — the fast
-    path for a viewer that only needs to draw the part. Poll the job, then read the mesh at GET
-    /parts/{id}/mesh. Each run replaces the part’s previous display mesh.
+    path for a viewer that only needs to draw the part. Wait for the job with **Stream job updates**
+    (`GET /v1/jobs/{id}/events`), then read the mesh at GET /v1/parts/{id}/mesh. Each run replaces the
+    part’s previous display mesh.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -167,8 +169,9 @@ async def asyncio_detailed(
     """Tessellate a part for display
 
      Queues a job that facets the uploaded CAD file into a display mesh without analyzing it — the fast
-    path for a viewer that only needs to draw the part. Poll the job, then read the mesh at GET
-    /parts/{id}/mesh. Each run replaces the part’s previous display mesh.
+    path for a viewer that only needs to draw the part. Wait for the job with **Stream job updates**
+    (`GET /v1/jobs/{id}/events`), then read the mesh at GET /v1/parts/{id}/mesh. Each run replaces the
+    part’s previous display mesh.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -201,8 +204,9 @@ async def asyncio(
     """Tessellate a part for display
 
      Queues a job that facets the uploaded CAD file into a display mesh without analyzing it — the fast
-    path for a viewer that only needs to draw the part. Poll the job, then read the mesh at GET
-    /parts/{id}/mesh. Each run replaces the part’s previous display mesh.
+    path for a viewer that only needs to draw the part. Wait for the job with **Stream job updates**
+    (`GET /v1/jobs/{id}/events`), then read the mesh at GET /v1/parts/{id}/mesh. Each run replaces the
+    part’s previous display mesh.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

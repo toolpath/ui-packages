@@ -7,10 +7,12 @@ const job = (status: string, extra: Record<string, unknown> = {}): string =>
   JSON.stringify({
     partUuid: 'part-1',
     holderUuid: null,
+    fileUuid: null,
     jobUuid: 'job-1',
     productType: 'analyze-part',
     status,
     progress: null,
+    retriesRemaining: null,
     error: null,
     reportId: null,
     importId: null,

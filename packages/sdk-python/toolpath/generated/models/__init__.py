@@ -7,13 +7,20 @@ from .automatic_round_stock_mode import AutomaticRoundStockMode
 from .axial_direction import AxialDirection
 from .axis_source import AxisSource
 from .bevel_facts import BevelFacts
+from .body_stock import BodyStock
+from .body_stock_mode import BodyStockMode
 from .boss_facts import BossFacts
 from .bullnose_curve import BullnoseCurve
 from .cd_bounds import CdBounds
 from .cd_data import CdData
 from .chamfer_curve import ChamferCurve
 from .chamfer_facts import ChamferFacts
+from .circular_wall_facts import CircularWallFacts
 from .cone import Cone
+from .create_file_parts_request import CreateFilePartsRequest
+from .create_file_parts_response import CreateFilePartsResponse
+from .create_file_parts_response_parts_item import CreateFilePartsResponsePartsItem
+from .create_file_response import CreateFileResponse
 from .create_holder_response import CreateHolderResponse
 from .create_part_response import CreatePartResponse
 from .demo_session_request import DemoSessionRequest
@@ -27,6 +34,11 @@ from .face_facts import FaceFacts
 from .feature_datasheet import FeatureDatasheet
 from .feature_type import FeatureType
 from .feed_speed import FeedSpeed
+from .file_body import FileBody
+from .file_body_bounding_box import FileBodyBoundingBox
+from .file_mesh_response import FileMeshResponse
+from .file_response import FileResponse
+from .file_shape import FileShape
 from .fixed_box_stock import FixedBoxStock
 from .fixed_box_stock_dimensions import FixedBoxStockDimensions
 from .fixed_box_stock_mode import FixedBoxStockMode
@@ -52,6 +64,8 @@ from .hole_process import HoleProcess
 from .hole_step import HoleStep
 from .hole_thread import HoleThread
 from .job_detail import JobDetail
+from .job_detail_bodies_item import JobDetailBodiesItem
+from .job_detail_bodies_item_bounding_box import JobDetailBodiesItemBoundingBox
 from .job_detail_status import JobDetailStatus
 from .job_summary import JobSummary
 from .job_summary_status import JobSummaryStatus
@@ -133,7 +147,10 @@ from .plan_action import PlanAction
 from .plan_action_intent import PlanActionIntent
 from .plan_action_tool_type_0 import PlanActionToolType0
 from .plan_issue import PlanIssue
+from .plan_issue_feature import PlanIssueFeature
 from .plan_issue_kind import PlanIssueKind
+from .plan_issue_summary import PlanIssueSummary
+from .plan_issue_summary_kind import PlanIssueSummaryKind
 from .plan_list_response import PlanListResponse
 from .plan_response import PlanResponse
 from .plan_response_done_regions_type_0 import PlanResponseDoneRegionsType0
@@ -233,6 +250,8 @@ from .report_units_angle import ReportUnitsAngle
 from .report_units_length import ReportUnitsLength
 from .sink_facts import SinkFacts
 from .slope_span import SlopeSpan
+from .stock_body import StockBody
+from .stock_body_shape import StockBodyShape
 from .stock_box import StockBox
 from .stock_box_frame import StockBoxFrame
 from .stock_box_shape import StockBoxShape
@@ -242,6 +261,7 @@ from .surface_areas import SurfaceAreas
 from .surface_facts import SurfaceFacts
 from .thread_handedness import ThreadHandedness
 from .thread_process import ThreadProcess
+from .thread_side import ThreadSide
 from .thread_spec import ThreadSpec
 from .threading import Threading
 from .tolerance_band import ToleranceBand
@@ -250,6 +270,7 @@ from .toolpath_action import ToolpathAction
 from .toolpath_action_intent import ToolpathActionIntent
 from .toolpath_setup import ToolpathSetup
 from .toolpaths_response import ToolpathsResponse
+from .trimmed_feature import TrimmedFeature
 from .tslot_facts import TslotFacts
 from .turned_axial_hole_facts import TurnedAxialHoleFacts
 from .turned_face_facts import TurnedFaceFacts
@@ -273,6 +294,8 @@ from .turning_spin_failed import TurningSpinFailed
 from .turning_spin_failed_kind import TurningSpinFailedKind
 from .turning_turned import TurningTurned
 from .turning_turned_kind import TurningTurnedKind
+from .update_file_response import UpdateFileResponse
+from .update_file_response_status import UpdateFileResponseStatus
 from .update_holder_fill_bays import UpdateHolderFillBays
 from .update_holder_flipped import UpdateHolderFlipped
 from .update_holder_response import UpdateHolderResponse
@@ -297,13 +320,20 @@ __all__ = (
     "AxialDirection",
     "AxisSource",
     "BevelFacts",
+    "BodyStock",
+    "BodyStockMode",
     "BossFacts",
     "BullnoseCurve",
     "CdBounds",
     "CdData",
     "ChamferCurve",
     "ChamferFacts",
+    "CircularWallFacts",
     "Cone",
+    "CreateFilePartsRequest",
+    "CreateFilePartsResponse",
+    "CreateFilePartsResponsePartsItem",
+    "CreateFileResponse",
     "CreateHolderResponse",
     "CreatePartResponse",
     "DemoSessionRequest",
@@ -317,6 +347,11 @@ __all__ = (
     "FeatureDatasheet",
     "FeatureType",
     "FeedSpeed",
+    "FileBody",
+    "FileBodyBoundingBox",
+    "FileMeshResponse",
+    "FileResponse",
+    "FileShape",
     "FixedBoxStock",
     "FixedBoxStockDimensions",
     "FixedBoxStockMode",
@@ -342,6 +377,8 @@ __all__ = (
     "HoleStep",
     "HoleThread",
     "JobDetail",
+    "JobDetailBodiesItem",
+    "JobDetailBodiesItemBoundingBox",
     "JobDetailStatus",
     "JobSummary",
     "JobSummaryStatus",
@@ -415,7 +452,10 @@ __all__ = (
     "PlanActionIntent",
     "PlanActionToolType0",
     "PlanIssue",
+    "PlanIssueFeature",
     "PlanIssueKind",
+    "PlanIssueSummary",
+    "PlanIssueSummaryKind",
     "PlanListResponse",
     "PlanResponse",
     "PlanResponseDoneRegionsType0",
@@ -481,6 +521,8 @@ __all__ = (
     "ReportUnitsLength",
     "SinkFacts",
     "SlopeSpan",
+    "StockBody",
+    "StockBodyShape",
     "StockBox",
     "StockBoxFrame",
     "StockBoxShape",
@@ -491,6 +533,7 @@ __all__ = (
     "ThreadHandedness",
     "Threading",
     "ThreadProcess",
+    "ThreadSide",
     "ThreadSpec",
     "ToleranceBand",
     "ToolFitResult",
@@ -498,6 +541,7 @@ __all__ = (
     "ToolpathActionIntent",
     "ToolpathSetup",
     "ToolpathsResponse",
+    "TrimmedFeature",
     "TslotFacts",
     "TurnedAxialHoleFacts",
     "TurnedFaceFacts",
@@ -521,6 +565,8 @@ __all__ = (
     "TurningSpinFailedKind",
     "TurningTurned",
     "TurningTurnedKind",
+    "UpdateFileResponse",
+    "UpdateFileResponseStatus",
     "UpdateHolderFillBays",
     "UpdateHolderFlipped",
     "UpdateHolderResponse",

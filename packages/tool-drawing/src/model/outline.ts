@@ -33,14 +33,7 @@ import type {
  */
 
 export type OutlinePart =
-  | 'tip'
-  | 'flutes'
-  | 'neck'
-  | 'shank'
-  | 'collet'
-  | 'nose'
-  | 'body'
-  | 'flange'
+  'tip' | 'flutes' | 'neck' | 'shank' | 'collet' | 'nose' | 'body' | 'flange'
 
 /** Radius out from the axis and height above the tip, both in millimetres. */
 export interface OutlinePoint {

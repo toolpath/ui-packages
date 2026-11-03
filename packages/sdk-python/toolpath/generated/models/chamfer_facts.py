@@ -20,7 +20,7 @@ class ChamferFacts:
     answers to is settled by the tool's own shape.
 
         Attributes:
-            kind (Literal['Chamfer']): Discriminator for this facts variant.
+            kind (Literal['Chamfer']): Discriminant of a `FeatureFacts`; always `'Chamfer'` here.
             bevel (BevelFacts): The bevel half of a chamfer: how it leans, how far it runs, and where its surroundings
                 let a cone ride it.
             three (SurfaceFacts): A three-dimensional surface a tool has to follow rather than sweep; also the surface

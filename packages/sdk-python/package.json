@@ -1,0 +1,18 @@
+{
+  "name": "@toolpath/sdk-python",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Workspace tasks for the toolpath Python SDK, which is not an npm package",
+  "type": "module",
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "lint": "uvx --from ruff==0.16.2 ruff check --ignore UP042 .",
+    "package": "uv build --wheel --out-dir dist --no-create-gitignore .",
+    "test": "uvx --from pytest==9.1.1 --with-editable . pytest tests && node scripts/verify-provenance.mjs",
+    "test:ci": "pnpm run test",
+    "version:sync": "node scripts/sync-version.mjs"
+  },
+  "devDependencies": {
+    "@toolpath/api": "workspace:*"
+  }
+}

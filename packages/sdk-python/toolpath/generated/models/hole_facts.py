@@ -21,7 +21,7 @@ class HoleFacts:
     """A hole's facts.
 
     Attributes:
-        kind (Literal['Hole']): Discriminator for this facts variant.
+        kind (Literal['Hole']): Discriminant of a `FeatureFacts`; always `'Hole'` here.
         diameter (float): What the hole is actually drilled to — narrower than modeled for a threaded
             hole.
         full_cone_deg (float): Full apex angle of the cone at the hole bottom, degrees; 180 for a flat bottom.
@@ -35,7 +35,7 @@ class HoleFacts:
         max_spot_diameter (float | None): Deprecated: the largest spot-drill diameter that reaches the hole without
             collision. Nothing ever computed it, so it has always read `null`, and tp-kernel 0.16.0 removed it. Removed in
             the next API major.
-        threading (Threading | Unset): A thread a hole is to receive, and how it is to be cut.
+        threading (Threading | Unset): A thread a hole or stud is to receive, and how it is to be cut.
         min_drill_diameter (float | Unset): Smallest drill diameter that leaves the hole within its permitted undersize,
             in mm.
     """
