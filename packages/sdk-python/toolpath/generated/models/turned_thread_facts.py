@@ -19,15 +19,18 @@ class TurnedThreadFacts:
     """A thread.
 
     Attributes:
-        kind (Literal['IdThread'] | Literal['OdThread']): Discriminant of the facts union: the feature's type.
-        pitch (float): In mm.
-        depth (float): Thread depth, in mm.
-        thread_spec (ThreadSpec | Unset): The thread a hole is to receive.
+        kind (Literal['IdThread'] | Literal['OdThread']): Discriminant of a `TurnedFeatureFacts`: the feature's type.
+        pitch (float): In mm: the spec's pitch.
+        depth (float): Thread depth, in mm: from the wall, as drawn, to the spec's root, its largest minor
+            diameter (in a hole, its smallest major).
+        thread_spec (ThreadSpec | Unset): The thread a hole or stud is to receive: a thread class's limits, read on its
+            side.
 
             Every diameter, the pitch and `threadPercentage` are finite and positive,
-            `threadPercentage` at most 100, `minMinorDiameter` no more than `maxMinorDiameter`, and
-            `minMajorDiameter` above `minMinorDiameter`; the two angles keep the ranges their fields
-            state.
+            `threadPercentage` at most 100, each minimum no more than its maximum, and the form deeper
+            than nothing — `minMajorDiameter` above `minMinorDiameter` for an internal thread,
+            `maxMajorDiameter` above `maxMinorDiameter` for an external one; the two angles keep the
+            ranges their fields state.
     """
 
     kind: Literal["IdThread"] | Literal["OdThread"]

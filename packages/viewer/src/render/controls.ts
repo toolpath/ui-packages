@@ -74,7 +74,7 @@ const DEFAULT_SMOOTH_TIME = 0.001
  * `restThreshold` at 0.005 rather than the library's 0.01. The reason it was
  * first written down — that the `rest` event fired while the tail of a zoom was
  * still visibly moving — is not the reason it earns its place here: nothing in
- * this package or in `examples/react-viewer` listens for `rest`. What it
+ * this package listens for `rest`. What it
  * actually governs is two things, both of which the viewer does use.
  *
  * `update()` compares it against the remaining deltas to decide the view has

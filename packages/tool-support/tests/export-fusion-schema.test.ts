@@ -4,18 +4,18 @@
  *
  * `src/export/fusion/schema.ts` states what each tool type requires and
  * permits, compressed into a shared core plus a per-type delta so a reader can
- * check it. `fusion/digest.json` is the same information reduced mechanically
+ * check it. `schemas/fusion/digest.json` is the same information reduced mechanically
  * from the 2.6 MB schema Autodesk publishes. This asserts they agree.
  *
  * **It is the last link in a chain that starts outside this repository.**
  * Autodesk moves the schema without announcement — it moved between February
  * and September 2026. `.github/workflows/fusion-schema.yml` notices weekly and
- * fails; `pnpm fusion:adopt -- --fetch` moves `fusion/digest.json`; and then
+ * fails; `pnpm schema:fusion:adopt -- --fetch` moves `schemas/fusion/digest.json`; and then
  * this fails, because the table the exporter actually reads no longer matches.
  * Without this test an adopt would be a quiet file change and the exporter
  * would go on writing yesterday's rules.
  *
- * The digest is read from the repository root rather than imported, because
+ * The digest is read from `schemas/` rather than imported, because
  * `src/` may not reach outside the package — `boundary.test.ts` is the rule —
  * and a test may.
  */
@@ -42,7 +42,7 @@ import {
   fusionType,
 } from '../src/export/fusion/schema.js'
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 interface DigestEntry {
   readonly recordRequired: readonly string[]
@@ -57,7 +57,7 @@ interface DigestEntry {
   readonly variants?: readonly DigestEntry[]
 }
 
-const digest = JSON.parse(readFileSync(join(ROOT, 'fusion/digest.json'), 'utf8')) as {
+const digest = JSON.parse(readFileSync(join(ROOT, 'schemas/fusion/digest.json'), 'utf8')) as {
   source: { sha256: string; url: string }
   library: { required: string[]; version: { minimum: number } }
   entry: { required: string[] }

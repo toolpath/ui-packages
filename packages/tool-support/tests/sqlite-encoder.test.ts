@@ -289,9 +289,9 @@ describe('a database SQLite agrees with', () => {
 })
 
 describe('the pinned Mastercam schema', () => {
-  const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+  const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
   const digest = JSON.parse(
-    readFileSync(join(repositoryRoot, 'mastercam', 'digest.json'), 'utf8'),
+    readFileSync(join(packageRoot, 'schemas', 'mastercam', 'digest.json'), 'utf8'),
   ) as {
     tables: Record<
       string,

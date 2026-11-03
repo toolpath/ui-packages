@@ -99,8 +99,8 @@ def sync_detailed(
     """Get toolpaths
 
      Returns the calculated toolpaths for a plan, with geometry download URLs. Requires **Calculate
-    toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST
-    /plans/{planId}/toolpaths`) to have run and its job to have succeeded.
+    toolpaths** (`POST /v1/parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST
+    /v1/plans/{planId}/toolpaths`) to have run and its job to have succeeded.
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -135,8 +135,8 @@ def sync(
     """Get toolpaths
 
      Returns the calculated toolpaths for a plan, with geometry download URLs. Requires **Calculate
-    toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST
-    /plans/{planId}/toolpaths`) to have run and its job to have succeeded.
+    toolpaths** (`POST /v1/parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST
+    /v1/plans/{planId}/toolpaths`) to have run and its job to have succeeded.
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -166,8 +166,8 @@ async def asyncio_detailed(
     """Get toolpaths
 
      Returns the calculated toolpaths for a plan, with geometry download URLs. Requires **Calculate
-    toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST
-    /plans/{planId}/toolpaths`) to have run and its job to have succeeded.
+    toolpaths** (`POST /v1/parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST
+    /v1/plans/{planId}/toolpaths`) to have run and its job to have succeeded.
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -200,8 +200,8 @@ async def asyncio(
     """Get toolpaths
 
      Returns the calculated toolpaths for a plan, with geometry download URLs. Requires **Calculate
-    toolpaths** (`POST /parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST
-    /plans/{planId}/toolpaths`) to have run and its job to have succeeded.
+    toolpaths** (`POST /v1/parts/{id}/toolpaths`) or **Recalculate toolpaths** (`POST
+    /v1/plans/{planId}/toolpaths`) to have run and its job to have succeeded.
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.

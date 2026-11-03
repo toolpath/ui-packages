@@ -1,0 +1,4 @@
+# Scraped vendor catalogs. The scraper's output is the vendor's data and a working
+# file, not source: what this repository holds is the scraper, never a scrape.
+# `TOOLPATH_SCRAPE_ROOT` moves it elsewhere; this covers the default.
+scrape-out/

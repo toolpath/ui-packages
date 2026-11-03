@@ -25,6 +25,10 @@
       "types": "./dist/eslint.d.ts",
       "default": "./dist/eslint.js"
     },
+    "./eslint-package": {
+      "types": "./dist/eslint-package.d.ts",
+      "default": "./dist/eslint-package.js"
+    },
     "./prettier": {
       "types": "./dist/prettier.d.ts",
       "default": "./dist/prettier.js"
@@ -47,7 +51,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "check-types": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "eslint . --max-warnings=0",
+    "test:ci": "pnpm run test"
   },
   "dependencies": {
     "@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
@@ -57,6 +63,7 @@
     "eslint-import-resolver-typescript": "4.4.5",
     "eslint-plugin-import-x": "4.17.1",
     "eslint-plugin-jsx-a11y-x": "0.2.0",
+    "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-regexp": "3.3.1",
     "eslint-plugin-unicorn": "79.0.0",
@@ -66,7 +73,7 @@
   "peerDependencies": {
     "@babel/core": "^7.24.0 || ^8.0.0",
     "babel-plugin-react-compiler": "^1.0.0",
-    "eslint": "^10.4.0",
+    "eslint": "^9.39.0 || ^10.4.0",
     "prettier": "^3.0.0",
     "typescript": "^6.0.0"
   },

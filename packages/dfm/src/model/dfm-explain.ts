@@ -3,7 +3,7 @@ import type { DfmHit } from './dfm-flags.js'
 import type { Units } from './units.js'
 
 /*
- * Taken from the quoting app (quoting-ui `src/estimate/dfm/dfm-explain.ts`),
+ * Taken from the quoting app,
  * cut down to the few words a feature's rule rows say.
  */
 

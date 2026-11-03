@@ -1291,31 +1291,26 @@ not add exports to a published package.
 
 ## Working on this package
 
-The [React viewer example](https://github.com/toolpath/ui-packages/tree/main/examples/react-viewer)
-loads procedural parts without credentials. It also opens local report/mesh files;
-its [README](https://github.com/toolpath/ui-packages/blob/main/examples/react-viewer/README.md)
-describes the controls and browser tests.
-
 From the repository root with its pinned toolchain:
 
 ```sh
 pnpm --filter @toolpath/viewer build
 pnpm --filter @toolpath/viewer check-types
 pnpm --filter @toolpath/viewer test
-pnpm --filter @toolpath/example-react-viewer... build
-pnpm --filter @toolpath/example-react-viewer test
 ```
 
-The example imports built packages. `build:watch` on `@toolpath/viewer` refreshes
-that output during development. Browser tests need Chromium installed. When
+`build:watch` refreshes the built output during development. When
 changing exports/assets, pack the viewer and test that artifact in a clean consumer;
 check both JS entries, declarations, toolbar CSS, and the bundled banana asset.
 Fixture URLs are redacted test data, not working download links. Keep retained
 fixtures unchanged and use a fixture copy when adapting URLs for a local test.
 
-See the [contributor guide](https://github.com/toolpath/ui-packages/blob/main/AGENTS.md)
-and [changelog](https://github.com/toolpath/ui-packages/blob/main/packages/viewer/CHANGELOG.md)
-for repo workflows and published changes.
+See the [changelog](https://github.com/toolpath/ui-packages/blob/main/packages/viewer/CHANGELOG.md)
+for published changes.
+
+This repository is generated from a private monorepo, so it does not take pull
+requests. Bug reports and feature requests are welcome as
+[issues](https://github.com/toolpath/ui-packages/issues).
 
 ## License
 

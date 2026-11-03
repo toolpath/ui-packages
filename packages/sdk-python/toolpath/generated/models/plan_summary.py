@@ -12,7 +12,7 @@ from ..models.plan_summary_level import PlanSummaryLevel
 from ..models.plan_summary_material import PlanSummaryMaterial
 
 if TYPE_CHECKING:
-    from ..models.plan_issue import PlanIssue
+    from ..models.plan_issue_summary import PlanIssueSummary
 
 
 T = TypeVar("T", bound="PlanSummary")
@@ -29,7 +29,8 @@ class PlanSummary:
             every machining time here — are the kernel’s for it. `Aluminum` on plans made before it was recorded.
         level (PlanSummaryLevel): Fidelity of this plan: `planned` (setups and action-specs only) or `toolpathed`
             (toolpaths also calculated). See PlanResponse.level for when a plan is readable at `planned`.
-        issues (list[PlanIssue]): The plan’s coverage shortfalls (see PlanResponse.issues). Empty when it covers all.
+        issues (list[PlanIssueSummary]): The plan’s coverage shortfalls (see PlanResponse.issues). Empty when it covers
+            all.
         created_at (datetime.datetime): When this plan was created (ISO 8601).
     """
 
@@ -38,7 +39,7 @@ class PlanSummary:
     kernel_version: str
     material: PlanSummaryMaterial
     level: PlanSummaryLevel
-    issues: list[PlanIssue]
+    issues: list[PlanIssueSummary]
     created_at: datetime.datetime
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -78,7 +79,7 @@ class PlanSummary:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.plan_issue import PlanIssue
+        from ..models.plan_issue_summary import PlanIssueSummary
 
         d = dict(src_dict)
         plan_id = UUID(d.pop("planId"))
@@ -94,7 +95,7 @@ class PlanSummary:
         issues = []
         _issues = d.pop("issues")
         for issues_item_data in _issues:
-            issues_item = PlanIssue.from_dict(issues_item_data)
+            issues_item = PlanIssueSummary.from_dict(issues_item_data)
 
             issues.append(issues_item)
 

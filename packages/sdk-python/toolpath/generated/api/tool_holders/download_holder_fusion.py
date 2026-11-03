@@ -136,7 +136,7 @@ def sync_detailed(
 ) -> Response[ProblemDetails | str]:
     """Download a holder (Fusion)
 
-     Requires **Import a tool holder** (`PATCH /holders/{id}`) to have run and its job to have
+     Requires **Import a tool holder** (`PATCH /v1/holders/{id}`) to have run and its job to have
     succeeded.
 
     Returns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,
@@ -212,7 +212,7 @@ def sync(
 ) -> ProblemDetails | str | None:
     """Download a holder (Fusion)
 
-     Requires **Import a tool holder** (`PATCH /holders/{id}`) to have run and its job to have
+     Requires **Import a tool holder** (`PATCH /v1/holders/{id}`) to have run and its job to have
     succeeded.
 
     Returns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,
@@ -283,7 +283,7 @@ async def asyncio_detailed(
 ) -> Response[ProblemDetails | str]:
     """Download a holder (Fusion)
 
-     Requires **Import a tool holder** (`PATCH /holders/{id}`) to have run and its job to have
+     Requires **Import a tool holder** (`PATCH /v1/holders/{id}`) to have run and its job to have
     succeeded.
 
     Returns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,
@@ -357,7 +357,7 @@ async def asyncio(
 ) -> ProblemDetails | str | None:
     """Download a holder (Fusion)
 
-     Requires **Import a tool holder** (`PATCH /holders/{id}`) to have run and its job to have
+     Requires **Import a tool holder** (`PATCH /v1/holders/{id}`) to have run and its job to have
     succeeded.
 
     Returns the derived holder as Autodesk Fusion writes one: millimetres, segments nose-first,

@@ -7,8 +7,8 @@
  * The rules live in a 2.6 MB JSON Schema Autodesk publishes and moves without
  * announcement — it changed between February and September 2026. The exporter
  * needs them at runtime, so they are here; the whole document is too large to
- * vendor, so `fusion/digest.json` holds a mechanically derived reduction of
- * it, `pnpm fusion:check-upstream` asks Autodesk weekly whether the original
+ * vendor, so `schemas/fusion/digest.json` holds a mechanically derived reduction of
+ * it, `pnpm schema:fusion:check-upstream` asks Autodesk weekly whether the original
  * has moved, and `tests/export-fusion-schema.test.ts` asserts that everything
  * below still resolves to exactly what the digest says.
  *
@@ -532,7 +532,7 @@ const rules = Object.fromEntries([
  * Every type this package writes, and what the schema demands of it.
  *
  * Resolved from the compressed table above, and asserted against
- * `fusion/digest.json` — so reading this is reading Autodesk's own rules, not
+ * `schemas/fusion/digest.json` — so reading this is reading Autodesk's own rules, not
  * somebody's recollection of them.
  */
 export const FUSION_TYPES: Readonly<Record<FusionType, FusionTypeRules>> = rules

@@ -4,7 +4,7 @@
  * The format is one JSON document — `{ version, data }` — holding tools with
  * their holders embedded, and standalone holders beside them. What each type
  * requires is Autodesk's published schema, reduced into `schema.ts` and held
- * against the original by `pnpm fusion:check-upstream` and
+ * against the original by `pnpm schema:fusion:check-upstream` and
  * `tests/export-fusion-schema.test.ts`.
  *
  * ```ts

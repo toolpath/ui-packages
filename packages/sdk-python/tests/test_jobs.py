@@ -23,10 +23,12 @@ def job(status: str, **extra: Any) -> str:
         {
             "partUuid": None,
             "holderUuid": None,
+            "fileUuid": None,
             "jobUuid": JOB_ID,
             "productType": "analyze-part",
             "status": status,
             "progress": None,
+            "retriesRemaining": None,
             "error": None,
             "reportId": None,
             "importId": None,

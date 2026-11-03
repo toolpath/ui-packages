@@ -20,7 +20,7 @@ class WallFacts:
     """A wall: a run of surface parallel to the tool axis, with no floor of its own.
 
     Attributes:
-        kind (Literal['Wall']): Discriminator for this facts variant.
+        kind (Literal['Wall']): Discriminant of a `FeatureFacts`; always `'Wall'` here.
         cd (CdData): Clearance-diameter bounds per tolerance regime, plus the flags derived with them.
         wall_length (OffsetLength | Unset): An outline a pass follows, measured so that any tool's path length can be
             read off it.

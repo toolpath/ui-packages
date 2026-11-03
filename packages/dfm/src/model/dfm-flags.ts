@@ -11,7 +11,7 @@ import type { FeatureSheet, FeatureSheets } from './feature-sheet.js'
 import { featureLd, isDrilled, partTop, type DfmFeature } from './geometry.js'
 
 /*
- * Taken from the quoting app (quoting-ui `src/plan/dfm-flags.ts`), cut down
+ * Taken from the quoting app, cut down
  * to its feature checks, which read the features' datasheets and nothing
  * from a plan — and widened to every figure a datasheet reports
  * (`dfm-metrics.ts`), read from the datasheet as the API sent it.
@@ -411,9 +411,10 @@ const unavoidableFaces = (
     if (pool.some(({ color }) => color === undefined)) continue
     const contour = colored
       .filter(isContour)
-      .reduce<
-        (typeof colored)[number] | undefined
-      >((kept, each) => (kept === undefined || each.area > kept.area ? each : kept), undefined)
+      .reduce<(typeof colored)[number] | undefined>(
+        (kept, each) => (kept === undefined || each.area > kept.area ? each : kept),
+        undefined,
+      )
     // Every reading breaks a rule, the contour's too: the surface is painted whole.
     if (contour?.color && colored.every(({ color }) => color !== undefined)) {
       whole.set(contour.feature.tag.toLowerCase(), {

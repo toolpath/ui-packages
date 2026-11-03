@@ -20,10 +20,13 @@ class PartJobRequestSetupPlanType0:
     as served (a unit vector), and a feature is named under its own direction. The plan made keeps these setups first,
     in this order, each holding at least the features named (and every other offered feature of its direction), and
     appends setups where the part needs more. A plan read serves its own `setupPlan`, which can be edited and sent back.
-    Tags are stable only within one `kernelVersion`, and a feature named has to be offered: one no tool in the crib cuts
-    is not. A statement the kernel cannot honor fails the job, whose `error` begins `refused_user_plan:` and gives one
-    clause per refused statement. Omit or null for the kernel’s own plan; on **Calculate a plan’s toolpaths**, omit to
-    keep the plan’s statement and null to clear it.
+    Tags are stable only within one `kernelVersion`. A feature named is machined where it is named whatever it needs:
+    one no tool in the crib cuts is planned all the same, its passes left `unmachined`. It also keeps its regions from
+    every other feature, in every direction: a feature that shares one is planned as what is left of it, under a tag of
+    its own that the plan’s `trimmedFeatures` describes, and the plan’s `setupPlan` may name that tag in turn. A
+    statement the kernel cannot honor fails the job, whose `error` begins `refused_user_plan:` and gives one clause per
+    refused statement. Omit or null for the kernel’s own plan; on **Calculate a plan’s toolpaths**, omit to keep the
+    plan’s statement and null to clear it.
 
         Example:
             {'setups': [{'orientations': [{'direction': {'x': 0, 'y': 0, 'z': 1}, 'features': ['1f3a09c2']}]},

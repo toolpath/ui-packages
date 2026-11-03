@@ -1,15 +1,15 @@
 /**
  * The generated schema and the pinned digest are the same thing.
  *
- * `mastercam/digest.json` is what a maintainer reviews when Mastercam's schema
+ * `schemas/mastercam/digest.json` is what a maintainer reviews when Mastercam's schema
  * moves; `src/export/mastercam/schema.generated.ts` is what the exporter loads,
  * because the package imports no `fs` and cannot read the digest at runtime.
  * Two copies of a third-party document is exactly the arrangement this
  * repository is organised against, so this is the check that they cannot drift:
- * `pnpm mastercam:adopt` writes both, and a hand edit to either fails here.
+ * `pnpm schema:mastercam:adopt` writes both, and a hand edit to either fails here.
  *
  * It is the same standing `tests/export-fusion-schema.test.ts` has against
- * `fusion/digest.json`.
+ * `schemas/fusion/digest.json`.
  */
 
 import { readFileSync } from 'node:fs'
@@ -50,9 +50,9 @@ interface Digest {
   readonly seed: Record<string, readonly Record<string, unknown>[]>
 }
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const digest = JSON.parse(
-  readFileSync(join(repositoryRoot, 'mastercam', 'digest.json'), 'utf8'),
+  readFileSync(join(packageRoot, 'schemas', 'mastercam', 'digest.json'), 'utf8'),
 ) as Digest
 
 describe('the generated schema matches the pinned digest', () => {

@@ -14,10 +14,10 @@ pip install https://github.com/toolpath/ui-packages/releases/download/python-sdk
 
 Its version matches the `@toolpath/api` TypeScript SDK built from the same API contract. See the
 [releases](https://github.com/toolpath/ui-packages/releases) for the newest `python-sdk-v` tag.
+The repository is public, so the download needs no sign-in. The SDK is not on PyPI.
 
 Create an API key in the [Toolpath portal](https://portal.toolpath.com/api-keys). See the
-[Python example](../../examples/python) and [API documentation](https://developers.toolpath.com) for a
-complete part-analysis flow.
+[API documentation](https://developers.toolpath.com) for a complete part-analysis flow.
 
 ## Waiting for a job
 
@@ -54,6 +54,23 @@ from toolpath import WaitForJobReconnect
 
 job = await wait_for_job(client, job_id, reconnect=WaitForJobReconnect(give_up_after=600))
 ```
+
+## Releases
+
+The wheel carries `@toolpath/api`'s version. Versions are set in the private monorepo the
+`packages/` directory here is mirrored from, and each release reaches this repository as a
+`release-<name>` tag. After every release run, `scripts/check-python-sdk-release.mjs` looks for the
+`python-sdk-v<version>` release. When it is missing, the `python-sdk-release` job in
+`.github/workflows/release.yml` builds the wheel from the commit that run released, installs it in
+a clean environment, and creates the release with the wheel attached. So a release ships both
+SDKs, and re-running "Release public packages" for a release tag creates a Python release that is
+missing. There is no setup and no token beyond the workflow's own.
+
+If a release fails, re-run the failed `python-sdk-release` job. The job skips a release that
+already exists. If the job stopped while uploading, a draft
+release may be left behind; delete it (`gh release delete python-sdk-v<version> --yes`) before the
+re-run. Do not replace the wheel on an existing release: anyone who installed that version expects
+the same file.
 
 ## License
 

@@ -92,9 +92,9 @@ def sync_detailed(
 ) -> Response[JobDetail | ProblemDetails]:
     """Get a job
 
-     Returns one processing job. After any pipeline step that queues work, poll this (or **Stream job
-    updates**, `GET /jobs/{id}/events`) until the status is `succeeded`, then read the result from the
-    matching Get endpoint.
+     Returns one processing job as it is now. To wait for a job to finish, use **Stream job updates**
+    (`GET /v1/jobs/{id}/events`) instead of calling this repeatedly: the stream sends this same object
+    on every change and closes once the status is `succeeded` or `failed`.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -125,9 +125,9 @@ def sync(
 ) -> JobDetail | ProblemDetails | None:
     """Get a job
 
-     Returns one processing job. After any pipeline step that queues work, poll this (or **Stream job
-    updates**, `GET /jobs/{id}/events`) until the status is `succeeded`, then read the result from the
-    matching Get endpoint.
+     Returns one processing job as it is now. To wait for a job to finish, use **Stream job updates**
+    (`GET /v1/jobs/{id}/events`) instead of calling this repeatedly: the stream sends this same object
+    on every change and closes once the status is `succeeded` or `failed`.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -153,9 +153,9 @@ async def asyncio_detailed(
 ) -> Response[JobDetail | ProblemDetails]:
     """Get a job
 
-     Returns one processing job. After any pipeline step that queues work, poll this (or **Stream job
-    updates**, `GET /jobs/{id}/events`) until the status is `succeeded`, then read the result from the
-    matching Get endpoint.
+     Returns one processing job as it is now. To wait for a job to finish, use **Stream job updates**
+    (`GET /v1/jobs/{id}/events`) instead of calling this repeatedly: the stream sends this same object
+    on every change and closes once the status is `succeeded` or `failed`.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
@@ -184,9 +184,9 @@ async def asyncio(
 ) -> JobDetail | ProblemDetails | None:
     """Get a job
 
-     Returns one processing job. After any pipeline step that queues work, poll this (or **Stream job
-    updates**, `GET /jobs/{id}/events`) until the status is `succeeded`, then read the result from the
-    matching Get endpoint.
+     Returns one processing job as it is now. To wait for a job to finish, use **Stream job updates**
+    (`GET /v1/jobs/{id}/events`) instead of calling this repeatedly: the stream sends this same object
+    on every change and closes once the status is `succeeded` or `failed`.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.

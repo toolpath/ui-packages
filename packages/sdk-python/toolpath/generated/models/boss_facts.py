@@ -20,7 +20,7 @@ class BossFacts:
     """A boss: a pocket turned inside out — material with void around it.
 
     Attributes:
-        kind (Literal['Boss']): Discriminator for this facts variant.
+        kind (Literal['Boss']): Discriminant of a `FeatureFacts`; always `'Boss'` here.
         cd (CdData): Clearance-diameter bounds per tolerance regime, plus the flags derived with them.
         fillet_radius (float): Radius of the floor blend, in mm; zero when sharp.
         fillet_height (float): Height of the floor blend, in mm; zero when sharp.

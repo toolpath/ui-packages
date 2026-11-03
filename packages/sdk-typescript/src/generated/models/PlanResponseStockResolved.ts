@@ -2,9 +2,9 @@
 /* eslint-disable */
 /**
  * Toolpath Engine API
- * Public REST API for Toolpath engine operations.  **Experimental.** Machining plans and toolpath calculation — creating, listing, and reading plans, calculating toolpaths, and reading toolpath results and machining time — and turning, the `turning` reading of a part, are experimental: available now but still gaining functionality; planned additions include plan constraints and specifying material and stock, among others. You can build against them today, but they may change substantially in a minor release — reshaped, renamed, or removed — where the rest of the API keeps breaking changes for a major version, apart from small ones with no material effect on clients. Every breaking change is listed in the release notes, so check them before upgrading. Plan and toolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental operation, field, and schema is marked `x-toolpath-experimental`.  **Units.** All dimensional values — in parts and in feature details — are in millimetres; all angles are in degrees. Each part response also states this in its `units` field.  **Browser use.** CORS is per API key: a request only receives an `Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the key used (set when creating or editing the key in the portal). A key with no allowed origins is server-to-server only. A Bearer API key placed in client-side JavaScript is readable by anyone — restrict its origins, prefer a key granted read access only (writes made with it are rejected with 403 `read_only_key`), or proxy requests through your own server.  **Access and billing.** An API key is granted read and write access separately in each area of the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis, feature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access can be edited on an existing key in the portal. Every operation states its area in its `x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in `x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs DFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key with no access to the operation’s area is refused with 403 `product_mismatch`; one with read access used for a write is refused with 403 `read_only_key`.
+ * Public REST API for Toolpath engine operations.  **Waiting for a job.** Every operation that queues work answers `202` with a `jobId`. Wait for it with **Stream job updates** (`GET /v1/jobs/{id}/events`), a server-sent event stream that sends the job at once, sends it again on every change, and closes after sending `succeeded` or `failed`. Both are final. An attempt exceeding its configured deadline (default 300 seconds) fails without retry. Exhausted queue deliveries are recovered by the worker from its DLQ, usually within a few minutes after the last delivery with healthy consumers; outages delay recovery. A job still queued after 24 hours fails. Read the result as soon as the stream sends `succeeded`, and report the `error` as soon as it sends `failed`. Do not wait by calling **Get a job** or a result endpoint in a loop: a stream is one request however long the job runs, while a loop spends one request of the key’s rate limit on every call. In a browser, read the stream with `fetch` and an SSE parser: `EventSource` cannot send the `Authorization` header.  **Experimental.** Machining plans and toolpath calculation — creating, listing, and reading plans, calculating toolpaths, and reading toolpath results and machining time — and multi-body CAD files, under the `Files` tag, are experimental: available now but still gaining functionality; planned additions include plan constraints and specifying material and stock, among others. You can build against them today, but they may change substantially in a minor release — reshaped, renamed, or removed — where the rest of the API keeps breaking changes for a major version, apart from small ones with no material effect on clients. Every breaking change is listed in the release notes, so check them before upgrading. Plan and toolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental operation, field, and schema is marked `x-toolpath-experimental`.  **Units.** All dimensional values — in parts and in feature details — are in millimetres; all angles are in degrees. Each part response also states this in its `units` field.  **Browser use.** CORS is per API key: a request only receives an `Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the key used (set when creating or editing the key in the portal). A key with no allowed origins is server-to-server only. A Bearer API key placed in client-side JavaScript is readable by anyone — restrict its origins, prefer a key granted read access only (writes made with it are rejected with 403 `read_only_key`), or proxy requests through your own server.  **Access and billing.** An API key is granted read and write access separately in each area of the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis, feature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access can be edited on an existing key in the portal. Every operation states its area in its `x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in `x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs DFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key with no access to the operation’s area is refused with 403 `product_mismatch`; one with read access used for a write is refused with 403 `read_only_key`.
  *
- * The version of the OpenAPI document: 1.29.1
+ * The version of the OpenAPI document: 1.38.0
  *
  *
  * NOTE: This class is auto generated by OpenAPI Generator (https://openapi-generator.tech).
@@ -12,6 +12,13 @@
  * Do not edit the class manually.
  */
 
+import type { StockBody } from './StockBody.js'
+import {
+  instanceOfStockBody,
+  StockBodyFromJSON,
+  StockBodyFromJSONTyped,
+  StockBodyToJSON,
+} from './StockBody.js'
 import type { StockBox } from './StockBox.js'
 import {
   instanceOfStockBox,
@@ -29,10 +36,10 @@ import {
 
 /**
  * @type PlanResponseStockResolved
- * The initial stock the kernel sized and placed, in mm, told apart by `shape`: a `box` — two corners in the first setup’s frame, squared up in the direction the job cuts first — or a `cylinder` in part coordinates. This is the material bought, which a quote is written against (a cylinder’s volume is π·(diameter/2)²·length); the part’s own bounding box is not a substitute. Null for a plan calculated before this field existed — re-run the part to get one — and for a part with no setup, which has nothing to square stock against.
+ * The initial stock the kernel sized and placed, in mm, told apart by `shape`: a `box` — two corners in the first setup’s frame, squared up in the direction the job cuts first — a `cylinder` in part coordinates, or the `body` of the part’s file it was cut from. This is the material bought, which a quote is written against (a cylinder’s volume is π·(diameter/2)²·length); the part’s own bounding box is not a substitute. Null for a plan calculated before this field existed — re-run the part to get one — and for a part with no setup, which has nothing to square stock against.
  * @export
  */
-export type PlanResponseStockResolved = StockBox | StockCylinder
+export type PlanResponseStockResolved = StockBody | StockBox | StockCylinder
 
 export function PlanResponseStockResolvedFromJSON(json: any): PlanResponseStockResolved {
   return PlanResponseStockResolvedFromJSONTyped(json, false)
@@ -47,6 +54,9 @@ export function PlanResponseStockResolvedFromJSONTyped(
   }
   if (typeof json !== 'object') {
     return json
+  }
+  if (instanceOfStockBody(json)) {
+    return StockBodyFromJSONTyped(json, true)
   }
   if (instanceOfStockBox(json)) {
     return StockBoxFromJSONTyped(json, true)
@@ -70,6 +80,9 @@ export function PlanResponseStockResolvedToJSONTyped(
   }
   if (typeof value !== 'object') {
     return value
+  }
+  if (instanceOfStockBody(value)) {
+    return StockBodyToJSON(value as StockBody)
   }
   if (instanceOfStockBox(value)) {
     return StockBoxToJSON(value as StockBox)

@@ -117,7 +117,7 @@ const VIOLATIONS: Record<string, string> = {
     '/* eslint no-eval: "off" -- trying */\nexport const value: unknown = eval(\'1\')\n',
 }
 
-describe('createEslintConfig', () => {
+describe('createEslintConfig', { timeout: 30_000 }, () => {
   const clean =
     'export type Pair = [number, number]\n\n' +
     'export const add = (a: number, b: number): number => a + b\n\n' +

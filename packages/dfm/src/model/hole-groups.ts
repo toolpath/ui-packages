@@ -2,8 +2,8 @@ import type { FeatureSheets } from './feature-sheet.js'
 import type { DfmFeature } from './geometry.js'
 
 /*
- * Holes that are the same hole, as the quoting app groups them (quoting-ui
- * `src/plan/hole-groups.ts`, after the tool catalog's rule): the same way up,
+ * Holes that are the same hole, as the quoting app groups them (after the tool
+ * catalog's rule): the same way up,
  * the same bore to a thousandth, and the same depth to within a twentieth —
  * depth is measured to where the hole meets the surface, so the same drill
  * through a slanted face reads a little different every time.

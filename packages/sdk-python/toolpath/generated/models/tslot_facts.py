@@ -20,7 +20,7 @@ class TslotFacts:
     machining direction cannot see past.
 
         Attributes:
-            kind (Literal['Tslot']): Discriminator for this facts variant.
+            kind (Literal['Tslot']): Discriminant of a `FeatureFacts`; always `'Tslot'` here.
             is_external (bool): The slot runs around material standing in it rather than into the material
                 around a void.
             is_closed (bool): The slot's walls close on themselves in plan view.

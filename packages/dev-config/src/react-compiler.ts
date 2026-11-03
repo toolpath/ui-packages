@@ -443,12 +443,10 @@ export const reactCompilerEsbuildPlugin = ({
           warnings: [],
         }
       }
-      const messages = [...skips.values()].map(
-        (skip): SkipMessage => ({
-          text: `React Compiler skipped this function, which runs uncompiled: ${skip.reason}. Fix it, or opt it out with a 'use no memo' directive and a comment saying why.`,
-          location: skip.line === undefined ? { file: path } : { file: path, line: skip.line },
-        }),
-      )
+      const messages = [...skips.values()].map((skip): SkipMessage => ({
+        text: `React Compiler skipped this function, which runs uncompiled: ${skip.reason}. Fix it, or opt it out with a 'use no memo' directive and a comment saying why.`,
+        location: skip.line === undefined ? { file: path } : { file: path, line: skip.line },
+      }))
       return {
         contents: result?.code ?? '',
         loader,

@@ -141,17 +141,15 @@ const boreGroups = (
 ): Array<FeatureGroupView> =>
   [...rowsByBore(members)]
     .sort(([, a], [, b]) => a.bore.diameter - b.bore.diameter)
-    .map(
-      ([bore, at]): FeatureGroupView => ({
-        key: `t:${type}:${bore}`,
-        level: 'bore',
-        type,
-        label: at.bore.label,
-        rows: at.rows,
-        groups: [],
-        tags: tagsOf(at.rows),
-      }),
-    )
+    .map(([bore, at]): FeatureGroupView => ({
+      key: `t:${type}:${bore}`,
+      level: 'bore',
+      type,
+      label: at.bore.label,
+      rows: at.rows,
+      groups: [],
+      tags: tagsOf(at.rows),
+    }))
 
 /** A row whose bore has been read. */
 type BoredRow = PlanFeatureRow & { bore: FeatureBore }

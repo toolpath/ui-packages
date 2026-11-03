@@ -2,9 +2,9 @@
 /* eslint-disable */
 /**
  * Toolpath Engine API
- * Public REST API for Toolpath engine operations.  **Experimental.** Machining plans and toolpath calculation — creating, listing, and reading plans, calculating toolpaths, and reading toolpath results and machining time — and turning, the `turning` reading of a part, are experimental: available now but still gaining functionality; planned additions include plan constraints and specifying material and stock, among others. You can build against them today, but they may change substantially in a minor release — reshaped, renamed, or removed — where the rest of the API keeps breaking changes for a major version, apart from small ones with no material effect on clients. Every breaking change is listed in the release notes, so check them before upgrading. Plan and toolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental operation, field, and schema is marked `x-toolpath-experimental`.  **Units.** All dimensional values — in parts and in feature details — are in millimetres; all angles are in degrees. Each part response also states this in its `units` field.  **Browser use.** CORS is per API key: a request only receives an `Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the key used (set when creating or editing the key in the portal). A key with no allowed origins is server-to-server only. A Bearer API key placed in client-side JavaScript is readable by anyone — restrict its origins, prefer a key granted read access only (writes made with it are rejected with 403 `read_only_key`), or proxy requests through your own server.  **Access and billing.** An API key is granted read and write access separately in each area of the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis, feature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access can be edited on an existing key in the portal. Every operation states its area in its `x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in `x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs DFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key with no access to the operation’s area is refused with 403 `product_mismatch`; one with read access used for a write is refused with 403 `read_only_key`.
+ * Public REST API for Toolpath engine operations.  **Waiting for a job.** Every operation that queues work answers `202` with a `jobId`. Wait for it with **Stream job updates** (`GET /v1/jobs/{id}/events`), a server-sent event stream that sends the job at once, sends it again on every change, and closes after sending `succeeded` or `failed`. Both are final. An attempt exceeding its configured deadline (default 300 seconds) fails without retry. Exhausted queue deliveries are recovered by the worker from its DLQ, usually within a few minutes after the last delivery with healthy consumers; outages delay recovery. A job still queued after 24 hours fails. Read the result as soon as the stream sends `succeeded`, and report the `error` as soon as it sends `failed`. Do not wait by calling **Get a job** or a result endpoint in a loop: a stream is one request however long the job runs, while a loop spends one request of the key’s rate limit on every call. In a browser, read the stream with `fetch` and an SSE parser: `EventSource` cannot send the `Authorization` header.  **Experimental.** Machining plans and toolpath calculation — creating, listing, and reading plans, calculating toolpaths, and reading toolpath results and machining time — and multi-body CAD files, under the `Files` tag, are experimental: available now but still gaining functionality; planned additions include plan constraints and specifying material and stock, among others. You can build against them today, but they may change substantially in a minor release — reshaped, renamed, or removed — where the rest of the API keeps breaking changes for a major version, apart from small ones with no material effect on clients. Every breaking change is listed in the release notes, so check them before upgrading. Plan and toolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental operation, field, and schema is marked `x-toolpath-experimental`.  **Units.** All dimensional values — in parts and in feature details — are in millimetres; all angles are in degrees. Each part response also states this in its `units` field.  **Browser use.** CORS is per API key: a request only receives an `Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the key used (set when creating or editing the key in the portal). A key with no allowed origins is server-to-server only. A Bearer API key placed in client-side JavaScript is readable by anyone — restrict its origins, prefer a key granted read access only (writes made with it are rejected with 403 `read_only_key`), or proxy requests through your own server.  **Access and billing.** An API key is granted read and write access separately in each area of the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis, feature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access can be edited on an existing key in the portal. Every operation states its area in its `x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in `x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs DFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key with no access to the operation’s area is refused with 403 `product_mismatch`; one with read access used for a write is refused with 403 `read_only_key`.
  *
- * The version of the OpenAPI document: 1.29.1
+ * The version of the OpenAPI document: 1.38.0
  *
  *
  * NOTE: This class is auto generated by OpenAPI Generator (https://openapi-generator.tech).
@@ -27,13 +27,6 @@ import {
   TurnedFeatureTypeToJSON,
   TurnedFeatureTypeToJSONTyped,
 } from './TurnedFeatureType.js'
-import type { TurningDatasheetFacts } from './TurningDatasheetFacts.js'
-import {
-  TurningDatasheetFactsFromJSON,
-  TurningDatasheetFactsFromJSONTyped,
-  TurningDatasheetFactsToJSON,
-  TurningDatasheetFactsToJSONTyped,
-} from './TurningDatasheetFacts.js'
 import type { ReachCurve } from './ReachCurve.js'
 import {
   ReachCurveFromJSON,
@@ -41,6 +34,13 @@ import {
   ReachCurveToJSON,
   ReachCurveToJSONTyped,
 } from './ReachCurve.js'
+import type { TurnedFeatureFacts } from './TurnedFeatureFacts.js'
+import {
+  TurnedFeatureFactsFromJSON,
+  TurnedFeatureFactsFromJSONTyped,
+  TurnedFeatureFactsToJSON,
+  TurnedFeatureFactsToJSONTyped,
+} from './TurnedFeatureFacts.js'
 import type { MountingAxis } from './MountingAxis.js'
 import {
   MountingAxisFromJSON,
@@ -55,6 +55,13 @@ import {
   SlopeSpanToJSON,
   SlopeSpanToJSONTyped,
 } from './SlopeSpan.js'
+import type { AxialDirection } from './AxialDirection.js'
+import {
+  AxialDirectionFromJSON,
+  AxialDirectionFromJSONTyped,
+  AxialDirectionToJSON,
+  AxialDirectionToJSONTyped,
+} from './AxialDirection.js'
 
 /**
  * One turned feature as a tool check sees it: the turning counterpart of a
@@ -70,11 +77,11 @@ export interface TurningDatasheet {
    */
   featureType: TurnedFeatureType
   /**
-   *
-   * @type {TurningDatasheetFacts}
+   * What it measures, by kind; narrow on `facts.kind`.
+   * @type {TurnedFeatureFacts}
    * @memberof TurningDatasheet
    */
-  facts: TurningDatasheetFacts
+  facts: TurnedFeatureFacts
   /**
    * Its start along the axis, in mm.
    * @type {number}
@@ -106,12 +113,24 @@ export interface TurningDatasheet {
    */
   mounting: MountingAxis
   /**
+   * The end it is cut from, its feature's `approach`: an axial tool comes along the
+   * axis from it, and a holder's hand feeds toward or away from the chuck at the other
+   * end. The axial reach and the entry diameter are read from it.
+   * @type {AxialDirection}
+   * @memberof TurningDatasheet
+   */
+  approach?: AxialDirection
+  /**
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
    * How steeply each of its curves rises and falls along a feed, in the order they run.
    * @type {Array<SlopeSpan>}
    * @memberof TurningDatasheet
    */
   slopeSpans: Array<SlopeSpan>
   /**
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
    * How deep a radial tool must reach, by how far toward −z from the feature the
    * material stands. Read off the finished part. A radial tool's holder trails its tip
    * to one side, so each side is read apart.
@@ -120,12 +139,16 @@ export interface TurningDatasheet {
    */
   radialReachMinusZ: ReachCurve
   /**
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
    * The same toward +z.
    * @type {ReachCurve}
    * @memberof TurningDatasheet
    */
   radialReachPlusZ: ReachCurve
   /**
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
    * The same for an axial tool coming from the end its feature is cut from, the
    * feature's `approach`, by how far across the axis from the feature the material
    * stands.
@@ -202,12 +225,13 @@ export function TurningDatasheetFromJSONTyped(
   }
   return {
     featureType: TurnedFeatureTypeFromJSON(json['featureType']),
-    facts: TurningDatasheetFactsFromJSON(json['facts']),
+    facts: TurnedFeatureFactsFromJSON(json['facts']),
     zMin: json['zMin'],
     zMax: json['zMax'],
     rMin: json['rMin'],
     rMax: json['rMax'],
     mounting: MountingAxisFromJSON(json['mounting']),
+    approach: json['approach'] == null ? undefined : AxialDirectionFromJSON(json['approach']),
     slopeSpans: (json['slopeSpans'] as Array<any>).map(SlopeSpanFromJSON),
     radialReachMinusZ: ReachCurveFromJSON(json['radialReachMinusZ']),
     radialReachPlusZ: ReachCurveFromJSON(json['radialReachPlusZ']),
@@ -234,12 +258,13 @@ export function TurningDatasheetToJSONTyped(
 
   return {
     featureType: TurnedFeatureTypeToJSON(value['featureType']),
-    facts: TurningDatasheetFactsToJSON(value['facts']),
+    facts: TurnedFeatureFactsToJSON(value['facts']),
     zMin: value['zMin'],
     zMax: value['zMax'],
     rMin: value['rMin'],
     rMax: value['rMax'],
     mounting: MountingAxisToJSON(value['mounting']),
+    approach: AxialDirectionToJSON(value['approach']),
     slopeSpans: (value['slopeSpans'] as Array<any>).map(SlopeSpanToJSON),
     radialReachMinusZ: ReachCurveToJSON(value['radialReachMinusZ']),
     radialReachPlusZ: ReachCurveToJSON(value['radialReachPlusZ']),

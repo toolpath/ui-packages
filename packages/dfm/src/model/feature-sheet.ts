@@ -6,7 +6,7 @@ import { clearanceFit, readPinch, type ClearanceFit } from './pinch.js'
  * left out where this kind of feature does not report it, rather than sent as
  * a zero that reads as measured.
  *
- * From the quoting app (quoting-ui `server/lib/engine.ts`). A datasheet is
+ * From the quoting app. A datasheet is
  * large, so the worker cuts each one down to this before it sends it.
  */
 export interface FeatureSheet {

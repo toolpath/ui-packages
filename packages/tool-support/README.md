@@ -242,8 +242,8 @@ the tool. This is the one place in the exporter where a caller can be wrong and
 nothing will notice.
 
 The rules each type must satisfy are Autodesk's own published JSON Schema,
-reduced into `fusion/digest.json` at the repository root. `pnpm
-fusion:check-upstream` asks Autodesk weekly whether it has moved, and a test
+reduced into this package's `schemas/fusion/digest.json`. `pnpm
+schema:fusion:check-upstream` asks Autodesk weekly whether it has moved, and a test
 fails if the table this package reads drifts from it.
 
 ## Status

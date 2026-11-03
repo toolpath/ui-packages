@@ -112,8 +112,9 @@ def sync_detailed(
 ) -> Response[ProblemDetails | QueuePartJobResponse]:
     """Create a plan
 
-     Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan
-    with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
+     Queues a machining plan for an analyzed part and returns a job. Wait for the job with **Stream job
+    updates** (`GET /v1/jobs/{id}/events`), then read the plan with **Get a plan** (`GET
+    /v1/plans/{planId}`) or **List plans** (`GET /v1/parts/{id}/plans`).
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -153,8 +154,9 @@ def sync(
 ) -> ProblemDetails | QueuePartJobResponse | None:
     """Create a plan
 
-     Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan
-    with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
+     Queues a machining plan for an analyzed part and returns a job. Wait for the job with **Stream job
+    updates** (`GET /v1/jobs/{id}/events`), then read the plan with **Get a plan** (`GET
+    /v1/plans/{planId}`) or **List plans** (`GET /v1/parts/{id}/plans`).
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -189,8 +191,9 @@ async def asyncio_detailed(
 ) -> Response[ProblemDetails | QueuePartJobResponse]:
     """Create a plan
 
-     Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan
-    with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
+     Queues a machining plan for an analyzed part and returns a job. Wait for the job with **Stream job
+    updates** (`GET /v1/jobs/{id}/events`), then read the plan with **Get a plan** (`GET
+    /v1/plans/{planId}`) or **List plans** (`GET /v1/parts/{id}/plans`).
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -228,8 +231,9 @@ async def asyncio(
 ) -> ProblemDetails | QueuePartJobResponse | None:
     """Create a plan
 
-     Queues a machining plan for an analyzed part and returns a job. Track the job, then read the plan
-    with **Get a plan** (`GET /plans/{planId}`) or **List plans** (`GET /parts/{id}/plans`).
+     Queues a machining plan for an analyzed part and returns a job. Wait for the job with **Stream job
+    updates** (`GET /v1/jobs/{id}/events`), then read the plan with **Get a plan** (`GET
+    /v1/plans/{planId}`) or **List plans** (`GET /v1/parts/{id}/plans`).
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.

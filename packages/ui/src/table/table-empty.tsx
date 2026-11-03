@@ -20,8 +20,8 @@ export const TableEmpty = ({
   const showButton = useMemo(() => {
     return Boolean(
       typeof emptyButtonText === 'string' &&
-        emptyButtonText !== '' &&
-        typeof onClickEmptyButton === 'function',
+      emptyButtonText !== '' &&
+      typeof onClickEmptyButton === 'function',
     )
   }, [emptyButtonText, onClickEmptyButton])
 
