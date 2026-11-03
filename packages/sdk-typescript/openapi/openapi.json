@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Toolpath Engine API",
-    "version": "1.38.0",
+    "version": "1.39.0",
     "description": "Public REST API for Toolpath engine operations.\n\n**Waiting for a job.** Every operation that queues work answers `202` with a `jobId`.\nWait for it with **Stream job updates** (`GET /v1/jobs/{id}/events`), a server-sent event\nstream that sends the job at once, sends it again on every change, and closes after\nsending `succeeded` or `failed`. Both are final. An attempt exceeding its configured\ndeadline (default 300 seconds) fails without retry. Exhausted queue deliveries are\nrecovered by the worker from its DLQ, usually within a few minutes after the last\ndelivery with healthy consumers; outages delay recovery. A job still queued after\n24 hours fails. Read the result as soon as the stream sends `succeeded`, and report the `error`\nas soon as it sends `failed`. Do not wait by calling **Get a job** or a result endpoint in\na loop: a stream is one request however long the job runs, while a loop spends one request\nof the key’s rate limit on every call. In a browser, read the stream with `fetch` and an\nSSE parser: `EventSource` cannot send the `Authorization` header.\n\n**Experimental.** Machining plans and toolpath calculation — creating, listing, and reading\nplans, calculating toolpaths, and reading toolpath results and machining time — and\nmulti-body CAD files, under the `Files` tag, are experimental: available now but still\ngaining functionality; planned additions include plan constraints and specifying material and\nstock, among others. You can build against them today, but they may change substantially in a\nminor release — reshaped, renamed, or removed — where the rest of the API keeps breaking\nchanges for a major version, apart from small ones with no material effect on clients. Every\nbreaking change is listed in the release notes, so check them before upgrading. Plan and\ntoolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental\noperation, field, and schema is marked `x-toolpath-experimental`.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis,\nfeature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access\ncan be edited on an existing key in the portal. Every operation states its area in its\n`x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in\n`x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs\nDFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key\nwith no access to the operation’s area is refused with 403 `product_mismatch`; one with read\naccess used for a write is refused with 403 `read_only_key`."
   },
   "tags": [
@@ -833,6 +833,10 @@
             "format": "uuid",
             "description": "Identifier of this part."
           },
+          "filename": {
+            "type": "string",
+            "description": "The name of the file the part was uploaded as: the `filename` given to **Create a part**, or its file’s name for a part made from a file. Absent where none was given, and on parts created before Engine API 1.39.0."
+          },
           "fileId": {
             "type": "string",
             "format": "uuid",
@@ -914,6 +918,27 @@
             },
             "description": "Part z extents for each candidate direction, or null when detail enrichment did not run."
           },
+          "boundingBox": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "lower": {
+                "$ref": "#/components/schemas/Vec3",
+                "description": "The box’s lowest corner, in mm."
+              },
+              "upper": {
+                "$ref": "#/components/schemas/Vec3",
+                "description": "The box’s highest corner, in mm."
+              }
+            },
+            "required": [
+              "lower",
+              "upper"
+            ],
+            "description": "The box the part fits in, axis-aligned in mm in the part’s coordinates: tight to its analysis mesh, so a curved face may bulge past it by no more than the mesh’s sag. Null on part results made before this was recorded."
+          },
           "turnability": {
             "oneOf": [
               {
@@ -983,6 +1008,7 @@
           "discoveredDirections",
           "addedDirections",
           "directionZBounds",
+          "boundingBox",
           "turnability",
           "turning",
           "meshPointCount",
@@ -1555,6 +1581,58 @@
               }
             ],
             "description": "Generated machining detail, or null when this feature has no detail yet."
+          },
+          "contours": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ContourCurve"
+              }
+            },
+            "description": "The feature’s plan-view outline, returned with `include=contours`: loops of exact segments and arcs, as x and y in mm in `toolFrame`, the frame its datasheet’s heights are in. A closed loop no other holds runs counterclockwise and an island inside one clockwise; a wall’s loops keep the material on their left. Empty for a feature with none — a hole, which is its circle; a top face read for facing; an undercut — and where the kernel could not project it; null where the feature has not been measured since Engine API 1.39.0."
+          },
+          "wallContours": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ContourCurve"
+              }
+            },
+            "description": "An open pocket’s walls, returned with `include=contours`: runs in the same frame with the material on their left, whose free ends bound the pocket’s open sides. Empty for every other kind; null where `contours` is."
+          },
+          "toolFrame": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "location": {
+                "$ref": "#/components/schemas/Vec3",
+                "description": "The frame’s origin, in part coordinates, mm."
+              },
+              "axis": {
+                "$ref": "#/components/schemas/Vec3",
+                "description": "Its z axis, unit length."
+              },
+              "refDirection": {
+                "$ref": "#/components/schemas/Vec3",
+                "description": "Its x axis, unit length and square to `axis`."
+              }
+            },
+            "required": [
+              "location",
+              "axis",
+              "refDirection"
+            ],
+            "description": "The tool frame of the feature’s `machiningDirection`, in part coordinates, returned with `include=contours`: its axis is the direction and its x axis level. A contour point `(x, y)` at height `z` sits at `location + x·refDirection + y·(axis × refDirection) + z·axis` on the part. Null where `contours` is."
           }
         },
         "required": [
@@ -1662,7 +1740,25 @@
           "projectedWallArea",
           "facts"
         ],
-        "description": "One feature as machining sees it: static, self-contained, and enough to choose a tool against without having the part in hand. All lengths mm and angles degrees, in the tool frame of the direction the feature is machined from, whose origin is the part’s own: z runs up the tool axis, so `zMin` is the bottom of the feature and `zMax` its top. A pinch point’s `point` and a surface’s `minCurvatureDiameterAt` are the exceptions, in part coordinates.\n\nEvery number in it is finite, so it survives a JSON round trip. A limit nothing sets is `null`, so that every value passes it, except where a field’s description says it is absent instead. Any other field that is omitted has no value to read."
+        "description": "One feature as machining sees it: static, self-contained, and enough to choose a tool against without having the part in hand. All lengths mm and angles degrees, in the tool frame of the direction the feature is machined from, whose origin is the part’s own: z runs up the tool axis, so `zMin` is the bottom of the feature and `zMax` its top. A pinch point’s `point`, a surface’s `minCurvatureDiameterAt`, and a `topCenter` are the exceptions, in part coordinates.\n\nEvery number in it is finite, so it survives a JSON round trip. A limit nothing sets is `null`, so that every value passes it, except where a field’s description says it is absent instead. Any other field that is omitted has no value to read."
+      },
+      "ContourCurve": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ContourSegment"
+          },
+          {
+            "$ref": "#/components/schemas/ContourArc"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "Segment": "#/components/schemas/ContourSegment",
+            "Arc": "#/components/schemas/ContourArc"
+          }
+        },
+        "description": "One curve of a feature’s plan-view contour: a straight segment or an arc, told apart by `kind`."
       },
       "QueuePartJobResponse": {
         "type": "object",
@@ -5531,6 +5627,10 @@
           "threading": {
             "$ref": "#/components/schemas/Threading",
             "description": "The thread this stud is to receive and how it is cut — an external one, milled; absent\nfor a plain wall."
+          },
+          "topCenter": {
+            "$ref": "#/components/schemas/Vec3",
+            "description": "Where the cylinder's axis meets its top, `zMax`, in part coordinates like a\n`PinchPoint`."
           }
         },
         "required": [
@@ -5540,6 +5640,66 @@
           "standsOnAFloor"
         ],
         "description": "A circular wall: the outside of a whole cylinder standing along the tool axis — a stud, a\nround boss, a turned part's outline. The narrowest type of what could be a boss or a wall,\nas a hole is of what could be a pocket, and measured as a boss with no blend at its foot is."
+      },
+      "ContourArc": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "Arc",
+            "description": "Discriminant of a `ContourCurve`; always `'Arc'` here."
+          },
+          "center": {
+            "$ref": "#/components/schemas/Vec2",
+            "description": "The circle's center."
+          },
+          "radius": {
+            "type": "number",
+            "description": "The circle's radius."
+          },
+          "startDeg": {
+            "type": "number",
+            "description": "The angle the arc starts at, from the frame's x axis."
+          },
+          "sweepDeg": {
+            "type": "number",
+            "description": "How far it turns, signed: counterclockwise where positive."
+          }
+        },
+        "required": [
+          "kind",
+          "center",
+          "radius",
+          "startDeg",
+          "sweepDeg"
+        ],
+        "description": "A circular arc of a contour about `center`, starting at the angle `startDeg` from the\nframe's x axis and turning through `sweepDeg`: counterclockwise where positive, clockwise\nwhere negative. Lengths mm, angles degrees."
+      },
+      "ContourSegment": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "Segment",
+            "description": "Discriminant of a `ContourCurve`; always `'Segment'` here."
+          },
+          "start": {
+            "$ref": "#/components/schemas/Vec2",
+            "description": "Where the run starts."
+          },
+          "end": {
+            "$ref": "#/components/schemas/Vec2",
+            "description": "Where it ends."
+          }
+        },
+        "required": [
+          "kind",
+          "start",
+          "end"
+        ],
+        "description": "A straight run of a contour, from `start` to `end`. Lengths mm."
       },
       "DovetailFacts": {
         "type": "object",
@@ -5806,6 +5966,10 @@
             "type": "number",
             "description": "Height of the bottom blend, in mm; zero when sharp."
           },
+          "topCenter": {
+            "$ref": "#/components/schemas/Vec3",
+            "description": "Where the hole's axis meets its top, `zMax`: the center of its mouth, in part\ncoordinates like a `PinchPoint`. A counterbore and the hole below it give two points on\none axis, each at its own top."
+          },
           "maxSpotDiameter": {
             "type": [
               "number",
@@ -6044,6 +6208,10 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "topCenter": {
+            "$ref": "#/components/schemas/Vec3",
+            "description": "Where the cone's axis meets its upper edge, the datasheet's `zMax`, in part coordinates\nlike a `HoleFacts.topCenter`: a sink and the hole below it give two points on one axis."
+          },
           "center": {
             "$ref": "#/components/schemas/Vec2",
             "description": "Where the cone’s axis crosses the plane the contours are read in, as x and y in the datasheet’s frame — the sink’s position across the part, not along the tool."
@@ -6440,7 +6608,7 @@
           },
           "thread": {
             "$ref": "#/components/schemas/HoleThread",
-            "description": "The thread cut in it: that of the `IdThread` in its narrowest step, the one it is\ndrilled at, along that thread's stretch. Absent for a hole whose narrowest step\nholds no thread to tap it with: none, an external one, or one read off teeth, which\nhas no spec."
+            "description": "The thread cut in it: that of the `IdThread` it is drilled for, at its tap drill,\nalong that thread's stretch. Absent where the hole spans no thread to tap it with:\nnone, one beside a stretch of the hole narrower than its tap drill, an external one,\nor one read off teeth, which has no spec."
           }
         },
         "required": [
@@ -6633,7 +6801,7 @@
           },
           "depth": {
             "type": "number",
-            "description": "Thread depth, in mm: from the wall, as drawn, to the spec's root, its largest minor\ndiameter (in a hole, its smallest major)."
+            "description": "Thread depth, in mm: from its crest to the spec's root. On a stud, from its wall, as\ndrawn, to its largest minor diameter; in a hole, from its tap drill, however its\nwall is drawn, to its smallest major."
           },
           "threadSpec": {
             "$ref": "#/components/schemas/ThreadSpec",
@@ -6884,10 +7052,10 @@
               "minLength": 1,
               "maxLength": 255,
               "example": "part.step",
-              "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format."
+              "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format. The part returns it as its `filename`."
             },
             "required": false,
-            "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format.",
+            "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format. The part returns it as its `filename`.",
             "name": "filename",
             "in": "query"
           },
@@ -8291,7 +8459,7 @@
         "x-toolpath-product": "dfm",
         "x-toolpath-metered": false,
         "summary": "Get part features",
-        "description": "Returns detailed machining datasheets for the requested features. Requires the datasheets to have been generated first: run **Analyze part features** (`PATCH /v1/parts/{id}/features`), or **Analyze a part** (`PATCH /v1/parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A feature with no datasheet yet comes back with `datasheet: null`.",
+        "description": "Returns detailed machining datasheets for the requested features. Requires the datasheets to have been generated first: run **Analyze part features** (`PATCH /v1/parts/{id}/features`), or **Analyze a part** (`PATCH /v1/parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A feature with no datasheet yet comes back with `datasheet: null`. Pass `include=contours` for each feature’s plan-view outline as well.",
         "parameters": [
           {
             "schema": {
@@ -8312,6 +8480,17 @@
             "required": true,
             "description": "Comma-separated feature ids from the part to fetch detailed machining data for.",
             "name": "ids",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "example": "contours",
+              "description": "Comma-separated extras to return beside each datasheet. `contours` adds each feature’s `contours`, `wallContours`, and the `toolFrame` they are in."
+            },
+            "required": false,
+            "description": "Comma-separated extras to return beside each datasheet. `contours` adds each feature’s `contours`, `wallContours`, and the `toolFrame` they are in.",
+            "name": "include",
             "in": "query"
           }
         ],

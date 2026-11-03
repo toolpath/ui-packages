@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from ..models.direction_z_bounds import DirectionZBounds
     from ..models.no_axis import NoAxis
     from ..models.part_feature import PartFeature
+    from ..models.part_response_bounding_box_type_0 import PartResponseBoundingBoxType0
     from ..models.region import Region
     from ..models.report_units import ReportUnits
     from ..models.turning_axis import TurningAxis
@@ -52,6 +53,9 @@ class PartResponse:
             recorded.
         direction_z_bounds (list[DirectionZBounds] | None): Part z extents for each candidate direction, or null when
             detail enrichment did not run.
+        bounding_box (None | PartResponseBoundingBoxType0): The box the part fits in, axis-aligned in mm in the part’s
+            coordinates: tight to its analysis mesh, so a curved face may bulge past it by no more than the mesh’s sag. Null
+            on part results made before this was recorded.
         turnability (NoAxis | None | TurningAxis): How much of the part one turning setup could finish, or null when no
             reading was taken.
         turning (None | TurningBelowThreshold | TurningNoAxis | TurningNotRequested | TurningSpinFailed |
@@ -61,6 +65,9 @@ class PartResponse:
         thumbnail_url (None | str): 15-minute URL for the rendered PNG thumbnail, or null when absent.
         mesh_stl_url (None | str): 15-minute URL for the generated STL mesh, or null when absent.
         mesh_glb_url (None | str): 15-minute URL for the generated GLB mesh, or null when absent.
+        filename (str | Unset): The name of the file the part was uploaded as: the `filename` given to **Create a
+            part**, or its file’s name for a part made from a file. Absent where none was given, and on parts created before
+            Engine API 1.39.0.
         file_id (UUID | Unset): **Experimental.** Available now and still gaining functionality. It may change in
             breaking ways in a minor API release; each such change is listed in the release notes, so check them before
             upgrading.
@@ -87,6 +94,7 @@ class PartResponse:
     discovered_directions: list[Vec3] | None
     added_directions: list[Vec3] | None
     direction_z_bounds: list[DirectionZBounds] | None
+    bounding_box: None | PartResponseBoundingBoxType0
     turnability: NoAxis | None | TurningAxis
     turning: None | TurningBelowThreshold | TurningNoAxis | TurningNotRequested | TurningSpinFailed | TurningTurned
     mesh_point_count: int
@@ -94,12 +102,14 @@ class PartResponse:
     thumbnail_url: None | str
     mesh_stl_url: None | str
     mesh_glb_url: None | str
+    filename: str | Unset = UNSET
     file_id: UUID | Unset = UNSET
     body_index: int | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.no_axis import NoAxis
+        from ..models.part_response_bounding_box_type_0 import PartResponseBoundingBoxType0
         from ..models.turning_axis import TurningAxis
         from ..models.turning_below_threshold import TurningBelowThreshold
         from ..models.turning_no_axis import TurningNoAxis
@@ -162,6 +172,12 @@ class PartResponse:
         else:
             direction_z_bounds = self.direction_z_bounds
 
+        bounding_box: dict[str, Any] | None
+        if isinstance(self.bounding_box, PartResponseBoundingBoxType0):
+            bounding_box = self.bounding_box.to_dict()
+        else:
+            bounding_box = self.bounding_box
+
         turnability: dict[str, Any] | None
         if isinstance(self.turnability, NoAxis):
             turnability = self.turnability.to_dict()
@@ -197,6 +213,8 @@ class PartResponse:
         mesh_glb_url: None | str
         mesh_glb_url = self.mesh_glb_url
 
+        filename = self.filename
+
         file_id: str | Unset = UNSET
         if not isinstance(self.file_id, Unset):
             file_id = str(self.file_id)
@@ -218,6 +236,7 @@ class PartResponse:
                 "discoveredDirections": discovered_directions,
                 "addedDirections": added_directions,
                 "directionZBounds": direction_z_bounds,
+                "boundingBox": bounding_box,
                 "turnability": turnability,
                 "turning": turning,
                 "meshPointCount": mesh_point_count,
@@ -227,6 +246,8 @@ class PartResponse:
                 "meshGlbUrl": mesh_glb_url,
             }
         )
+        if filename is not UNSET:
+            field_dict["filename"] = filename
         if file_id is not UNSET:
             field_dict["fileId"] = file_id
         if body_index is not UNSET:
@@ -239,6 +260,7 @@ class PartResponse:
         from ..models.direction_z_bounds import DirectionZBounds
         from ..models.no_axis import NoAxis
         from ..models.part_feature import PartFeature
+        from ..models.part_response_bounding_box_type_0 import PartResponseBoundingBoxType0
         from ..models.region import Region
         from ..models.report_units import ReportUnits
         from ..models.turning_axis import TurningAxis
@@ -341,6 +363,21 @@ class PartResponse:
 
         direction_z_bounds = _parse_direction_z_bounds(d.pop("directionZBounds"))
 
+        def _parse_bounding_box(data: object) -> None | PartResponseBoundingBoxType0:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                bounding_box_type_0 = PartResponseBoundingBoxType0.from_dict(data)
+
+                return bounding_box_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | PartResponseBoundingBoxType0, data)
+
+        bounding_box = _parse_bounding_box(d.pop("boundingBox"))
+
         def _parse_turnability(data: object) -> NoAxis | None | TurningAxis:
             if data is None:
                 return data
@@ -441,6 +478,8 @@ class PartResponse:
 
         mesh_glb_url = _parse_mesh_glb_url(d.pop("meshGlbUrl"))
 
+        filename = d.pop("filename", UNSET)
+
         _file_id = d.pop("fileId", UNSET)
         file_id: UUID | Unset
         if isinstance(_file_id, Unset):
@@ -462,6 +501,7 @@ class PartResponse:
             discovered_directions=discovered_directions,
             added_directions=added_directions,
             direction_z_bounds=direction_z_bounds,
+            bounding_box=bounding_box,
             turnability=turnability,
             turning=turning,
             mesh_point_count=mesh_point_count,
@@ -469,6 +509,7 @@ class PartResponse:
             thumbnail_url=thumbnail_url,
             mesh_stl_url=mesh_stl_url,
             mesh_glb_url=mesh_glb_url,
+            filename=filename,
             file_id=file_id,
             body_index=body_index,
         )

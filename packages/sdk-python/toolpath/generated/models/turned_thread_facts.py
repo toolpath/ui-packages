@@ -21,8 +21,9 @@ class TurnedThreadFacts:
     Attributes:
         kind (Literal['IdThread'] | Literal['OdThread']): Discriminant of a `TurnedFeatureFacts`: the feature's type.
         pitch (float): In mm: the spec's pitch.
-        depth (float): Thread depth, in mm: from the wall, as drawn, to the spec's root, its largest minor
-            diameter (in a hole, its smallest major).
+        depth (float): Thread depth, in mm: from its crest to the spec's root. On a stud, from its wall, as
+            drawn, to its largest minor diameter; in a hole, from its tap drill, however its
+            wall is drawn, to its smallest major.
         thread_spec (ThreadSpec | Unset): The thread a hole or stud is to receive: a thread class's limits, read on its
             side.
 

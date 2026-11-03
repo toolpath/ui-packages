@@ -17,6 +17,8 @@ from .chamfer_curve import ChamferCurve
 from .chamfer_facts import ChamferFacts
 from .circular_wall_facts import CircularWallFacts
 from .cone import Cone
+from .contour_arc import ContourArc
+from .contour_segment import ContourSegment
 from .create_file_parts_request import CreateFilePartsRequest
 from .create_file_parts_response import CreateFilePartsResponse
 from .create_file_parts_response_parts_item import CreateFilePartsResponsePartsItem
@@ -86,6 +88,7 @@ from .open_api_document import OpenApiDocument
 from .outline_point import OutlinePoint
 from .part_feature import PartFeature
 from .part_feature_entry import PartFeatureEntry
+from .part_feature_entry_tool_frame_type_0 import PartFeatureEntryToolFrameType0
 from .part_features_response import PartFeaturesResponse
 from .part_job_request import PartJobRequest
 from .part_job_request_done_regions_type_0 import PartJobRequestDoneRegionsType0
@@ -137,6 +140,7 @@ from .part_mesh_job_response import PartMeshJobResponse
 from .part_mesh_job_response_status import PartMeshJobResponseStatus
 from .part_mesh_response import PartMeshResponse
 from .part_response import PartResponse
+from .part_response_bounding_box_type_0 import PartResponseBoundingBoxType0
 from .pinch_point import PinchPoint
 from .pipeline_readiness_problem import PipelineReadinessProblem
 from .pipeline_readiness_problem_job_status_type_1 import PipelineReadinessProblemJobStatusType1
@@ -330,6 +334,8 @@ __all__ = (
     "ChamferFacts",
     "CircularWallFacts",
     "Cone",
+    "ContourArc",
+    "ContourSegment",
     "CreateFilePartsRequest",
     "CreateFilePartsResponse",
     "CreateFilePartsResponsePartsItem",
@@ -399,6 +405,7 @@ __all__ = (
     "OutlinePoint",
     "PartFeature",
     "PartFeatureEntry",
+    "PartFeatureEntryToolFrameType0",
     "PartFeaturesResponse",
     "PartJobRequest",
     "PartJobRequestDoneRegionsType0",
@@ -442,6 +449,7 @@ __all__ = (
     "PartMeshJobResponseStatus",
     "PartMeshResponse",
     "PartResponse",
+    "PartResponseBoundingBoxType0",
     "PinchPoint",
     "PipelineReadinessProblem",
     "PipelineReadinessProblemJobStatusType1",

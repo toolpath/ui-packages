@@ -34,7 +34,8 @@ class FeatureDatasheet:
     """One feature as machining sees it: static, self-contained, and enough to choose a tool against without having the
     part in hand. All lengths mm and angles degrees, in the tool frame of the direction the feature is machined from,
     whose origin is the part’s own: z runs up the tool axis, so `zMin` is the bottom of the feature and `zMax` its top.
-    A pinch point’s `point` and a surface’s `minCurvatureDiameterAt` are the exceptions, in part coordinates.
+    A pinch point’s `point`, a surface’s `minCurvatureDiameterAt`, and a `topCenter` are the exceptions, in part
+    coordinates.
 
     Every number in it is finite, so it survives a JSON round trip. A limit nothing sets is `null`, so that every value
     passes it, except where a field’s description says it is absent instead. Any other field that is omitted has no

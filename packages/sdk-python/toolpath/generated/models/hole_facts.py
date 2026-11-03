@@ -11,6 +11,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.cd_data import CdData
     from ..models.threading import Threading
+    from ..models.vec_3 import Vec3
 
 
 T = TypeVar("T", bound="HoleFacts")
@@ -38,6 +39,7 @@ class HoleFacts:
         threading (Threading | Unset): A thread a hole or stud is to receive, and how it is to be cut.
         min_drill_diameter (float | Unset): Smallest drill diameter that leaves the hole within its permitted undersize,
             in mm.
+        top_center (Vec3 | Unset):
     """
 
     kind: Literal["Hole"]
@@ -53,6 +55,7 @@ class HoleFacts:
     max_spot_diameter: float | None
     threading: Threading | Unset = UNSET
     min_drill_diameter: float | Unset = UNSET
+    top_center: Vec3 | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         kind = self.kind
@@ -84,6 +87,10 @@ class HoleFacts:
 
         min_drill_diameter = self.min_drill_diameter
 
+        top_center: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.top_center, Unset):
+            top_center = self.top_center.to_dict()
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update(
@@ -105,6 +112,8 @@ class HoleFacts:
             field_dict["threading"] = threading
         if min_drill_diameter is not UNSET:
             field_dict["minDrillDiameter"] = min_drill_diameter
+        if top_center is not UNSET:
+            field_dict["topCenter"] = top_center
 
         return field_dict
 
@@ -112,6 +121,7 @@ class HoleFacts:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.cd_data import CdData
         from ..models.threading import Threading
+        from ..models.vec_3 import Vec3
 
         d = dict(src_dict)
         kind = cast(Literal["Hole"], d.pop("kind"))
@@ -152,6 +162,13 @@ class HoleFacts:
 
         min_drill_diameter = d.pop("minDrillDiameter", UNSET)
 
+        _top_center = d.pop("topCenter", UNSET)
+        top_center: Vec3 | Unset
+        if isinstance(_top_center, Unset):
+            top_center = UNSET
+        else:
+            top_center = Vec3.from_dict(_top_center)
+
         hole_facts = cls(
             kind=kind,
             diameter=diameter,
@@ -166,6 +183,7 @@ class HoleFacts:
             max_spot_diameter=max_spot_diameter,
             threading=threading,
             min_drill_diameter=min_drill_diameter,
+            top_center=top_center,
         )
 
         return hole_facts

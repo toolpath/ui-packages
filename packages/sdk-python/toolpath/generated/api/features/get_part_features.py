@@ -8,18 +8,21 @@ from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.part_features_response import PartFeaturesResponse
 from ...models.problem_details import ProblemDetails
-from ...types import UNSET, Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     id: str,
     *,
     ids: str,
+    include: str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
     params["ids"] = ids
+
+    params["include"] = include
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -99,18 +102,23 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     ids: str,
+    include: str | Unset = UNSET,
 ) -> Response[PartFeaturesResponse | ProblemDetails]:
     """Get part features
 
      Returns detailed machining datasheets for the requested features. Requires the datasheets to have
     been generated first: run **Analyze part features** (`PATCH /v1/parts/{id}/features`), or **Analyze
     a part** (`PATCH /v1/parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A
-    feature with no datasheet yet comes back with `datasheet: null`.
+    feature with no datasheet yet comes back with `datasheet: null`. Pass `include=contours` for each
+    feature’s plan-view outline as well.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
         ids (str): Comma-separated feature ids from the part to fetch detailed machining data for.
             Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820,0195f02c-4b4a-7b5d-9b6e-8f139d5e2821.
+        include (str | Unset): Comma-separated extras to return beside each datasheet. `contours`
+            adds each feature’s `contours`, `wallContours`, and the `toolFrame` they are in. Example:
+            contours.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -123,6 +131,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         id=id,
         ids=ids,
+        include=include,
     )
 
     response = client.get_httpx_client().request(
@@ -137,18 +146,23 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     ids: str,
+    include: str | Unset = UNSET,
 ) -> PartFeaturesResponse | ProblemDetails | None:
     """Get part features
 
      Returns detailed machining datasheets for the requested features. Requires the datasheets to have
     been generated first: run **Analyze part features** (`PATCH /v1/parts/{id}/features`), or **Analyze
     a part** (`PATCH /v1/parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A
-    feature with no datasheet yet comes back with `datasheet: null`.
+    feature with no datasheet yet comes back with `datasheet: null`. Pass `include=contours` for each
+    feature’s plan-view outline as well.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
         ids (str): Comma-separated feature ids from the part to fetch detailed machining data for.
             Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820,0195f02c-4b4a-7b5d-9b6e-8f139d5e2821.
+        include (str | Unset): Comma-separated extras to return beside each datasheet. `contours`
+            adds each feature’s `contours`, `wallContours`, and the `toolFrame` they are in. Example:
+            contours.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -162,6 +176,7 @@ def sync(
         id=id,
         client=client,
         ids=ids,
+        include=include,
     ).parsed
 
 
@@ -170,18 +185,23 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     ids: str,
+    include: str | Unset = UNSET,
 ) -> Response[PartFeaturesResponse | ProblemDetails]:
     """Get part features
 
      Returns detailed machining datasheets for the requested features. Requires the datasheets to have
     been generated first: run **Analyze part features** (`PATCH /v1/parts/{id}/features`), or **Analyze
     a part** (`PATCH /v1/parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A
-    feature with no datasheet yet comes back with `datasheet: null`.
+    feature with no datasheet yet comes back with `datasheet: null`. Pass `include=contours` for each
+    feature’s plan-view outline as well.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
         ids (str): Comma-separated feature ids from the part to fetch detailed machining data for.
             Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820,0195f02c-4b4a-7b5d-9b6e-8f139d5e2821.
+        include (str | Unset): Comma-separated extras to return beside each datasheet. `contours`
+            adds each feature’s `contours`, `wallContours`, and the `toolFrame` they are in. Example:
+            contours.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -194,6 +214,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         id=id,
         ids=ids,
+        include=include,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -206,18 +227,23 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     ids: str,
+    include: str | Unset = UNSET,
 ) -> PartFeaturesResponse | ProblemDetails | None:
     """Get part features
 
      Returns detailed machining datasheets for the requested features. Requires the datasheets to have
     been generated first: run **Analyze part features** (`PATCH /v1/parts/{id}/features`), or **Analyze
     a part** (`PATCH /v1/parts/{id}`) with `featureDetails=true`, and wait for the job to succeed. A
-    feature with no datasheet yet comes back with `datasheet: null`.
+    feature with no datasheet yet comes back with `datasheet: null`. Pass `include=contours` for each
+    feature’s plan-view outline as well.
 
     Args:
         id (str):  Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820.
         ids (str): Comma-separated feature ids from the part to fetch detailed machining data for.
             Example: 0195f02c-4b4a-7b5d-9b6e-8f139d5e2820,0195f02c-4b4a-7b5d-9b6e-8f139d5e2821.
+        include (str | Unset): Comma-separated extras to return beside each datasheet. `contours`
+            adds each feature’s `contours`, `wallContours`, and the `toolFrame` they are in. Example:
+            contours.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -232,5 +258,6 @@ async def asyncio(
             id=id,
             client=client,
             ids=ids,
+            include=include,
         )
     ).parsed

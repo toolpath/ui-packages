@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from ..models.cd_data import CdData
     from ..models.offset_length import OffsetLength
     from ..models.threading import Threading
+    from ..models.vec_3 import Vec3
 
 
 T = TypeVar("T", bound="CircularWallFacts")
@@ -41,6 +42,7 @@ class CircularWallFacts:
                 where it reads long by that corner's miter — zero for the filleted corners a pocket that
                 admits the tool is made of.
             threading (Threading | Unset): A thread a hole or stud is to receive, and how it is to be cut.
+            top_center (Vec3 | Unset):
     """
 
     kind: Literal["CircularWall"]
@@ -49,6 +51,7 @@ class CircularWallFacts:
     stands_on_a_floor: bool
     wall_length: OffsetLength | Unset = UNSET
     threading: Threading | Unset = UNSET
+    top_center: Vec3 | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         kind = self.kind
@@ -67,6 +70,10 @@ class CircularWallFacts:
         if not isinstance(self.threading, Unset):
             threading = self.threading.to_dict()
 
+        top_center: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.top_center, Unset):
+            top_center = self.top_center.to_dict()
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update(
@@ -81,6 +88,8 @@ class CircularWallFacts:
             field_dict["wallLength"] = wall_length
         if threading is not UNSET:
             field_dict["threading"] = threading
+        if top_center is not UNSET:
+            field_dict["topCenter"] = top_center
 
         return field_dict
 
@@ -89,6 +98,7 @@ class CircularWallFacts:
         from ..models.cd_data import CdData
         from ..models.offset_length import OffsetLength
         from ..models.threading import Threading
+        from ..models.vec_3 import Vec3
 
         d = dict(src_dict)
         kind = cast(Literal["CircularWall"], d.pop("kind"))
@@ -115,6 +125,13 @@ class CircularWallFacts:
         else:
             threading = Threading.from_dict(_threading)
 
+        _top_center = d.pop("topCenter", UNSET)
+        top_center: Vec3 | Unset
+        if isinstance(_top_center, Unset):
+            top_center = UNSET
+        else:
+            top_center = Vec3.from_dict(_top_center)
+
         circular_wall_facts = cls(
             kind=kind,
             cd=cd,
@@ -122,6 +139,7 @@ class CircularWallFacts:
             stands_on_a_floor=stands_on_a_floor,
             wall_length=wall_length,
             threading=threading,
+            top_center=top_center,
         )
 
         return circular_wall_facts
