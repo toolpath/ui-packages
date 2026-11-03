@@ -1,5 +1,19 @@
 # @toolpath/dev-config
 
+## 0.2.0
+
+### Minor Changes
+
+- eab29af: Add `@toolpath/dev-config/eslint-package`: `createPackageEslintConfig({ forbidStyling, ignores })`,
+  the correctness-only ESLint 9 config the Toolpath packages lint themselves with. `forbidStyling`
+  bans styling imports and `className`/`style` attributes in `src/`.
+
+### Patch Changes
+
+- eab29af: Accept ESLint 9.39 as well as 10.4 as the `eslint` peer, since `./eslint-package` runs on either;
+  `createEslintConfig` from `./eslint` still needs ESLint 10.4. The package config now takes its
+  TypeScript parser and plugin from the `typescript-eslint` version the rest of the package uses.
+
 ## 0.1.0
 
 ### Minor Changes
