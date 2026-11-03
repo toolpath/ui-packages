@@ -1,5 +1,103 @@
 # @toolpath/api
 
+## 0.13.0
+
+### Minor Changes
+
+- 636e37c: Regenerate the TypeScript SDK for Engine API 1.39.0.
+
+  ### Engine API 1.39.0
+
+  tp-kernel 0.31.1. A part says where it and its features are: the part's box, a hole's, a circular
+  wall's and a countersink's top center, and a feature's plan-view contours on request. A part also
+  keeps the name it was uploaded as.
+
+  **Parts** (`GET /v1/parts/{id}`):
+
+  - `boundingBox`: the box the part fits in, axis-aligned in mm in the part's coordinates. Null on
+    part results made before this release; analyze the part again to get one.
+  - `filename`: the name the part was uploaded as, the `filename` given to **Create a part** or its
+    file's name for a part made from a file. Absent where none was given, and on earlier parts.
+    **Create a part** now refuses a `filename` with control characters, as **Create a file** does.
+
+  **Features** (`GET /v1/parts/{id}/features`):
+
+  - `HoleFacts.topCenter`, `CircularWallFacts.topCenter`, and `SinkFacts.topCenter`: where the
+    feature's axis meets its top, in part coordinates, so a counterbore or a countersink can be
+    stacked on the hole below it. Absent on datasheets enriched before this release.
+  - `include=contours` adds each feature's `contours` and `wallContours`, with the `toolFrame` they
+    are in: its plan-view outline as exact segments and arcs (`ContourCurve`), an open pocket's
+    walls, and the frame of its direction in part coordinates. Empty where a feature has none, and
+    where the kernel could not project it. Null on features measured before this release; analyze
+    their features again to get them. Without `include`, the response is unchanged.
+
+  **Plans** (no change of shape):
+
+  - An outer fillet that rounds an edge and leaves its finish no more than two axial allowances is
+    finished once the faces it blends are, with no rough of its own, whatever arc it turns through.
+    A shallow pocket whose entrance nothing in its setup finishes, formerly left unmachined, is
+    roughed.
+  - A slot rough is cut as slot machining, held to its slots by their outlines.
+  - Fixes to finishing tool matching and to clearance measurements. Toolpaths and estimated times
+    move.
+
+  **CAM export** (`camExportUrl`, experimental):
+
+  - `job.json` also states how each pass links its cuts and how closely its toolpath is fitted to
+    arcs, and the toolpaths follow it.
+
+  **Operations**:
+
+  - Run the migration, then deploy workers, then the API. The migration only adds columns.
+
+  ### Engine API 1.38.1
+
+  tp-kernel 0.31.0. A turned hole's thread is measured from its tap drill, and a plan leaves whole a
+  feature no tool can rough. No field or shape changes: the descriptions of
+  `TurnedAxialHoleFacts.thread` and `TurnedThreadFacts.depth` change to say how.
+
+  **Turned features** (`turning` on `GET /v1/parts/{id}`):
+
+  - A turned hole's thread is cut from its tap drill, however the hole is drawn. A hole drawn at its
+    thread's nominal diameter now carries the thread, where it was turned plain.
+  - An internal thread's `depth` runs from the tap drill to the thread's root, where it ran from the
+    wall as drawn, and its `rMin` is the nearer of its wall and the tap drill.
+  - A turned axial hole's `thread` is the one it is drilled for, at its tap drill. It is absent where
+    that thread is beside a stretch of the hole narrower than its tap drill.
+  - A part analyzed before this release keeps its readings until it is analyzed again.
+
+  **Threads** (`threading` in feature datasheets, `threadSpec` on turned threads):
+
+  - A modeled thread is read as a catalog thread only where that thread's form can be cut in the
+    wall it leaves. A modeled thread can therefore be read as another catalog thread than before, or
+    as its spec as modeled where no catalog thread fits.
+
+  **Plans** (no change of shape):
+
+  - A feature no tool of the plan can rough, such as a pocket with a finger too narrow for every
+    rougher once both its walls keep their stock, is no longer finished out of solid. No pass cuts
+    it, and its setup lists it in `unmachined`. A wall beside it, or beside a feature no setup
+    machines, is left the same way, since that feature's material stands against it. With
+    `fallbackTools`, a fallback rougher can be made for it.
+  - Milling passes cut climb wherever they can, a face is swept along the direction it is narrowest
+    across, and a helical bore leads out on a wider arc. Toolpaths and estimated times move.
+  - A stud whose thread is cut into the part's outline now gets its thread milling pass, or, where no
+    tool cuts the thread, is listed in its setup's `unmachined`. A plan used to leave the thread out
+    without listing it.
+  - A wall whose open run turns a concave corner tighter than its mill is roughed and finished, where
+    it and the walls beside it were left out.
+
+  **CAM export** (`camExportUrl`, experimental):
+
+  - Each pass's geometry is the part's, no longer offset by the stock to leave, so a receiver leaves
+    the stock itself. `job.json` also states each pass's collision clearances and what it does on a
+    collision, its leads, which way it cuts, a rough's ramp, a face's pass angle and extensions, and
+    an open wall's runs.
+
+  **Operations**:
+
+  - Deploy workers, then the API.
+
 ## 0.12.0
 
 ### Minor Changes
