@@ -1,5 +1,5 @@
 import { type ThreeEvent, useFrame, useThree } from '@react-three/fiber'
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   type Box3,
   type BufferGeometry,
@@ -7,7 +7,9 @@ import {
   DoubleSide,
   EdgesGeometry,
   Group,
+  Matrix4,
   Mesh,
+  type Object3D,
   Plane,
   PlaneGeometry,
   Quaternion,
@@ -94,6 +96,12 @@ export function resolveSectionPlane(
 interface SectionViewProps {
   /** The mesh the cap is stenciled from, or every mesh one cut passes through. */
   geometry: BufferGeometry | ReadonlyArray<BufferGeometry>
+  /**
+   * What draws each geometry, in the same order: each stencil follows its object's world
+   * transform, so the cap fills a body that has been moved. Omitted, the geometry is stenciled
+   * where it lies.
+   */
+  placements?: ReadonlyArray<Object3D>
   box: Box3
   plane: Plane
   theme: ViewerTheme
@@ -104,6 +112,8 @@ interface SectionViewProps {
 }
 
 const Z = new Vector3(0, 0, 1)
+
+const SCRATCH = new Matrix4()
 
 /**
  * A clipping plane with a hatched cap over the cut, and an arrow that drags it.
@@ -127,6 +137,7 @@ const Z = new Vector3(0, 0, 1)
  */
 export const SectionView = ({
   geometry,
+  placements,
   box,
   plane,
   theme,
@@ -196,20 +207,28 @@ export const SectionView = ({
   const quad = useMemo(() => new PlaneGeometry(span * 1.5, span * 1.5), [span])
   useEffect(() => () => quad.dispose(), [quad])
 
+  // Each geometry's two stencil meshes share a group, which a placement moves.
   const maskScene = useMemo(() => {
     const scene = new Scene()
+    const placed: Array<Group> = []
     for (const each of geometries) {
+      const group = new Group()
+      group.matrixAutoUpdate = false
       for (const material of stencils) {
         const stencil = new Mesh(each, material)
         stencil.renderOrder = SECTION_RENDER_ORDER.stencil
-        scene.add(stencil)
+        group.add(stencil)
       }
+      placed.push(group)
+      scene.add(group)
     }
     const maskMesh = new Mesh(quad, createMaskMaterial())
     maskMesh.renderOrder = SECTION_RENDER_ORDER.cap
     scene.add(maskMesh)
-    return { scene, maskMesh }
+    return { scene, maskMesh, placed }
   }, [geometries, quad, stencils])
+  // One group per occurrence, since multiple items can share a geometry.
+  const stencilGroups = useRef<Array<Group | null>>([])
   useEffect(() => () => (maskScene.maskMesh.material as { dispose(): void }).dispose(), [maskScene])
 
   useEffect(() => {
@@ -231,6 +250,15 @@ export const SectionView = ({
   // Before R3F's own render, so the mask the cap samples is this frame's.
   const clearColor = useMemo(() => new Color(), [])
   useFrame(({ gl: renderer, camera: eye }) => {
+    // The stencils go where their bodies are drawn this frame.
+    for (let index = 0; index < geometries.length; index++) {
+      const placement = placements?.[index] ?? null
+      const inScene = stencilGroups.current[index]
+      if (placements && inScene) {
+        follow(inScene, placement)
+      }
+      follow(maskScene.placed[index]!, placement)
+    }
     const previousAlpha = renderer.getClearAlpha()
     renderer.getClearColor(clearColor)
     renderer.setRenderTarget(mask)
@@ -337,8 +365,21 @@ export const SectionView = ({
       {/* The stencil pass. Back faces increment and front faces decrement, so
           what is left marks where the plane is inside solid material — of any
           of the meshes, since the counts of separate bodies only add. */}
-      {geometries.map((each) => (
-        <Fragment key={each.uuid}>
+      {geometries.map((each, index) => (
+        <group
+          key={index}
+          ref={(group) => {
+            if (group) {
+              stencilGroups.current[index] = group
+              return () => {
+                if (stencilGroups.current[index] === group) {
+                  stencilGroups.current[index] = null
+                }
+              }
+            }
+          }}
+          matrixAutoUpdate={!placements}
+        >
           <mesh
             geometry={each}
             material={stencils[0]}
@@ -351,7 +392,7 @@ export const SectionView = ({
             renderOrder={SECTION_RENDER_ORDER.stencil}
             raycast={() => null}
           />
-        </Fragment>
+        </group>
       ))}
 
       {/* The cap: a quad over the whole cut, filled only where the stencil says
@@ -411,6 +452,25 @@ export const SectionView = ({
       ) : null}
     </group>
   )
+}
+
+/**
+ * Puts `target`, whose `matrixAutoUpdate` is off, where `placement` is in the world, or at its
+ * parent's origin for `null`.
+ */
+function follow(target: Object3D, placement: Object3D | null): void {
+  if (!placement) {
+    target.matrix.identity()
+  } else {
+    placement.updateWorldMatrix(true, false)
+    target.matrix.copy(placement.matrixWorld)
+    const parent = target.parent
+    if (parent) {
+      parent.updateWorldMatrix(true, false)
+      target.matrix.premultiply(SCRATCH.copy(parent.matrixWorld).invert())
+    }
+  }
+  target.matrixWorldNeedsUpdate = true
 }
 
 /**

@@ -1,4 +1,4 @@
-import { BoxGeometry, Plane, Vector3 } from 'three'
+import { BoxGeometry, Group, Plane, Vector3 } from 'three'
 import { describe, expect, it, vi } from 'vitest'
 import { collectionBounds } from '../src/model/collection.js'
 import { createPartCollectionLoader } from '../src/engine/collection.js'
@@ -56,10 +56,12 @@ describe('complete collections', () => {
     const theme = resolveTheme()
     const [a, b, c] = [new BoxGeometry(), new BoxGeometry(), new BoxGeometry()]
     const [first, second, third] = [{}, {}, {}]
+    const [placeA, placeB, placeC] = [new Group(), new Group(), new Group()]
     const moved: Array<string> = []
     const across = () => new Plane(new Vector3(0, 0, 1), 5)
     sections.set(first, {
       geometry: a,
+      placement: placeA,
       plane: across(),
       theme,
       showHandle: true,
@@ -67,6 +69,7 @@ describe('complete collections', () => {
     })
     sections.set(second, {
       geometry: b,
+      placement: placeB,
       plane: across(),
       theme,
       showHandle: true,
@@ -75,6 +78,7 @@ describe('complete collections', () => {
     // Controlled without a change callback: drawn, but nothing to drag.
     sections.set(third, {
       geometry: c,
+      placement: placeC,
       plane: new Plane(new Vector3(1, 0, 0), 0),
       theme,
       showHandle: false,
@@ -82,6 +86,7 @@ describe('complete collections', () => {
     const [cut, other] = sections.get()
     expect(sections.get()).toHaveLength(2)
     expect(cut!.geometries).toEqual([a, b])
+    expect(cut!.placements).toEqual([placeA, placeB])
     expect(cut!.showHandle).toBe(true)
     cut!.onDrag?.(3)
     expect(moved).toEqual(['a3', 'b3'])
@@ -91,6 +96,7 @@ describe('complete collections', () => {
     sections.set(first, null)
     sections.set(first, null)
     expect(sections.get()[0]!.geometries).toEqual([b])
+    expect(sections.get()[0]!.placements).toEqual([placeB])
     expect(notified).toHaveBeenCalledTimes(4)
     for (const geometry of [a, b, c]) {
       geometry.dispose()

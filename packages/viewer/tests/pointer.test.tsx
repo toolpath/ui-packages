@@ -11,6 +11,8 @@ import { PartMesh } from '../src/part-mesh.js'
 import { EXCLUDE_FROM_FRAME } from '../src/render/camera.js'
 import type { PartPick } from '../src/render/picking.js'
 import { createSectionStore } from '../src/render/section-store.js'
+import { resolveTheme } from '../src/render/theme.js'
+import { SectionView } from '../src/section-view.js'
 import { cubeModel, loadMeshFixture } from './fixtures.js'
 
 /*
@@ -74,6 +76,12 @@ const mount = async (
     setScissor: () => undefined,
     getScissorTest: () => false,
     setScissorTest: () => undefined,
+    getDrawingBufferSize: (into: THREE.Vector2) => into.set(100, 100),
+    getClearAlpha: () => 1,
+    getClearColor: (into: THREE.Color) => into.set(0),
+    setRenderTarget: () => undefined,
+    setClearColor: () => undefined,
+    clear: () => undefined,
   }
   viewer.section = createSectionStore()
   const root = createRoot(canvas as unknown as HTMLCanvasElement)
@@ -94,6 +102,7 @@ const mount = async (
   return {
     scene,
     camera: store!.getState().camera,
+    advance: () => store!.getState().advance(1),
     press: (clientX: number, clientY = 0) => {
       for (const listener of presses) {
         listener({ clientX, clientY })
@@ -114,6 +123,37 @@ const mount = async (
     find: (name: string) => scene.getObjectByName(name)!,
   }
 }
+
+it('places section stencils independently when items share geometry', async () => {
+  const shared = new THREE.BoxGeometry(2, 2, 2)
+  const first = new THREE.Group()
+  const second = new THREE.Group()
+  first.position.x = -5
+  second.position.x = 7
+  const view = await mount(
+    <SectionView
+      geometry={[shared, shared]}
+      placements={[first, second]}
+      box={new Box3(new Vector3(-6, -1, -1), new Vector3(8, 1, 1))}
+      plane={new THREE.Plane(new Vector3(0, 0, 1), 0)}
+      theme={resolveTheme()}
+      showHandle={false}
+    />,
+  )
+  view.advance()
+  const groups: Array<Object3D> = []
+  view.scene.traverse((object) => {
+    if (
+      object.children.length === 2 &&
+      object.children.every((child) => child instanceof THREE.Mesh && child.geometry === shared)
+    ) {
+      groups.push(object)
+    }
+  })
+  expect(groups).toHaveLength(2)
+  expect(groups.map((group) => group.matrix.elements[12])).toEqual([-5, 7])
+  shared.dispose()
+})
 
 let model: PartModel
 let geometry: BufferGeometry

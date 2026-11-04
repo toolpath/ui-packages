@@ -317,7 +317,10 @@ export const PartMesh = ({
     if (focusFeature === null || focusFeature === framed.current) return
     framed.current = focusFeature
     const box = part.boxForFeature(focusFeature)
-    if (box) viewerControls.frameBox(box)
+    if (!box) return
+    // Where the part is drawn, which in an exploded collection is not where its mesh lies.
+    part.object.updateWorldMatrix(true, false)
+    viewerControls.frameBox(box.applyMatrix4(part.object.matrixWorld))
   }, [focusFeature, part, viewerControls])
 
   useLayoutEffect(() => {
@@ -508,7 +511,15 @@ export const PartMesh = ({
     sections?.set(
       part,
       cut && visible
-        ? { geometry, plane: cut.plane, theme: resolved, handleColor, showHandle, onDrag }
+        ? {
+            geometry,
+            placement: part.object,
+            plane: cut.plane,
+            theme: resolved,
+            handleColor,
+            showHandle,
+            onDrag,
+          }
         : null,
     )
   }, [cut, geometry, handleColor, onDrag, part, resolved, sections, showHandle, visible])

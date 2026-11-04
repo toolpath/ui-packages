@@ -327,6 +327,11 @@ export type { ExtendedCameraControlsOptions } from './render/controls.js'
 export type { ControlScheme, ControlSchemeOption } from './render/control-schemes.js'
 export type { Retarget, ViewerProps } from './viewer.js'
 export { PartCollection } from './part-collection.js'
-export type { PartCollectionItem, PartCollectionProps } from './part-collection.js'
-export { collectionBounds } from './model/collection.js'
+export type {
+  PartCollectionExplode,
+  PartCollectionItem,
+  PartCollectionProps,
+} from './part-collection.js'
+export { collectionBounds, collectionExplodeOffsets } from './model/collection.js'
+export type { CollectionBoundsOptions, CollectionExplodeOptions } from './model/collection.js'
 export { BODY_PALETTE, bodyColors } from './render/body-colors.js'
