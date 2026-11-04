@@ -37,6 +37,12 @@ class CdData:
             unbounded, so `min` is absent only where `max` is. Both bounds are absent where nothing
             encloses the feature, as for a facing pass. Both are zero where no tool fits, and
             wherever `CdData.measurementFailed` is set.
+        limit (CdBounds | Unset): How wide a tool a feature admits — two upper bounds, differing in how much of the
+            feature the tool has to reach. `min` is the largest tool that reaches every part of the
+            feature, `max` the largest that fits somewhere; `min <= max`, an absent bound counting as
+            unbounded, so `min` is absent only where `max` is. Both bounds are absent where nothing
+            encloses the feature, as for a facing pass. Both are zero where no tool fits, and
+            wherever `CdData.measurementFailed` is set.
         terminal_corner_radius (float | Unset): The corner radius a terminal tool must not exceed, in mm; absent where
             no corner radius
             is too large. On a surface that is where nothing bounds a ball; on every other kind,
@@ -53,6 +59,7 @@ class CdData:
     ignore: CdBounds
     deviate: CdBounds
     effective_adaptive: CdBounds
+    limit: CdBounds | Unset = UNSET
     terminal_corner_radius: float | Unset = UNSET
     measurement_failed: bool | Unset = UNSET
 
@@ -62,6 +69,10 @@ class CdData:
         deviate = self.deviate.to_dict()
 
         effective_adaptive = self.effective_adaptive.to_dict()
+
+        limit: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.limit, Unset):
+            limit = self.limit.to_dict()
 
         terminal_corner_radius = self.terminal_corner_radius
 
@@ -76,6 +87,8 @@ class CdData:
                 "effectiveAdaptive": effective_adaptive,
             }
         )
+        if limit is not UNSET:
+            field_dict["limit"] = limit
         if terminal_corner_radius is not UNSET:
             field_dict["terminalCornerRadius"] = terminal_corner_radius
         if measurement_failed is not UNSET:
@@ -94,6 +107,13 @@ class CdData:
 
         effective_adaptive = CdBounds.from_dict(d.pop("effectiveAdaptive"))
 
+        _limit = d.pop("limit", UNSET)
+        limit: CdBounds | Unset
+        if isinstance(_limit, Unset):
+            limit = UNSET
+        else:
+            limit = CdBounds.from_dict(_limit)
+
         terminal_corner_radius = d.pop("terminalCornerRadius", UNSET)
 
         measurement_failed = d.pop("measurementFailed", UNSET)
@@ -102,6 +122,7 @@ class CdData:
             ignore=ignore,
             deviate=deviate,
             effective_adaptive=effective_adaptive,
+            limit=limit,
             terminal_corner_radius=terminal_corner_radius,
             measurement_failed=measurement_failed,
         )

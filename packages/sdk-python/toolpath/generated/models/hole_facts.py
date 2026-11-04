@@ -26,7 +26,8 @@ class HoleFacts:
         diameter (float): What the hole is actually drilled to — narrower than modeled for a threaded
             hole.
         full_cone_deg (float): Full apex angle of the cone at the hole bottom, degrees; 180 for a flat bottom.
-        is_counterbore (bool): Whether the hole includes a larger counterbore at its mouth.
+        is_counterbore (bool): Whether this hole is a counterbore: a blind hole with a flat floor, pierced at its center
+            by one narrower hole on its axis. The narrower hole below is not one.
         hole_process (HoleProcess): How the user wants a hole machined.
         cd (CdData): Clearance-diameter bounds per tolerance regime, plus the flags derived with them.
         max_drill_diameter (float): Largest drill diameter that leaves the hole within its permitted oversize, in mm.

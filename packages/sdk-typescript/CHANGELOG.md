@@ -1,5 +1,45 @@
 # @toolpath/api
 
+## 0.14.0
+
+### Minor Changes
+
+- db9a8f6: Regenerate the TypeScript SDK for Engine API 1.40.0.
+
+  ### Engine API 1.40.0
+
+  tp-kernel 0.32.0. A feature's clearance states the bounds every terminal tool is held to, and plans
+  cut holes and narrow features more closely.
+
+  **Features** (`GET /v1/parts/{id}/features`):
+
+  - `CdData.limit`: the clearance-diameter bounds while deviations up to the tolerance band's
+    largest are allowed, which every terminal tool is held to. `ignore`, `deviate` and `limit` are
+    ordered: each admits at least what the one before it does. Absent on datasheets enriched before
+    this release. `effectiveAdaptive` is unchanged, and no tool is sized by it.
+
+  **Parts** (`GET /v1/parts/{id}`, no change of shape):
+
+  - `DirectionZBounds` says which frame its `zMin` and `zMax` are in: the `toolFrame` that
+    `GET /v1/parts/{id}/features` serves with `include=contours` for each feature of that direction,
+    the frame the feature's datasheet heights are in. A part's z extent and a feature's `zMin` and
+    `zMax` along one direction compare directly.
+
+  **Plans** (no change of shape):
+
+  - A terminal tool may miss the model by up to the tolerance band's largest deviation at the
+    narrowest place it has to reach, a rounded corner, a width or a sharp corner alike: a filleted
+    pocket may get a wider finisher, and a wall or a profile a narrower one.
+  - A hole cycle feeds from each hole's start rather than from its hop above it. A blind hole whose
+    cone a hole below cuts off is drilled to where its tip would be.
+  - A chamfer band narrower than about 0.3 mm is finished with passes on its two edges, where its
+    finish could fail. A pocket no longer gets a rest rough for rest under a hundredth of an inch.
+
+  **Toolpaths** (experimental, `camExportUrl` on `GET /v1/plans/{planId}/toolpaths`): the CAM
+  export's `job.json` leaves out a field with nothing to state rather than writing it as null; a
+  setup states its `process` (`Milling`) where it stated its `machine` (`Mill`), a tool's thread is
+  a `thread` of its own, and a milling action's faces are the action's `sheets`.
+
 ## 0.13.0
 
 ### Minor Changes

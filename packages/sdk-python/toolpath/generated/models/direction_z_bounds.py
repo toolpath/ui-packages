@@ -18,8 +18,10 @@ class DirectionZBounds:
     """
     Attributes:
         direction (Vec3):
-        z_min (float): Lowest part extent in this direction’s tool-axis frame, in mm.
-        z_max (float): Highest part extent in this direction’s tool-axis frame, in mm.
+        z_min (float): Lowest part extent in this direction’s tool-axis frame, in mm. That frame is the `toolFrame` `GET
+            /v1/parts/{id}/features` serves, with `include=contours`, for each feature of this direction, the frame its
+            datasheet’s `zMin` and `zMax` are in, so they compare directly.
+        z_max (float): Highest part extent in the same frame as `zMin`, in mm.
     """
 
     direction: Vec3
