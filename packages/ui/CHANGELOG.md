@@ -1,5 +1,11 @@
 # @toolpath/ui
 
+## 1.5.0
+
+### Minor Changes
+
+- c95051b: Add DatePicker for year, month, and day selection and DateTimePicker for integrated local date-time entry, with canonical values, form validation, accessible themed calendar and time controls, and controlled popup visibility. Add DateRangePicker for an inclusive day range chosen from two months side by side.
+
 ## 1.4.0
 
 ### Minor Changes

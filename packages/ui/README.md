@@ -182,6 +182,8 @@ installed version.
 | `Button`                                 | Actions or links (`asLink` + `href`). `variant`, `size`, `shape`, `full`, `disabled`, `isLoading`.                                                                                |
 | `IconButton`                             | Icon-only actions, optionally `toggled` or with `IconButton.Indicator`.                                                                                                           |
 | `Input`                                  | Text, search, or numeric input; requires `id` and `name`. `onValueChange` receives a string, or `null` when a number input is cleared.                                            |
+| `DatePicker` / `DateTimePicker`          | Controlled dates or local date-times. `value`, `onValueChange`, `precision`, `hourCycle`, `min`, `max`, `size`, `variant`; canonical form submission.                             |
+| `DateRangePicker`                        | Controlled inclusive day range over two months. `value` (`{ from, to }`), `onValueChange`, `min`, `max`, `maxDays`, `size`, `variant`.                                            |
 | `TextArea`                               | Multiline text input.                                                                                                                                                             |
 | `QuantityInput`                          | Controlled number with increment/decrement buttons; `value`, `onValueChange`, `min`, `max`, `step`.                                                                               |
 | `Checkbox`, `Star`, `Pin`                | Controlled `checked`, required `name`, and `onChange(checked, { shiftKey })`. Checkbox also supports `indeterminate`.                                                             |
@@ -217,12 +219,72 @@ Unit preference helpers live in
 [`@toolpath/app-support`](https://www.npmjs.com/package/@toolpath/app-support),
 with React hooks at `@toolpath/app-support/react`.
 
+### Date and time selection
+
+```tsx
+import { DatePicker, DateRangePicker, DateTimePicker } from '@toolpath/ui'
+
+<DatePicker label="Date" value={date} onValueChange={setDate} />
+<DatePicker label="Month" precision="month" value={month} onValueChange={setMonth} />
+<DatePicker label="Year" precision="year" value={year} onValueChange={setYear} />
+<DateTimePicker label="Expiration" value={expiration} onValueChange={setExpiration} hourCycle={24} />
+<DateRangePicker label="Period" value={period} onValueChange={setPeriod} maxDays={366} />
+```
+
+Both components are controlled: `value` is a canonical string or `null`, and `onValueChange`
+receives the same type. `DatePicker` precision defaults to `day`; year, month, and day
+values use `YYYY`, `YYYY-MM`, and `YYYY-MM-DD`. Precision controls the selection, while
+calendar navigation always includes the larger units. `DateTimePicker` uses minute precision
+and `YYYY-MM-DDTHH:mm`, with one editable field and one calendar/hour/minute popup. Every
+minute is selectable. `hourCycle` accepts `12` or `24` and defaults to the runtime locale;
+it changes presentation only. Set `hourCycle` explicitly for consistent server/browser rendering.
+An optional `defaultTime` (`HH:mm`) supplies a time when a date is selected without one, or
+when a date-only typed entry loses focus.
+
+Date-time values are local wall-clock values, **without a time zone or UTC offset**. The
+caller chooses a time zone and resolves daylight-saving gaps and repeated times before
+converting to an instant. The picker never converts through JavaScript `Date` or silently
+rounds a selected minute.
+
+`min` and `max` are inclusive canonical strings in the same format as `value`; date-time
+bounds include the time. `name` submits the canonical value through a hidden input.
+Incomplete, malformed, and out-of-range edits stay visible, emit `null`, clear the submitted
+value, and block native form submission. An empty optional value is valid. `required`,
+`disabled`, `readOnly`, `invalid`, `aria-describedby`, `id`, and `className` are supported.
+`open` and `onOpenChange` optionally control popup visibility, for example when selecting a
+custom option in another field. `invalid` blocks native submission as well as exposing the
+error state; provide explanatory text through `aria-describedby`. Disabled fields are omitted
+from form submission.
+
+`size` and `variant` match `Input`, and the picker draws its own field and focus ring, so
+place it beside other controls rather than inside one. The text field shows its expected
+format: ISO date components followed by a space and the time for date-times. Use the down
+arrow to open the popup. The
+calendar follows the WAI-ARIA date picker keyboard model (arrows, Home/End, PageUp/PageDown,
+and Shift+PageUp/PageDown for years), and the hour and minute columns are radio groups.
+Escape returns focus to the field. In a `role="dialog"` or `role="alertdialog"`, the popup
+stays inside that focus boundary. The date-time popup stacks its clock below the calendar on
+narrow screens.
+
+`DateRangePicker` selects an inclusive range of `YYYY-MM-DD` days, `{ from, to }`, from two
+months shown side by side (stacked on narrow screens). Its button shows the range, such as
+"Jan 20 – Feb 9, 2026". Two days chosen in either order make a new range, the earlier one
+first. `onValueChange` is called only with a complete
+range, which closes the popup, and Escape or an outside press keeps the previous one. `min` and
+`max` bound both ends, and `maxDays` limits the length, counting both ends, either way from the first day chosen. `size` and `variant`
+match `Input`; `className` is applied last, so it can restyle the button to sit among other
+controls.
+
+Exported types: `DatePickerProps`, `DatePickerPrecision`, `DateTimePickerProps`, `DateRange`,
+and `DateRangePickerProps`.
+
 ## Composition examples
 
 ### Forms and control state
 
-Callback names are component-specific: use `onValueChange` for `Input` and
-`QuantityInput`, `onChange` for `Checkbox`, and `onCheckedChange` for `Switch`.
+Callback names are component-specific: use `onValueChange` for `Input`, `QuantityInput`,
+`DatePicker`, `DateTimePicker` and `DateRangePicker`, `onChange` for `Checkbox`, and `onCheckedChange` for
+`Switch`.
 Input number values are still strings; parse them explicitly at your application
 boundary. A checkbox cannot be both `checked` and `indeterminate`.
 
