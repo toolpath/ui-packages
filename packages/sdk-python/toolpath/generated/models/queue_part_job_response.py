@@ -12,6 +12,7 @@ from ..models.queue_part_job_response_status import QueuePartJobResponseStatus
 from ..models.queue_part_job_response_workholding import QueuePartJobResponseWorkholding
 
 if TYPE_CHECKING:
+    from ..models.plan_spec import PlanSpec
     from ..models.queue_part_job_response_done_regions_type_0 import QueuePartJobResponseDoneRegionsType0
     from ..models.queue_part_job_response_machine_type_0 import QueuePartJobResponseMachineType0
     from ..models.queue_part_job_response_setup_plan_type_0 import QueuePartJobResponseSetupPlanType0
@@ -41,6 +42,9 @@ class QueuePartJobResponse:
             for the kernel’s own plan.
         done_regions (None | QueuePartJobResponseDoneRegionsType0): The regions the job treats as done — the request’s,
             or null for none.
+        plan_spec (None | PlanSpec): The plan spec the job states — the request’s, or null for none. **Experimental.**
+            Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such
+            change is listed in the release notes, so check them before upgrading.
         stock (QueuePartJobResponseStock): The queued stock input and its not-yet-calculated geometry.
         fallback_tools (bool): Whether the job plans what the crib cannot with fallback tools.
         workholding (QueuePartJobResponseWorkholding): How the job holds the part — the request’s, or `thinAir` when it
@@ -56,6 +60,7 @@ class QueuePartJobResponse:
     machine: None | QueuePartJobResponseMachineType0
     setup_plan: None | QueuePartJobResponseSetupPlanType0
     done_regions: None | QueuePartJobResponseDoneRegionsType0
+    plan_spec: None | PlanSpec
     stock: QueuePartJobResponseStock
     fallback_tools: bool
     workholding: QueuePartJobResponseWorkholding
@@ -63,6 +68,7 @@ class QueuePartJobResponse:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.plan_spec import PlanSpec
         from ..models.queue_part_job_response_done_regions_type_0 import QueuePartJobResponseDoneRegionsType0
         from ..models.queue_part_job_response_machine_type_0 import QueuePartJobResponseMachineType0
         from ..models.queue_part_job_response_setup_plan_type_0 import QueuePartJobResponseSetupPlanType0
@@ -102,6 +108,12 @@ class QueuePartJobResponse:
         else:
             done_regions = self.done_regions
 
+        plan_spec: dict[str, Any] | None
+        if isinstance(self.plan_spec, PlanSpec):
+            plan_spec = self.plan_spec.to_dict()
+        else:
+            plan_spec = self.plan_spec
+
         stock = self.stock.to_dict()
 
         fallback_tools = self.fallback_tools
@@ -122,6 +134,7 @@ class QueuePartJobResponse:
                 "machine": machine,
                 "setupPlan": setup_plan,
                 "doneRegions": done_regions,
+                "planSpec": plan_spec,
                 "stock": stock,
                 "fallbackTools": fallback_tools,
                 "workholding": workholding,
@@ -133,6 +146,7 @@ class QueuePartJobResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.plan_spec import PlanSpec
         from ..models.queue_part_job_response_done_regions_type_0 import QueuePartJobResponseDoneRegionsType0
         from ..models.queue_part_job_response_machine_type_0 import QueuePartJobResponseMachineType0
         from ..models.queue_part_job_response_setup_plan_type_0 import QueuePartJobResponseSetupPlanType0
@@ -208,6 +222,21 @@ class QueuePartJobResponse:
 
         done_regions = _parse_done_regions(d.pop("doneRegions"))
 
+        def _parse_plan_spec(data: object) -> None | PlanSpec:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                plan_spec_type_0 = PlanSpec.from_dict(data)
+
+                return plan_spec_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | PlanSpec, data)
+
+        plan_spec = _parse_plan_spec(d.pop("planSpec"))
+
         stock = QueuePartJobResponseStock.from_dict(d.pop("stock"))
 
         fallback_tools = d.pop("fallbackTools")
@@ -225,6 +254,7 @@ class QueuePartJobResponse:
             machine=machine,
             setup_plan=setup_plan,
             done_regions=done_regions,
+            plan_spec=plan_spec,
             stock=stock,
             fallback_tools=fallback_tools,
             workholding=workholding,

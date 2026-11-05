@@ -1,0 +1,41 @@
+from enum import Enum
+
+
+class PlanSpecSetupsItemFeaturesItemFeatureType(str, Enum):
+    BACK_CHAMFER = "back_chamfer"
+    BACK_SINK = "back_sink"
+    BLIND_HOLE = "blind_hole"
+    BOSS = "boss"
+    CHAMFER = "chamfer"
+    CIRCULAR_WALL = "circular_wall"
+    CONTOUR_SURFACE = "contour_surface"
+    FACE = "face"
+    FILLET = "fillet"
+    FILLETED_BLIND_HOLE = "filleted_blind_hole"
+    FILLETED_BOSS = "filleted_boss"
+    FILLETED_OPEN_POCKET = "filleted_open_pocket"
+    FILLETED_POCKET = "filleted_pocket"
+    INNER_FILLET = "inner_fillet"
+    OPEN_POCKET = "open_pocket"
+    OUTER_FILLET = "outer_fillet"
+    POCKET = "pocket"
+    PROFILE = "profile"
+    SINK = "sink"
+    SLANTED_FACE = "slanted_face"
+    SYNTHETIC_HOLE = "synthetic_hole"
+    TAPERED_THROUGH_HOLE = "tapered_through_hole"
+    THREAD = "thread"
+    THREADED_BLIND_HOLE = "threaded_blind_hole"
+    THREADED_THROUGH_HOLE = "threaded_through_hole"
+    THROUGH_HOLE = "through_hole"
+    THROUGH_POCKET = "through_pocket"
+    UNDERCUT_DOVETAIL = "undercut_dovetail"
+    UNDERCUT_FILLETED_DOVETAIL = "undercut_filleted_dovetail"
+    UNDERCUT_FILLETED_TSLOT = "undercut_filleted_tslot"
+    UNDERCUT_TSLOT = "undercut_tslot"
+    UNDERCUT_WALL = "undercut_wall"
+    U_SLOT = "u_slot"
+    WALL = "wall"
+
+    def __str__(self) -> str:
+        return str(self.value)

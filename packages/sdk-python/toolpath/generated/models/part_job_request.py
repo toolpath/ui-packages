@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from ..models.part_job_request_machine import PartJobRequestMachine
     from ..models.part_job_request_setup_plan_type_0 import PartJobRequestSetupPlanType0
     from ..models.part_job_request_tool_crib_item_type_0 import PartJobRequestToolCribItemType0
+    from ..models.plan_spec import PlanSpec
 
 
 T = TypeVar("T", bound="PartJobRequest")
@@ -71,9 +72,9 @@ class PartJobRequest:
             that the plan’s `trimmedFeatures` describes, and the plan’s `setupPlan` may name that tag in turn. A statement
             the kernel cannot honor fails the job, whose `error` begins `refused_user_plan:` and gives one clause per
             refused statement. Omit or null for the kernel’s own plan; on **Calculate a plan’s toolpaths**, omit to keep the
-            plan’s statement and null to clear it. Example: {'setups': [{'orientations': [{'direction': {'x': 0, 'y': 0,
-            'z': 1}, 'features': ['1f3a09c2']}]}, {'orientations': [{'direction': {'x': 0, 'y': 0, 'z': -1}, 'features':
-            []}]}]}.
+            plan’s statement and null to clear it — a request stating a `planSpec` drops it, as a `planSpec` takes its
+            place. Example: {'setups': [{'orientations': [{'direction': {'x': 0, 'y': 0, 'z': 1}, 'features':
+            ['1f3a09c2']}]}, {'orientations': [{'direction': {'x': 0, 'y': 0, 'z': -1}, 'features': []}]}]}.
         done_regions (None | PartJobRequestDoneRegionsType0 | Unset): Regions already at their final surface — near-net
             stock, a face finished before the part arrives: `regions`, indices into the part report’s `regions`, and the
             `kernelVersion` of the report they were read from. Region indices are stable only within one kernel release, so
@@ -85,7 +86,25 @@ class PartJobRequest:
             done region on the top of a direction turns off facing from that direction, and the part’s other top faces are
             machined one by one. The stock is unchanged: it is still the block around the part, so the simulation cuts air
             over a done region. Omit or null for none; on **Calculate a plan’s toolpaths**, omit to keep the plan’s and null
-            to clear them. Example: {'kernelVersion': '0.18.0', 'regions': [12, 13]}.
+            to clear them — a request stating a `planSpec` drops them, as a `planSpec` takes their place. Example:
+            {'kernelVersion': '0.18.0', 'regions': [12, 13]}.
+        plan_spec (None | PlanSpec | Unset): The plan to make, stated by region index, in place of `setupPlan` and
+            `doneRegions`, which are refused beside it (400). Its indices are into the `regions` of the response its
+            `preparationId` was read from — the part, or a plan’s `planSpec` — and a job that prepares the part otherwise
+            fails, its `error` beginning `stale_regions:`: analyze the part again and read its regions afresh. A part
+            feature holding a region the spec names — a skipped one, one exclusive to a setup of another direction, or one
+            of a stated feature — is planned as what is left of it, under a tag of its own that the plan’s `trimmedFeatures`
+            describes. A statement the kernel cannot honor fails the job, whose `error` begins `refused_plan_spec:` and
+            gives one clause per refused statement, each beginning with where it is: `setup 1:`, `setup 1: feature 0`,
+            `additional direction 0:` or `the plan spec:`. A plan read serves the plan’s completed spec as `planSpec`, which
+            can be edited and sent back. Omit or null for none; on **Calculate a plan’s toolpaths**, omit to keep the
+            plan’s, whatever else the request changes, and null to clear it — a request stating a `planSpec` drops the
+            plan’s `setupPlan` and `doneRegions`, and one stating either of those drops its `planSpec`. **Experimental.**
+            Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such
+            change is listed in the release notes, so check them before upgrading. Example: {'preparationId':
+            '9c1e5a07d3b2f418', 'skippedRegions': [12, 13], 'setups': [{'direction': {'x': 0, 'y': 0, 'z': 1}, 'features':
+            [{'regions': [4, 5, 6]}, {'regions': [9], 'featureType': 'through_hole'}]}, {'direction': {'x': 0, 'y': 0, 'z':
+            -1}, 'exclusiveRegions': [20]}]}.
         stock (AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock | Unset):
             Initial stock settings. Omit stock to use automatic Flat Bar on a new plan or keep the saved input on a
             recalculation. The initial stock to cut from, all lengths mm, told apart by `mode`: automatic Flat Bar or Round
@@ -104,12 +123,12 @@ class PartJobRequest:
             setup grips the initial stock, every later setup the part as cut; the jaws reach 5.35 mm up whatever they close
             on, at most half its height. The planner chooses the first setup among the directions the stock can be gripped
             in. Fixed stock is gripped only in the directions the part fits it squared up in; where it fits in none — or not
-            in the direction a `setupPlan` states its first setup in — the job fails, its `error` beginning
+            in the direction a `setupPlan` or `planSpec` states its first setup in — the job fails, its `error` beginning
             `part_outside_initial_stock:` and naming each direction. A job no first setup can start otherwise fails, its
             `error` beginning `invalid_argument: setup planning: no fixture on the initial stock holds a first setup`; a
-            `setupPlan` whose first setup cannot start fails as `refused_user_plan:`. Faces a jaw leaves out of reach are
-            reported as the plan’s `issues`. Omit on **Calculate a plan’s toolpaths** to keep the plan’s. Example:
-            syntheticVise.
+            `setupPlan` or `planSpec` whose first setup cannot start fails as `refused_user_plan:` or `refused_plan_spec:`.
+            Faces a jaw leaves out of reach are reported as the plan’s `issues`. Omit on **Calculate a plan’s toolpaths** to
+            keep the plan’s. Example: syntheticVise.
     """
 
     material: PartJobRequestMaterial | Unset = UNSET
@@ -117,6 +136,7 @@ class PartJobRequest:
     machine: PartJobRequestMachine | Unset = UNSET
     setup_plan: None | PartJobRequestSetupPlanType0 | Unset = UNSET
     done_regions: None | PartJobRequestDoneRegionsType0 | Unset = UNSET
+    plan_spec: None | PlanSpec | Unset = UNSET
     stock: AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock | Unset = UNSET
     fallback_tools: bool | Unset = UNSET
     workholding: PartJobRequestWorkholding | Unset = UNSET
@@ -129,6 +149,7 @@ class PartJobRequest:
         from ..models.part_job_request_done_regions_type_0 import PartJobRequestDoneRegionsType0
         from ..models.part_job_request_setup_plan_type_0 import PartJobRequestSetupPlanType0
         from ..models.part_job_request_tool_crib_item_type_0 import PartJobRequestToolCribItemType0
+        from ..models.plan_spec import PlanSpec
 
         material: str | Unset = UNSET
         if not isinstance(self.material, Unset):
@@ -164,6 +185,14 @@ class PartJobRequest:
         else:
             done_regions = self.done_regions
 
+        plan_spec: dict[str, Any] | None | Unset
+        if isinstance(self.plan_spec, Unset):
+            plan_spec = UNSET
+        elif isinstance(self.plan_spec, PlanSpec):
+            plan_spec = self.plan_spec.to_dict()
+        else:
+            plan_spec = self.plan_spec
+
         stock: dict[str, Any] | Unset
         if isinstance(self.stock, Unset):
             stock = UNSET
@@ -197,6 +226,8 @@ class PartJobRequest:
             field_dict["setupPlan"] = setup_plan
         if done_regions is not UNSET:
             field_dict["doneRegions"] = done_regions
+        if plan_spec is not UNSET:
+            field_dict["planSpec"] = plan_spec
         if stock is not UNSET:
             field_dict["stock"] = stock
         if fallback_tools is not UNSET:
@@ -217,6 +248,7 @@ class PartJobRequest:
         from ..models.part_job_request_machine import PartJobRequestMachine
         from ..models.part_job_request_setup_plan_type_0 import PartJobRequestSetupPlanType0
         from ..models.part_job_request_tool_crib_item_type_0 import PartJobRequestToolCribItemType0
+        from ..models.plan_spec import PlanSpec
 
         d = dict(src_dict)
         _material = d.pop("material", UNSET)
@@ -284,6 +316,23 @@ class PartJobRequest:
 
         done_regions = _parse_done_regions(d.pop("doneRegions", UNSET))
 
+        def _parse_plan_spec(data: object) -> None | PlanSpec | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                plan_spec_type_0 = PlanSpec.from_dict(data)
+
+                return plan_spec_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | PlanSpec | Unset, data)
+
+        plan_spec = _parse_plan_spec(d.pop("planSpec", UNSET))
+
         def _parse_stock(
             data: object,
         ) -> AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock | Unset:
@@ -344,6 +393,7 @@ class PartJobRequest:
             machine=machine,
             setup_plan=setup_plan,
             done_regions=done_regions,
+            plan_spec=plan_spec,
             stock=stock,
             fallback_tools=fallback_tools,
             workholding=workholding,

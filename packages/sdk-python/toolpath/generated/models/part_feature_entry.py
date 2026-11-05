@@ -32,8 +32,8 @@ class PartFeatureEntry:
             with `include=contours`: loops of exact segments and arcs, as x and y in mm in `toolFrame`, the frame its
             datasheet’s heights are in. A closed loop no other holds runs counterclockwise and an island inside one
             clockwise; a wall’s loops keep the material on their left. Empty for a feature with none — a hole, which is its
-            circle; a top face read for facing; an undercut — and where the kernel could not project it; null where the
-            feature has not been measured since Engine API 1.39.0.
+            circle; an undercut — and where the kernel could not project it; null where the feature has not been measured
+            since Engine API 1.39.0.
         wall_contours (list[list[ContourArc | ContourSegment]] | None | Unset): An open pocket’s walls, returned with
             `include=contours`: runs in the same frame with the material on their left, whose free ends bound the pocket’s
             open sides. Empty for every other kind; null where `contours` is.

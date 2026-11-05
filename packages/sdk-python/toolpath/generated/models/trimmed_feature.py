@@ -16,8 +16,9 @@ T = TypeVar("T", bound="TrimmedFeature")
 @_attrs_define
 class TrimmedFeature:
     """A feature of the part as a plan reads it that the part report does not list, whether or not a setup names it: what
-    the plan’s skipped regions (done, or left at size by its stock body), or the features its `setupPlan` names, left of
-    a part feature, which the kernel reads again on the rest of its regions under a tag of its own.
+    the plan’s skipped regions (done, or left at size by its stock body), the features its `setupPlan` or `planSpec`
+    states, or the regions its `planSpec` makes exclusive to a setup of another direction, left of a part feature, which
+    the kernel reads again on the rest of its regions under a tag of its own.
 
         Attributes:
             feature_tag (str): Kernel feature tag (hex) the plan reads this feature under. `GET /v1/parts/{id}` lists no

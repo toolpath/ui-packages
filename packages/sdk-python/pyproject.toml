@@ -1,6 +1,6 @@
 [project]
 name = "toolpath"
-version = "0.14.0"
+version = "0.15.0"
 description = "Python bindings and upload helper for the Toolpath Engine API"
 authors = [{ name = "Toolpath" }]
 requires-python = ">=3.11"
@@ -31,5 +31,5 @@ line-length = 120
 select = ["F", "I", "UP"]
 
 [tool.toolpath]
-openapi-sha256 = "43fc7670527f5f198770fb1942b23ca0ae5ed852fc00c756e2e1ce3eb6a97fe1"
-openapi-version = "1.40.0"
+openapi-sha256 = "7a61c7ca0d850a7d38080ab7fee1ea363956e15f0f8b37469a547bda5ccfdad4"
+openapi-version = "1.41.0"

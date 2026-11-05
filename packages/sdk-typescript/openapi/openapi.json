@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Toolpath Engine API",
-    "version": "1.40.0",
+    "version": "1.41.0",
     "description": "Public REST API for Toolpath engine operations.\n\n**Waiting for a job.** Every operation that queues work answers `202` with a `jobId`.\nWait for it with **Stream job updates** (`GET /v1/jobs/{id}/events`), a server-sent event\nstream that sends the job at once, sends it again on every change, and closes after\nsending `succeeded` or `failed`. Both are final. An attempt exceeding its configured\ndeadline (default 300 seconds) fails without retry. Exhausted queue deliveries are\nrecovered by the worker from its DLQ, usually within a few minutes after the last\ndelivery with healthy consumers; outages delay recovery. A job still queued after\n24 hours fails. Read the result as soon as the stream sends `succeeded`, and report the `error`\nas soon as it sends `failed`. Do not wait by calling **Get a job** or a result endpoint in\na loop: a stream is one request however long the job runs, while a loop spends one request\nof the key’s rate limit on every call. In a browser, read the stream with `fetch` and an\nSSE parser: `EventSource` cannot send the `Authorization` header.\n\n**Experimental.** Machining plans and toolpath calculation — creating, listing, and reading\nplans, calculating toolpaths, and reading toolpath results and machining time — and\nmulti-body CAD files, under the `Files` tag, are experimental: available now but still\ngaining functionality; planned additions include plan constraints and specifying material and\nstock, among others. You can build against them today, but they may change substantially in a\nminor release — reshaped, renamed, or removed — where the rest of the API keeps breaking\nchanges for a major version, apart from small ones with no material effect on clients. Every\nbreaking change is listed in the release notes, so check them before upgrading. Plan and\ntoolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental\noperation, field, and schema is marked `x-toolpath-experimental`.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis,\nfeature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access\ncan be edited on an existing key in the portal. Every operation states its area in its\n`x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in\n`x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs\nDFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key\nwith no access to the operation’s area is refused with 403 `product_mismatch`; one with read\naccess used for a write is refused with 403 `read_only_key`."
   },
   "tags": [
@@ -786,7 +786,7 @@
               "additionalProperties": false
             },
             "maxItems": 12,
-            "description": "Directions to analyze the part from beyond those the directions analysis chose — usually ones from the part’s `discoveredDirections`, passed back exactly as served, though any vector within 0.0001 of unit length is taken and normalized. They are added to the part for good: this analysis and every later one, and every plan and toolpath calculation, analyze the part from them too, so a `setupPlan` can state a setup in one and name its features. Each follows the part’s `candidateDirections` in the order added, and every feature the part had keeps its `featureTag`. A direction within 0.1° of one the part has adds nothing, and nor does one whose analysis fails; either is missing from the result’s `candidateDirections`. One within 0.1° of the exact opposite of a direction the part has is added as that exact opposite: read it back off `candidateDirections` rather than matching the direction sent. A part takes at most 12 added directions in all, and there is no removing one. Omit to analyze the part from the directions it has.",
+            "description": "Directions to analyze the part from beyond those the directions analysis chose — usually ones from the part’s `discoveredDirections`, passed back exactly as served, though any vector within 0.0001 of unit length is taken and normalized. They are added to the part for good: this analysis and every later one, and every plan and toolpath calculation, analyze the part from them too, so a `setupPlan` or a `planSpec` can state a setup in one and name its features. Each follows the part’s `candidateDirections` in the order added, and every feature the part had keeps its `featureTag`. A direction within 0.1° of one the part has adds nothing, and nor does one whose analysis fails; either is missing from the result’s `candidateDirections`. One within 0.1° of the exact opposite of a direction the part has is added as that exact opposite: read it back off `candidateDirections` rather than matching the direction sent. A part takes at most 12 added directions in all, and there is no removing one. Omit to analyze the part from the directions it has.",
             "example": [
               {
                 "x": 1,
@@ -863,6 +863,14 @@
             "type": "string",
             "description": "Version of the Toolpath kernel that produced this part result."
           },
+          "preparationId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nThe region space this result’s region indices are in, in hex: a content hash of the mesh the analysis read and how it numbered the regions over it, the same for every analysis that numbers them alike. A `planSpec` naming `regions` states it as its `preparationId`. Null on part results made before Engine API 1.41.0; analyze the part again to get one.",
+            "x-toolpath-experimental": true
+          },
           "units": {
             "$ref": "#/components/schemas/ReportUnits",
             "description": "Units used by all dimensional values in this part response."
@@ -886,7 +894,7 @@
             "items": {
               "$ref": "#/components/schemas/Vec3"
             },
-            "description": "Directions the part was analyzed from, and so the ones its features and a `setupPlan` can name: those the directions analysis chose, best first, then the added directions it could analyze the part from, in the order added."
+            "description": "Directions the part was analyzed from, and so the ones its features, a `setupPlan` and a `planSpec` can name: those the directions analysis chose, best first, then the added directions it could analyze the part from, in the order added."
           },
           "discoveredDirections": {
             "type": [
@@ -1001,6 +1009,7 @@
           "reportId",
           "jobId",
           "kernelVersion",
+          "preparationId",
           "units",
           "regions",
           "features",
@@ -1593,7 +1602,7 @@
                 "$ref": "#/components/schemas/ContourCurve"
               }
             },
-            "description": "The feature’s plan-view outline, returned with `include=contours`: loops of exact segments and arcs, as x and y in mm in `toolFrame`, the frame its datasheet’s heights are in. A closed loop no other holds runs counterclockwise and an island inside one clockwise; a wall’s loops keep the material on their left. Empty for a feature with none — a hole, which is its circle; a top face read for facing; an undercut — and where the kernel could not project it; null where the feature has not been measured since Engine API 1.39.0."
+            "description": "The feature’s plan-view outline, returned with `include=contours`: loops of exact segments and arcs, as x and y in mm in `toolFrame`, the frame its datasheet’s heights are in. A closed loop no other holds runs counterclockwise and an island inside one clockwise; a wall’s loops keep the material on their left. Empty for a feature with none — a hole, which is its circle; an undercut — and where the kernel could not project it; null where the feature has not been measured since Engine API 1.39.0."
           },
           "wallContours": {
             "type": [
@@ -2432,7 +2441,8 @@
                 "type": "array",
                 "items": {
                   "type": "integer",
-                  "minimum": 0
+                  "minimum": 0,
+                  "maximum": 4294967295
                 },
                 "maxItems": 100000
               }
@@ -2443,6 +2453,18 @@
             ],
             "additionalProperties": false,
             "description": "The regions the job treats as done — the request’s, or null for none."
+          },
+          "planSpec": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanSpec"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "x-toolpath-experimental": true,
+            "description": "The plan spec the job states — the request’s, or null for none. **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading."
           },
           "stock": {
             "type": "object",
@@ -2530,11 +2552,178 @@
           "machine",
           "setupPlan",
           "doneRegions",
+          "planSpec",
           "stock",
           "fallbackTools",
           "workholding",
           "status"
         ]
+      },
+      "PlanSpec": {
+        "type": "object",
+        "properties": {
+          "preparationId": {
+            "type": "string",
+            "pattern": "^(0|[1-9a-f][0-9a-f]{0,15})$",
+            "description": "The region space every index here is in: the `preparationId` of the response the indices were read from — the part (`GET /v1/parts/{id}`), or a plan’s `planSpec`. A job that prepares the part otherwise — a later kernel release that numbers its regions differently, or another source file — fails, its `error` beginning `stale_regions:`."
+          },
+          "skippedRegions": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "maxItems": 20000,
+            "description": "Regions no setup machines — already at their final surface, or not to be machined — as indices into the part’s `regions`. No feature planned holds one, and they are left out of the plan’s `issues`, machining times and toolpaths. Omit for none."
+          },
+          "setups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "direction": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number"
+                    },
+                    "y": {
+                      "type": "number"
+                    },
+                    "z": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y",
+                    "z"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The direction the setup machines from (its tool axis): one of the part’s `candidateDirections`, passed back exactly as served."
+                },
+                "exclusiveRegions": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "maxItems": 20000,
+                  "description": "Regions no other setup may machine. That is all they say: they do not make this setup machine them, and one no feature of the setup’s direction holds is refused, since the setup cannot reach it. A feature of another direction holding one is planned as what is left of it. Omit for none."
+                },
+                "features": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "regions": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4294967295
+                        },
+                        "minItems": 1,
+                        "maxItems": 20000,
+                        "description": "The feature’s regions, as indices into the part’s `regions`, in any order."
+                      },
+                      "featureType": {
+                        "type": "string",
+                        "enum": [
+                          "through_hole",
+                          "blind_hole",
+                          "through_pocket",
+                          "pocket",
+                          "open_pocket",
+                          "profile",
+                          "boss",
+                          "face",
+                          "sink",
+                          "chamfer",
+                          "fillet",
+                          "contour_surface",
+                          "filleted_pocket",
+                          "thread",
+                          "filleted_open_pocket",
+                          "filleted_blind_hole",
+                          "wall",
+                          "slanted_face",
+                          "inner_fillet",
+                          "outer_fillet",
+                          "synthetic_hole",
+                          "filleted_boss",
+                          "undercut_tslot",
+                          "undercut_dovetail",
+                          "undercut_filleted_tslot",
+                          "back_sink",
+                          "back_chamfer",
+                          "undercut_wall",
+                          "u_slot",
+                          "undercut_filleted_dovetail",
+                          "tapered_through_hole",
+                          "threaded_blind_hole",
+                          "threaded_through_hole",
+                          "circular_wall"
+                        ],
+                        "description": "The type the regions are read as, in the snake_case of a part feature’s `featureType`. State it to restate a feature as it is listed — by the part, or by a plan’s `planSpec` — since a type can say more than its regions do: a profile’s regions alone read as a wall. Leave it out for regions of your own, such as a listed feature’s regions edited, and they are read as the narrowest type they make. Regions that are not the type stated fail the job."
+                      }
+                    },
+                    "required": [
+                      "regions"
+                    ],
+                    "additionalProperties": false,
+                    "description": "A feature a setup must machine, named by its regions and, to restate one, its type."
+                  },
+                  "maxItems": 5000,
+                  "description": "Features the setup must machine, whether or not a tool cuts them: a floor, not a ceiling, so the setup machines what else it can. Omit for none."
+                }
+              },
+              "required": [
+                "direction"
+              ],
+              "additionalProperties": false,
+              "description": "A setup the plan starts with: its direction, and what it must and may machine."
+            },
+            "maxItems": 64,
+            "description": "The plan’s first setups, in machining order. The planner may add setups after them, never before or between them. Omit for none: the planner chooses every setup."
+          },
+          "additionalDirections": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                },
+                "z": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "z"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 1000,
+            "description": "The directions the planner may add setups in, each one of the part’s `candidateDirections` exactly as served. Null or omitted for every one of them; `[]` adds no setup. Naming a stated setup’s direction changes nothing."
+          }
+        },
+        "required": [
+          "preparationId"
+        ],
+        "additionalProperties": false,
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA plan stated by region index: the region space it is in, the regions it skips, the setups it starts with, and the features each must machine. Everything it leaves open, the planner fills in. A field left out takes its default. A plan read serves its own completed, every field written out and every feature’s type stated, to edit and send back. A spec holds at most 20,000 region indices over all its lists.",
+        "x-toolpath-experimental": true
       },
       "AutomaticFlatBarStock": {
         "type": "object",
@@ -3563,7 +3752,7 @@
               "setups"
             ],
             "additionalProperties": false,
-            "description": "The setup plan to extend: setups in machining order, each stated as one `orientations` entry — a setup machines from one direction — naming the features (`featureTag`, hex) to machine from its `direction`. A direction must be one of the part’s `candidateDirections` — the kernel’s choice, or one added with **Analyze a part** — passed back exactly as served (a unit vector), and a feature is named under its own direction. The plan made keeps these setups first, in this order, each holding at least the features named (and every other offered feature of its direction), and appends setups where the part needs more. A plan read serves its own `setupPlan`, which can be edited and sent back. Tags are stable only within one `kernelVersion`. A feature named is machined where it is named whatever it needs: one no tool in the crib cuts is planned all the same, its passes left `unmachined`. It also keeps its regions from every other feature, in every direction: a feature that shares one is planned as what is left of it, under a tag of its own that the plan’s `trimmedFeatures` describes, and the plan’s `setupPlan` may name that tag in turn. A statement the kernel cannot honor fails the job, whose `error` begins `refused_user_plan:` and gives one clause per refused statement. Omit or null for the kernel’s own plan; on **Calculate a plan’s toolpaths**, omit to keep the plan’s statement and null to clear it.",
+            "description": "The setup plan to extend: setups in machining order, each stated as one `orientations` entry — a setup machines from one direction — naming the features (`featureTag`, hex) to machine from its `direction`. A direction must be one of the part’s `candidateDirections` — the kernel’s choice, or one added with **Analyze a part** — passed back exactly as served (a unit vector), and a feature is named under its own direction. The plan made keeps these setups first, in this order, each holding at least the features named (and every other offered feature of its direction), and appends setups where the part needs more. A plan read serves its own `setupPlan`, which can be edited and sent back. Tags are stable only within one `kernelVersion`. A feature named is machined where it is named whatever it needs: one no tool in the crib cuts is planned all the same, its passes left `unmachined`. It also keeps its regions from every other feature, in every direction: a feature that shares one is planned as what is left of it, under a tag of its own that the plan’s `trimmedFeatures` describes, and the plan’s `setupPlan` may name that tag in turn. A statement the kernel cannot honor fails the job, whose `error` begins `refused_user_plan:` and gives one clause per refused statement. Omit or null for the kernel’s own plan; on **Calculate a plan’s toolpaths**, omit to keep the plan’s statement and null to clear it — a request stating a `planSpec` drops it, as a `planSpec` takes its place.",
             "example": {
               "setups": [
                 {
@@ -3610,7 +3799,8 @@
                 "type": "array",
                 "items": {
                   "type": "integer",
-                  "minimum": 0
+                  "minimum": 0,
+                  "maximum": 4294967295
                 },
                 "maxItems": 100000
               }
@@ -3620,12 +3810,65 @@
               "regions"
             ],
             "additionalProperties": false,
-            "description": "Regions already at their final surface — near-net stock, a face finished before the part arrives: `regions`, indices into the part report’s `regions`, and the `kernelVersion` of the report they were read from. Region indices are stable only within one kernel release, so a job planned by another fails, its `error` beginning `stale_regions:`; an index the part does not have fails it as `unknown_regions:`. A done region is left out of the plan’s `issues`, its machining times and its toolpaths, and no feature planned holds one: a part feature that does is planned as what is left of it, under a tag of its own that the plan’s `trimmedFeatures` describes, and one whose regions are all done is not planned. A `setupPlan` may still name such a feature by its part-report tag: what is left of it is stated in its place. A done region on the top of a direction turns off facing from that direction, and the part’s other top faces are machined one by one. The stock is unchanged: it is still the block around the part, so the simulation cuts air over a done region. Omit or null for none; on **Calculate a plan’s toolpaths**, omit to keep the plan’s and null to clear them.",
+            "description": "Regions already at their final surface — near-net stock, a face finished before the part arrives: `regions`, indices into the part report’s `regions`, and the `kernelVersion` of the report they were read from. Region indices are stable only within one kernel release, so a job planned by another fails, its `error` beginning `stale_regions:`; an index the part does not have fails it as `unknown_regions:`. A done region is left out of the plan’s `issues`, its machining times and its toolpaths, and no feature planned holds one: a part feature that does is planned as what is left of it, under a tag of its own that the plan’s `trimmedFeatures` describes, and one whose regions are all done is not planned. A `setupPlan` may still name such a feature by its part-report tag: what is left of it is stated in its place. A done region on the top of a direction turns off facing from that direction, and the part’s other top faces are machined one by one. The stock is unchanged: it is still the block around the part, so the simulation cuts air over a done region. Omit or null for none; on **Calculate a plan’s toolpaths**, omit to keep the plan’s and null to clear them — a request stating a `planSpec` drops them, as a `planSpec` takes their place.",
             "example": {
               "kernelVersion": "0.18.0",
               "regions": [
                 12,
                 13
+              ]
+            }
+          },
+          "planSpec": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanSpec"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "x-toolpath-experimental": true,
+            "description": "The plan to make, stated by region index, in place of `setupPlan` and `doneRegions`, which are refused beside it (400). Its indices are into the `regions` of the response its `preparationId` was read from — the part, or a plan’s `planSpec` — and a job that prepares the part otherwise fails, its `error` beginning `stale_regions:`: analyze the part again and read its regions afresh. A part feature holding a region the spec names — a skipped one, one exclusive to a setup of another direction, or one of a stated feature — is planned as what is left of it, under a tag of its own that the plan’s `trimmedFeatures` describes. A statement the kernel cannot honor fails the job, whose `error` begins `refused_plan_spec:` and gives one clause per refused statement, each beginning with where it is: `setup 1:`, `setup 1: feature 0`, `additional direction 0:` or `the plan spec:`. A plan read serves the plan’s completed spec as `planSpec`, which can be edited and sent back. Omit or null for none; on **Calculate a plan’s toolpaths**, omit to keep the plan’s, whatever else the request changes, and null to clear it — a request stating a `planSpec` drops the plan’s `setupPlan` and `doneRegions`, and one stating either of those drops its `planSpec`. **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+            "example": {
+              "preparationId": "9c1e5a07d3b2f418",
+              "skippedRegions": [
+                12,
+                13
+              ],
+              "setups": [
+                {
+                  "direction": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 1
+                  },
+                  "features": [
+                    {
+                      "regions": [
+                        4,
+                        5,
+                        6
+                      ]
+                    },
+                    {
+                      "regions": [
+                        9
+                      ],
+                      "featureType": "through_hole"
+                    }
+                  ]
+                },
+                {
+                  "direction": {
+                    "x": 0,
+                    "y": 0,
+                    "z": -1
+                  },
+                  "exclusiveRegions": [
+                    20
+                  ]
+                }
               ]
             }
           },
@@ -3674,7 +3917,7 @@
               "thinAir",
               "syntheticVise"
             ],
-            "description": "How the part is held. `thinAir`, the default, holds it by nothing: the optimistic answer, since a fixture only ever takes reach away. `syntheticVise` holds it in a vise sized to whatever it closes on, its jaws along each setup’s y, so a jaw blocks the reach it would. The first setup grips the initial stock, every later setup the part as cut; the jaws reach 5.35 mm up whatever they close on, at most half its height. The planner chooses the first setup among the directions the stock can be gripped in. Fixed stock is gripped only in the directions the part fits it squared up in; where it fits in none — or not in the direction a `setupPlan` states its first setup in — the job fails, its `error` beginning `part_outside_initial_stock:` and naming each direction. A job no first setup can start otherwise fails, its `error` beginning `invalid_argument: setup planning: no fixture on the initial stock holds a first setup`; a `setupPlan` whose first setup cannot start fails as `refused_user_plan:`. Faces a jaw leaves out of reach are reported as the plan’s `issues`. Omit on **Calculate a plan’s toolpaths** to keep the plan’s.",
+            "description": "How the part is held. `thinAir`, the default, holds it by nothing: the optimistic answer, since a fixture only ever takes reach away. `syntheticVise` holds it in a vise sized to whatever it closes on, its jaws along each setup’s y, so a jaw blocks the reach it would. The first setup grips the initial stock, every later setup the part as cut; the jaws reach 5.35 mm up whatever they close on, at most half its height. The planner chooses the first setup among the directions the stock can be gripped in. Fixed stock is gripped only in the directions the part fits it squared up in; where it fits in none — or not in the direction a `setupPlan` or `planSpec` states its first setup in — the job fails, its `error` beginning `part_outside_initial_stock:` and naming each direction. A job no first setup can start otherwise fails, its `error` beginning `invalid_argument: setup planning: no fixture on the initial stock holds a first setup`; a `setupPlan` or `planSpec` whose first setup cannot start fails as `refused_user_plan:` or `refused_plan_spec:`. Faces a jaw leaves out of reach are reported as the plan’s `issues`. Omit on **Calculate a plan’s toolpaths** to keep the plan’s.",
             "example": "syntheticVise"
           }
         },
@@ -3994,6 +4237,18 @@
             "additionalProperties": false,
             "description": "The plan’s own statement of itself, in the shape a request’s `setupPlan` takes: every setup in order, its direction, and the features planned from it. Sent back with the same `doneRegions`, tool crib, material and machine, under the same `kernelVersion`, it plans the same, so it is what a caller edits to restate the plan. Its tags belong to this plan’s `kernelVersion`. Null for a plan with no setup and for plans made before it was recorded."
           },
+          "planSpec": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanSpec"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "x-toolpath-experimental": true,
+            "description": "The plan’s own statement of itself by region index, in the shape a request’s `planSpec` takes: the spec it was planned from — a request’s `planSpec`, or its `setupPlan` and `doneRegions` — with every choice the plan made stated, every field written out and every feature’s type stated. Sent back with the same tool crib, material, machine, stock and workholding, it plans the same, so it is what a caller edits to restate the plan. Its regions are those of its `preparationId`. Null for plans made before Engine API 1.41.0, and for one whose completed spec is more than a request takes. **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading."
+          },
           "doneRegions": {
             "type": [
               "object",
@@ -4009,7 +4264,8 @@
                 "type": "array",
                 "items": {
                   "type": "integer",
-                  "minimum": 0
+                  "minimum": 0,
+                  "maximum": 4294967295
                 },
                 "maxItems": 100000
               }
@@ -4029,7 +4285,7 @@
             "items": {
               "$ref": "#/components/schemas/TrimmedFeature"
             },
-            "description": "The features of the part as this plan reads it — after its skipped regions and stated features trim it — that `GET /v1/parts/{id}` does not list, whether or not a setup names them. A part feature holding a region the plan skips — a done region, or one its stock body already leaves at size — or a region of a feature the job’s `setupPlan` names, is read as what is left of it, under a tag of its own, which the plan’s `setupPlan`, `featureTags` and `unmachined` may name; each such feature is here, with the part feature it was cut from. Empty where nothing trimmed a feature; null for a plan that skips no region and whose `setupPlan` names no feature, and for plans made before Engine API 1.30.0."
+            "description": "The features of the part as this plan reads it — after its skipped regions and stated features trim it — that `GET /v1/parts/{id}` does not list, whether or not a setup names them. A part feature holding a region the plan skips — a done region, or one its stock body already leaves at size — a region of a feature the job’s `setupPlan` or `planSpec` states, or one its `planSpec` makes exclusive to a setup of another direction, is read as what is left of it, under a tag of its own, which the plan’s `setupPlan`, `featureTags` and `unmachined` may name; each such feature is here, with the part feature it was cut from. Empty where nothing trimmed a feature; null for a plan whose statement names no region — none skipped, none exclusive to a setup, no feature stated — and for plans made before Engine API 1.30.0."
           }
         },
         "required": [
@@ -4044,6 +4300,7 @@
           "issues",
           "setups",
           "setupPlan",
+          "planSpec",
           "doneRegions",
           "trimmedFeatures"
         ]
@@ -4299,7 +4556,7 @@
           "regionIdxs",
           "fromFeatureTag"
         ],
-        "description": "A feature of the part as a plan reads it that the part report does not list, whether or not a setup names it: what the plan’s skipped regions (done, or left at size by its stock body), or the features its `setupPlan` names, left of a part feature, which the kernel reads again on the rest of its regions under a tag of its own."
+        "description": "A feature of the part as a plan reads it that the part report does not list, whether or not a setup names it: what the plan’s skipped regions (done, or left at size by its stock body), the features its `setupPlan` or `planSpec` states, or the regions its `planSpec` makes exclusive to a setup of another direction, left of a part feature, which the kernel reads again on the rest of its regions under a tag of its own."
       },
       "ToolpathsResponse": {
         "type": "object",

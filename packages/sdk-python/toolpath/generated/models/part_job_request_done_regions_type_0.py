@@ -20,7 +20,7 @@ class PartJobRequestDoneRegionsType0:
     its place. A done region on the top of a direction turns off facing from that direction, and the part’s other top
     faces are machined one by one. The stock is unchanged: it is still the block around the part, so the simulation cuts
     air over a done region. Omit or null for none; on **Calculate a plan’s toolpaths**, omit to keep the plan’s and null
-    to clear them.
+    to clear them — a request stating a `planSpec` drops them, as a `planSpec` takes their place.
 
         Example:
             {'kernelVersion': '0.18.0', 'regions': [12, 13]}

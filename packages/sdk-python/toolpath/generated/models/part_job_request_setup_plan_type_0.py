@@ -26,7 +26,7 @@ class PartJobRequestSetupPlanType0:
     its own that the plan’s `trimmedFeatures` describes, and the plan’s `setupPlan` may name that tag in turn. A
     statement the kernel cannot honor fails the job, whose `error` begins `refused_user_plan:` and gives one clause per
     refused statement. Omit or null for the kernel’s own plan; on **Calculate a plan’s toolpaths**, omit to keep the
-    plan’s statement and null to clear it.
+    plan’s statement and null to clear it — a request stating a `planSpec` drops it, as a `planSpec` takes its place.
 
         Example:
             {'setups': [{'orientations': [{'direction': {'x': 0, 'y': 0, 'z': 1}, 'features': ['1f3a09c2']}]},

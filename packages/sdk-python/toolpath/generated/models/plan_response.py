@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from ..models.plan_response_setup_plan_type_0 import PlanResponseSetupPlanType0
     from ..models.plan_response_stock import PlanResponseStock
     from ..models.plan_setup import PlanSetup
+    from ..models.plan_spec import PlanSpec
     from ..models.trimmed_feature import TrimmedFeature
 
 
@@ -51,6 +52,14 @@ class PlanResponse:
             same `doneRegions`, tool crib, material and machine, under the same `kernelVersion`, it plans the same, so it is
             what a caller edits to restate the plan. Its tags belong to this plan’s `kernelVersion`. Null for a plan with no
             setup and for plans made before it was recorded.
+        plan_spec (None | PlanSpec): The plan’s own statement of itself by region index, in the shape a request’s
+            `planSpec` takes: the spec it was planned from — a request’s `planSpec`, or its `setupPlan` and `doneRegions` —
+            with every choice the plan made stated, every field written out and every feature’s type stated. Sent back with
+            the same tool crib, material, machine, stock and workholding, it plans the same, so it is what a caller edits to
+            restate the plan. Its regions are those of its `preparationId`. Null for plans made before Engine API 1.41.0,
+            and for one whose completed spec is more than a request takes. **Experimental.** Available now and still gaining
+            functionality. It may change in breaking ways in a minor API release; each such change is listed in the release
+            notes, so check them before upgrading.
         done_regions (None | PlanResponseDoneRegionsType0): The regions this plan was told are already at their final
             surface, and the kernel version they were read under — or null for none. They are left out of `issues`, of
             machining times and of toolpaths: a plan whose `issues` are empty machines everything it owes *except* these,
@@ -58,10 +67,11 @@ class PlanResponse:
         trimmed_features (list[TrimmedFeature] | None): The features of the part as this plan reads it — after its
             skipped regions and stated features trim it — that `GET /v1/parts/{id}` does not list, whether or not a setup
             names them. A part feature holding a region the plan skips — a done region, or one its stock body already leaves
-            at size — or a region of a feature the job’s `setupPlan` names, is read as what is left of it, under a tag of
-            its own, which the plan’s `setupPlan`, `featureTags` and `unmachined` may name; each such feature is here, with
-            the part feature it was cut from. Empty where nothing trimmed a feature; null for a plan that skips no region
-            and whose `setupPlan` names no feature, and for plans made before Engine API 1.30.0.
+            at size — a region of a feature the job’s `setupPlan` or `planSpec` states, or one its `planSpec` makes
+            exclusive to a setup of another direction, is read as what is left of it, under a tag of its own, which the
+            plan’s `setupPlan`, `featureTags` and `unmachined` may name; each such feature is here, with the part feature it
+            was cut from. Empty where nothing trimmed a feature; null for a plan whose statement names no region — none
+            skipped, none exclusive to a setup, no feature stated — and for plans made before Engine API 1.30.0.
     """
 
     part_id: UUID
@@ -75,6 +85,7 @@ class PlanResponse:
     issues: list[PlanIssue]
     setups: list[PlanSetup]
     setup_plan: None | PlanResponseSetupPlanType0
+    plan_spec: None | PlanSpec
     done_regions: None | PlanResponseDoneRegionsType0
     trimmed_features: list[TrimmedFeature] | None
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -82,6 +93,7 @@ class PlanResponse:
     def to_dict(self) -> dict[str, Any]:
         from ..models.plan_response_done_regions_type_0 import PlanResponseDoneRegionsType0
         from ..models.plan_response_setup_plan_type_0 import PlanResponseSetupPlanType0
+        from ..models.plan_spec import PlanSpec
 
         part_id = str(self.part_id)
 
@@ -115,6 +127,12 @@ class PlanResponse:
         else:
             setup_plan = self.setup_plan
 
+        plan_spec: dict[str, Any] | None
+        if isinstance(self.plan_spec, PlanSpec):
+            plan_spec = self.plan_spec.to_dict()
+        else:
+            plan_spec = self.plan_spec
+
         done_regions: dict[str, Any] | None
         if isinstance(self.done_regions, PlanResponseDoneRegionsType0):
             done_regions = self.done_regions.to_dict()
@@ -146,6 +164,7 @@ class PlanResponse:
                 "issues": issues,
                 "setups": setups,
                 "setupPlan": setup_plan,
+                "planSpec": plan_spec,
                 "doneRegions": done_regions,
                 "trimmedFeatures": trimmed_features,
             }
@@ -160,6 +179,7 @@ class PlanResponse:
         from ..models.plan_response_setup_plan_type_0 import PlanResponseSetupPlanType0
         from ..models.plan_response_stock import PlanResponseStock
         from ..models.plan_setup import PlanSetup
+        from ..models.plan_spec import PlanSpec
         from ..models.trimmed_feature import TrimmedFeature
 
         d = dict(src_dict)
@@ -208,6 +228,21 @@ class PlanResponse:
 
         setup_plan = _parse_setup_plan(d.pop("setupPlan"))
 
+        def _parse_plan_spec(data: object) -> None | PlanSpec:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                plan_spec_type_0 = PlanSpec.from_dict(data)
+
+                return plan_spec_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | PlanSpec, data)
+
+        plan_spec = _parse_plan_spec(d.pop("planSpec"))
+
         def _parse_done_regions(data: object) -> None | PlanResponseDoneRegionsType0:
             if data is None:
                 return data
@@ -255,6 +290,7 @@ class PlanResponse:
             issues=issues,
             setups=setups,
             setup_plan=setup_plan,
+            plan_spec=plan_spec,
             done_regions=done_regions,
             trimmed_features=trimmed_features,
         )

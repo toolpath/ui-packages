@@ -36,12 +36,20 @@ class PartResponse:
         report_id (UUID): Identifier of this immutable part result.
         job_id (UUID): Identifier of the processing job that produced this part result.
         kernel_version (str): Version of the Toolpath kernel that produced this part result.
+        preparation_id (None | str): **Experimental.** Available now and still gaining functionality. It may change in
+            breaking ways in a minor API release; each such change is listed in the release notes, so check them before
+            upgrading.
+
+            The region space this result’s region indices are in, in hex: a content hash of the mesh the analysis read and
+            how it numbered the regions over it, the same for every analysis that numbers them alike. A `planSpec` naming
+            `regions` states it as its `preparationId`. Null on part results made before Engine API 1.41.0; analyze the part
+            again to get one.
         units (ReportUnits):
         regions (list[Region]): Recognized B-rep regions, ordered by region index.
         features (list[PartFeature]): Features recognized during this processing run.
-        candidate_directions (list[Vec3]): Directions the part was analyzed from, and so the ones its features and a
-            `setupPlan` can name: those the directions analysis chose, best first, then the added directions it could
-            analyze the part from, in the order added.
+        candidate_directions (list[Vec3]): Directions the part was analyzed from, and so the ones its features, a
+            `setupPlan` and a `planSpec` can name: those the directions analysis chose, best first, then the added
+            directions it could analyze the part from, in the order added.
         discovered_directions (list[Vec3] | None): Every direction detected on the part, best first — the axes of its
             holes and curved walls, the normals of its planes and the axes of its prisms, each both ways round.
             `candidateDirections` were chosen from these, and any other can be added to the part with **Analyze a part**:
@@ -87,6 +95,7 @@ class PartResponse:
     report_id: UUID
     job_id: UUID
     kernel_version: str
+    preparation_id: None | str
     units: ReportUnits
     regions: list[Region]
     features: list[PartFeature]
@@ -124,6 +133,9 @@ class PartResponse:
         job_id = str(self.job_id)
 
         kernel_version = self.kernel_version
+
+        preparation_id: None | str
+        preparation_id = self.preparation_id
 
         units = self.units.to_dict()
 
@@ -229,6 +241,7 @@ class PartResponse:
                 "reportId": report_id,
                 "jobId": job_id,
                 "kernelVersion": kernel_version,
+                "preparationId": preparation_id,
                 "units": units,
                 "regions": regions,
                 "features": features,
@@ -279,6 +292,13 @@ class PartResponse:
         job_id = UUID(d.pop("jobId"))
 
         kernel_version = d.pop("kernelVersion")
+
+        def _parse_preparation_id(data: object) -> None | str:
+            if data is None:
+                return data
+            return cast(None | str, data)
+
+        preparation_id = _parse_preparation_id(d.pop("preparationId"))
 
         units = ReportUnits.from_dict(d.pop("units"))
 
@@ -494,6 +514,7 @@ class PartResponse:
             report_id=report_id,
             job_id=job_id,
             kernel_version=kernel_version,
+            preparation_id=preparation_id,
             units=units,
             regions=regions,
             features=features,

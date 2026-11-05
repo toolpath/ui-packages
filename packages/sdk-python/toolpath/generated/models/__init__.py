@@ -171,6 +171,12 @@ from .plan_response_setup_plan_type_0_setups_item_orientations_item_direction im
 from .plan_response_stock import PlanResponseStock
 from .plan_response_workholding import PlanResponseWorkholding
 from .plan_setup import PlanSetup
+from .plan_spec import PlanSpec
+from .plan_spec_additional_directions_type_0_item import PlanSpecAdditionalDirectionsType0Item
+from .plan_spec_setups_item import PlanSpecSetupsItem
+from .plan_spec_setups_item_direction import PlanSpecSetupsItemDirection
+from .plan_spec_setups_item_features_item import PlanSpecSetupsItemFeaturesItem
+from .plan_spec_setups_item_features_item_feature_type import PlanSpecSetupsItemFeaturesItemFeatureType
 from .plan_summary import PlanSummary
 from .plan_summary_level import PlanSummaryLevel
 from .plan_summary_material import PlanSummaryMaterial
@@ -476,6 +482,12 @@ __all__ = (
     "PlanResponseStock",
     "PlanResponseWorkholding",
     "PlanSetup",
+    "PlanSpec",
+    "PlanSpecAdditionalDirectionsType0Item",
+    "PlanSpecSetupsItem",
+    "PlanSpecSetupsItemDirection",
+    "PlanSpecSetupsItemFeaturesItem",
+    "PlanSpecSetupsItemFeaturesItemFeatureType",
     "PlanSummary",
     "PlanSummaryLevel",
     "PlanSummaryMaterial",

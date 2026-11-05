@@ -1,5 +1,67 @@
 # @toolpath/api
 
+## 0.15.0
+
+### Minor Changes
+
+- 03edde8: Regenerate the TypeScript SDK for Engine API 1.41.0.
+
+  ### Engine API 1.41.0
+
+  A plan can be stated by region index: `planSpec`, experimental, in place of `setupPlan` and
+  `doneRegions`. Every new plan serves its completed spec, which can be edited and sent back.
+
+  **Plan and toolpath requests** (`POST /v1/parts/{id}/plans`, `POST /v1/parts/{id}/toolpaths`,
+  `POST /v1/plans/{planId}/toolpaths`):
+
+  - `planSpec` (experimental, `PlanSpec`): the region space its indices are in (`preparationId`), the
+    regions the plan skips, the setups it starts with in order, the regions no other setup may
+    machine, and the features each setup must machine, each by its `regions`; `additionalDirections`
+    limits the directions the planner may add setups in. A field left out takes its default. A spec
+    holds at most 20,000 region indices over all its lists. The 202 echoes it.
+  - `preparationId` is copied from the response the indices were read from: the part, or a plan's
+    `planSpec`. A job that prepares the part otherwise — a later kernel release that numbers its
+    regions differently, or another source file — fails as `stale_regions:`.
+  - A feature's `featureType` (one of the milled feature types, in the snake_case of a part feature's)
+    restates a feature as it is listed: a type can say more than its regions do, and a profile's
+    regions alone read as a wall. Left out, as for a listed feature's regions edited, the regions are
+    read as the narrowest type they make.
+  - A part feature holding a region the spec names — a skipped one, one exclusive to a setup of
+    another direction, or one of a stated feature — is planned as what is left of it, and the plan's
+    `trimmedFeatures` describes it.
+  - A `planSpec` beside a non-null `setupPlan` or `doneRegions` is refused (400).
+  - A statement the kernel cannot honor fails the job as `refused_plan_spec:`, with one clause per
+    refused statement, located as `setup 1:`, `setup 1: feature 0`, `additional direction 0:` or
+    `the plan spec:`.
+  - A `refused_user_plan:` clause lists at most 20 regions, then counts the rest, as a
+    `refused_plan_spec:` clause does.
+  - **Calculate a plan's toolpaths** carries the plan's `planSpec` whatever else the request changes:
+    omit to keep it, null to clear it. A request stating a `planSpec` drops the plan's `setupPlan` and
+    `doneRegions`, and one stating either of those drops its `planSpec`.
+  - `doneRegions` refuses a region index past 2³² − 1 (400). Such an index was read as its bottom
+    32 bits, so it skipped another region without a word.
+
+  **Parts** (`GET /v1/parts/{id}`):
+
+  - `preparationId` (experimental): the region space the part result's `regions` are in, which a
+    `planSpec` names. Null on part results made before this release; analyze the part again to get
+    one.
+
+  **Plans** (`GET /v1/plans/{planId}`):
+
+  - `planSpec` (experimental, `PlanSpec`): the plan's statement of itself by region index, every
+    field written out and every feature's type stated, whether it was stated by `planSpec`, by
+    `setupPlan` and `doneRegions`, or not at all. Sent back with the same tool crib, material,
+    machine, stock and workholding, it plans the same. Its `skippedRegions` are the job's own,
+    without those a stock body leaves material-free. Null on plans made before this release, and on
+    a plan whose completed spec is more than a request takes.
+
+  **Features** (`GET /v1/parts/{id}/features`, no change of shape):
+
+  - A top face read for facing has its own outline in `contours` since tp-kernel 0.32.0, and the
+    description of `contours` no longer lists it among the features with none. A part analyzed before
+    that keeps an empty list until it is analyzed again.
+
 ## 0.14.0
 
 ### Minor Changes
