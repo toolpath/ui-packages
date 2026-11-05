@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/ui",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Toolpath React and Tailwind UI primitives, and the DFM views",
   "license": "MIT",
   "engines": {
@@ -55,7 +55,6 @@
     "@phosphor-icons/react": "2.1.10",
     "@table-library/react-table-library": "^4.1.15",
     "@toolpath/dfm": "workspace:^",
-    "@toolpath/tool-support": "workspace:^",
     "clsx": "^2.1.1",
     "lodash-es": "^4.18.1",
     "react-resizable-panels": "4.9.0",

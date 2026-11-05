@@ -1,10 +1,4 @@
-import {
-  BufferGeometry,
-  CanvasTexture,
-  Float32BufferAttribute,
-  SRGBColorSpace,
-  Vector3,
-} from 'three'
+import { BufferGeometry, Float32BufferAttribute, Vector3 } from 'three'
 import type { Vec3 } from '../model/types.js'
 import type { ViewportSize } from './camera.js'
 
@@ -168,6 +162,28 @@ export function squaredUp(direction: Vec3, currentUp: Vec3): Vec3 {
 
   return vec(nearest)
 }
+
+/**
+ * The view cube's half-extent on screen, in CSS pixels: its unit geometry is
+ * drawn at this scale in the gizmo's orthographic view. An app that judges
+ * whether a tap landed on the cube reaches this far from the gizmo's centre,
+ * `VIEW_CUBE_HALF_PX × √3` to cover a corner.
+ */
+export const VIEW_CUBE_HALF_PX = 38
+
+/**
+ * How far a face's name floats proud of its face, in cube units. Coplanar with
+ * the face it would z-fight, and the panel's polygon offset pushes the face
+ * *back*, so the two are moving apart rather than fighting.
+ */
+export const CUBE_LABEL_LIFT = 0.004
+
+/**
+ * The share of a face's width its widest name, BOTTOM, spans. Every name is
+ * set at the size that fits that one: a cube whose labels are set in six sizes
+ * looks like a mistake.
+ */
+export const CUBE_LABEL_WIDTH = 0.78
 
 /**
  * Half-width of a face panel, where the cube's half-extent is 1 — so the
@@ -352,13 +368,11 @@ export function labelGeometry(zone: CubeZone): BufferGeometry {
     const uv = corner[index]
     if (!point || !uv) continue
 
-    // Pushed out along the normal by a hair. Coplanar with the face it would
-    // z-fight, and the panel's polygon offset pushes the face *back*, so the
-    // two are moving apart rather than fighting.
+    // Pushed out along the normal by a hair: see `CUBE_LABEL_LIFT`.
     positions.push(
-      point.x + zone.direction.x * 0.004,
-      point.y + zone.direction.y * 0.004,
-      point.z + zone.direction.z * 0.004,
+      point.x + zone.direction.x * CUBE_LABEL_LIFT,
+      point.y + zone.direction.y * CUBE_LABEL_LIFT,
+      point.z + zone.direction.z * CUBE_LABEL_LIFT,
     )
     uvs.push(uv[0] ?? 0, uv[1] ?? 0)
   }
@@ -370,48 +384,14 @@ export function labelGeometry(zone: CubeZone): BufferGeometry {
   return geometry
 }
 
-/** A face name, drawn on a transparent canvas and sized to fit. */
-export function labelTexture(label: string, color: number): CanvasTexture {
-  const size = 128
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-
-  const context = canvas.getContext('2d')
-  if (context) {
-    const text = label.toUpperCase()
-    const hex = `#${color.toString(16).padStart(6, '0')}`
-
-    context.font = `600 ${size / 4}px system-ui, sans-serif`
-    // `BOTTOM` is half again as wide as `TOP`, and a cube whose labels are set
-    // in six different sizes looks like a mistake — so measure the widest at a
-    // reference size and let the rest of them use it.
-    const width = context.measureText('BOTTOM').width || 1
-    const scale = Math.min(1, (size * 0.78) / width)
-
-    context.font = `600 ${(size / 4) * scale}px system-ui, sans-serif`
-    context.textAlign = 'center'
-    context.textBaseline = 'middle'
-    context.fillStyle = hex
-    context.fillText(text, size / 2, size / 2)
-  }
-
-  const texture = new CanvasTexture(canvas)
-  texture.colorSpace = SRGBColorSpace
-  texture.needsUpdate = true
-
-  return texture
-}
-
 /** Where `<ViewCube>` stands by default: CSS pixels in from the canvas's top right corner to its centre. */
 export const VIEW_CUBE_MARGIN: [number, number] = [80, 80]
 
 /**
- * How far, CSS pixels, the cube reaches from its centre at any turn: its
- * panels are drawn 38 pixels to a half side, and corner on, a cube reaches
- * √3 of that.
+ * How far, CSS pixels, the cube reaches from its centre at any turn: corner
+ * on, a cube reaches √3 of its half side, {@link VIEW_CUBE_HALF_PX}.
  */
-const VIEW_CUBE_REACH = 66
+const VIEW_CUBE_REACH = Math.ceil(VIEW_CUBE_HALF_PX * Math.sqrt(3))
 
 /** Where a `<ViewCube>` stands: the corner of the canvas, and CSS pixels in from it to its centre. */
 export interface ViewCubePlace {

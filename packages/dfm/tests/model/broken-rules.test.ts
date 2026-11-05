@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { brokenRules, featureColor, worstHits } from '../../src/model/broken-rules.js'
+import {
+  brokenRules,
+  featureColor,
+  ruleListOrder,
+  worstHits,
+} from '../../src/model/broken-rules.js'
 import { checkPart, type DfmCheck, type DfmHit } from '../../src/model/dfm-flags.js'
 import { describeRule, RULE_COLORS, type DfmRule } from '../../src/model/dfm-rules.js'
 import { metricInfo } from '../../src/model/dfm-metrics.js'
@@ -153,5 +158,37 @@ describe('brokenRules for a turned part', () => {
         figure: '1.2 mm',
       },
     ])
+  })
+})
+
+describe('ruleListOrder', () => {
+  const rules = [rule({ id: 'a' }), rule({ id: 'b' }), rule({ id: 'c' })]
+  const ids = (listed: ReturnType<typeof ruleListOrder>) =>
+    listed.map((each) => `${each.rule.id}${each.quiet ? ' quiet' : ''}`)
+
+  it('keeps the list as it is before the check is in', () => {
+    expect(ids(ruleListOrder(rules, null))).toEqual(['a', 'b', 'c'])
+  })
+
+  it('sinks the rules nothing breaks below the rest, quiet', () => {
+    const check = emptyCheck({
+      byRule: [
+        { rule: rules[1]!, tags: ['f1'], otherTags: [] },
+        { rule: rules[2]!, tags: [], otherTags: ['f2'] },
+      ],
+    })
+    expect(ids(ruleListOrder(rules, check))).toEqual(['b', 'c', 'a quiet'])
+  })
+
+  it('leaves a rule just added where it is', () => {
+    expect(ids(ruleListOrder(rules, emptyCheck(), 'b'))).toEqual(['b', 'a quiet', 'c quiet'])
+  })
+
+  it('hands each rule its result, or null before the check or without one', () => {
+    const result = { rule: rules[1]!, tags: ['f1'], otherTags: [] }
+    const listed = ruleListOrder(rules, emptyCheck({ byRule: [result] }))
+    expect(listed.find((each) => each.rule.id === 'b')?.result).toBe(result)
+    expect(listed.find((each) => each.rule.id === 'a')?.result).toBeNull()
+    expect(ruleListOrder(rules, null).every((each) => each.result === null)).toBe(true)
   })
 })

@@ -34,6 +34,7 @@ import { type ThreadOptions, threadKey } from './render/threads.js'
 import { regionAdjacency } from './render/adjacency.js'
 import { type PartPick, buildPick, viewDirection } from './render/picking.js'
 import { readTarget } from './render/orbit-target.js'
+import { readPointer } from './render/pointer.js'
 import { useSectionStore, useViewerControls } from './viewer.js'
 import { SectionView, resolveSectionPlane } from './section-view.js'
 import { useContentBox } from './content-box.js'
@@ -115,7 +116,8 @@ export interface PartMeshProps {
    */
   onSectionChange?: (state: SectionState) => void
   /**
-   * Which faces touch which, once the mesh is in.
+   * Which faces touch which, once the mesh is in. Worked out only when this is
+   * passed: it walks every triangle.
    *
    * The consumer cannot work this out: it has a region table with areas and
    * shape kinds, and the topology only exists in the geometry. Handed over
@@ -305,12 +307,7 @@ export const PartMesh = ({
 
   useEffect(() => () => part.dispose(), [part])
 
-  // Once per mesh: the topology is a property of the geometry, and a report
-  // gaining a feature does not move a single triangle.
-  const adjacency = useMemo(() => regionAdjacency(model, geometry), [model, geometry])
-  useEffect(() => {
-    onAdjacency?.(adjacency)
-  }, [adjacency, onAdjacency])
+  useAdjacencyReport(model, geometry, onAdjacency)
 
   const framed = useRef<FeatureTag | null>(null)
   useEffect(() => {
@@ -427,7 +424,7 @@ export const PartMesh = ({
     // tie, so which reading a click means depends on where it was made from.
     const target = readTarget(controls)
     const normal = event.face?.normal ?? UP
-    const source = event.nativeEvent
+    const source = readPointer(event.nativeEvent)
 
     const pick = buildPick({
       model,
@@ -444,7 +441,7 @@ export const PartMesh = ({
         ctrl: source.ctrlKey,
         meta: source.metaKey,
         shift: source.shiftKey,
-        secondary: 'button' in source && source.button === 2,
+        secondary: source.button === 2,
       },
     })
     const corner = part.sharpCornerAt({ point: event.point, region }, camera as ViewerCamera, size)
@@ -538,28 +535,31 @@ export const PartMesh = ({
     onLeave: () => emitHover(null),
   })
   // In a collection the nearest body answers, and the bodies behind it do not.
+  const move = gestures.onPointerMove
   const handlers = useMemo(
     () =>
       sections
         ? {
             ...gestures,
-            onPointerMove: (event: ThreeEvent<MouseEvent>) => {
-              event.stopPropagation()
-              gestures.onPointerMove(event)
-            },
+            onPointerMove: move
+              ? (event: ThreeEvent<MouseEvent>) => {
+                  event.stopPropagation()
+                  move(event)
+                }
+              : undefined,
             onClick: (event: ThreeEvent<MouseEvent>) => {
               event.stopPropagation()
               gestures.onClick(event)
             },
             onPointerUp: (event: ThreeEvent<MouseEvent>) => {
-              if (event.nativeEvent.button === 2) {
+              if (readPointer(event.nativeEvent).button === 2) {
                 event.stopPropagation()
               }
               gestures.onPointerUp(event)
             },
           }
         : gestures,
-    [gestures, sections],
+    [gestures, move, sections],
   )
 
   // Last, so what this render's effects added to the part is hidden with it.
@@ -611,4 +611,28 @@ function useStableTheme(theme: Partial<ViewerTheme> | undefined): ViewerTheme {
   const next = resolveTheme(theme)
   if (held.current === null || !themesEqual(held.current, next)) held.current = next
   return held.current
+}
+
+/**
+ * Hands `onAdjacency` the mesh's face adjacency, and works it out only when
+ * there is an `onAdjacency` to hand it to: it walks every triangle, which
+ * blocks a phone's JS thread for long enough to notice.
+ *
+ * Worked out once per mesh, because the topology is a property of the
+ * geometry, and a report gaining a feature does not move a single triangle. A
+ * new callback is handed the same result.
+ */
+export const useAdjacencyReport = (
+  model: PartModel,
+  geometry: BufferGeometry,
+  onAdjacency: PartMeshProps['onAdjacency'],
+): void => {
+  const wantsAdjacency = onAdjacency !== undefined
+  const adjacency = useMemo(
+    () => (wantsAdjacency ? regionAdjacency(model, geometry) : null),
+    [model, geometry, wantsAdjacency],
+  )
+  useEffect(() => {
+    if (adjacency) onAdjacency?.(adjacency)
+  }, [adjacency, onAdjacency])
 }

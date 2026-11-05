@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { RuleList, ruleListKeys, type DfmRules } from '../../src'
 import { PRESENCE_METRIC, makeRule, type DfmRule } from '@toolpath/dfm'
@@ -112,6 +112,18 @@ describe('rule pickers', () => {
     fireEvent.click(within(menu).getByRole('menuitem', { name: '≥ at least' }))
     expect(rules.update).toHaveBeenCalledWith(expect.objectContaining({ op: 'gte' }))
     expect(rules.update).not.toHaveBeenCalledWith(expect.objectContaining({ op: 'between' }))
+  })
+
+  it('titles a range’s low end the way its symbol reads, not as the measure’s comparison', () => {
+    const rule: DfmRule = { ...makeRule('hole', 'diameter', 'mm'), op: 'between', max: 20 }
+    renderPanel(fakeRules([rule]))
+    // The low end defaults to `≤`: 6 ≤ diameter is 6 at most the diameter, not "at least".
+    expect(screen.getByRole('button', { name: /^Low end/ })).toHaveAttribute('title', 'at most')
+    expect(screen.getByRole('button', { name: /^High end/ })).toHaveAttribute('title', 'less than')
+    const strict: DfmRule = { ...rule, lowOp: 'gt' }
+    cleanup()
+    renderPanel(fakeRules([strict]))
+    expect(screen.getByRole('button', { name: /^Low end/ })).toHaveAttribute('title', 'less than')
   })
 
   describe('by the keyboard', () => {

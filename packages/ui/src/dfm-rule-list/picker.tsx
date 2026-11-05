@@ -9,27 +9,10 @@ import {
   type ReactElement,
 } from 'react'
 import { CheckIcon } from '@phosphor-icons/react'
+import type { Choices } from '@toolpath/dfm'
 import { Menu } from '../menu'
 import { cn } from '../common'
 import { WORD } from './styles'
-
-/** One thing a picker offers: the value it sets, and the words it shows. */
-interface Choice {
-  value: string
-  label: string
-}
-
-/** Choices under a heading of their own, or under none: a picker's first group has none. */
-export interface ChoiceGroup {
-  heading?: string
-  choices: readonly Choice[]
-}
-
-/** What a picker offers: its groups, and — for a short list — the last item, which lists the rest. */
-export interface Choices {
-  groups: readonly ChoiceGroup[]
-  more?: string
-}
 
 interface PickerProps {
   /** What the word is, for a screen reader: "Measure". */

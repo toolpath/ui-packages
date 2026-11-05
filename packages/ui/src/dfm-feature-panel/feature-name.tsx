@@ -2,7 +2,7 @@ import type { FC, ReactElement, ReactNode } from 'react'
 import { cn } from '../common'
 import { MILLING_RULES, type RuleVocabulary } from '@toolpath/dfm'
 import { faintText, type ResolvedLook } from './look'
-import type { FeatureIdentity } from './types'
+import type { FeatureIdentity } from '@toolpath/dfm'
 
 /**
  * A feature's short name: its type, or the app's label for it, and the way it

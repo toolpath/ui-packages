@@ -1,12 +1,10 @@
 import { useThree } from '@react-three/fiber'
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
-import { Matrix4, Raycaster, type BufferGeometry } from 'three'
+import { Matrix4, Raycaster, type Vector3 } from 'three'
 import { createMeasureHint, type CanvasSpot } from './measure-hint.js'
-import type { PartModel } from './model/types.js'
 import type { ViewerCamera } from './render/camera.js'
-import { regionEdgesGeometry } from './render/edges.js'
 import { zoomedReach, type ScreenAt } from './render/edge-corners.js'
-import type { HoleIndex, Point, SurfaceFor } from './render/face-measure.js'
+import type { Point } from './render/face-measure.js'
 import {
   SNAP_REACH,
   hoverCaption,
@@ -14,48 +12,22 @@ import {
   pairsOn,
   pickFrom,
   stickySnap,
-  type MeasurePick,
-  type Pairs,
   type SnapReach,
   type Snapped,
   type Under,
 } from './render/measure-picks.js'
 import {
   cutSampler,
-  edgeSnaps,
   onCanvas,
   partSphere,
   underPointer,
-  type CutSampler,
-  type EdgeSnaps,
+  type MeasuredPart,
+  type PointerHandlers,
+  type PointerShown,
 } from './render/measure-under.js'
 import { partSurfaces } from './render/part-surfaces.js'
-import { TAP_SLOP } from './render/tap.js'
-import { onViewCube, type ViewCubePlace } from './render/view-cube.js'
-
-/** The part measured, and what the tool already knows of it. */
-export interface MeasuredPart {
-  model: PartModel
-  geometry: BufferGeometry
-  surfaceFor: SurfaceFor
-  holes: HoleIndex
-}
-
-/** What the pointer does to the measurements, and how it reads them. Read afresh at each event. */
-export interface PointerHandlers {
-  onPick: (pick: MeasurePick, keep: boolean, pairs: Pairs) => void
-  onClear: () => void
-  format: (mm: number) => string
-  /** Where a view cube stands, whose clicks are its own; null for none. */
-  viewCube: ViewCubePlace | null
-}
-
-/** What the part paints for the pointer: the face it is on (no Alt), and the edge an Alt point is on. */
-export interface PointerShown {
-  region: number | null
-  /** The edge an Alt point snaps to or is the middle of, as points along it, drawn bold. */
-  edge: readonly Point[] | null
-}
+import { TAP_SLOP, trackDoubleTaps } from './render/tap.js'
+import { onViewCube } from './render/view-cube.js'
 
 interface ClientSpot {
   clientX: number
@@ -73,10 +45,11 @@ const NO_MOVE = new Matrix4()
  * the clicks themselves. Listens only while `active`.
  *
  * Without Alt it reads only the face under the pointer. With Alt (Option)
- * held it also finds where a point would go (`underPointer`): a corner
- * within reach (`SNAP_REACH`, scaled to the part on screen by
+ * held, or `points`, it also finds where a point would go (`underPointer`):
+ * a corner within reach (`SNAP_REACH`, scaled to the part on screen by
  * `zoomedReach`), else an edge, else the face. Alt is read off each key, each
  * press and each move but a drag's, and a click reads it again for itself.
+ * Shift, or `keep`, keeps what is on screen.
  *
  * Steady by design. A move is read once a frame at most. The caption and the
  * ring are moved straight from here (`createMeasureHint`), and the part is
@@ -91,23 +64,33 @@ const NO_MOVE = new Matrix4()
  *
  * A click picks exactly what was shown. A click off the part clears the
  * measurements; a plain click on the part with nothing to pick, such as on
- * a face a section cut made, does nothing. A drag is no click, a double
- * click's second click is left to the viewer, which re-aims the orbit with
- * it, only the left button picks, a click on the view cube is the cube's,
- * and a click whose press came before the tool was listening is not its.
+ * a face a section cut made, does nothing. A drag is no click, only the left
+ * button picks, a click on the view cube is the cube's, and a click whose
+ * press came before the tool was listening is not its. A double click is
+ * paired as the part pairs it (`trackDoubleTaps`) and goes to `onDouble` at
+ * the point clicked; its second click picks nothing. Delete or Backspace
+ * drops the last pick.
  */
 export const useMeasurePointer = (
   part: MeasuredPart,
   handlers: RefObject<PointerHandlers>,
   active: boolean,
+  // How many measurements are on screen: the native input's, which a hover does not need.
+  _measured: number,
 ): PointerShown | null => {
   const { model, geometry, surfaceFor, holes } = part
   const { gl, camera, size, scene } = useThree()
-  const { snaps, cut } = useEdgeSnaps(model, geometry)
+  // Re-sampled only when cut; the part's edges are found the first time a point is snapped.
+  const cut = useMemo(() => cutSampler(geometry, model), [geometry, model])
   const [shown, setShown] = useState<PointerShown | null>(null)
   const pairs = useMemo(() => pairsOn(surfaceFor), [surfaceFor])
   // Kept past a re-run of the effect below, so a pointer that has not moved is read again.
   const last = useRef<ClientSpot | null>(null)
+  // Kept past a re-run too: a pick can resize the canvas between a double click's two clicks.
+  const [doubles] = useState(trackDoubleTaps)
+  useDeleteKey((event) => {
+    if (handlers.current.onDrop()) event.preventDefault()
+  })
 
   useEffect(() => {
     // Off, the tool sees no moves: where the pointer was is not where it will be.
@@ -123,6 +106,8 @@ export const useMeasurePointer = (
     let zooming = false
     let under: Under | null = null
     let onPart = false
+    // Where the ray met the part at the last read, in world space.
+    let hit: Vector3 | null = null
     let heldCorner: Snapped | null = null
     let heldLine: number | null = null
     let pressedAt: ClientSpot | null = null
@@ -133,6 +118,7 @@ export const useMeasurePointer = (
       setShown((previous) => (sameShown(previous, next) ? previous : next))
     const letGo = (): void => {
       under = null
+      hit = null
       heldCorner = null
       heldLine = null
       hint.hide()
@@ -175,10 +161,14 @@ export const useMeasurePointer = (
       const surfaces = partSurfaces(scene, geometry)
       // The tool draws in the mesh's space, so its points are in it (`underPointer`).
       const meshToWorld = surfaces[0]?.matrixWorld ?? NO_MOVE
-      const reach = alt ? zoomedReach(SNAP_REACH, partSphere(geometry, surfaces), view, size) : null
-      const at3d = { model, surfaceFor, holes, snaps, cut, surfaces, raycaster }
+      const pointing = alt || handlers.current.points
+      const reach = pointing
+        ? zoomedReach(SNAP_REACH, partSphere(geometry, surfaces), view, size)
+        : null
+      const at3d = { model, geometry, surfaceFor, holes, cut, surfaces, raycaster }
       const found = underPointer(at3d, screen, reach && { reach, heldLine })
       onPart = found !== null
+      hit = found?.at ?? null
       if (!reach) heldCorner = null
       const snap = reach ? holdCorner(found?.under.snap ?? null, pointer, reach, meshToWorld) : null
       heldLine = snap?.kind === 'edge' ? (found?.line ?? null) : null
@@ -249,6 +239,7 @@ export const useMeasurePointer = (
     const onLeave = (event: PointerEvent): void => {
       if (event.pointerType !== 'mouse') return
       last.current = null
+      doubles.reset()
       letGo()
     }
     // Read where the press lands: a touch or a pen has no hover before it, and Alt may have changed unseen.
@@ -271,13 +262,23 @@ export const useMeasurePointer = (
     const onClick = (event: MouseEvent): void => {
       const pressed = pressedAt
       pressedAt = null
-      if (!pressed || event.detail > 1 || distance(event, pressed) > TAP_SLOP) return
-      if (onCube(pointerOf(pressed))) return
-      // Alt as the click has it, so a ring left up by a missed keyup cannot make a plain click a point.
-      const pick = under && (event.altKey ? pickFrom(under) : (under.on?.face ?? null))
-      if (pick) handlers.current.onPick(pick, event.shiftKey, pairs)
-      // Only a click off the part clears: a plain click on a corner just off it, or on a cut face, does nothing.
-      else if (!under && !onPart) handlers.current.onClear()
+      if (!pressed) return
+      // A drag between two clicks, or a click on the cube, breaks a double click up.
+      if (distance(event, pressed) > TAP_SLOP || onCube(pointerOf(pressed))) {
+        doubles.reset()
+        return
+      }
+      const doubled = doubles.isDouble(event)
+      if (event.detail <= 1) {
+        const { points, keep } = handlers.current
+        // Alt as the click has it, so a ring left up by a missed keyup cannot make a plain click a point.
+        const pick = under && (event.altKey || points ? pickFrom(under) : (under.on?.face ?? null))
+        if (pick) handlers.current.onPick(pick, event.shiftKey || keep, pairs)
+        // Only a click off the part clears: a plain click on a corner just off it, or on a cut face, does nothing.
+        else if (!under && !onPart) handlers.current.onClear()
+      }
+      // After the pick, as the part orders it: the re-aim moves the view the pick was read in.
+      if (doubled && hit) handlers.current.onDouble(hit)
     }
     const listeners: [EventTarget, string, EventListener][] = [
       [canvas, 'pointermove', onMove as EventListener],
@@ -312,10 +313,10 @@ export const useMeasurePointer = (
     geometry,
     surfaceFor,
     holes,
-    snaps,
     cut,
     pairs,
     handlers,
+    doubles,
   ])
 
   return shown
@@ -335,21 +336,22 @@ const samePoints = (a: readonly Point[] | null, b: readonly Point[] | null): boo
 const sameShown = (a: PointerShown | null, b: PointerShown | null): boolean =>
   a === b || (a !== null && b !== null && a.region === b.region && samePoints(a.edge, b.edge))
 
-/**
- * The part's edges to snap to, and its re-sampler for a section cut, built
- * once per part while the tool is up and let go with it.
- */
-const useEdgeSnaps = (
-  model: PartModel,
-  geometry: BufferGeometry,
-): { snaps: EdgeSnaps | null; cut: CutSampler } => {
-  const edges = useMemo(() => regionEdgesGeometry(geometry, model), [geometry, model])
-  useEffect(() => () => edges.dispose(), [edges])
-  return useMemo(() => {
-    const positions = edges.getAttribute('position')?.array ?? null
-    return {
-      snaps: positions ? edgeSnaps(positions) : null,
-      cut: cutSampler(geometry, model, positions),
+const isEditing = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+
+/** Delete or Backspace, unless a field beside the viewer is being typed in. */
+const useDeleteKey = (onDelete: (event: KeyboardEvent) => void): void => {
+  const latest = useRef(onDelete)
+  latest.current = onDelete
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return
+      // Cmd+Backspace and the like are the page's, not a pick dropped.
+      if (event.metaKey || event.ctrlKey || event.altKey || isEditing(event.target)) return
+      latest.current(event)
     }
-  }, [edges, geometry, model])
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 }

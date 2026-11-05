@@ -1,20 +1,4 @@
-import type { FaceSurface } from './render/face-measure.js'
-
-/** The face under the pointer: a plane in light blue, a cylinder in violet, anything the tool cannot read in grey. */
-export const HOVER_COLORS: Record<FaceSurface['kind'], number> = {
-  plane: 0x60a5fa,
-  cylinder: 0xa78bfa,
-  other: 0x9ca3af,
-}
-
-/**
- * The class the measure tool's hover caption carries, for a stylesheet to
- * find. It ships placed but bare, as the labels do: a `<div>` just off the
- * pointer whose text says what a click there picks.
- */
-export const MEASURE_HINT_CLASS = 'toolpath-measure-hint'
-
-export const cssColor = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
+import { HOVER_COLORS, MEASURE_HINT_CLASS, cssColor } from './render/measure.js'
 
 /** A spot on the canvas, CSS pixels from its top left. */
 export interface CanvasSpot {

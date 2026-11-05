@@ -38,7 +38,7 @@ describe('resolveControlScheme', () => {
 
     expect(mapping.mouse).toMatchObject(mouse)
     expect(mapping.mouse.wheel).toBe('zoom')
-    expect(mapping.touches).toEqual({ one: 'rotate', two: 'dolly-truck', three: 'truck' })
+    expect(mapping.touches).toEqual({ one: 'rotate', two: 'zoom-truck', three: 'truck' })
     expect(mapping.usesCadWheel).toBe(false)
     expect(mapping.immediate).toBe(false)
   })
@@ -79,7 +79,9 @@ describe('resolveControlScheme', () => {
   it.each(['toolpath', 'alias', 'solidworks', 'tinkercad', 'powermill', 'onshape'] as const)(
     '%s dollies with a perspective camera',
     (scheme) => {
-      expect(mappingFor(scheme, { shift: false, ctrl: false }, false).mouse.wheel).toBe('dolly')
+      const mapping = mappingFor(scheme, { shift: false, ctrl: false }, false)
+      expect(mapping.mouse.wheel).toBe('dolly')
+      expect(mapping.touches.two).toBe('dolly-truck')
     },
   )
 })

@@ -1,5 +1,6 @@
 import type { PartModel } from '../model/types.js'
 import { type ViewerCamera, type ViewportSize } from './camera.js'
+import { regionEdgesGeometry } from './edges.js'
 import { screenPoint } from './measure.js'
 import {
   Matrix4,
@@ -14,7 +15,7 @@ import {
   type Raycaster,
 } from 'three'
 import { toVector, type HoleIndex, type Point, type SurfaceFor } from './face-measure.js'
-import type { OnFace, SnapReach, Snapped, Under } from './measure-picks.js'
+import type { MeasurePick, OnFace, Pairs, SnapReach, Snapped, Under } from './measure-picks.js'
 import {
   cornersNear,
   edgeCorners,
@@ -25,14 +26,51 @@ import {
   type ScreenAt,
 } from './edge-corners.js'
 import { capHit, clipSegments, sectionContour } from './resample.js'
+import type { ViewCubePlace } from './view-cube.js'
 
 /**
  * What is under the measure tool's pointer, read with rays of its own at the
  * part (`underPointer`): the face, and with Alt where a point snaps.
  */
 
+/** The part measured, and what the tool already knows of it. */
+export interface MeasuredPart {
+  model: PartModel
+  geometry: BufferGeometry
+  surfaceFor: SurfaceFor
+  holes: HoleIndex
+}
+
+/**
+ * What the measure tool's input does to the measurements, and how it reads
+ * them: the same for a pointer and for a finger (`measure-pointer.ts`, and its
+ * `.native` sibling). Read afresh at each event.
+ */
+export interface PointerHandlers {
+  onPick: (pick: MeasurePick, keep: boolean, pairs: Pairs) => void
+  onClear: () => void
+  /** Drops the last pick; false where there was none to drop. */
+  onDrop: () => boolean
+  /** A double click or tap, on the part at `at`, in world space. */
+  onDouble: (at: Vector3) => void
+  format: (mm: number) => string
+  /** Where a view cube stands, whose clicks are its own; null for none. */
+  viewCube: ViewCubePlace | null
+  /** Points rather than faces, as Alt (Option) picks them. */
+  points: boolean
+  /** Keep what is on screen, as Shift does. */
+  keep: boolean
+}
+
+/** What the part paints for the input: the face it is on, and the edge a point is on. */
+export interface PointerShown {
+  region: number | null
+  /** The edge a point snaps to or is the middle of, as points along it, drawn bold. */
+  edge: readonly Point[] | null
+}
+
 /** The part's edges to snap to: its corners and straight edges' middles, and its edges whole. */
-export interface EdgeSnaps {
+interface EdgeSnaps {
   corners: readonly EdgeCorner[]
   lines: EdgeLines
   /**
@@ -43,11 +81,42 @@ export interface EdgeSnaps {
 }
 
 /** The snaps on edges given as segments, six floats each, the layout `regionEdgesGeometry` draws. */
-export const edgeSnaps = (positions: ArrayLike<number>): EdgeSnaps => ({
+const edgeSnaps = (positions: ArrayLike<number>): EdgeSnaps => ({
   corners: edgeCorners(positions),
   lines: edgeLines(positions),
   linePoints: new Map(),
 })
+
+/** A part's edges as segments (`regionEdgesGeometry`), and the snaps on them, for the model they were found for. */
+interface PartEdges {
+  model: PartModel
+  positions: ArrayLike<number> | null
+  snaps: EdgeSnaps | null
+}
+
+const edgesByGeometry = new WeakMap<BufferGeometry, PartEdges>()
+
+/**
+ * The part's edges, found once per part, the first time a point is snapped on
+ * it, and kept with its geometry: finding them walks every triangle, which no
+ * click or tap should wait on twice, and a plain click on a face needs none.
+ * Only their positions are read, so the edges' geometry is let go at once.
+ */
+const partEdges = (model: PartModel, geometry: BufferGeometry): PartEdges => {
+  const known = edgesByGeometry.get(geometry)
+  // A new model of the same geometry (an analysis's) has regions of its own.
+  if (known?.model === model) return known
+  const edges = regionEdgesGeometry(geometry, model)
+  const positions = edges.getAttribute('position')?.array ?? null
+  edges.dispose()
+  const found = { model, positions, snaps: positions ? edgeSnaps(positions) : null }
+  edgesByGeometry.set(geometry, found)
+  return found
+}
+
+/** The part's edges to snap to, when nothing cuts it (`partEdges`). Null for a part with no edges. */
+export const edgeSnapsFor = (model: PartModel, geometry: BufferGeometry): EdgeSnaps | null =>
+  partEdges(model, geometry).snaps
 
 /** Where a section plane passes through solid material, in the mesh's own space. */
 interface CutFace {
@@ -63,8 +132,8 @@ interface CutFace {
  * cut made, which are solid on screen and have corners of their own.
  */
 interface CutPart {
-  /** The edges left after the cut, with each cut face's outline. */
-  snaps: EdgeSnaps
+  /** The edges left after the cut, with each cut face's outline: found the first time a point is snapped. */
+  snaps: () => EdgeSnaps
   faces: readonly CutFace[]
 }
 
@@ -74,13 +143,9 @@ export type CutSampler = (surface: Mesh) => CutPart | null
 /**
  * Re-samples the part each time its cut moves, and only then: the sample is
  * kept by the planes' numbers, as a drag writes new numbers into one `Plane`.
- * `edges` are the part's own (`regionEdgesGeometry`), in the mesh's space.
+ * The part's own edges (`partEdges`) are read only once a point is snapped.
  */
-export const cutSampler = (
-  geometry: BufferGeometry,
-  model: PartModel,
-  edges: ArrayLike<number> | null,
-): CutSampler => {
+export const cutSampler = (geometry: BufferGeometry, model: PartModel): CutSampler => {
   let triangles: { positions: ArrayLike<number>; regionOf: Int32Array } | null = null
   const held = new Map<Mesh, { key: string; part: CutPart }>()
   return (surface) => {
@@ -95,7 +160,7 @@ export const cutSampler = (
     const toLocal = new Matrix4().copy(surface.matrixWorld).invert()
     const part = cutPart(
       triangles,
-      edges ?? [],
+      () => partEdges(model, geometry).positions ?? [],
       planes.map((plane) => plane.clone().applyMatrix4(toLocal)),
     )
     held.set(surface, { key, part })
@@ -118,7 +183,7 @@ const trianglesOf = (
 /** Each plane's face, trimmed by the others; the part's edges, trimmed by all, with the faces' outlines. */
 const cutPart = (
   { positions, regionOf }: { positions: ArrayLike<number>; regionOf: Int32Array },
-  edges: ArrayLike<number>,
+  edges: () => ArrayLike<number>,
   planes: readonly Plane[],
 ): CutPart => {
   const faces = planes.map((plane, index) => ({
@@ -128,9 +193,17 @@ const cutPart = (
       sectionContour(positions, regionOf, plane),
     ),
   }))
-  const kept = planes.reduce<ArrayLike<number>>((left, plane) => clipSegments(left, plane), edges)
-  const all = [...Array.from(kept), ...faces.flatMap((face) => Array.from(face.contour))]
-  return { snaps: edgeSnaps(all), faces }
+  let snaps: EdgeSnaps | null = null
+  const snapsLeft = (): EdgeSnaps => {
+    if (snaps) return snaps
+    const kept = planes.reduce<ArrayLike<number>>(
+      (left, plane) => clipSegments(left, plane),
+      edges(),
+    )
+    snaps = edgeSnaps([...Array.from(kept), ...faces.flatMap((face) => Array.from(face.contour))])
+    return snaps
+  }
+  return { snaps: snapsLeft, faces }
 }
 
 const clippingPlanesOf = (surface: Mesh): readonly Plane[] => {
@@ -141,10 +214,10 @@ const clippingPlanesOf = (surface: Mesh): readonly Plane[] => {
 /** What `underPointer` needs of the part. */
 export interface PartAt {
   model: PartModel
+  /** The part's geometry, whose edges a point snaps to where nothing cuts it (`edgeSnapsFor`). */
+  geometry: BufferGeometry
   surfaceFor: SurfaceFor
   holes: HoleIndex
-  /** The part's edges whole, for when nothing cuts it. */
-  snaps: EdgeSnaps | null
   cut: CutSampler
   surfaces: readonly Mesh[]
   raycaster: Raycaster
@@ -160,6 +233,11 @@ export interface AltSnap {
 export interface Found {
   under: Under
   line: number | null
+  /**
+   * Where the pointer's ray meets the part, on a face of its own or on one a
+   * cut made, in world space: where a double click aims the orbit. Null off the part.
+   */
+  at: Vector3 | null
 }
 
 /**
@@ -169,8 +247,8 @@ export interface Found {
  * a cut made is no face of the part's: where the ray meets one first, the
  * pointer is on the part but on no face, and the face behind it is not offered.
  *
- * Its points are in the mesh's own space, as the part's faces are
- * (`surfaceFor`) and as the tool draws: the rays are cast in world space,
+ * Its points, all but `at`, are in the mesh's own space, as the part's faces
+ * are (`surfaceFor`) and as the tool draws: the rays are cast in world space,
  * and what they find is brought back.
  */
 export const underPointer = (part: PartAt, screen: ScreenAt, alt: AltSnap | null): Found | null => {
@@ -183,7 +261,8 @@ export const underPointer = (part: PartAt, screen: ScreenAt, alt: AltSnap | null
   const landing = onCap ? cap : hit && { point: hit.point, surface: hit.object as Mesh }
   const near = alt ? snapNear(part, screen, alt, landing) : null
   const snap = near?.snap ?? null
-  return on || snap || onCap ? { under: { on, snap }, line: near?.line ?? null } : null
+  if (!on && !snap && !onCap) return null
+  return { under: { on, snap }, line: near?.line ?? null, at: landing?.point ?? null }
 }
 
 /** The first face a ray meets that a section cut has not taken away. */
@@ -268,7 +347,8 @@ const snapNear = (
   const onFace = landing
     ? { snap: faceSnap(toMesh(landing.point, landing.surface)), line: null }
     : null
-  const snaps = surface ? (part.cut(surface)?.snaps ?? part.snaps) : null
+  const cut = surface ? part.cut(surface) : null
+  const snaps = cut ? cut.snaps() : edgeSnapsFor(part.model, part.geometry)
   if (!snaps || !surface) return onFace
   // Taken before `canSee` aims the raycaster elsewhere.
   const ray = raycaster.ray.clone()

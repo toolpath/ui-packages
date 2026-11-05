@@ -7,6 +7,7 @@ import {
   QUICK_SUBJECTS,
   makeRule,
   serializeRuleSet,
+  type DfmCheck,
   type DfmRule,
 } from '@toolpath/dfm'
 
@@ -51,6 +52,53 @@ describe('RuleList', () => {
     renderList(fakeRules([]))
     expect(screen.queryByRole('button', { name: /^Features:/ })).toBeNull()
     expect(screen.getByRole('button', { name: 'New rule' })).toBeInTheDocument()
+  })
+
+  it('refuses a comma in a value, rather than reading 1,000 as 1', () => {
+    const rules = fakeRules([makeRule(QUICK_SUBJECTS[0] ?? 'any', 'depthBelowTop', 'mm')])
+    renderList(rules)
+    const value = screen.getByLabelText('Value')
+
+    fireEvent.change(value, { target: { value: '1,000' } })
+
+    expect(value).toHaveAttribute('aria-invalid', 'true')
+    expect(rules.update).not.toHaveBeenCalled()
+  })
+})
+
+describe('RuleList dimming', () => {
+  const check = (byRule: DfmCheck['byRule']): DfmCheck => ({
+    hitsByTag: new Map(),
+    required: new Set(),
+    byRule,
+    paintedFaces: new Map(),
+    paintedWhole: new Map(),
+  })
+  const rowOf = (index: number) =>
+    screen.getAllByRole('button', { name: /^Features:/ })[index]!.closest('li')!
+
+  it('dims the rules nothing breaks, and not one broken only by readings a plan can do without', () => {
+    const [broken, others, nothing] = [aRule(), aRule(), aRule()]
+    render(
+      <RuleList
+        rules={fakeRules([broken!, others!, nothing!])}
+        check={check([
+          { rule: broken!, tags: ['f1'], otherTags: [] },
+          { rule: others!, tags: [], otherTags: ['f2'] },
+        ])}
+        features={null}
+        sheets={null}
+        units="mm"
+        selected={null}
+        selectedGroup={null}
+        onInspect={vi.fn()}
+        onHover={vi.fn()}
+      />,
+    )
+    // In the list's order: the broken rules, then the quiet one.
+    expect(rowOf(0)).not.toHaveClass('opacity-55')
+    expect(rowOf(1)).not.toHaveClass('opacity-55')
+    expect(rowOf(2)).toHaveClass('opacity-55')
   })
 })
 

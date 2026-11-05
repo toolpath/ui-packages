@@ -1,29 +1,27 @@
 import { useState, type FC, type ReactElement } from 'react'
 import {
-  RANGE_LOWS,
+  type DfmRule,
   lowOf,
+  LOW_TITLES,
+  metricChoices,
   metricInfo,
   quantityUnit,
+  rangeEnd,
+  type RangeLow,
+  rangeLowChoices,
+  type RuleVocabulary,
+  subjectChoices,
+  takesNumber,
+  type Units,
   upperOf,
   withMetric,
   withSubject,
-  type DfmRule,
-  type RangeLow,
-  type RuleVocabulary,
-  type Units,
 } from '@toolpath/dfm'
 import { Comparison } from './comparison'
-import { LOW_SYMBOLS, ONE_SIDED_CHOICES, OP_TITLES, rangeEnd } from './ops'
-import { metricChoices, subjectChoices } from './options'
-import { Picker, type Choices } from './picker'
+import { Picker } from './picker'
 import { ValueField } from './value-field'
 
-const RANGE_LOW: Choices = {
-  groups: [
-    { heading: 'Range', choices: RANGE_LOWS.map((op) => ({ value: op, label: LOW_SYMBOLS[op] })) },
-    ONE_SIDED_CHOICES,
-  ],
-}
+const RANGE_LOW = rangeLowChoices()
 
 interface SentenceProps {
   rule: DfmRule
@@ -52,7 +50,7 @@ export const RuleSentence: FC<SentenceProps> = ({
 }): ReactElement => {
   const info = metricInfo(rule.metric, vocabulary)
   // A yes/no, or "any size", has no comparison or number to set.
-  const flag = info?.quantity === 'flag' || info?.quantity === 'presence'
+  const flag = info !== undefined && !takesNumber(info)
   const presence = info?.quantity === 'presence'
   const ranged = info !== undefined && !flag && rule.op === 'between'
   const unit = info ? quantityUnit(info.quantity, units) : ''
@@ -88,7 +86,7 @@ export const RuleSentence: FC<SentenceProps> = ({
             </span>{' '}
             <Picker
               label="Low end"
-              title={OP_TITLES[lowOf(rule)]}
+              title={LOW_TITLES[lowOf(rule)]}
               value={lowOf(rule)}
               choices={RANGE_LOW}
               onChange={(value) =>

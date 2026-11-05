@@ -126,9 +126,13 @@ describe('createEslintConfig', { timeout: 30_000 }, () => {
     Object.entries(VIOLATIONS).map(([rule, code]) => [`${rule.replaceAll(/[@/]/g, '_')}.ts`, code]),
   )
 
+  // These fixtures use identical configuration: build their type graph only once.
+  let violations: ReturnType<typeof lint> | undefined
+
   it.each(Object.keys(VIOLATIONS))('reports %s', async (rule) => {
     const file = `${rule.replaceAll(/[@/]/g, '_')}.ts`
-    const reported = await lint({ 'clean.ts': clean, [file]: fixtures[file] ?? '' })
+    violations ??= lint({ 'clean.ts': clean, ...fixtures })
+    const reported = await violations
     expect(reported['clean.ts']).toEqual([])
     expect(reported[file]).toContain(rule)
   })

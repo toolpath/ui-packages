@@ -1,6 +1,7 @@
 import { type Matrix4, Vector2, Vector3 } from 'three'
 import type { Vec3 } from '../model/types.js'
 import { type ViewerCamera, type ViewportSize, screenLength } from './camera.js'
+import type { FaceSurface } from './face-measure.js'
 
 /**
  * Measuring, without a canvas: where a pointer snaps to, what two or three
@@ -8,8 +9,58 @@ import { type ViewerCamera, type ViewportSize, screenLength } from './camera.js'
  * React surface over this.
  */
 
+/**
+ * The class every measure label carries, for a stylesheet to find.
+ *
+ * The labels ship with no look at all. Each one is a `<div>` with this class
+ * and `data-measure-label` naming what it is: `face` for a reading of the
+ * picks, `delta` for one leg of a distance's breakdown, with `data-axis` on
+ * a leg. A measurement's own colour is set on its `face` labels as
+ * `--measure-color`, for a border, and the value a click copies is in the
+ * label's `[data-measure-value]`. A label marks itself `data-copied` for a
+ * moment once copied. The README shows a stylesheet to start from.
+ */
+export const MEASURE_LABEL_CLASS = 'toolpath-measure-label'
+
+/**
+ * The class the measure tool's hover caption carries, for a stylesheet to
+ * find. It ships placed but bare, as the labels do: a `<div>` just off the
+ * pointer whose text says what a click there picks.
+ */
+export const MEASURE_HINT_CLASS = 'toolpath-measure-hint'
+
 /** Draws over the part and the section cap, under nothing. */
 export const MEASURE_RENDER_ORDER = 7
+
+/** What a measure label is, for a stylesheet to tell them apart. */
+export type MeasureLabelKind = 'face' | 'delta'
+
+/** The face under the pointer: a plane in light blue, a cylinder in violet, anything the tool cannot read in grey. */
+export const HOVER_COLORS: Record<FaceSurface['kind'], number> = {
+  plane: 0x60a5fa,
+  cylinder: 0xa78bfa,
+  other: 0x9ca3af,
+}
+
+export const cssColor = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
+
+/** A label pressed: the text drawn, and the bare value in it (`labelValue`). */
+export interface LabelPress {
+  text: string
+  value: string
+}
+
+/** A hole's count at the front of its label (`4× ⌀ 6.350 mm`), which is not its value. */
+const HOLE_COUNT = /^\s*\d+×\s*/
+
+/**
+ * The number a label reads, without its words or its unit: `⌀ 6.35 mm` and
+ * `Angle 45.0°` read as `6.35` and `45.0`, ready to paste into a field that
+ * wants a number; `4× ⌀ 6.35 mm` reads as the diameter, not the count. A
+ * label with no number reads as it is.
+ */
+export const labelValue = (text: string): string =>
+  text.replace(HOLE_COUNT, '').match(/-?\d+(?:\.\d+)?/)?.[0] ?? text.trim()
 
 /**
  * One colour per world axis, the hue `<Axes>` draws that axis in — lightened,

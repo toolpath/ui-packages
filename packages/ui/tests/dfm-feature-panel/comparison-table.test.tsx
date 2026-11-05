@@ -70,6 +70,21 @@ describe('ComparisonTable', () => {
     ).toEqual(['Yes', 'No'])
   })
 
+  it('draws a measurement as a measurement, whatever its key is named', () => {
+    const named = faces.map((face) => ({
+      ...face,
+      measurements: [
+        { key: 'rules', label: 'Rule count', value: '7', alt: '7 rules', derivation: [] },
+      ],
+    }))
+    render(<ComparisonTable faces={named} active={0} onSelect={vi.fn()} />)
+    const [first] = within(rowOf('Rule count')).getAllByRole('cell')
+    expect(first).toHaveTextContent('7')
+    expect(first!.querySelector('[title]')).toHaveAttribute('title', '7 rules')
+    // The fixed rules row is still its own row, with its swatch.
+    expect(within(rowOf('Rules broken')).getAllByRole('cell')[0]).toHaveTextContent('1')
+  })
+
   it("reads a face's feature from its column head", () => {
     const onSelect = vi.fn()
     render(<ComparisonTable faces={faces} active={0} onSelect={onSelect} />)
@@ -88,5 +103,20 @@ describe('ComparisonTable: a face no feature owns', () => {
       />,
     )
     expect(screen.getByRole('button', { name: /No feature/ })).toBeDisabled()
+  })
+
+  it('still draws its measurement, with the hover that explains it', () => {
+    const noFeature: ComparedFace = {
+      feature: null,
+      directionColor: '#000',
+      rules: [],
+      measurements: [
+        { key: 'diameter', label: 'Diameter', value: '6 mm', alt: '0.24 in', derivation: [] },
+      ],
+    }
+    render(<ComparisonTable faces={[faces[0]!, noFeature]} active={0} onSelect={vi.fn()} />)
+    const [, second] = within(rowOf('Diameter')).getAllByRole('cell')
+    expect(second).toHaveTextContent('6 mm')
+    expect(second!.querySelector('[title]')).toHaveAttribute('title', '0.24 in')
   })
 })

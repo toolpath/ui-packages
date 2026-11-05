@@ -2,10 +2,14 @@ import { useMemo, type FC, type ReactElement, type ReactNode } from 'react'
 import { CheckIcon, CopyIcon } from '@phosphor-icons/react'
 import { IconButton } from '../icon-button'
 import { cn } from '../common'
-import { datasheetFields, MAX_DATASHEET_FIELDS, type FeatureRecord } from '@toolpath/dfm'
+import {
+  datasheetFields,
+  type FeatureRecord,
+  type FoldStore,
+  MAX_DATASHEET_FIELDS,
+} from '@toolpath/dfm'
 import { useTimedValue } from '../dfm-rule-list/use-timed-value'
 import { FoldSection } from './fold-section'
-import type { FoldStore } from './fold-store'
 import { secondaryText, type ResolvedLook } from './look'
 import { ReadFailure, Reading } from './read-state'
 import type { Loadable } from './types'

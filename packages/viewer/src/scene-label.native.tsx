@@ -1,0 +1,73 @@
+import { useThree } from '@react-three/fiber'
+import { useContext, useId, useLayoutEffect } from 'react'
+import { SceneLabelStoreContext } from './label-context.js'
+import type { Vector3 } from 'three'
+
+export interface SceneLabelProps {
+  position: Vector3 | [number, number, number]
+  text: string
+  note?: string
+  /** The label's `testID`, `scene-label-<kind>`. */
+  kind: string
+  axis?: 'x' | 'y' | 'z'
+  /** The label's border colour. */
+  color?: string
+  /** Ignored: there is no DOM to style. `ToolMarks` passes its `labelClassName` here on every platform. */
+  className?: string
+  /** Makes the label pressable. */
+  onPress?: () => void
+  /**
+   * What pressing the label does, for a screen reader, such as "Copies the
+   * measurement". A pressable label is otherwise announced as its text and
+   * "button" alone.
+   */
+  accessibilityHint?: string
+}
+
+let warned = false
+
+/**
+ * React Native's `<SceneLabel>`: there is no DOM to put a label in, so it
+ * registers itself with the store the native frame provides, and the frame
+ * draws it as a view over the canvas. `onPress` makes the label pressable, and
+ * `accessibilityHint` says what pressing it does.
+ */
+export const SceneLabel = ({
+  position,
+  text,
+  note,
+  kind,
+  axis,
+  color,
+  onPress,
+  accessibilityHint,
+}: SceneLabelProps) => {
+  const store = useContext(SceneLabelStoreContext)
+  const invalidate = useThree((state) => state.invalidate)
+  const id = useId()
+
+  useLayoutEffect(() => {
+    if (!store) return
+    store.set(id, { position, text, note, kind, axis, color, onPress, accessibilityHint })
+    // The overlay updates when the frame next projects, and on a canvas drawn
+    // on demand that frame has to be asked for.
+    invalidate()
+  }, [accessibilityHint, axis, color, id, invalidate, kind, note, onPress, position, store, text])
+
+  useLayoutEffect(() => {
+    if (!store) {
+      // In an effect, so a render React throws away does not use up the warning.
+      if (!warned) {
+        warned = true
+        console.warn('@toolpath/viewer: <SceneLabel> on React Native draws only inside a <Viewer>.')
+      }
+      return undefined
+    }
+    return () => {
+      store.remove(id)
+      invalidate()
+    }
+  }, [id, invalidate, store])
+
+  return null
+}

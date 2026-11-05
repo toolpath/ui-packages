@@ -1,4 +1,5 @@
 import type { VectorLike } from '../types.js'
+import { preventPointerDefault, readPointer } from './pointer.js'
 import { type DoubleTapPoint, type TapPoint, trackDoubleTaps } from './tap.js'
 
 /** What the gesture rules read of a pointer event on a pickable object. */
@@ -167,7 +168,11 @@ export const createPickGestures = <E extends PickGestureEvent, P>(
      */
     onPointerUp: (event: E) => {
       const now = rules()
-      if (!clickable(now) || event.nativeEvent.button !== 2 || !now.isTap(event.nativeEvent)) {
+      if (
+        !clickable(now) ||
+        readPointer(event.nativeEvent).button !== 2 ||
+        !now.isTap(event.nativeEvent)
+      ) {
         return
       }
       const pick = now.pick(event, false)
@@ -184,7 +189,7 @@ export const createPickGestures = <E extends PickGestureEvent, P>(
       // Only over geometry, so a right click that hits nothing still gets
       // the browser's own menu.
       if (now.visible && now.pick(event, false) !== null) {
-        event.nativeEvent.preventDefault()
+        preventPointerDefault(event.nativeEvent)
       }
     },
   }
