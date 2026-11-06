@@ -129,13 +129,11 @@ class FeatureDatasheet:
                 that: a hole is pointed at on its axis at the top of its wall; a dovetail, whose
                 minimum is the smallest cutter spanning its undercut, once along each run of its
                 overhangs' foot; an inside corner with no radius that zeroed the minimum, whatever the
-                kind; a layered kind's minimum that is the widest tool reaching all of it — a ball, a
-                bullnose or a flat — where a wider one is stopped or the surface bends too tightly for
-                it; and a layered kind's minimum read off one of its slices (a chamfer's), on that slice.
-                Empty where the minimum is unbounded (a facing pass) or its measurement failed, where a
-                dovetail's foot could not be read, and where a layered kind's minimum is none of these. Empty is "nowhere to
-                point at", never
-                "nowhere is tight".
+                kind; and a three-dimensional surface's minimum, the widest tool reaching all of it — a
+                ball, a bullnose or a flat — where a wider one is stopped or the surface bends too
+                tightly for it. Empty where the minimum is unbounded (a facing pass) or its measurement
+                failed, and where a dovetail's foot could not be read. Empty is "nowhere to point at",
+                never "nowhere is tight".
     """
 
     feature_type: FeatureType

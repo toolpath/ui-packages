@@ -50,8 +50,8 @@ class CdData:
         measurement_failed (bool | Unset): The clearance measurement was owed and failed, so every regime reads zero and
             no tool
             is offered on its strength. Never set on a hole, whose clearance is written down rather
-            than measured, or on a facing pass, which owes none. A surface measured in layers sets
-            it when every layer that crossed the surface failed. On a chamfer it is the surface
+            than measured, or on a facing pass, which owes none. A three-dimensional surface sets it
+            when its tool fit could not be attempted. On a chamfer it is the surface
             half's: the tools that follow the bevel as a surface are refused, and a cone riding the
             bevel, which the bevel bounds, is still offered and planned.
     """

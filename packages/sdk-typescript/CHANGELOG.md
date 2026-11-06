@@ -1,5 +1,44 @@
 # @toolpath/api
 
+## 0.16.1
+
+### Patch Changes
+
+- 390eb75: Regenerate the TypeScript SDK for Engine API 1.41.1.
+
+  ### Engine API 1.41.1
+
+  tp-kernel 0.32.1. No field or shape changes: the descriptions of `BullnoseCurve`, `PinchPoint.point`,
+  `FeatureDatasheet.pinchPoints` and `CdData.measurementFailed` change to say how a three-dimensional
+  surface's clearance is now measured.
+
+  **Feature datasheets**:
+
+  - A three-dimensional surface's `cd` comes from the tool search that gives its `bullnoseCurve`, not
+    from slices of the part. Its minimum is the widest tool reaching all of the surface out to its
+    edges, so a chamfer or fillet that runs into a wall is held to the gap the wall leaves. Its
+    maximum is the widest flat reaching a tenth of it. Its `pinchPoints` sit where that tool is
+    stopped, and `bullnoseCurve` gains the corners 0.0762 and 0.127.
+  - A part analyzed before this release keeps its readings until it is analyzed again.
+
+  **Plans** (no change of shape):
+
+  - A wall finish stops 0.00254 mm above its finished floor, or at the axial stock to leave where
+    that is less. It used to cut down to the floor.
+  - A ring floor narrower than its flat endmill, a counterbore's among them, is finished with one lap
+    wherever a lap covers it. It was area-cleared, which could find nothing to cut.
+  - A `planSpec` read under an earlier kernel fails as `stale_regions:` where this release prepares
+    the part otherwise.
+
+  **CAM export** (`camExportUrl`, experimental):
+
+  - A refused pass states how far it got beside its reason: its heights and tactic where it was
+    planned, and its toolpath where it was refused for what that does.
+
+  **Operations**:
+
+  - Deploy workers, then the API.
+
 ## 0.16.0
 
 ### Minor Changes

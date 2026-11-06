@@ -10,11 +10,11 @@ T = TypeVar("T", bound="BullnoseCurve")
 
 @_attrs_define
 class BullnoseCurve:
-    """The tool geometry a surface's own shape admits, before the layers are consulted: at each
-    corner radius, the widest flat bottom `D − 2r` a bullnose carrying it may have and still
-    reach all of the surface. A tool with corner `r` reaches all of it when its diameter is at
-    most `2·rᵢ + bᵢ` at a stored corner `rᵢ`; `2·r + min(bᵢ, bᵢ₊₁)` between two, `rᵢ < r < rᵢ₊₁`,
-    since the bottom never widens as the corner grows; and `2·r_last + b_last` past the last.
+    """The tool geometry a surface admits: at each corner radius, the widest flat bottom `D − 2r`
+    a bullnose carrying it may have and still reach all of the surface. A tool with corner `r`
+    reaches all of it when its diameter is at most `2·rᵢ + bᵢ` at a stored corner `rᵢ`;
+    `2·r + min(bᵢ, bᵢ₊₁)` between two, `rᵢ < r < rᵢ₊₁`, since the bottom never widens as the
+    corner grows; and `2·r_last + b_last` past the last.
     A `null` bottom limits nothing at its point.
 
         Attributes:
