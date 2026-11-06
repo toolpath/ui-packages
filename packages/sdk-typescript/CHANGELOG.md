@@ -1,5 +1,11 @@
 # @toolpath/api
 
+## 0.17.0
+
+### Minor Changes
+
+- a104f11: `waitForJob`'s `reconnect` takes four more options for a server that watches many jobs, and Python's `WaitForJobReconnect` the same: `jitter` varies each wait by up to that fraction, only ever lengthening a `Retry-After`; `stableMs` (`stable_after`) starts the delays over only after a stream that stayed open that long; `quietMs` (`quiet_after`) treats a stream that has sent nothing, keep-alives included, for that long as lost; and `lookOnLoss` (`look_on_loss`) reads the job once when a stream is lost, settling the wait if it is final. The client argument may also be a function, called before each stream and each look, so a long wait can change its key; a refused key still ends the wait. A new `onStream` (`on_stream`) option reports each stream as `open` and, when reconnecting, `lost`. A `jitter` outside 0 to 1 is refused (`RangeError`, `ValueError`), and a look answered with a longer `Retry-After` than the next delay waits that instead. Without them both behave as before.
+
 ## 0.16.1
 
 ### Patch Changes

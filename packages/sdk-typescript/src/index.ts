@@ -3,6 +3,7 @@ export { uploadToPresignedUrl, type UploadToPresignedUrlOptions } from './upload
 export {
   JobFailedError,
   waitForJob,
+  type WaitForJobClient,
   type WaitForJobOptions,
   type WaitForJobReconnect,
 } from './wait-for-job.js'

@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 import pytest
 
-from toolpath import AuthenticatedClient, JobFailedError, WaitForJobReconnect, wait_for_job
+from toolpath import AuthenticatedClient, Client, JobFailedError, WaitForJobReconnect, wait_for_job
 from toolpath.generated.models import JobDetail, JobDetailStatus
 
 JOB_ID = "0195f02d-6c1a-7b3e-9f00-000000000001"
@@ -535,3 +535,519 @@ def test_reconnect_opens_one_last_stream_at_the_deadline_before_giving_up(clock:
     # At 0, 2 and 4 seconds, and the last at the deadline, 5.
     assert len(requests) == 4
     assert clock.waits == [2.0, 2.0, 1.0]
+
+
+def look(status: str, **extra: Any) -> httpx.Response:
+    """A ``GET /v1/jobs/{id}`` answer."""
+    return httpx.Response(200, headers={"Content-Type": "application/json"}, content=job(status, **extra))
+
+
+def lost(error: httpx.TransportError, *chunks: str) -> httpx.Response:
+    """A stream that sends ``chunks`` and then loses its connection with ``error``."""
+    return httpx.Response(200, headers={"Content-Type": "text/event-stream"}, stream=EventStream(chunks, error))
+
+
+def test_jitter_unset_waits_exactly_the_delay_without_drawing_a_random_number(
+    monkeypatch: pytest.MonkeyPatch, waits: list[float]
+) -> None:
+    def draw() -> float:
+        raise AssertionError("no random number should be drawn")
+
+    monkeypatch.setattr("toolpath.jobs.random", draw)
+
+    wait_reconnecting(answering("", job_event("succeeded")), WaitForJobReconnect(delays=(1.0,)))
+
+    assert waits == [1.0]
+
+
+@pytest.mark.parametrize(("draw", "seconds"), [(0.0, 0.8), (0.5, 1.0), (0.75, 1.1)])
+def test_jitter_varies_each_wait_either_way(
+    draw: float, seconds: float, monkeypatch: pytest.MonkeyPatch, waits: list[float]
+) -> None:
+    monkeypatch.setattr("toolpath.jobs.random", lambda: draw)
+
+    wait_reconnecting(answering("", job_event("succeeded")), WaitForJobReconnect(delays=(1.0,), jitter=0.2))
+
+    assert waits == [pytest.approx(seconds)]
+
+
+@pytest.mark.parametrize(("draw", "seconds"), [(0.0, 2.0), (0.5, 2.5), (1.0, 3.0)])
+def test_jitter_only_lengthens_a_retry_after(
+    draw: float, seconds: float, monkeypatch: pytest.MonkeyPatch, waits: list[float]
+) -> None:
+    monkeypatch.setattr("toolpath.jobs.random", lambda: draw)
+
+    wait_reconnecting(answering(429, job_event("succeeded")), WaitForJobReconnect(delays=(0.1,), jitter=0.5))
+
+    assert waits == [pytest.approx(seconds)]
+
+
+def test_stable_after_goes_on_to_the_next_delay_after_a_stream_that_sent_the_job_but_dropped_at_once(
+    waits: list[float],
+) -> None:
+    client = answering("", job_event("running"), job_event("succeeded"))
+
+    wait_reconnecting(client, WaitForJobReconnect(delays=(0.1, 1.0), stable_after=30))
+
+    assert waits == [0.1, 1.0]
+
+
+def test_stable_after_starts_the_delays_over_after_a_stream_that_stayed_open_that_long(clock: Clock) -> None:
+    client = answering("", job_event("running"), job_event("succeeded"))
+
+    def stay_open(job: JobDetail) -> None:
+        # The second stream stays open forty seconds before it ends.
+        if job.status is JobDetailStatus.RUNNING:
+            clock.now += 40
+
+    wait_reconnecting(client, WaitForJobReconnect(delays=(0.1, 1.0), stable_after=30), stay_open)
+
+    assert clock.waits == [0.1, 0.1]
+
+
+def test_quiet_after_replaces_only_the_read_timeout() -> None:
+    requests: list[httpx.Request] = []
+    client = answering(job_event("succeeded"), requests=requests)
+
+    wait_reconnecting(client, WaitForJobReconnect(quiet_after=45))
+
+    assert requests[0].extensions["timeout"]["read"] == 45
+
+
+def test_quiet_after_opens_the_stream_again_once_a_read_times_out(waits: list[float]) -> None:
+    requests: list[httpx.Request] = []
+    client = answering(
+        lost(httpx.ReadTimeout("The read operation timed out"), job_event("running")),
+        job_event("succeeded"),
+        requests=requests,
+    )
+
+    finished = wait_reconnecting(client, WaitForJobReconnect(delays=(1.0,), quiet_after=45))
+
+    assert finished.status is JobDetailStatus.SUCCEEDED
+    assert len(requests) == 2
+
+
+def test_look_on_loss_returns_a_succeeded_job_after_on_update_without_another_stream(waits: list[float]) -> None:
+    requests: list[httpx.Request] = []
+    client = answering(job_event("running"), look("succeeded", reportId="report-1"), requests=requests)
+    updates: list[JobDetail] = []
+
+    finished = wait_reconnecting(client, WaitForJobReconnect(look_on_loss=True), updates.append)
+
+    assert finished.status is JobDetailStatus.SUCCEEDED
+    assert finished.report_id == "report-1"
+    assert [update.status for update in updates] == [JobDetailStatus.RUNNING, JobDetailStatus.SUCCEEDED]
+    assert [str(request.url) for request in requests] == [
+        f"https://api.example.test/v1/jobs/{JOB_ID}/events",
+        f"https://api.example.test/v1/jobs/{JOB_ID}",
+    ]
+    assert waits == []
+
+
+def test_look_on_loss_raises_job_failed_error_for_a_failed_job_after_on_update(waits: list[float]) -> None:
+    client = answering(job_event("running"), look("failed", error="kernel_error: no body"))
+    updates: list[JobDetail] = []
+
+    with pytest.raises(JobFailedError, match="^kernel_error: no body$"):
+        wait_reconnecting(client, WaitForJobReconnect(look_on_loss=True), updates.append)
+
+    assert [update.status for update in updates] == [JobDetailStatus.RUNNING, JobDetailStatus.FAILED]
+    assert waits == []
+
+
+@pytest.mark.parametrize("status", [404, 410, 401])
+def test_look_on_loss_raises_an_error_response_as_opening_the_stream_would(status: int, waits: list[float]) -> None:
+    requests: list[httpx.Request] = []
+
+    with pytest.raises(httpx.HTTPStatusError) as raised:
+        wait_reconnecting(
+            answering(job_event("running"), status, requests=requests), WaitForJobReconnect(look_on_loss=True)
+        )
+
+    assert raised.value.response.status_code == status
+    assert len(requests) == 2
+    assert waits == []
+
+
+@pytest.mark.parametrize(
+    "answer", [503, httpx.ConnectError("[Errno 111] Connection refused")], ids=["503", "ConnectError"]
+)
+def test_look_on_loss_goes_on_to_the_next_stream_when_the_look_fails(
+    answer: int | Exception, waits: list[float]
+) -> None:
+    requests: list[httpx.Request] = []
+    client = answering(job_event("running"), answer, job_event("succeeded"), requests=requests)
+
+    assert wait_reconnecting(client, WaitForJobReconnect(look_on_loss=True)).status is JobDetailStatus.SUCCEEDED
+    assert len(requests) == 3
+    assert waits == [1.0]
+
+
+def test_look_on_loss_tells_on_update_of_a_job_not_yet_final_only_when_it_changed(waits: list[float]) -> None:
+    client = answering(
+        job_event("running", progress=10),
+        look("running", progress=10),
+        "",
+        look("running", progress=50),
+        job_event("succeeded"),
+    )
+    updates: list[JobDetail] = []
+
+    wait_reconnecting(client, WaitForJobReconnect(delays=(0.1,), look_on_loss=True), updates.append)
+
+    assert [update.progress for update in updates] == [10, 50, None]
+    assert waits == [0.1, 0.1]
+
+
+def test_look_on_loss_does_not_look_after_a_stream_that_could_not_be_opened(waits: list[float]) -> None:
+    requests: list[httpx.Request] = []
+    client = answering(503, job_event("succeeded"), requests=requests)
+
+    wait_reconnecting(client, WaitForJobReconnect(look_on_loss=True))
+
+    assert [request.url.path for request in requests] == [f"/v1/jobs/{JOB_ID}/events"] * 2
+
+
+def test_a_client_function_is_asked_before_every_stream_and_every_look(waits: list[float]) -> None:
+    first_requests: list[httpx.Request] = []
+    second_requests: list[httpx.Request] = []
+    first = answering(job_event("running"), requests=first_requests)
+    second = answering(look("running"), job_event("succeeded"), requests=second_requests)
+    given = [first, second, second]
+    asked: list[AuthenticatedClient] = []
+
+    async def choose() -> AuthenticatedClient:
+        asked.append(given.pop(0))
+        return asked[-1]
+
+    async def run() -> JobDetail:
+        async with first, second:
+            return await wait_for_job(choose, JOB_ID, reconnect=WaitForJobReconnect(look_on_loss=True))
+
+    assert asyncio.run(run()).status is JobDetailStatus.SUCCEEDED
+    assert asked == [first, second, second]
+    assert len(first_requests) == 1
+    assert len(second_requests) == 2
+
+
+def test_a_plain_client_function_is_asked_once_without_reconnect() -> None:
+    client = streaming([job_event("succeeded")])
+    asked: list[AuthenticatedClient] = []
+
+    def choose() -> AuthenticatedClient:
+        asked.append(client)
+        return client
+
+    async def run() -> JobDetail:
+        async with client:
+            return await wait_for_job(choose, JOB_ID)
+
+    assert asyncio.run(run()).status is JobDetailStatus.SUCCEEDED
+    assert len(asked) == 1
+
+
+def test_a_client_function_does_not_turn_a_refused_key_into_another_try(waits: list[float]) -> None:
+    client = answering(401)
+    asked: list[AuthenticatedClient] = []
+
+    def choose() -> AuthenticatedClient:
+        asked.append(client)
+        return client
+
+    async def run() -> JobDetail:
+        async with client:
+            return await wait_for_job(choose, JOB_ID, reconnect=True)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        asyncio.run(run())
+
+    assert len(asked) == 1
+    assert waits == []
+
+
+def test_watching_from_a_server_combines_every_option(monkeypatch: pytest.MonkeyPatch, clock: Clock) -> None:
+    monkeypatch.setattr("toolpath.jobs.random", lambda: 0.0)
+    requests: list[httpx.Request] = []
+    client = answering(
+        lost(httpx.ReadTimeout("The read operation timed out"), job_event("running", progress=10)),
+        look("running", progress=20),
+        job_event("running", progress=30),
+        503,
+        503,
+        job_event("succeeded"),
+        requests=requests,
+    )
+    asked: list[AuthenticatedClient] = []
+
+    def choose() -> AuthenticatedClient:
+        asked.append(client)
+        return client
+
+    progress: list[int | None] = []
+
+    def update(job: JobDetail) -> None:
+        progress.append(job.progress)
+        # The first stream stays open past stable_after before it goes quiet.
+        if job.progress == 10:
+            clock.now += 45
+
+    async def run() -> JobDetail:
+        async with client:
+            return await wait_for_job(
+                choose,
+                JOB_ID,
+                on_update=update,
+                reconnect=WaitForJobReconnect(
+                    delays=(1.0, 5.0), jitter=0.2, stable_after=30, quiet_after=45, look_on_loss=True
+                ),
+            )
+
+    assert asyncio.run(run()).status is JobDetailStatus.SUCCEEDED
+    assert progress == [10, 20, 30, None]
+    # Stable, so the first delay; then a stream that dropped at once, looked at with a 503, and a
+    # 503 opening the next: the second delay twice, each less a fifth.
+    assert clock.waits == [pytest.approx(0.8), pytest.approx(4.0), pytest.approx(4.0)]
+    assert [request.url.path for request in requests] == [
+        f"/v1/jobs/{JOB_ID}/events",
+        f"/v1/jobs/{JOB_ID}",
+        f"/v1/jobs/{JOB_ID}/events",
+        f"/v1/jobs/{JOB_ID}",
+        f"/v1/jobs/{JOB_ID}/events",
+        f"/v1/jobs/{JOB_ID}/events",
+    ]
+    assert requests[0].extensions["timeout"]["read"] == 45
+    assert len(asked) == 6
+
+
+def watch_streams(
+    client: AuthenticatedClient,
+    reconnect: bool | WaitForJobReconnect,
+    events: list[str],
+) -> JobDetail:
+    """Wait, recording each ``on_stream`` state and each update's status and progress in ``events``."""
+
+    async def run() -> JobDetail:
+        async with client:
+            return await wait_for_job(
+                client,
+                JOB_ID,
+                on_update=lambda job: events.append(f"{job.status.value} {job.progress}"),
+                on_stream=events.append,
+                reconnect=reconnect,
+            )
+
+    return asyncio.run(run())
+
+
+def test_on_stream_reports_a_lost_stream_before_the_look_and_the_look_before_the_next_stream(
+    waits: list[float],
+) -> None:
+    events: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        events.append(f"request {request.url.path.removeprefix(f'/v1/jobs/{JOB_ID}') or '/'}")
+        return answers.pop(0)
+
+    answers = [
+        lost(httpx.ReadError("[Errno 104] Connection reset by peer"), job_event("running")),
+        look("running", progress=50),
+        httpx.Response(
+            200, headers={"Content-Type": "text/event-stream"}, stream=EventStream([job_event("succeeded")], None)
+        ),
+    ]
+
+    watch_streams(client_with(handler), WaitForJobReconnect(look_on_loss=True), events)
+
+    assert events == [
+        "request /events",
+        "open",
+        "running None",
+        "lost",
+        "request /",
+        "running 50",
+        "request /events",
+        "open",
+        "succeeded None",
+    ]
+    assert waits == [1.0]
+
+
+def test_on_stream_reports_a_stream_that_went_quiet_as_lost_before_the_wait(clock: Clock) -> None:
+    events: list[str] = []
+    client = answering(
+        lost(httpx.ReadTimeout("The read operation timed out"), job_event("running")), job_event("succeeded")
+    )
+
+    async def sleep(seconds: float) -> None:
+        events.append(f"wait {seconds}")
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr("toolpath.jobs.sleep", sleep)
+        watch_streams(client, WaitForJobReconnect(delays=(1.0,), quiet_after=45), events)
+
+    assert events == ["open", "running None", "lost", "wait 1.0", "open", "succeeded None"]
+
+
+def test_on_stream_is_not_called_for_a_stream_that_could_not_be_opened_nor_when_the_wait_settles(
+    waits: list[float],
+) -> None:
+    events: list[str] = []
+
+    with pytest.raises(JobFailedError):
+        watch_streams(answering(httpx.ConnectError("refused"), 503, job_event("failed")), True, events)
+
+    assert events == ["open", "failed None"]
+
+
+def test_on_stream_reports_only_open_without_reconnect() -> None:
+    events: list[str] = []
+
+    with pytest.raises(RuntimeError, match="ended before the job finished"):
+        watch_streams(streaming([job_event("running")]), False, events)
+
+    assert events == ["open", "running None"]
+
+
+def test_on_stream_ends_the_wait_with_an_error_it_raises(waits: list[float]) -> None:
+    requests: list[httpx.Request] = []
+    mistake = ValueError("The caller could not handle the stream")
+
+    def fail(_: str) -> None:
+        raise mistake
+
+    async def run() -> JobDetail:
+        client = answering(job_event("running"), requests=requests)
+        async with client:
+            return await wait_for_job(client, JOB_ID, on_stream=fail, reconnect=True)
+
+    with pytest.raises(ValueError) as raised:
+        asyncio.run(run())
+
+    assert raised.value is mistake
+    assert len(requests) == 1
+    assert waits == []
+
+
+def test_a_plain_client_is_used_as_it_is_rather_than_called() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200, headers={"Content-Type": "text/event-stream"}, stream=EventStream([job_event("succeeded")], None)
+        )
+
+    client = Client("https://api.example.test", httpx_args={"transport": httpx.MockTransport(handler)})
+
+    async def run() -> JobDetail:
+        async with client:
+            return await wait_for_job(client, JOB_ID, reconnect=True)
+
+    assert asyncio.run(run()).status is JobDetailStatus.SUCCEEDED
+    assert len(requests) == 1
+
+
+def test_anything_with_an_httpx_client_is_used_as_it_is() -> None:
+    inner = streaming([job_event("succeeded")])
+
+    class Wrapped:
+        def get_async_httpx_client(self) -> httpx.AsyncClient:
+            return inner.get_async_httpx_client()
+
+        def __call__(self) -> AuthenticatedClient:
+            raise AssertionError("a client is not called")
+
+    async def run() -> JobDetail:
+        async with inner:
+            return await wait_for_job(Wrapped(), JOB_ID)  # type: ignore[arg-type]
+
+    assert asyncio.run(run()).status is JobDetailStatus.SUCCEEDED
+
+
+@pytest.mark.parametrize(("retry_after", "seconds"), [("5", 5.0), ("1", 2.0)])
+def test_look_on_loss_waits_the_looks_retry_after_where_it_is_longer_than_the_delay(
+    retry_after: str, seconds: float, waits: list[float]
+) -> None:
+    client = answering(
+        job_event("running"), httpx.Response(503, headers={"Retry-After": retry_after}), job_event("succeeded")
+    )
+
+    wait_reconnecting(client, WaitForJobReconnect(delays=(2.0,), look_on_loss=True))
+
+    assert waits == [seconds]
+
+
+def test_look_on_loss_only_lengthens_the_looks_retry_after_with_jitter(
+    monkeypatch: pytest.MonkeyPatch, waits: list[float]
+) -> None:
+    monkeypatch.setattr("toolpath.jobs.random", lambda: 0.5)
+    client = answering(job_event("running"), httpx.Response(429, headers={"Retry-After": "5"}), job_event("succeeded"))
+
+    wait_reconnecting(client, WaitForJobReconnect(delays=(1.0,), jitter=0.2, look_on_loss=True))
+
+    assert waits == [pytest.approx(5.5)]
+
+
+@pytest.mark.parametrize("jitter", [-0.1, 1.5, float("nan"), float("inf")])
+def test_jitter_outside_zero_to_one_raises_value_error(jitter: float) -> None:
+    with pytest.raises(ValueError, match="jitter must be from 0 to 1"):
+        WaitForJobReconnect(jitter=jitter)
+
+
+@pytest.mark.parametrize("jitter", [0.0, 1.0])
+def test_jitter_of_zero_or_one_is_accepted(jitter: float) -> None:
+    assert WaitForJobReconnect(jitter=jitter).jitter == jitter
+
+
+def test_quiet_after_drops_a_stream_that_goes_silent_on_a_real_connection() -> None:
+    """A local server: the first stream sends one event and then nothing, the second the final job."""
+    events: list[str] = []
+    connections = 0
+
+    async def serve(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        nonlocal connections
+        connections += 1
+        await reader.readuntil(b"\r\n\r\n")
+        if connections == 1:
+            body = job_event("running").encode()
+            writer.write(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\n\r\n"
+                + f"{len(body):x}\r\n".encode()
+                + body
+                + b"\r\n"
+            )
+            await writer.drain()
+            # Silent, as a connection that died without closing: no keep-alive, no end.
+            await asyncio.sleep(30)
+        else:
+            body = job_event("succeeded").encode()
+            writer.write(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n"
+                + f"Content-Length: {len(body)}\r\n\r\n".encode()
+                + body
+            )
+            await writer.drain()
+        writer.close()
+
+    async def run() -> JobDetail:
+        server = await asyncio.start_server(serve, "127.0.0.1", 0)
+        port = server.sockets[0].getsockname()[1]
+        try:
+            async with AuthenticatedClient(f"http://127.0.0.1:{port}", token="tp_test") as client:
+                return await asyncio.wait_for(
+                    wait_for_job(
+                        client,
+                        JOB_ID,
+                        on_update=lambda job: events.append(job.status.value),
+                        on_stream=events.append,
+                        reconnect=WaitForJobReconnect(delays=(0.0,), quiet_after=0.2),
+                    ),
+                    timeout=5,
+                )
+        finally:
+            server.close()
+
+    assert asyncio.run(run()).status is JobDetailStatus.SUCCEEDED
+    assert events == ["open", "running", "lost", "open", "succeeded"]
+    assert connections == 2

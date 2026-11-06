@@ -6,16 +6,19 @@ import json
 import math
 import re
 from asyncio import sleep
-from collections.abc import AsyncIterator, Callable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import aclosing
 from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
+from inspect import isawaitable
+from random import random
 from time import monotonic, time
+from typing import Literal, cast
 from uuid import UUID
 
 import httpx
 
-from .generated.client import AuthenticatedClient
+from .generated.client import AuthenticatedClient, Client
 from .generated.models import JobDetail, JobDetailStatus
 
 # The server sends keep-alive comments on an idle stream, well inside this, so a read that waits
@@ -53,15 +56,56 @@ class WaitForJobReconnect:
     """How ``wait_for_job`` opens the job's stream again.
 
     ``delays`` are the seconds to wait before each new stream; the last repeats, and a stream that
-    sent the job starts them over. ``give_up_after`` is how many seconds reconnecting may fail for,
-    counted from when the last stream that sent the job ended, or from the start: one last stream is
-    opened at that time, and the wait then raises the error that ended it. A quiet job on an open
-    stream never counts against it. A 429 or 503 whose ``Retry-After`` falls past that time raises
-    at once, without the last stream. ``None`` waits until the job is final.
+    sent the job starts them over, or, with ``stable_after``, one that stayed open that long.
+    ``give_up_after`` is how many seconds reconnecting may fail for, counted from when the last
+    stream that sent the job ended, or from the start: one last stream is opened at that time, and
+    the wait then raises the error that ended it. A quiet job on an open stream never counts against
+    it. A 429 or 503 whose ``Retry-After`` falls past that time raises at once, without the last
+    stream. ``None`` waits until the job is final.
+
+    ``jitter``, a fraction from 0 to 1, varies each wait so that streams lost together — many waits
+    on one server, say — do not all open again together. A delay is multiplied by a random factor
+    from ``1 - jitter`` to ``1 + jitter``; a ``Retry-After`` wait by one from 1 to ``1 + jitter``, so
+    it is spread too but never shorter than the server asked. 0, an exact wait, by default.
+
+    ``stable_after`` is how many seconds a stream must stay open for its end to start the delays
+    over. A stream that opens and drops at once then backs off all the same, even though it sent the
+    job. ``None`` starts them over after any stream that sent the job. ``give_up_after`` still
+    counts from the last stream that sent the job.
+
+    ``quiet_after`` is how many seconds a stream may send nothing — no event and no keep-alive
+    comment — before it is taken as lost and opened again. It replaces the 60 seconds the stream's
+    read timeout is otherwise, so it also bounds the wait for the response's headers: a timeout
+    there is a stream that never opened, backed off with no ``"lost"`` and no look. The Engine API
+    sends a keep-alive every 15 seconds, so 45 seconds lets two go missing.
+
+    ``look_on_loss`` reads the job once (``GET /v1/jobs/{id}``) when a stream ends or is lost
+    before the job is final, before waiting to open the next. A final job settles the wait as if the
+    stream had sent it, after ``on_update``; a job not yet final goes to ``on_update`` if it
+    changed. An error response raises as it would on opening the stream — a refused key (401, 403),
+    a job the key cannot reach (404, 410), or any other 4xx but a 429 — while a 429, a 5xx or a
+    failed connection leaves the delays to go on. A 429's or 503's ``Retry-After`` longer than the
+    next delay is waited instead, spread by ``jitter`` as any ``Retry-After`` is. Off by default.
+
+    A ``jitter`` outside 0 to 1, or not finite, raises ``ValueError`` here.
     """
 
     delays: Sequence[float] = _RECONNECT_DELAYS
     give_up_after: float | None = None
+    jitter: float = 0.0
+    stable_after: float | None = None
+    quiet_after: float | None = None
+    look_on_loss: bool = False
+
+    def __post_init__(self) -> None:
+        if not (math.isfinite(self.jitter) and 0 <= self.jitter <= 1):
+            raise ValueError(f"jitter must be from 0 to 1, not {self.jitter}")
+
+
+# The client ``wait_for_job`` reads the job with, or a function that gives it one, plain or async.
+WaitForJobClient = (
+    AuthenticatedClient | Client | Callable[[], AuthenticatedClient | Client | Awaitable[AuthenticatedClient | Client]]
+)
 
 
 async def _job_events(response: httpx.Response, job_id: str | UUID) -> AsyncIterator[JobDetail]:
@@ -144,16 +188,32 @@ def _retry_after(error: Exception) -> float | None:
     return max(0.0, at.timestamp() - time())
 
 
-def _reconnect_delay(error: Exception, attempts: int, since_good: float, policy: WaitForJobReconnect) -> float | None:
+def _reconnect_delay(
+    error: Exception,
+    attempts: int,
+    since_good: float,
+    policy: WaitForJobReconnect,
+    look_retry_after: float | None = None,
+) -> float | None:
     """How many seconds to wait before opening the stream again after ``error``, or ``None`` to give
     up. ``attempts`` streams have failed since the last that sent the job, which ended
-    ``since_good`` seconds ago."""
+    ``since_good`` seconds ago. ``look_retry_after`` is the ``Retry-After`` a ``look_on_loss`` read
+    was answered with, waited instead where it is the longer."""
     if not _reopens(error):
         return None
     retry_after = _retry_after(error)
-    wait = retry_after
-    if wait is None:
-        wait = policy.delays[min(attempts, len(policy.delays) - 1)] if policy.delays else _RECONNECT_DELAYS[0]
+    scheduled = retry_after
+    if scheduled is None:
+        scheduled = policy.delays[min(attempts, len(policy.delays) - 1)] if policy.delays else _RECONNECT_DELAYS[0]
+    if look_retry_after is not None and look_retry_after > scheduled:
+        retry_after = look_retry_after
+    wait = scheduled if retry_after is None else retry_after
+    if policy.jitter > 0:
+        # A ``Retry-After`` is only ever lengthened: the server asked for at least that long.
+        if retry_after is None:
+            wait *= 1 - policy.jitter + 2 * policy.jitter * random()
+        else:
+            wait *= 1 + policy.jitter * random()
     if policy.give_up_after is None:
         return wait
     left = policy.give_up_after - since_good
@@ -163,11 +223,36 @@ def _reconnect_delay(error: Exception, attempts: int, since_good: float, policy:
     return min(wait, left)
 
 
+async def _client_now(client: WaitForJobClient) -> AuthenticatedClient | Client:
+    """The client for the next request: ``client`` itself, as anything with an httpx client is, or
+    what its function gives."""
+    if hasattr(client, "get_async_httpx_client") or not callable(client):
+        return cast("AuthenticatedClient | Client", client)
+    current = client()
+    return await current if isawaitable(current) else current
+
+
+async def _look(client: AuthenticatedClient | Client, job_id: str | UUID) -> JobDetail | Exception | None:
+    """The job as ``GET /v1/jobs/{id}`` reads it now; the error where the read failed in a way the
+    next stream may not — a 429, a 5xx or a failed connection; or ``None`` where it found a status
+    this SDK does not know. Any other error raises, as it would on opening the stream."""
+    try:
+        response = await client.get_async_httpx_client().get(f"/v1/jobs/{job_id}")
+        response.raise_for_status()
+    except Exception as error:
+        if _reopens(error):
+            return error
+        raise
+    fields = response.json()
+    return JobDetail.from_dict(fields) if fields.get("status") in _KNOWN_STATUSES else None
+
+
 async def wait_for_job(
-    client: AuthenticatedClient,
+    client: WaitForJobClient,
     job_id: str | UUID,
     *,
     on_update: Callable[[JobDetail], None] | None = None,
+    on_stream: Callable[[Literal["open", "lost"]], None] | None = None,
     reconnect: bool | WaitForJobReconnect = False,
 ) -> JobDetail:
     """Wait for a job on the job event stream (``GET /v1/jobs/{id}/events``), not by polling.
@@ -192,20 +277,47 @@ async def wait_for_job(
     answers the new stream with one of those. So does a mistake in the set-up: a URL without
     ``http://`` or ``https://``, or a request httpx would not send. ``True`` uses
     ``WaitForJobReconnect()``'s delays. An error ``on_update`` raises ends the wait.
+
+    ``on_stream`` is called with ``"open"`` each time a stream's response arrives, and, with
+    ``reconnect``, with ``"lost"`` when an open stream ends, drops or goes quiet before the job is
+    final: before the ``look_on_loss`` read and before the wait to open the next. So between a
+    ``"lost"`` and the next ``"open"`` no stream is listening. It is not called for a stream that
+    could not be opened, nor when the wait settles or is cancelled; without ``reconnect`` a lost
+    stream settles it. An error it raises ends the wait.
+
+    ``client`` may be a function, plain or async, that gives the client for each request, so a long
+    wait can change its key. A refused key (401, 403) still ends the wait rather than asking the
+    function for another: the caller decides whether to wait again with a different key. An error
+    the function raises ends the wait at once and is not retried.
     """
     if not reconnect:
-        return await _stream_job(client, job_id, on_update)
+        on_open = None if on_stream is None else lambda: on_stream("open")
+        return await _stream_job(await _client_now(client), job_id, on_update, on_open=on_open)
     policy = WaitForJobReconnect() if reconnect is True else reconnect
     attempts = 0
     # When the connection was last known good: the start, or the end of a stream that sent the job.
     last_good_at = monotonic()
+    # The job as ``on_update`` was last told it, so a look tells it only of a change.
+    latest: JobDetail | None = None
     while True:
         sent = False
+        opened_at: float | None = None
         caller_error: Exception | None = None
 
+        def opened() -> None:
+            nonlocal opened_at, caller_error
+            opened_at = monotonic()
+            if on_stream is not None:
+                try:
+                    on_stream("open")
+                except Exception as error:
+                    caller_error = error
+                    raise
+
         def update(job: JobDetail) -> None:
-            nonlocal sent, caller_error
+            nonlocal sent, caller_error, latest
             sent = True
+            latest = job
             if on_update is not None:
                 try:
                     on_update(job)
@@ -213,15 +325,38 @@ async def wait_for_job(
                     caller_error = error
                     raise
 
+        current = await _client_now(client)
         try:
-            return await _stream_job(client, job_id, update)
+            return await _stream_job(current, job_id, update, policy.quiet_after, opened)
         except Exception as error:
             if error is caller_error:
                 raise
             if sent:
-                attempts = 0
                 last_good_at = monotonic()
-            wait = _reconnect_delay(error, attempts, monotonic() - last_good_at, policy)
+            if policy.stable_after is None:
+                stable = sent
+            else:
+                stable = opened_at is not None and monotonic() - opened_at >= policy.stable_after
+            if stable:
+                attempts = 0
+            lost = isinstance(error, _StreamEnded)
+            if lost and on_stream is not None:
+                on_stream("lost")
+            look_error: Exception | None = None
+            if policy.look_on_loss and lost:
+                job = await _look(await _client_now(client), job_id)
+                if isinstance(job, Exception):
+                    look_error, job = job, None
+                if job is not None and (latest is None or job.to_dict() != latest.to_dict()):
+                    latest = job
+                    if on_update is not None:
+                        on_update(job)
+                if job is not None and job.status is JobDetailStatus.SUCCEEDED:
+                    return job
+                if job is not None and job.status is JobDetailStatus.FAILED:
+                    raise JobFailedError(job) from None
+            look_retry_after = None if look_error is None else _retry_after(look_error)
+            wait = _reconnect_delay(error, attempts, monotonic() - last_good_at, policy, look_retry_after)
             if wait is None:
                 raise
             attempts += 1
@@ -229,11 +364,14 @@ async def wait_for_job(
 
 
 async def _stream_job(
-    client: AuthenticatedClient,
+    client: AuthenticatedClient | Client,
     job_id: str | UUID,
     on_update: Callable[[JobDetail], None] | None,
+    quiet_after: float | None = None,
+    on_open: Callable[[], None] | None = None,
 ) -> JobDetail:
-    """One stream of the job's events, read until the job is final or the stream ends."""
+    """One stream of the job's events, read until the job is final or the stream ends. ``quiet_after``
+    replaces its read timeout, and ``on_open`` is called once its response has arrived."""
     httpx_client = client.get_async_httpx_client()
     timeout = httpx_client.timeout
     async with httpx_client.stream(
@@ -241,12 +379,17 @@ async def _stream_job(
         f"/v1/jobs/{job_id}/events",
         headers={"Accept": "text/event-stream"},
         timeout=httpx.Timeout(
-            connect=timeout.connect, read=_STREAM_READ_TIMEOUT, write=timeout.write, pool=timeout.pool
+            connect=timeout.connect,
+            read=_STREAM_READ_TIMEOUT if quiet_after is None else quiet_after,
+            write=timeout.write,
+            pool=timeout.pool,
         ),
     ) as response:
         if response.is_error:
             await response.aread()
             response.raise_for_status()
+        if on_open is not None:
+            on_open()
         async with aclosing(_job_events(response, job_id)) as jobs:
             async for job in jobs:
                 if on_update is not None:

@@ -55,6 +55,62 @@ from toolpath import WaitForJobReconnect
 job = await wait_for_job(client, job_id, reconnect=WaitForJobReconnect(give_up_after=600))
 ```
 
+`WaitForJobReconnect` takes four more options, all off by default:
+
+- `jitter`, a fraction from 0 to 1, varies each wait by up to that much, so streams lost
+  together do not reconnect together. A delay may shrink or grow by it; a `Retry-After` wait only
+  grows, so it is spread too but never shorter than the server asked.
+- `stable_after` starts the delays over only after a stream that stayed open that many seconds, rather
+  than after any stream that sent the job, so a stream that opens and drops at once still backs off.
+- `quiet_after` treats a stream that has sent nothing for that many seconds, keep-alives included, as
+  lost, and opens another. It replaces the stream's 60-second read timeout, so it also bounds the
+  wait for the response's headers: a timeout there is a stream that never opened, backed off with
+  no `"lost"` and no look. (TypeScript's `quietMs` counts only from the response.) The server
+  sends a keep-alive every 15 seconds; 45 is a sensible value.
+- `look_on_loss` reads the job once (`GET /v1/jobs/{id}`) when a stream ends or is lost early. A
+  final job settles the wait. A 401, 403, 404, 410 or any other 4xx but a 429 raises, while a 429,
+  a 5xx or a failed connection goes on reconnecting, waiting the look's `Retry-After` where it is
+  longer than the next delay.
+
+A `jitter` outside 0 to 1, or not finite, raises `ValueError` when `WaitForJobReconnect` is made.
+
+The first argument is an `AuthenticatedClient` or a `Client`, or a function, plain or async, that
+returns one, called before each stream and each look, so a long wait can change its key. A refused
+key (401, 403) still raises; whether to wait again with another key is the caller's choice. An
+error the function raises ends the wait at once and is not retried. Return a client kept per key
+rather than a new one each call: each holds an `httpx.AsyncClient` that stays open until closed.
+
+`on_stream` is told `"open"` each time a stream's response arrives and, with `reconnect`,
+`"lost"` when an open stream ends, drops or goes quiet before the job is final, before any look
+and the wait to reconnect. Between the two no stream is listening. It is not called for a stream
+that could not be opened, nor when the wait settles or is cancelled.
+
+### A server that watches many jobs
+
+A server that keeps a wait open for every job it is watching should use all four, so that streams
+dropped together, by a deploy or a network blip, do not reconnect in step, a stream that flaps is
+backed off, a connection that dies silently is noticed, and a job that finished meanwhile is
+settled without another stream:
+
+```python
+# One client per key, made once and closed at shutdown: each holds an open httpx.AsyncClient.
+clients: dict[str, AuthenticatedClient] = {}
+
+
+def client_for_current_key() -> AuthenticatedClient:
+    api_key = current_api_key()
+    if api_key not in clients:
+        clients[api_key] = AuthenticatedClient("https://api.toolpath.com", token=api_key)
+    return clients[api_key]
+
+
+job = await wait_for_job(
+    client_for_current_key,
+    job_id,
+    reconnect=WaitForJobReconnect(jitter=0.2, stable_after=30, quiet_after=45, look_on_loss=True),
+)
+```
+
 ## Releases
 
 The wheel carries `@toolpath/api`'s version. Versions are set in the private monorepo the
