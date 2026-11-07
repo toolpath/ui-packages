@@ -1,5 +1,44 @@
 # @toolpath/api
 
+## 0.18.0
+
+### Minor Changes
+
+- d13196a: Regenerate the TypeScript SDK for Engine API 1.42.0.
+
+  ### Engine API 1.42.0
+
+  A part, a file and a holder are each one upload. The first request that acts on the source pins it
+  to the upload it finds. A later request that finds a different one is refused rather than run, so
+  results can no longer describe a file the part does not hold. No request or response field changes.
+
+  **Upload URLs** (`POST /v1/parts`, `POST /v1/files`, `POST /v1/holders`) work as before, and an
+  upload may be repeated until work is first asked of it. Once work has started on a source,
+  uploading to it again is not supported, even of the same file. A changed source used to be read
+  silently, and is now refused on the next request. To upload again, create a new part, file or
+  holder.
+
+  **New 409 codes**, each to be answered by creating a new part, file or holder:
+
+  - `part_source_changed`: **Analyze a part**, **Analyze part features**, **Tessellate a part for
+    display**, **Create a plan**, **Calculate toolpaths** and **Calculate a plan’s toolpaths**.
+  - `file_source_changed`: **Inspect a file** and **Make parts from a file**. Parts of a file inspected
+    from this release on are only made from the upload it was inspected from.
+  - `holder_source_changed`: **Import a tool holder**.
+
+  A refused call is not metered. A retry with the Idempotency-Key of a job already queued still
+  answers with that job.
+
+  **Jobs**: a job whose source was replaced after it was queued fails at once, with an `error`
+  beginning `source_changed:`, is not retried and is not charged.
+
+  **Analyze part features** now answers `part_not_uploaded` when the source is gone from storage,
+  rather than queueing a job that fails.
+
+  Existing parts, files and holders are not backfilled. An existing part or holder, or a file not yet
+  inspected, is pinned by the next request that acts on it. A file inspected before this release is
+  not pinned, and **Make parts from a file** copies its source as before.
+
 ## 0.17.0
 
 ### Minor Changes

@@ -43,7 +43,8 @@ class JobDetail:
             last recorded, which may remain above 0 or null after queue recovery.
         error (None | str): Failure reason when the job status is failed; otherwise null. Deadline failures say `timed
             out after <n>s`. Queue recovery uses `job_delivery_exhausted`; jobs queued for more than 24 hours fail with
-            `job_dispatch_failed`.
+            `job_dispatch_failed`; a job whose source changed after it was queued fails with `source_changed:`, is not
+            retried and is not charged.
         report_id (None | UUID): Identifier of the part result produced by successful processing, or null until
             available.
         import_id (None | UUID): Identifier of the holder result produced by a successful import, or null until

@@ -90,7 +90,9 @@ def sync_detailed(
      Creates a CAD file and returns a short-lived URL for uploading it. Use a file rather than **Upload a
     part** when the file may hold more than one solid body — a part beside its stock, or several parts:
     upload it to the URL, run **Inspect a file** (`PATCH /v1/files/{id}`) to list its bodies, then
-    **Make parts from a file** (`POST /v1/files/{id}/parts`).
+    **Make parts from a file** (`POST /v1/files/{id}/parts`). A file is one upload: uploading again once
+    inspection has been asked for is not supported, even of the same file, and the next request may be
+    refused with `file_source_changed`. Create a new file for a new upload.
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -130,7 +132,9 @@ def sync(
      Creates a CAD file and returns a short-lived URL for uploading it. Use a file rather than **Upload a
     part** when the file may hold more than one solid body — a part beside its stock, or several parts:
     upload it to the URL, run **Inspect a file** (`PATCH /v1/files/{id}`) to list its bodies, then
-    **Make parts from a file** (`POST /v1/files/{id}/parts`).
+    **Make parts from a file** (`POST /v1/files/{id}/parts`). A file is one upload: uploading again once
+    inspection has been asked for is not supported, even of the same file, and the next request may be
+    refused with `file_source_changed`. Create a new file for a new upload.
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -165,7 +169,9 @@ async def asyncio_detailed(
      Creates a CAD file and returns a short-lived URL for uploading it. Use a file rather than **Upload a
     part** when the file may hold more than one solid body — a part beside its stock, or several parts:
     upload it to the URL, run **Inspect a file** (`PATCH /v1/files/{id}`) to list its bodies, then
-    **Make parts from a file** (`POST /v1/files/{id}/parts`).
+    **Make parts from a file** (`POST /v1/files/{id}/parts`). A file is one upload: uploading again once
+    inspection has been asked for is not supported, even of the same file, and the next request may be
+    refused with `file_source_changed`. Create a new file for a new upload.
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -203,7 +209,9 @@ async def asyncio(
      Creates a CAD file and returns a short-lived URL for uploading it. Use a file rather than **Upload a
     part** when the file may hold more than one solid body — a part beside its stock, or several parts:
     upload it to the URL, run **Inspect a file** (`PATCH /v1/files/{id}`) to list its bodies, then
-    **Make parts from a file** (`POST /v1/files/{id}/parts`).
+    **Make parts from a file** (`POST /v1/files/{id}/parts`). A file is one upload: uploading again once
+    inspection has been asked for is not supported, even of the same file, and the next request may be
+    refused with `file_source_changed`. Create a new file for a new upload.
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.

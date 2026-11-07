@@ -94,6 +94,11 @@ def sync_detailed(
      Creates a part and returns a short-lived URL for uploading its CAD source. This is the first step of
     the pipeline — upload the file to the URL, then run **Analyze a part** (`PATCH /v1/parts/{id}`).
 
+    A part is one upload. The URL can be used again until work is first asked of the part, and the last
+    upload is the one that counts; the first request that acts on the source fixes it. Uploading again
+    after that is not supported, even of the same file, and the next request may be refused with
+    `part_source_changed`: create a new part for a new upload.
+
     A part is one solid body. A file holding several fails analysis: its job’s `error` begins
     `multiple_bodies:`, and its `bodies` list each body’s `index`, `name`, face count and box. Upload
     the file again with `bodyIndex` set to the `index` of the body to machine, and the part is that body
@@ -147,6 +152,11 @@ def sync(
      Creates a part and returns a short-lived URL for uploading its CAD source. This is the first step of
     the pipeline — upload the file to the URL, then run **Analyze a part** (`PATCH /v1/parts/{id}`).
 
+    A part is one upload. The URL can be used again until work is first asked of the part, and the last
+    upload is the one that counts; the first request that acts on the source fixes it. Uploading again
+    after that is not supported, even of the same file, and the next request may be refused with
+    `part_source_changed`: create a new part for a new upload.
+
     A part is one solid body. A file holding several fails analysis: its job’s `error` begins
     `multiple_bodies:`, and its `bodies` list each body’s `index`, `name`, face count and box. Upload
     the file again with `bodyIndex` set to the `index` of the body to machine, and the part is that body
@@ -194,6 +204,11 @@ async def asyncio_detailed(
 
      Creates a part and returns a short-lived URL for uploading its CAD source. This is the first step of
     the pipeline — upload the file to the URL, then run **Analyze a part** (`PATCH /v1/parts/{id}`).
+
+    A part is one upload. The URL can be used again until work is first asked of the part, and the last
+    upload is the one that counts; the first request that acts on the source fixes it. Uploading again
+    after that is not supported, even of the same file, and the next request may be refused with
+    `part_source_changed`: create a new part for a new upload.
 
     A part is one solid body. A file holding several fails analysis: its job’s `error` begins
     `multiple_bodies:`, and its `bodies` list each body’s `index`, `name`, face count and box. Upload
@@ -245,6 +260,11 @@ async def asyncio(
 
      Creates a part and returns a short-lived URL for uploading its CAD source. This is the first step of
     the pipeline — upload the file to the URL, then run **Analyze a part** (`PATCH /v1/parts/{id}`).
+
+    A part is one upload. The URL can be used again until work is first asked of the part, and the last
+    upload is the one that counts; the first request that acts on the source fixes it. Uploading again
+    after that is not supported, even of the same file, and the next request may be refused with
+    `part_source_changed`: create a new part for a new upload.
 
     A part is one solid body. A file holding several fails analysis: its job’s `error` begins
     `multiple_bodies:`, and its `bodies` list each body’s `index`, `name`, face count and box. Upload

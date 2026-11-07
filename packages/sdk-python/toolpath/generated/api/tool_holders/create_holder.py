@@ -88,7 +88,9 @@ def sync_detailed(
     """Upload a tool holder
 
      Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
-    the URL, then run **Import a tool holder** (`PATCH /v1/holders/{id}`).
+    the URL, then run **Import a tool holder** (`PATCH /v1/holders/{id}`). A holder is one upload:
+    uploading again once an import has been asked for is not supported, even of the same file, and the
+    next request may be refused with `holder_source_changed`. Create a new holder for a new upload.
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
@@ -124,7 +126,9 @@ def sync(
     """Upload a tool holder
 
      Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
-    the URL, then run **Import a tool holder** (`PATCH /v1/holders/{id}`).
+    the URL, then run **Import a tool holder** (`PATCH /v1/holders/{id}`). A holder is one upload:
+    uploading again once an import has been asked for is not supported, even of the same file, and the
+    next request may be refused with `holder_source_changed`. Create a new holder for a new upload.
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
@@ -155,7 +159,9 @@ async def asyncio_detailed(
     """Upload a tool holder
 
      Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
-    the URL, then run **Import a tool holder** (`PATCH /v1/holders/{id}`).
+    the URL, then run **Import a tool holder** (`PATCH /v1/holders/{id}`). A holder is one upload:
+    uploading again once an import has been asked for is not supported, even of the same file, and the
+    next request may be refused with `holder_source_changed`. Create a new holder for a new upload.
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
@@ -189,7 +195,9 @@ async def asyncio(
     """Upload a tool holder
 
      Creates a tool holder and returns a short-lived URL for uploading its CAD source. Upload the file to
-    the URL, then run **Import a tool holder** (`PATCH /v1/holders/{id}`).
+    the URL, then run **Import a tool holder** (`PATCH /v1/holders/{id}`). A holder is one upload:
+    uploading again once an import has been asked for is not supported, even of the same file, and the
+    next request may be refused with `holder_source_changed`. Create a new holder for a new upload.
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
