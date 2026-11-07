@@ -1,4 +1,4 @@
-import type { StockOption } from '@toolpath/plan'
+import type { StockOption } from '../inputs/stock'
 import type { WaitingPipeline } from './run-decision'
 
 /*

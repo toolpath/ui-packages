@@ -2,7 +2,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { type DateRange, DatePicker, DateRangePicker, DateTimePicker } from '../src'
+import { type DateRange, DatePicker, DateRangePicker, DateTimePicker } from '../src/date-picker'
 
 beforeAll(() => {
   HTMLElement.prototype.scrollIntoView = vi.fn()

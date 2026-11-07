@@ -1,12 +1,7 @@
-import {
-  statementOf,
-  stockRequest,
-  withFolders,
-  type DraftSetup,
-  type Statement,
-  type StockOption,
-  type ToolCrib,
-} from '@toolpath/plan'
+import { statementOf, withGroups, type DraftSetup, type Statement } from '@toolpath/plan'
+
+import { stockRequest, type StockOption } from '../inputs/stock'
+import type { ToolCrib } from '../inputs/tool-crib'
 
 /*
   What a part is planned from, and the one text that says it. Every run, plan and estimate is stamped
@@ -55,7 +50,7 @@ export interface FingerprintPart {
 
 /** What a stored draft states, or null for nothing. */
 export const draftStatement = (row: Pick<DraftRow, 'setups'>): Statement | null =>
-  statementOf(withFolders(row.setups))
+  statementOf(withGroups(row.setups))
 
 /** The faces a stored draft has ignored, as Toolpath is told them, or null for none. */
 export const draftDone = (row: Omit<DraftRow, 'setups'>): DoneRegions | null =>
@@ -121,7 +116,7 @@ export const fingerprintText = (inputs: PlanInputs): string =>
 
 /**
  * The part's stock as Toolpath is sent it with its draft (`stockRequest`): a fixed box, kept in the
- * part's axes, turned into the first folder's frame — or why it can't be; null for no stock.
+ * part's axes, turned into the first group’s frame — or why it can't be; null for no stock.
  */
 export const stockSent = (
   part: Pick<FingerprintPart, 'machiningStock'>,

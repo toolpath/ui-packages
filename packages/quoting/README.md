@@ -15,8 +15,10 @@ import { moveFor, partArtifactsOf, partStateOf, quoteStatus } from '@toolpath/qu
 ```
 
 The package is logic only: no React, no DOM and no CSS. `@toolpath/quoting/model` is the same
-entry under a second name. A view over these rules, such as a stage timeline, belongs in
-`@toolpath/ui`.
+entry under a second name. `/inputs`, `/units` and `/pipeline` are the other entries.
+A view over these rules, such as a stage timeline, belongs in `@toolpath/ui`. `/inputs` and
+`/pipeline` need `@toolpath/plan` and, through `/units`, `@toolpath/tool-support` for the inch; the
+root entry and `/model` import nothing.
 
 ## Part: state
 
@@ -107,30 +109,35 @@ whole date. `defaultExpiry` is a week from today.
 time) → `not_ready` (does not price) → `unavailable` (no payments, or already ordered: takes a
 purchase order) → `payable`.
 
-## The quoting app's plan draft: `@toolpath/quoting/plan`
+## A part's stock and tool crib: `@toolpath/quoting/inputs`
 
 ```ts
-import { intentSessionRules, type PlanDraft } from '@toolpath/quoting/plan'
+import { parseStock, stockPlacement, stockRequest, startingLibrary } from '@toolpath/quoting/inputs'
 ```
 
-Plan mode itself is [`@toolpath/plan`](../plan): the constraints a person states, every edit to
-them, and the plan Toolpath makes. `/plan` here is what the quoting app keeps beside the
-constraints on each part:
+A part is planned from its constraints and from these inputs:
 
-- `PlanDraft`: the constraints, plus the kernel the pins were made by, when the draft was last
-  saved, its saved version, and whether it changed since the part's times.
-- `PartInputsHeld`: the material, machine, tool crib and stock, held with the constraints until
-  Apply. `Intent` is the two together: what Undo puts back.
-- `StockState`, `StockProfileInput` and `StockProfileSummary`: a part's saved stock and the shop's
-  stock profiles.
-- The Plan page's session holds an `Intent`, with no save stamps (`intentOf`).
-  `intentSessionRules(rules)` gives `planSession` the app's rules for it: `sameIntent` compares
-  a stock as a policy, whatever its key order, and `rebaseIntent` keeps the inputs edited here when
-  the plan is read again, and takes the others from it.
+- **Stock.** `StockOption` is the stock a part is cut from: automatic (Toolpath sizes a flat bar or
+  round stock around the model) or fixed (a box or a cylinder of given size). Every length is in
+  millimetres. `parseStock` checks a stored stock before it is used, and `sameStock` compares two
+  whatever their key order.
+  `stockRequest` gives the stock as Toolpath is sent it, for the direction the first setup faces.
+  `stockPlacement` says where a stock sits on the model, and `fixedBoxCheck` says whether a fixed
+  box can be sent and how far the part stands outside it.
+- **Tool crib.** `ToolCrib` is the tool libraries a part draws its tools from. `startingLibrary`
+  is the library a crib starts on for a material, and `offeredLibraries` is what it offers to add.
+  `addLibrary`, `removeLibrary` and `swapLibraries` edit the list.
 
-`applyDraftAction` from `@toolpath/plan` takes a `PlanDraft` and gives a `PlanDraft` back, with
-these fields as they were. The package depends on `@toolpath/plan` for these; the root entry and
-`/model` import nothing.
+## How units show: `@toolpath/quoting/units`
+
+```ts
+import { formatLength, fromInput, toInput, type Units } from '@toolpath/quoting/units'
+```
+
+The app stores and sends every value in metric. `Units` (`'mm'` or `'in'`) is a person's display
+choice only. `formatLength`, `formatArea`, `formatWeight` and the other `format` functions show a
+stored value in that choice. `toInput` and `fromInput` turn a stored value into what a field
+shows, and what a person types back into the stored value.
 
 ## Sending a part to Toolpath: `@toolpath/quoting/pipeline`
 
@@ -170,4 +177,4 @@ writes to its database and calls Toolpath.
   fingerprint with the run and the baseline; `toolpathHas` says Toolpath has the part, so its
   inputs can't change under it.
 - **Whether Apply can save.** `applyRefusal` answers `locked`, `not_in_plan`, `stale`, a stock
-  that can't be sent with these folders, or null.
+  that can't be sent with these groups, or null.

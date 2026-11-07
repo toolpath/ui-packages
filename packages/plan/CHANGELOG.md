@@ -1,5 +1,142 @@
 # @toolpath/plan
 
+## 0.5.0
+
+### Minor Changes
+
+- 8aad03d: Adds `planDetails(inputs)`: everything an app shows of a plan, in one call. It gives the constraints
+  (`details.constraints`), Toolpath's plan (`details.results`), the lookups (`details.find`) and how
+  each face shows (`details.faces(shown)`) from one set of inputs: `draft`, `saved` (with whether it
+  `changed` since the plan), `plan`, `part`, `analysis` (with its `kernelVersion` and `directions`) and
+  `planIsOfSaved`. Each part is worked out only when it is read, and only once. Beside the views, it
+  gives the tag sets they are read from: `constraints.assigned`, every feature assigned, and
+  `results.machined`, every feature the plan's actions cut (both by lower-case tag). A feature the
+  plan trimmed owns its faces (`planFeaturesOf`): in the results, so the faces the plan machines read
+  as machined, and in the constraints where it is assigned.
+
+  Breaking: the functions `planDetails` is built from move off the main entry to
+  `@toolpath/plan/parts`: `allClear`, `allGroups` (was `allFolders`), `assignedIn` (was `pinnedIn`),
+  `assignmentOf` (was `pinOf`), `assignTargetOf` (was `pinTargetOf`), `changedSinceResults`,
+  `classifyFaces`, `confirmChecks`, `currentFor`, `draftView`, `findPlaced`, `framesOf`, `groupFaces`,
+  `groupPath` (was `folderPath`), `listsTag`, `machines`, `planChecks`, `planCounts`, `planTags`,
+  `resultsView`, `setupOf`, `sharedFaces` (was `planHatch`), `shownFaces` (was `planPaint`), `tagSet`,
+  and the types `CheckContext`, `CheckedDraft`, `ConfirmContext`, `ConstraintsCoverage`,
+  `ResultsCoverage` and `ResultsView`.
+
+- 9dba80a: Breaking: the pointer, the rows and the pixels of a drag are the app's, and the click edit is named
+  for what it does.
+
+  - `flattenFolders` and `gapAt` are removed. The app lists the groups it shows as `FlatGroup`s and
+    finds the gap the pointer is in itself.
+  - `projectFolder(items, activeId, gap, offsetX, indent, maxDepth)` is
+    `projectGroup(items, { activeId, gap, wantedDepth, maxDepth })` (`ProjectGroupOptions`). It takes
+    the depth the group is dragged to, not a distance in pixels: to migrate, pass the group's own
+    depth plus `Math.round(offsetX / indent)`.
+  - `folderClick` is `toggleAssignment`: it assigns a feature to a group, or takes it out if it is
+    assigned there.
+
+- 8aad03d: Breaking: the plan is named as the Engine names it, and the package gives kinds and facts where it
+  gave screen text. The app words them.
+
+  Renamed, as the Engine's `setupPlan.setups[].orientations[]` and `doneRegions` say:
+
+  - Ignore → done: `ignoreEdit`/`unignoreEdit` → `markDoneEdit`/`unmarkDoneEdit`,
+    `withIgnored`/`withoutIgnored` → `withDone`/`withoutDone`, `IgnoredAs` → `DoneAs`, `ignoredAs` →
+    `doneAs`, `ignoredAsSaved` → `doneAsSaved`, `takeBackIgnore` → `takeBackDone`. The actions
+    `ignore`, `unignore`, `chooseIgnoreReading` are `markDone`, `unmarkDone`, `chooseDoneReading`; the
+    coverage kind `ignored` is `done`; the fact `unignored` is `unmarked`.
+  - Pin → assign: `pinEdit` → `assignEdit`, `pinInto`/`pinFrom` → `assignInto`/`assignFrom`, `withPin`
+    → `withAssignment`, `unpinFeature` → `unassignFeature`, `pinsWhere` → `assignmentsWhere`,
+    `pinHomes` → `assignedGroupByTag`, `unignorePinned` → `unmarkAssigned`, and the types `PinEdit`,
+    `PinChange`, `PinContext`, `Pinned`, `PinnedFeature` → `AssignEdit`, `AssignChange`,
+    `AssignContext`, `Assigned`, `AssignedFeature`. The actions `pinInto`, `pinFrom`, `unpin`,
+    `choosePinReading` are `assignInto`, `assignFrom`, `unassign`, `chooseAssignReading` (its target
+    `'pin'` is `'assign'`); the coverage kind `pinned` is `assigned`; the fact `unpinned` is
+    `unassigned`.
+  - Folder → group: `DraftFolder` → `DraftGroup` (its children under `groups`), `addFolder`,
+    `renameFolder`, `removeFolder`, `removeFolders`, `moveFolder`, `withFolders`, `foldersFromPlan`,
+    `nextFolderName`, `liftLoneFolder`, `placedFolders` → the same with `Group`; `FlatFolder`,
+    `PlacedFolder` → `FlatGroup`, `PlacedGroup`.
+    The actions `addFolder`, `renameFolder`, `moveFolder` are `addGroup`, `renameGroup`, `moveGroup`;
+    an action target is `{ group }`. A new group is named by the rule `nameGroup` (`NameGroup`), and
+    is "Group N" without it; `nextGroupName(names, word)` numbers names in another word. A draft
+    stored with `folders` reads the same (`withGroups`, `parseDraftSetups`).
+  - `addGroup`, `moveGroup`, `moveFeature`, `assignInto` and `assignFrom` take `(setups, options)`:
+    one object of named fields, the same as their actions' (`AddGroupOptions`, `MoveGroupOptions`,
+    `MoveFeatureOptions`, `AssignIntoOptions`, `AssignFromOptions`). To migrate, name each argument:
+    `moveGroup(setups, id, to)` is `moveGroup(setups, { id, to })`.
+  - Tool orientation → orientation: `setToolOrientation` (function and action) → `setOrientation`.
+  - A feature type's header in the tree is a section: `FeatureGroupView` → `FeatureSectionView` (its
+    bores under `sections`), `featureGroups` → `featureSections`.
+
+  The session, named for what it does:
+
+  - `planSession` → `nextSession`, `isHeld` → `hasEdits`, `HISTORY` → `UNDO_LIMIT`, and
+    `startSession(saved, { held })` → `startSession(saved, { draft })`. The events `act`, `edit`,
+    `applied`, `read` are `action`, `editFields`, `saved`, `reloaded`. `PlanSession.run` is
+    `coalescing`; the rule `same` is `isSame`, and the rule `undoLimit` sets how far Undo reaches.
+  - What the app can read itself leaves the action's result: `DraftResult.folderId` and
+    `PlanSession.folderId` (the group to open: the id the app chose, or `details.find`), and the
+    facts `letGo` and `home` (where the feature is assigned: `details.find.assignmentOf`). `facts`
+    keeps `replaced`, `unmarked`, `unassigned` and `added`.
+
+  Kinds in place of text and colours:
+
+  - An edit that can't be made answers `{ refused: Refusal }`, and `PlanSession.refused` is a
+    `Refusal`: a union keyed by `kind` (`groupGone`, `tooDeep`, `tooManySetups`, `idTaken`,
+    `notAnAction`, `noTool`, `needsSaved`, `notEmpty`, `notWholeMove`, `directionTaken`,
+    `directionIsSetup`, `noGroupFacing`, `otherWay`, `intoItself`, `hasOrientations`,
+    `orientationOutsideSetup`, `orientationNeedsAxes`, `holdOnlySetup`) with its facts. A group it
+    names is a `GroupRef`.
+  - `PlanCheck` and `ConfirmCheck` are unions keyed by `kind` with their facts, and carry `severity`
+    where they carried `tone`.
+  - `NotMachinedWhy` carries each reason as a kind; `REASON_SHORT`, `reasonLine`, `whyText` and
+    `NotMachinedReason` are removed.
+  - `stateOf(tag, plan, regionsOf)` answers a `FeatureState`: a coverage kind, or `partOf` a larger
+    assigned feature (`whole`), and the `groups` that hold it. It no longer takes the open group.
+  - A face is a kind, which the app colours. `planPaint` and `planHatch` are `shownFaces` and
+    `sharedFaces` (on `@toolpath/plan/parts`) and take no `colorOf`: each face is a `ShownFace`
+    (`direction`, with its `direction` and `directionIndex`; `otherDirection`; `done`;
+    `notMachined`), and each other direction that takes a face a `SharedFace`. `FacePaint`,
+    `FaceHatch`, `DONE_COLOR`, `UNMACHINED_FACE_COLOR` and `OTHER_FOLDER_COLOR` are removed. To look
+    as before: `done` 0x64748b at 0.6, `notMachined` 0xdc2626 at 0.6, `otherDirection` 0x525252 at
+    0.75, and `direction` in that direction's colour, at 0.85 with no group open and 0.8 with one.
+  - `refusalClauses` answers each statement Toolpath refused as a `RefusalClause`: `staleRegions` and
+    `unknownRegions` (faces marked done on another analysis), or a `clause` with Toolpath's `text`.
+    `describeClause` answers a `DescribedClause`: the `clause` with its setup and features named, or
+    `notOffered`, whose `text` names the stated feature Toolpath did not offer. Neither writes a
+    sentence of its own.
+  - `parseDraftSetups` answers `{ invalid: DraftInvalid }` where it answered a sentence: a union keyed
+    by `kind` (`noSetups`, `tooManySetups`, `setupDirection`, `setupProcess`, `groupId`, `tooDeep`,
+    `groupDirection`, `notFeatureTags`, `featuresAndGroups`, `assignedTwice`, `directionTwice`), with
+    `max` for the two limits. Test with `'invalid' in result`.
+  - `toggleAssignment` (was `folderClick`; see `plan-drag-and-click.md`) answers
+    `{ intent, unmarked }` and writes no note. `COVERAGE_LABELS`, `readingDetail`, `unpinnedNote`,
+    `unignoredNote`, `regionLabel` and `FolderFeature` are removed.
+
+  Removed, for the app to keep: the click-reading helpers `readingsFor`, `featuresAt`,
+  `ignoreSelection`, `ignoreClick`, `faceRegions`, and the types `IgnoreMode`, `ReadingAt`,
+  `ReadingContext`, `ReadingScope` and `SplitRegion`.
+
+- 8aad03d: Move the stock, the tool crib and units out of `@toolpath/plan` into two new `@toolpath/quoting`
+  entries. `@toolpath/plan` now has no dependencies.
+
+  **Breaking for `@toolpath/plan`.** It no longer exports the stock (`StockOption`, `parseStock`,
+  `sameStock`, `stockRequest`, `stockPlacement`, `fixedBoxCheck` and the rest of `stock`), the tool
+  crib (`ToolCrib`, `startingLibrary`, `addLibrary` and the rest of `tool-crib`) or units (`Units`,
+  `formatLength`, `toInput`, `fromInput` and the rest of `units`). To migrate, import the same names
+  from the new entries; nothing else changes:
+
+  - stock and tool crib: `@toolpath/quoting/inputs`
+  - units: `@toolpath/quoting/units`
+
+  `@toolpath/quoting` now depends on `@toolpath/tool-support`, for the inch.
+
+- 2241cea: Breaking: `PART_ROW` and `IGNORE` are removed. They were the Plan page's own tree ids, so the app
+  keeps them. With no group open, `openId` is `null` in `details.faces(shown)`, `shownFaces` and
+  `sharedFaces`. A `DropAt` at the top of the tree is `{ zone: 'first' }` or `{ zone: 'last' }`, with
+  no `id`.
+
 ## 0.4.0
 
 ### Minor Changes

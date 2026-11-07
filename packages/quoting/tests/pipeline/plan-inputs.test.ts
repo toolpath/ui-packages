@@ -49,14 +49,14 @@ const SAMPLES: Array<{
           name: 'Top',
           direction: { x: 0, y: 0, z: 1 },
           features: ['pocket', 'bore'],
-          folders: [],
+          groups: [],
         },
         {
           id: 'bottom',
           name: 'Bottom',
           direction: { x: 0, y: 0, z: -1 },
           features: ['chamfer'],
-          folders: [],
+          groups: [],
         },
       ],
       doneRegions: [7, 3, 12],
@@ -83,14 +83,14 @@ const SAMPLES: Array<{
           name: 'Renamed',
           direction: { x: 0, y: 0, z: 1 },
           features: ['bore', 'pocket'],
-          folders: [],
+          groups: [],
         },
         {
           id: 's2',
           name: 'Under',
           direction: { x: 0, y: 0, z: -1 },
           features: ['chamfer'],
-          folders: [],
+          groups: [],
         },
       ],
       doneRegions: [12, 7, 3],
@@ -117,14 +117,14 @@ const SAMPLES: Array<{
           name: 'Top',
           direction: { x: 0, y: 0, z: 1 },
           features: ['pocket', 'bore'],
-          folders: [],
+          groups: [],
         },
         {
           id: 'bottom',
           name: 'Bottom',
           direction: { x: 0, y: 0, z: -1 },
           features: ['chamfer'],
-          folders: [],
+          groups: [],
         },
       ],
       doneRegions: [7, 3, 12],
@@ -146,7 +146,30 @@ const SAMPLES: Array<{
     fingerprint: 'c49fae396cde7efd0f63dd187caa23f30c09823057341e56b3f76d2db60a6131',
   },
   {
-    name: 'an empty folder in a setup',
+    name: 'an empty group in a setup',
+    part: {},
+    draft: {
+      setups: [
+        {
+          id: 'top',
+          name: 'Top',
+          direction: { x: 0, y: 0, z: 1 },
+          features: [],
+          groups: [
+            { id: 'holes', name: 'Holes', features: ['h1'], groups: [] },
+            { id: 'empty', name: 'Empty', features: [], groups: [] },
+          ],
+        },
+      ],
+      doneRegions: [],
+      doneKernelVersion: null,
+      kernelVersion: 'k1',
+    },
+    fingerprint: 'c40557097220ebc06e6ef84417af32b1a222ccce046cf9477782cda052b94b5f',
+  },
+  {
+    // Stored before groups were named so: the same inputs as its `groups` twin above.
+    name: 'an empty group in a setup, stored under `folders`',
     part: {},
     draft: {
       setups: [
@@ -160,7 +183,7 @@ const SAMPLES: Array<{
             { id: 'empty', name: 'Empty', features: [], folders: [] },
           ],
         },
-      ],
+      ] as unknown as DraftRow['setups'],
       doneRegions: [],
       doneKernelVersion: null,
       kernelVersion: 'k1',
@@ -212,7 +235,7 @@ describe('a part’s inputs', () => {
     expect(draftDone({ ...row, doneRegions: [] })).toBeNull()
   })
 
-  it('send a fixed box only with a first folder facing along an axis', () => {
+  it('send a fixed box only with a first group facing along an axis', () => {
     const box = SAMPLES[4]!
     expect(stockSent(box.part, box.draft)).toEqual(expect.any(String))
     expect(stockSent({}, box.draft)).toBeNull()

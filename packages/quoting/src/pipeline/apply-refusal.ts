@@ -1,4 +1,6 @@
-import { stockRequest, type PlanDirection, type StockOption } from '@toolpath/plan'
+import type { PlanDirection } from '@toolpath/plan'
+
+import { stockRequest, type StockOption } from '../inputs/stock'
 import type { PartStage } from '../model/part-stage'
 
 /** Why Apply can't save the plan (`applyRefusal`). */

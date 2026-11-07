@@ -1,4 +1,4 @@
-import type { TrimmedFeature } from '../src/engine-plan'
+import type { TrimmedFeature } from '../src/results/plan'
 
 /** A trimmed feature for a test: a pocket cut from above, with no faces and no origin, but as `overrides` says. */
 export const trimmedFeature = (overrides: Partial<TrimmedFeature> = {}): TrimmedFeature => ({

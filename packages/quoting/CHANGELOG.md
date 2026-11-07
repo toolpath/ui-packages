@@ -1,5 +1,39 @@
 # @toolpath/quoting
 
+## 0.4.0
+
+### Minor Changes
+
+- 8aad03d: Move the stock, the tool crib and units out of `@toolpath/plan` into two new `@toolpath/quoting`
+  entries. `@toolpath/plan` now has no dependencies.
+
+  **Breaking for `@toolpath/plan`.** It no longer exports the stock (`StockOption`, `parseStock`,
+  `sameStock`, `stockRequest`, `stockPlacement`, `fixedBoxCheck` and the rest of `stock`), the tool
+  crib (`ToolCrib`, `startingLibrary`, `addLibrary` and the rest of `tool-crib`) or units (`Units`,
+  `formatLength`, `toInput`, `fromInput` and the rest of `units`). To migrate, import the same names
+  from the new entries; nothing else changes:
+
+  - stock and tool crib: `@toolpath/quoting/inputs`
+  - units: `@toolpath/quoting/units`
+
+  `@toolpath/quoting` now depends on `@toolpath/tool-support`, for the inch.
+
+- 8aad03d: Breaking: the `@toolpath/quoting/plan` entry is removed. It held the quoting app's own Plan page
+  data and rules, which no other app uses: `PlanDraft`, `PartInputsHeld`, `InputField`, `Intent`,
+  `StockState`, `StockProfileInput`, `StockProfileSummary`, `intentOf`, `sameIntent`, `rebaseIntent`
+  and `intentSessionRules`. To migrate, keep these in the app. Plan mode itself stays in
+  `@toolpath/plan`: an app's draft extends its `Constraints`, and its session and details are
+  `nextSession` and `planDetails`.
+
+### Patch Changes
+
+- Updated dependencies [8aad03d]
+- Updated dependencies [9dba80a]
+- Updated dependencies [8aad03d]
+- Updated dependencies [8aad03d]
+- Updated dependencies [2241cea]
+  - @toolpath/plan@0.5.0
+
 ## 0.3.2
 
 ### Patch Changes

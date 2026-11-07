@@ -10,8 +10,8 @@ import type {
   UpdatePartRequestDirectionsInner,
 } from '@toolpath/api'
 import { describe, expectTypeOf, it } from 'vitest'
-import type { PlanDirection, SetupPlan } from '../src/engine-plan'
-import type { Statement } from '../src/plan-draft'
+import type { PlanDirection, SetupPlan } from '../src/results/plan'
+import type { Statement } from '../src/draft/statement'
 
 describe('the plan types and the Toolpath API', () => {
   it('sends a statement as the setupPlan a job takes', () => {

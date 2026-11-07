@@ -1,8 +1,16 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { Dialog as RootDialog, Popover as RootPopover } from '@base-ui/react'
+import { Dialog } from '@base-ui/react/dialog'
+import { Popover } from '@base-ui/react/popover'
 import * as ui from '../src'
 
 describe('@toolpath/ui', () => {
+  it('shares Base UI components between root and subpath imports', () => {
+    expect(RootDialog.Root).toBe(Dialog.Root)
+    expect(RootPopover.Root).toBe(Popover.Root)
+  })
+
   it('renders a primary button with its documented Tailwind utilities', () => {
     render(
       <ui.Button variant="primary" type="submit">
