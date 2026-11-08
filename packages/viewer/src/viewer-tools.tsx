@@ -100,6 +100,11 @@ const GROUPS: ReadonlyArray<GroupEntry> = [
         note: 'Fade the rest of the part around the chosen feature',
       },
       { action: 'wireframe', label: 'Wireframe', note: 'Draw the part as the edges of its faces' },
+      {
+        action: 'explode',
+        label: 'Explode',
+        note: 'Pull the part apart along the way each piece is cut from',
+      },
     ],
   },
   {

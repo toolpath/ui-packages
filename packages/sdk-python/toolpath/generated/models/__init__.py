@@ -41,6 +41,8 @@ from .file_body_bounding_box import FileBodyBoundingBox
 from .file_mesh_response import FileMeshResponse
 from .file_response import FileResponse
 from .file_shape import FileShape
+from .file_thumbnail import FileThumbnail
+from .file_thumbnails_response import FileThumbnailsResponse
 from .fixed_box_stock import FixedBoxStock
 from .fixed_box_stock_dimensions import FixedBoxStockDimensions
 from .fixed_box_stock_mode import FixedBoxStockMode
@@ -364,6 +366,8 @@ __all__ = (
     "FileMeshResponse",
     "FileResponse",
     "FileShape",
+    "FileThumbnail",
+    "FileThumbnailsResponse",
     "FixedBoxStock",
     "FixedBoxStockDimensions",
     "FixedBoxStockMode",

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Toolpath Engine API",
-    "version": "1.42.0",
+    "version": "1.43.0",
     "description": "Public REST API for Toolpath engine operations.\n\n**Waiting for a job.** Every operation that queues work answers `202` with a `jobId`.\nWait for it with **Stream job updates** (`GET /v1/jobs/{id}/events`), a server-sent event\nstream that sends the job at once, sends it again on every change, and closes after\nsending `succeeded` or `failed`. Both are final. An attempt exceeding its configured\ndeadline (default 300 seconds) fails without retry. Exhausted queue deliveries are\nrecovered by the worker from its DLQ, usually within a few minutes after the last\ndelivery with healthy consumers; outages delay recovery. A job still queued after\n24 hours fails. Read the result as soon as the stream sends `succeeded`, and report the `error`\nas soon as it sends `failed`. Do not wait by calling **Get a job** or a result endpoint in\na loop: a stream is one request however long the job runs, while a loop spends one request\nof the key’s rate limit on every call. In a browser, read the stream with `fetch` and an\nSSE parser: `EventSource` cannot send the `Authorization` header.\n\n**Experimental.** Machining plans and toolpath calculation — creating, listing, and reading\nplans, calculating toolpaths, and reading toolpath results and machining time — and\nmulti-body CAD files, under the `Files` tag, are experimental: available now but still\ngaining functionality; planned additions include plan constraints and specifying material and\nstock, among others. You can build against them today, but they may change substantially in a\nminor release — reshaped, renamed, or removed — where the rest of the API keeps breaking\nchanges for a major version, apart from small ones with no material effect on clients. Every\nbreaking change is listed in the release notes, so check them before upgrading. Plan and\ntoolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental\noperation, field, and schema is marked `x-toolpath-experimental`.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis,\nfeature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access\ncan be edited on an existing key in the portal. Every operation states its area in its\n`x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in\n`x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs\nDFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key\nwith no access to the operation’s area is refused with 403 `product_mismatch`; one with read\naccess used for a write is refused with 403 `read_only_key`."
   },
   "tags": [
@@ -1363,13 +1363,18 @@
             "minimum": 0,
             "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nThe shape this body is: the `index` of the lowest-indexed body of the file it matches, in any position and orientation, and its own `index` when it is the first. Bodies are matched on volume, surface area, face count, mass distribution and handedness, not exact geometry, so some different bodies match: a hole pattern rotated on a symmetric plate, or a near-symmetric part and its mirror image. One part of a shape can be quoted by its `count`.",
             "x-toolpath-experimental": true
+          },
+          "hasThumbnail": {
+            "type": "boolean",
+            "description": "Whether the inspection stored a thumbnail of this body, listed by **Get file thumbnails** (`GET /v1/files/{id}/thumbnails`). Rendering is best-effort, so a body can have none, and a file inspected before thumbnails has none for any body. Only the first 200 bodies of a file are rendered."
           }
         },
         "required": [
           "index",
           "faceCount",
           "boundingBox",
-          "shape"
+          "shape",
+          "hasThumbnail"
         ]
       },
       "FileShape": {
@@ -1425,6 +1430,52 @@
           "fileId",
           "jobId",
           "meshGlbUrl"
+        ]
+      },
+      "FileThumbnailsResponse": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of this file."
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the inspection job that rendered these thumbnails."
+          },
+          "thumbnails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileThumbnail"
+            },
+            "description": "Each body that has a thumbnail, in `index` order. Empty when none has: rendering is best-effort, and a file inspected before thumbnails has none."
+          }
+        },
+        "required": [
+          "fileId",
+          "jobId",
+          "thumbnails"
+        ]
+      },
+      "FileThumbnail": {
+        "type": "object",
+        "properties": {
+          "bodyIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The body’s `index` in **Get a file** (`GET /v1/files/{id}`)."
+          },
+          "thumbnailUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "15-minute URL for the body’s rendered PNG thumbnail."
+          }
+        },
+        "required": [
+          "bodyIndex",
+          "thumbnailUrl"
         ]
       },
       "CreateFilePartsResponse": {
@@ -8440,6 +8491,123 @@
           },
           "500": {
             "description": "The file mesh could not be retrieved.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/files/{id}/thumbnails": {
+      "get": {
+        "operationId": "getFileThumbnails",
+        "tags": [
+          "Files"
+        ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "Get file thumbnails",
+        "description": "Returns a 15-minute URL for the PNG thumbnail of each body of a file that has one, written by **Inspect a file** (`PATCH /v1/files/{id}`): the kernel’s three-quarter view of the body as faceted from the uploaded file. One request covers the whole file, unlike **Get part thumbnail** (`GET /v1/parts/{id}/thumbnail`), which serves one part’s image bytes. A body’s thumbnail never changes, so a client that keeps them should store the images rather than the URLs, before the file passes the retention window. Rendering is best-effort and covers the first 200 bodies; `hasThumbnail` on **Get a file** says which bodies have one. 409 before an inspection has succeeded; 410 once the file is past the retention window.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file’s thumbnails.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileThumbnailsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The file does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The file has not been inspected yet.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The file is older than the retention window and is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The thumbnails could not be retrieved.",
             "content": {
               "application/problem+json": {
                 "schema": {

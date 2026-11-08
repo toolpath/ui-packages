@@ -1,5 +1,23 @@
 # @toolpath/api
 
+## 0.19.0
+
+### Minor Changes
+
+- Regenerate the TypeScript SDK for Engine API 1.43.0.
+
+  ### Engine API 1.43.0
+
+  A file's bodies have thumbnails. **Inspect a file** renders one for each of the first 200 bodies, and
+  a new route lists them all in one request.
+
+  **Files** (experimental):
+
+  - `GET /v1/files/{id}/thumbnails` (`getFileThumbnails`): a 15-minute URL for the PNG thumbnail of each
+    body that has one. 409 before the file has been inspected, 410 past the retention window.
+  - `FileBody.hasThumbnail` on `GET /v1/files/{id}`: whether the body has a thumbnail. Rendering is
+    best-effort, and false for every body of a file inspected before this release.
+
 ## 0.18.0
 
 ### Minor Changes

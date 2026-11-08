@@ -51,4 +51,24 @@ describe('viewerToolGroups', () => {
     expect(scene?.tools[0]?.note).toBe('The smallest round bar the part fits in')
     expect(dfm?.tools.map((tool) => tool.gate)).toEqual(['Waits for the DFM check', null])
   })
+
+  it('puts Explode last in the DFM group, with the name, line and gate the app gives it', () => {
+    const onClick = vi.fn()
+    const [dfm] = viewerToolGroups(
+      {
+        wireframe: { onClick: () => {} },
+        explode: { pressed: true, onClick },
+      },
+      { labels: { explode: 'Collapse' }, gates: { explode: 'No rule violations to explode' } },
+    )
+
+    expect(dfm?.id).toBe('dfm')
+    expect(dfm?.tools.map((tool) => tool.id)).toEqual(['wireframe', 'explode'])
+    const explode = dfm?.tools[1]
+    expect(explode?.label).toBe('Collapse')
+    expect(explode?.on).toBe(true)
+    expect(explode?.gate).toBe('No rule violations to explode')
+    explode?.onClick()
+    expect(onClick).toHaveBeenCalledOnce()
+  })
 })

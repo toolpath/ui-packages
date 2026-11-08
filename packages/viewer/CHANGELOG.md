@@ -1,5 +1,13 @@
 # @toolpath/viewer
 
+## 3.5.0
+
+### Minor Changes
+
+- e06befd: `viewerToolGroups` puts an `explode` control, when you supply one, last in the `dfm` group, with
+  the explode icon `ViewerToolbar` draws. Pass `labels: { explode: 'Collapse' }` while the part is
+  apart, and a gate to say why it cannot explode.
+
 ## 3.4.1
 
 ### Patch Changes

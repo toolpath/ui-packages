@@ -32,6 +32,9 @@ class FileBody:
             mass distribution and handedness, not exact geometry, so some different bodies match: a hole pattern rotated on
             a symmetric plate, or a near-symmetric part and its mirror image. One part of a shape can be quoted by its
             `count`.
+        has_thumbnail (bool): Whether the inspection stored a thumbnail of this body, listed by **Get file thumbnails**
+            (`GET /v1/files/{id}/thumbnails`). Rendering is best-effort, so a body can have none, and a file inspected
+            before thumbnails has none for any body. Only the first 200 bodies of a file are rendered.
         name (str | Unset): The body’s name, where the file gives it one.
     """
 
@@ -39,6 +42,7 @@ class FileBody:
     face_count: int
     bounding_box: FileBodyBoundingBox
     shape: int
+    has_thumbnail: bool
     name: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -51,6 +55,8 @@ class FileBody:
 
         shape = self.shape
 
+        has_thumbnail = self.has_thumbnail
+
         name = self.name
 
         field_dict: dict[str, Any] = {}
@@ -61,6 +67,7 @@ class FileBody:
                 "faceCount": face_count,
                 "boundingBox": bounding_box,
                 "shape": shape,
+                "hasThumbnail": has_thumbnail,
             }
         )
         if name is not UNSET:
@@ -81,6 +88,8 @@ class FileBody:
 
         shape = d.pop("shape")
 
+        has_thumbnail = d.pop("hasThumbnail")
+
         name = d.pop("name", UNSET)
 
         file_body = cls(
@@ -88,6 +97,7 @@ class FileBody:
             face_count=face_count,
             bounding_box=bounding_box,
             shape=shape,
+            has_thumbnail=has_thumbnail,
             name=name,
         )
 

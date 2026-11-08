@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/viewer",
-  "version": "3.4.1",
+  "version": "3.5.0",
   "description": "React Three Fiber viewer for Toolpath Engine part reports",
   "license": "MIT",
   "engines": {
@@ -67,7 +67,7 @@
     "check-types": "tsc --noEmit && tsc -p tsconfig.native.json --noEmit",
     "test": "vitest run",
     "lint": "eslint . --max-warnings=0",
-    "test:ci": "pnpm run build && node scripts/check-viewer-native.mjs && pnpm run test"
+    "test:ci": "node scripts/check-viewer-native.mjs && pnpm run test"
   },
   "peerDependencies": {
     "@react-three/drei": "^10.7.8",
