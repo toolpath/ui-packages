@@ -283,10 +283,7 @@ class StubResizeObserver {
   disconnect() {}
   measure(width: number, height: number) {
     act(() => {
-      this.callback(
-        [{ contentRect: { width, height } } as ResizeObserverEntry],
-        this as unknown as ResizeObserver,
-      )
+      this.callback([{ contentRect: { width, height } } as ResizeObserverEntry], this)
     })
   }
 }
@@ -544,8 +541,8 @@ describe('the dimension the reader is pointing at', () => {
   })
 
   const lit = (container: HTMLElement) =>
-    [...container.querySelectorAll('[data-lit="true"]')].map((each) =>
-      each.getAttribute('data-dimension'),
+    [...container.querySelectorAll('[data-lit="true"]')].map(
+      (each) => each.getAttribute('data-dimension') ?? '',
     )
 
   it('lights the one it is told to, and nothing else', () => {
@@ -557,7 +554,7 @@ describe('the dimension the reader is pointing at', () => {
   it('takes several at once', () => {
     const container = drawnWith({ dimensions: true, highlight: ['DC', 'LCF'] })
 
-    expect(lit(container).sort()).toEqual(['DC', 'LCF'])
+    expect(lit(container).sort((a, b) => a.localeCompare(b))).toEqual(['DC', 'LCF'])
   })
 
   /**

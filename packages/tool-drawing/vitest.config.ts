@@ -1,6 +1,11 @@
+import { reactCompilerTestPlugin } from '@toolpath/dev-config/react-compiler'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  plugins:
+    process.env.REACT_COMPILER_TESTS === '1'
+      ? [reactCompilerTestPlugin({ root: import.meta.dirname })]
+      : [],
   test: {
     // jsdom, for the renderer's component tests. The geometry and layout
     // suites are pure and do not need it, but one environment is cheaper to

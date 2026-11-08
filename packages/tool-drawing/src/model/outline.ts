@@ -33,7 +33,14 @@ import type {
  */
 
 export type OutlinePart =
-  'tip' | 'flutes' | 'neck' | 'shank' | 'collet' | 'nose' | 'body' | 'flange'
+  | 'tip'
+  | 'flutes'
+  | 'neck'
+  | 'shank'
+  | 'collet'
+  | 'nose'
+  | 'body'
+  | 'flange'
 
 /** Radius out from the axis and height above the tip, both in millimetres. */
 export interface OutlinePoint {
@@ -296,7 +303,6 @@ const parametricSegments = (
   const segments: Array<OutlineSegment> = []
   const rh = holder.noseDiameter / 2
   const holderStated = (code: string): Provenance => holder.provenance?.[code] ?? 'vendor-stated'
-  let top = stickout
 
   // The nose, for its stated length; with none stated, for the gauge length
   // as before, so an older dataset draws what it always did.
@@ -314,7 +320,7 @@ const parametricSegments = (
           ? 'assumed'
           : holderStated('noseDiameter'),
   })
-  top = stickout + noseLength
+  let top = stickout + noseLength
   let radius = rh
 
   if (holder.bodyDiameter !== null && holder.bodyLength !== null) {
@@ -374,7 +380,6 @@ const parametricSegments = (
       ],
       provenance: holder.gaugeLength === null ? 'assumed' : holderStated('flangeDiameter'),
     })
-    top = flangeTop
   }
 
   return segments

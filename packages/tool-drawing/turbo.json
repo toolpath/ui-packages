@@ -3,7 +3,11 @@
   "extends": ["//"],
   "tasks": {
     "lint": {
-      "dependsOn": ["^lint", "@toolpath/dev-config#build"]
+      "dependsOn": ["^lint", "^build"]
+    },
+    "test:ci": {
+      "dependsOn": ["^build", "build"],
+      "outputs": []
     }
   }
 }

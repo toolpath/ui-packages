@@ -33,7 +33,9 @@ const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '../src')
 const moduleFor = (from: string, spec: string): string | null => {
   const base = resolve(dirname(from), spec.replace(/\.js$/, ''))
   for (const candidate of [`${base}.ts`, `${base}.tsx`, join(base, 'index.ts')]) {
-    if (existsSync(candidate)) return candidate
+    if (existsSync(candidate)) {
+      return candidate
+    }
   }
   return null
 }
@@ -41,7 +43,9 @@ const moduleFor = (from: string, spec: string): string | null => {
 /** Every package an entry point reaches, following its relative imports. */
 const packagesFrom = (entry: string, seen = new Set<string>()): Set<string> => {
   const packages = new Set<string>()
-  if (seen.has(entry) || !existsSync(entry)) return packages
+  if (seen.has(entry) || !existsSync(entry)) {
+    return packages
+  }
   seen.add(entry)
 
   for (const spec of ts
@@ -52,21 +56,31 @@ const packagesFrom = (entry: string, seen = new Set<string>()): Set<string> => {
       continue
     }
     const target = moduleFor(entry, spec)
-    if (target !== null) for (const name of packagesFrom(target, seen)) packages.add(name)
+    if (target !== null) {
+      for (const name of packagesFrom(target, seen)) {
+        packages.add(name)
+      }
+    }
   }
   return packages
 }
 
 /** The modules an entry point reaches, for a failure message that names one. */
 const modulesFrom = (entry: string, seen = new Set<string>()): Set<string> => {
-  if (seen.has(entry) || !existsSync(entry)) return seen
+  if (seen.has(entry) || !existsSync(entry)) {
+    return seen
+  }
   seen.add(entry)
   for (const spec of ts
     .preProcessFile(readFileSync(entry, 'utf8'), true, true)
     .importedFiles.map((file) => file.fileName)) {
-    if (!spec.startsWith('.')) continue
+    if (!spec.startsWith('.')) {
+      continue
+    }
     const target = moduleFor(entry, spec)
-    if (target !== null) modulesFrom(target, seen)
+    if (target !== null) {
+      modulesFrom(target, seen)
+    }
   }
   return seen
 }

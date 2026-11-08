@@ -207,3 +207,10 @@ the tool alone.
 
 Geometry, layout, the renderer, the dimensions and the clearance overlay are
 all in.
+
+## Development checks
+
+`pnpm test` runs the suite with React Compiler transforming source modules, including internal
+imports, as CI does. `pnpm test:source` runs the same suite on untransformed source.
+Build workspace dependencies first (from services, use Turborepo to order them).
+The production build separately fails on compiler skips or missing compiler output.

@@ -2,6 +2,12 @@ import type { Linter } from 'eslint'
 import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import tseslint from 'typescript-eslint'
+import {
+  STYLING_IMPORT_MESSAGE,
+  STYLING_IMPORTS,
+  STYLING_MESSAGE,
+  STYLING_SOURCE,
+} from './styling.js'
 
 export interface PackageEslintOptions {
   /**
@@ -13,41 +19,16 @@ export interface PackageEslintOptions {
   ignores?: Array<string>
 }
 
-/** Import specifiers only a styled package may name, as ESLint `no-restricted-imports` patterns. */
-const STYLING_IMPORTS: ReadonlyArray<string> = [
-  '@toolpath/ui',
-  '@toolpath/ui/*',
-  '@phosphor-icons/*',
-  '@base-ui/*',
-  'tailwindcss',
-  '@tailwindcss/*',
-  'clsx',
-  'tailwind-merge',
-  '*.css',
-  '*.scss',
-  '*.less',
-]
-
-const STYLING_MESSAGE = 'Styling belongs in @toolpath/ui. Move this view into packages/ui.'
-
 const styling: Linter.Config = {
   // **`@toolpath/ui` is the one home for styling.** Every other package's
   // shipped source is logic, data types and functions, so it imports no kit,
   // icon set, primitive, Tailwind or stylesheet, and renders no `className` or
   // `style`.
-  files: ['src/**/*.ts', 'src/**/*.tsx'],
+  files: [...STYLING_SOURCE],
   rules: {
     'no-restricted-imports': [
       'error',
-      {
-        patterns: [
-          {
-            group: [...STYLING_IMPORTS],
-            message:
-              'Styling belongs in @toolpath/ui. This package ships logic, data types and functions.',
-          },
-        ],
-      },
+      { patterns: [{ group: [...STYLING_IMPORTS], message: STYLING_IMPORT_MESSAGE }] },
     ],
     'no-restricted-syntax': [
       'error',
@@ -59,8 +40,8 @@ const styling: Linter.Config = {
 
 /**
  * The correctness-only ESLint config the public Toolpath packages lint themselves with, on
- * ESLint 9. Prettier owns formatting. `createEslintConfig` from `./eslint` is the stricter preset
- * for applications.
+ * ESLint 9. Prettier owns formatting. `createOxlintConfig` from `./oxlint` is the stricter preset,
+ * which packages adopt one at a time.
  *
  * ```js
  * // eslint.config.js

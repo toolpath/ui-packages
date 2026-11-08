@@ -1,5 +1,17 @@
 # @toolpath/dev-config
 
+## 0.3.0
+
+### Minor Changes
+
+- 8f310b0: Replace `createEslintConfig` and `createCommentAuditConfig` with `createOxlintConfig` from `@toolpath/dev-config/oxlint`, which runs the strict rules on oxlint with a smaller set of JS plugin rules. Some rules are looser: string truthiness and `!` on an index access are allowed, and the `immutability` and `no-useless-path-segments` rules are gone. This removes the `./eslint` export, `UNSUPPRESSIBLE`, the comment audit and the bulk suppression workflow. `createPackageEslintConfig` is unchanged. `createOxlintConfig` takes the same `forbidStyling` option.
+
+  Add a shared React Compiler transform for Vitest that handles internal source imports and hooks using the same compiler invocation as esbuild builds. Document running tests with the compiler enabled, locally and in CI, with an uncompiled source run kept for debugging.
+
+  Tighten the tsconfig bases with `noUnusedLocals` and `noUnusedParameters`. Document TypeScript 7 beside the TypeScript 6 API.
+
+  Compile tool-drawing's published React components with React Compiler and fail its build on compiler skips or missing compiler output. Run the existing suite with the compiler enabled, locally and in CI. Lint tool-drawing with oxlint and type-check it with the strict shared configuration.
+
 ## 0.2.0
 
 ### Minor Changes

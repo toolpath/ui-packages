@@ -326,7 +326,7 @@ describe('a holder drawn as the body the vendor states', () => {
   })
 
   it('takes a holder with no provenance at its word', () => {
-    const bare: ViewerHolder = { ...holder, provenance: undefined }
+    const { provenance: _provenance, ...bare } = holder
     expect(drawn({ holder: bare }).segments.at(-1)?.provenance).toBe('vendor-stated')
   })
 })

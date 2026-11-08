@@ -397,7 +397,8 @@ describe('createPart — sharp corners', () => {
   /** The copy of the part that lays its depth down for the bands. */
   const depthOf = (part: PartObject) =>
     part.object.getObjectByName('sharpCornersDepth') as
-      Mesh<BufferGeometry, MeshBasicMaterial> | undefined
+      | Mesh<BufferGeometry, MeshBasicMaterial>
+      | undefined
 
   it('builds nothing until something is flagged', () => {
     const part = corner()

@@ -34,7 +34,8 @@ const numbers = (value: unknown): number[] | null =>
 /** A datasheet's reach curve, or null where it has none worth drawing. */
 export const readReachCurve = (datasheet: unknown): ReachCurve | null => {
   const curve = (datasheet as { reachCurve?: unknown } | null)?.reachCurve as
-    { horizontalOffset?: unknown; verticalOffset?: unknown } | undefined
+    | { horizontalOffset?: unknown; verticalOffset?: unknown }
+    | undefined
   const offsets = numbers(curve?.horizontalOffset)
   const heights = numbers(curve?.verticalOffset)
   if (!offsets || !heights || offsets.length === 0 || offsets.length !== heights.length) return null

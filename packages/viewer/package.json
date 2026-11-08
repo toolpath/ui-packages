@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/viewer",
-  "version": "3.4.0",
+  "version": "3.4.1",
   "description": "React Three Fiber viewer for Toolpath Engine part reports",
   "license": "MIT",
   "engines": {
@@ -62,8 +62,8 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsup",
-    "build:watch": "tsup --watch",
+    "build": "tsdown",
+    "build:watch": "tsdown --watch",
     "check-types": "tsc --noEmit && tsc -p tsconfig.native.json --noEmit",
     "test": "vitest run",
     "lint": "eslint . --max-warnings=0",
@@ -102,16 +102,17 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/three": "0.185.0",
+    "@typescript/native": "npm:typescript@7.0.2",
     "eslint": "9.39.5",
     "expo-asset": "58.0.20",
     "expo-gl": "58.0.3",
-    "jsdom": "^30.0.1",
+    "jsdom": "^31.0.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-native": "0.88.0",
     "three": "0.185.1",
-    "tsup": "8.5.1",
-    "typescript": "5.9.3",
+    "tsdown": "0.23.5",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
     "vitest": "4.1.10"
   },
   "dependencies": {

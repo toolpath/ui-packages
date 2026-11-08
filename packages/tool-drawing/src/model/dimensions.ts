@@ -153,7 +153,7 @@ export const dimensionsFor = (assembly: ViewerAssembly): ToolDimensions => {
   const necked = hasNeck(tool) && shoulderLength !== undefined && shoulderDiameter !== undefined
 
   const widths: Array<WidthDimension> = [{ code: 'DC', radius: DC / 2, at: 0 }]
-  if (necked && shoulderDiameter !== undefined && shoulderLength !== undefined) {
+  if (necked) {
     widths.push({
       code: 'shoulder-diameter',
       radius: shoulderDiameter / 2,
@@ -166,7 +166,7 @@ export const dimensionsFor = (assembly: ViewerAssembly): ToolDimensions => {
   if (SFDM !== undefined) {
     // On the shank, and above the holder nose where there is one: a width
     // measured inside the holder is measured across a face nobody can see.
-    const shankFrom = necked && shoulderLength !== undefined ? shoulderLength : LCF
+    const shankFrom = necked ? shoulderLength : LCF
     // Below the seated collet as well. It stands proud of the nose and is
     // drawn as solid at its series diameter, so arrows struck under it measure
     // across a face the collet is in front of.
@@ -182,7 +182,7 @@ export const dimensionsFor = (assembly: ViewerAssembly): ToolDimensions => {
 
   /** Every length this tool states, before they are put in lanes. */
   const spans: Array<Omit<LengthDimension, 'lane'>> = [{ code: 'LCF', from: 0, to: LCF }]
-  if (necked && shoulderLength !== undefined) {
+  if (necked) {
     spans.push({ code: 'shoulder-length', from: 0, to: shoulderLength })
   }
   const below = tool.geometry.LBH !== undefined && tool.geometry.LBH > 0 ? tool.geometry.LBH : null

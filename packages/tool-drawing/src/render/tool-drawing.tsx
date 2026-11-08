@@ -291,8 +291,7 @@ export const ToolDrawing = ({
    * A comparison of two radii in millimetres, so it needs no scale and the
    * padding seam below stays a straight line.
    */
-  const widthsReachEdge =
-    model !== null && model.widths.some((each) => each.radius >= extent.radius - 1e-6)
+  const widthsReachEdge = model?.widths.some((each) => each.radius >= extent.radius - 1e-6) ?? false
   const room: LaneRoom = {
     arrow: widthsReachEdge ? typePx * 0.9 * 2.4 : 0,
     gap: typePx * 0.6,

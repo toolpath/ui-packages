@@ -202,8 +202,9 @@ describe('the tip angle', () => {
   it('calls out a drill’s stated tip angle, on the flank it is between', () => {
     const drill = dimensionsFor(alone(tool({ DC: 10, LCF: 40, OAL: 100, SIG: 140 }, 'drill')))
 
+    const halfwayUpTheFlank: unknown = expect.closeTo(0.911, 2)
     expect(drill.angles).toEqual([
-      { code: 'SIG', degrees: 140, at: { r: 2.5, z: expect.closeTo(0.911, 2) } },
+      { code: 'SIG', degrees: 140, at: { r: 2.5, z: halfwayUpTheFlank } },
     ])
   })
 

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 /**
  * Copies the assets into `dist/`, beside the web build.
  *
- * The web build's tsup configuration runs this when it succeeds. The React Native
+ * The web build's tsdown configuration runs this when it finishes. The React Native
  * build has no copy of its own: it imports this one, `../assets/banana.glb` from
  * `dist/native/`.
  */

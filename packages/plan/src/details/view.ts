@@ -444,7 +444,9 @@ export const draftView = (
  *   and features).
  */
 export type RefusalClause =
-  { kind: 'staleRegions' } | { kind: 'unknownRegions' } | { kind: 'clause'; text: string }
+  | { kind: 'staleRegions' }
+  | { kind: 'unknownRegions' }
+  | { kind: 'clause'; text: string }
 
 /**
  * The statements Toolpath refused of a stated plan, one per clause, from the error its job failed

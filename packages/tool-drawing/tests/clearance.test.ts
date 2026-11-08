@@ -51,7 +51,7 @@ const materialProfile = (
   const points: Array<{ r: number; z: number }> = [{ r: cuttingRadius, z: 0 }]
   const push = (point: { r: number; z: number }) => {
     const last = points[points.length - 1]
-    if (!last || last.r !== point.r || last.z !== point.z) {
+    if (last?.r !== point.r || last.z !== point.z) {
       points.push(point)
     }
   }

@@ -2,11 +2,13 @@ import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { build, type BuildFailure, type Message } from 'esbuild'
 import { describe, expect, it, vi } from 'vitest'
+import { createViteServer } from 'vitest/node'
 import {
   assertReactCompiled,
   reactCompilerEsbuildPlugin,
   reactCompilerGuard,
   reactCompilerOptions,
+  reactCompilerTestPlugin,
   type ReactCompilerLogEvent,
   type ReactCompilerSkipAction,
 } from '../src/react-compiler.js'
@@ -349,5 +351,92 @@ describe('reactCompilerEsbuildPlugin diagnostics', () => {
         location: expect.objectContaining({ file: expect.stringMatching(/broken\.ts$/), line: 3 }),
       }),
     ])
+  })
+})
+
+describe('reactCompilerTestPlugin', () => {
+  it('compiles internal components and hooks through Vite while leaving tests and dependencies alone', async () => {
+    const root = temporaryDirectory({
+      'package.json': '{"type":"module"}',
+      'node_modules/react/package.json': JSON.stringify({
+        name: 'react',
+        type: 'module',
+        exports: {
+          '.': './index.js',
+          './compiler-runtime': './compiler-runtime.js',
+          './jsx-runtime': './jsx-runtime.js',
+          './jsx-dev-runtime': './jsx-dev-runtime.js',
+        },
+      }),
+      'node_modules/react/index.js':
+        'export const useRef = () => ({current: 0}); export const useState = value => [value]',
+      'node_modules/react/compiler-runtime.js': 'export const c = () => []',
+      'node_modules/react/jsx-runtime.js': 'export const jsx = () => null',
+      'node_modules/react/jsx-dev-runtime.js': 'export const jsxDEV = () => null',
+      'src/internal/Counter.tsx':
+        'export const Counter = ({ label }: { label: string }) => <p>{label}</p>',
+      'src/internal/useLabel.ts':
+        "import { useState } from 'react'; export const useLabel = (initial: string) => { const [label] = useState(initial); return { label } }",
+      'src/Reader.tsx':
+        "import { useRef } from 'react'; export const Reader = () => { const ref = useRef(0); return <p>{ref.current}</p> }",
+      'src/local.test.tsx':
+        'export const TestComponent = ({ label }: { label: string }) => <p>{label}</p>',
+      'tests/internal.test.tsx':
+        "import { Counter } from '../src/internal/Counter.js'; export const subject = Counter",
+    })
+    const plugin = reactCompilerTestPlugin({ root })
+    const server = await createViteServer({
+      root,
+      configFile: false,
+      plugins: [plugin],
+      esbuild: { jsx: 'automatic' },
+      optimizeDeps: { noDiscovery: true, include: [] },
+      server: { watch: null, hmr: false },
+    })
+    try {
+      // Vite resolves the .js import to internal TSX, with no public entry point involved.
+      const test = await server.transformRequest('/tests/internal.test.tsx')
+      expect(test?.code).toContain('/src/internal/Counter.tsx')
+      expect(test?.code).not.toContain('compiler-runtime')
+      const component = await server.transformRequest('/src/internal/Counter.tsx')
+      expect(component?.code).toContain('compiler-runtime')
+      const queried = await plugin.transform(
+        'export const Counter = ({ label }: { label: string }) => <p>{label}</p>',
+        `${join(root, 'src/internal/Counter.tsx')}?v=1`,
+      )
+      expect(queried?.code).toContain('react/compiler-runtime')
+      const appPlugin = reactCompilerTestPlugin({ root, sourceDirectories: ['app'], target: '18' })
+      const app = await appPlugin.transform(
+        'export const Counter = ({ label }: { label: string }) => <p>{label}</p>',
+        join(root, 'app/Counter.tsx'),
+      )
+      expect(app?.code).toContain('react-compiler-runtime')
+      const hook = await server.transformRequest('/src/internal/useLabel.ts')
+      expect(hook?.code).toContain('compiler-runtime')
+      const colocated = await server.transformRequest('/src/local.test.tsx')
+      expect(colocated?.code).not.toContain('compiler-runtime')
+      expect(
+        await plugin.transform('invalid code', join(root, 'node_modules/react/index.js')),
+      ).toBeNull()
+      expect(await plugin.transform('invalid code', join(root, 'scripts/config.ts'))).toBeNull()
+      await expect(server.transformRequest('/src/Reader.tsx')).rejects.toThrow(
+        /React Compiler skipped.*function/s,
+      )
+    } finally {
+      await server.close()
+    }
+  })
+
+  it('reads test directories inside the source, not in the path above it', async () => {
+    const root = '/work/tests/pkg'
+    const plugin = reactCompilerTestPlugin({ root })
+
+    const source = await plugin.transform(
+      'export const Counter = ({ label }: { label: string }) => <p>{label}</p>',
+      join(root, 'src/Counter.tsx'),
+    )
+
+    expect(source?.code).toContain('react/compiler-runtime')
+    expect(await plugin.transform('invalid code', join(root, 'src/tests/helper.ts'))).toBeNull()
   })
 })

@@ -1,7 +1,7 @@
 {
   "name": "@toolpath/dev-config",
-  "version": "0.2.0",
-  "description": "Shared ESLint, Prettier, TypeScript and React Compiler configuration for Toolpath repositories",
+  "version": "0.3.0",
+  "description": "Shared oxlint, TypeScript and React Compiler configuration for Toolpath repositories, with the ESLint and Prettier configs that remain",
   "license": "MIT",
   "engines": {
     "node": ">=22.13"
@@ -21,9 +21,9 @@
   },
   "type": "module",
   "exports": {
-    "./eslint": {
-      "types": "./dist/eslint.d.ts",
-      "default": "./dist/eslint.js"
+    "./oxlint": {
+      "types": "./dist/oxlint.d.ts",
+      "default": "./dist/oxlint.js"
     },
     "./eslint-package": {
       "types": "./dist/eslint-package.d.ts",
@@ -56,24 +56,20 @@
     "test:ci": "pnpm run test"
   },
   "dependencies": {
-    "@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
     "@eslint-react/eslint-plugin": "5.18.2",
-    "@eslint/js": "10.0.1",
-    "@vitest/eslint-plugin": "1.6.28",
-    "eslint-import-resolver-typescript": "4.4.5",
     "eslint-plugin-import-x": "4.17.1",
-    "eslint-plugin-jsx-a11y-x": "0.2.0",
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-regexp": "3.3.1",
     "eslint-plugin-unicorn": "79.0.0",
-    "globals": "17.13.0",
     "typescript-eslint": "8.72.0"
   },
   "peerDependencies": {
     "@babel/core": "^7.24.0 || ^8.0.0",
     "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9.39.0 || ^10.4.0",
+    "oxlint": "^1.91.0",
+    "oxlint-tsgolint": "^7.0.2006",
     "prettier": "^3.0.0",
     "typescript": "^6.0.0"
   },
@@ -83,17 +79,26 @@
     },
     "babel-plugin-react-compiler": {
       "optional": true
+    },
+    "oxlint": {
+      "optional": true
+    },
+    "oxlint-tsgolint": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@babel/core": "7.29.7",
     "@types/babel__core": "7.20.5",
     "@types/node": "24.10.1",
+    "@typescript/native": "npm:typescript@7.0.2",
     "babel-plugin-react-compiler": "1.0.0",
     "esbuild": "0.27.7",
     "eslint": "10.9.1",
+    "oxlint": "1.91.0",
+    "oxlint-tsgolint": "7.0.2006",
     "prettier": "3.9.10",
-    "typescript": "6.0.3",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
     "vitest": "4.1.10"
   }
 }

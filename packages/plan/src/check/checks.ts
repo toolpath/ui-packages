@@ -168,7 +168,8 @@ const sameTag = (a: string, b: string): boolean =>
  *   reshuffle of groups fixes.
  */
 export type DescribedClause =
-  { kind: 'clause'; text: string } | { kind: 'notOffered'; text: string }
+  | { kind: 'clause'; text: string }
+  | { kind: 'notOffered'; text: string }
 
 /** How Toolpath ends a clause about a stated feature it did not offer. */
 const NOT_OFFERED = / is not among the features offered$/

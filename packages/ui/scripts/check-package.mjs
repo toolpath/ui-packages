@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -24,6 +24,17 @@ try {
   ]) {
     if (!archive.includes(entry)) {
       throw new Error(`Published UI package is missing ${entry}`)
+    }
+  }
+
+  // React is a peer dependency: the bundle imports it and holds none of its source.
+  const bundle = await readFile(join(packageRoot, 'dist/index.js'), 'utf8')
+  if (!/from\s*["']react["']/.test(bundle)) {
+    throw new Error('dist/index.js does not import react')
+  }
+  for (const marker of ['react.transitional.element', '__CLIENT_INTERNALS_DO_NOT_USE']) {
+    if (bundle.includes(marker)) {
+      throw new Error(`dist/index.js bundles React (found ${marker})`)
     }
   }
 } finally {

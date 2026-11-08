@@ -1,13 +1,13 @@
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, symlinkSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { temporaryDirectory } from './helpers.js'
 
 const require = createRequire(import.meta.url)
-const TSC = require.resolve('typescript/bin/tsc')
+const TSC = join(dirname(require.resolve('@typescript/native/package.json')), 'bin/tsc')
 const BASES = fileURLToPath(new URL('../tsconfig/', import.meta.url))
 const TYPES_NODE = fileURLToPath(new URL('../node_modules/@types/node', import.meta.url))
 
@@ -31,6 +31,14 @@ const FIXTURES: Record<string, { code: string; expected: Array<string> }> = {
   'returns.ts': {
     code: 'export const sign = (value: number): number | undefined => {\n  if (value > 0) {\n    return 1\n  }\n}\n',
     expected: ['TS7030'],
+  },
+  'unused-local.ts': {
+    code: 'export const value = (): number => {\n  const unused = 1\n  return 2\n}\n',
+    expected: ['TS6133'],
+  },
+  'unused-parameter.ts': {
+    code: 'export const value = (unused: number): number => 2\n',
+    expected: ['TS6133'],
   },
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/ui",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Toolpath React and Tailwind UI primitives, and the DFM views",
   "license": "MIT",
   "engines": {
@@ -39,7 +39,7 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean --external react --external react-dom",
+    "build": "tsdown src/index.ts --format esm --dts --clean --platform neutral",
     "check-types": "tsc --noEmit",
     "test": "vitest run && node scripts/check-package.mjs",
     "lint": "eslint . --max-warnings=0",
@@ -68,10 +68,11 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@typescript/native": "npm:typescript@7.0.2",
     "eslint": "9.39.5",
-    "jsdom": "^30.0.1",
-    "tsup": "^8.5.1",
-    "typescript": "5.9.3",
+    "jsdom": "^31.0.0",
+    "tsdown": "0.23.5",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
     "vitest": "^4.1.10"
   }
 }

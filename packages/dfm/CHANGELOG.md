@@ -1,5 +1,11 @@
 # @toolpath/dfm
 
+## 1.4.1
+
+### Patch Changes
+
+- 2b77996: Build with tsdown instead of tsup, which is no longer maintained. Entry points, exports and types are unchanged. Published JavaScript now keeps source comments, and internal chunk file names differ.
+
 ## 1.4.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/tool-drawing",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "2D elevation drawing of a cutting tool and its holder",
   "license": "MIT",
   "engines": {
@@ -44,10 +44,11 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsup src/index.ts src/geometry/index.ts src/clearance/index.ts --format esm --dts --clean --external react --external react-dom",
+    "build": "tsdown",
     "check-types": "tsc --noEmit",
-    "test": "vitest run",
-    "lint": "eslint . --max-warnings=0",
+    "test": "REACT_COMPILER_TESTS=1 vitest run",
+    "test:source": "vitest run",
+    "lint": "oxlint",
     "test:ci": "pnpm run test"
   },
   "dependencies": {
@@ -58,17 +59,22 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@babel/core": "7.29.7",
+    "@rolldown/plugin-babel": "0.3.0",
     "@testing-library/react": "^16.3.2",
     "@toolpath/dev-config": "workspace:^",
     "@types/node": "24.10.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "eslint": "9.39.5",
-    "jsdom": "^30.0.1",
+    "@typescript/native": "npm:typescript@7.0.2",
+    "babel-plugin-react-compiler": "1.0.0",
+    "jsdom": "^31.0.0",
+    "oxlint": "1.91.0",
+    "oxlint-tsgolint": "7.0.2006",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "tsup": "8.5.1",
-    "typescript": "5.9.3",
+    "tsdown": "0.23.5",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
     "vitest": "4.1.10"
   }
 }

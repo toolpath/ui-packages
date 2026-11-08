@@ -64,7 +64,9 @@ const drawnAtGageLine = (holder: ViewerHolderProfile): number | null => {
 
   const body = outline!.segments.find((segment) => segment.part === 'body')
   const flange = outline!.segments.find((segment) => segment.part === 'flange')
-  if (body === undefined || flange === undefined) return null
+  if (body === undefined || flange === undefined) {
+    return null
+  }
 
   const end = body.points[body.points.length - 1]!
   const start = flange.points[0]!

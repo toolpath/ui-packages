@@ -55,10 +55,7 @@ class StubResizeObserver {
   disconnect() {}
   measure(width: number, height: number) {
     act(() => {
-      this.callback(
-        [{ contentRect: { width, height } } as ResizeObserverEntry],
-        this as unknown as ResizeObserver,
-      )
+      this.callback([{ contentRect: { width, height } } as ResizeObserverEntry], this)
     })
   }
 }

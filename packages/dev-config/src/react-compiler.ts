@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
-import { join, relative } from 'node:path'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 
 /** The oldest React a project's shipped code supports. */
 export type ReactCompilerTarget = '17' | '18' | '19'
@@ -362,6 +362,107 @@ const compilerPlugin = (): string => {
   }
 }
 
+interface CompiledSource {
+  code: string
+  map: {
+    version: number
+    sources: Array<string>
+    names: Array<string>
+    sourcesContent?: Array<string> | undefined
+    mappings: string
+  } | null
+  skips: Array<ReactCompilerSkip>
+}
+
+/** One compiler invocation shared by production builds and compiler-enabled tests. */
+const compileReactSource = async (
+  code: string,
+  filename: string,
+  target: ReactCompilerTarget,
+): Promise<CompiledSource> => {
+  const skips = new Map<string, ReactCompilerSkip>()
+  const options = {
+    ...reactCompilerOptions({ target }),
+    logger: {
+      logEvent: (file: string | null, event: ReactCompilerLogEvent) => {
+        recordSkip(skips, file, event)
+      },
+    },
+  }
+  const { transformAsync } = await import('@babel/core')
+  const result = await transformAsync(code, {
+    filename,
+    babelrc: false,
+    configFile: false,
+    sourceMaps: 'both',
+    retainLines: true,
+    parserOpts: { plugins: parserPlugins(filename) },
+    plugins: [[compilerPlugin(), options]],
+  })
+  if (result?.code == null) {
+    throw new Error(`React Compiler produced no code for ${filename}`)
+  }
+  return { code: result.code, map: result.map ?? null, skips: [...skips.values()] }
+}
+
+/** A Vite plugin usable in Vitest without depending on a particular Vite major. */
+export interface ReactCompilerTestPlugin {
+  name: string
+  enforce: 'pre'
+  transform: (code: string, id: string) => Promise<Pick<CompiledSource, 'code' | 'map'> | null>
+}
+
+/**
+ * Compile loaded source modules before Vite lowers TypeScript and JSX, regardless
+ * of whether a test imports a public entry point or an internal module. Use only
+ * in the compiler-enabled test run; production builds use their build integration.
+ * Tests, configs, dependencies and files outside the source directories are excluded.
+ * Compiler skips fail the test run, just as they fail an esbuild library build.
+ */
+export const reactCompilerTestPlugin = ({
+  root,
+  sourceDirectories = ['src'],
+  target = '19',
+}: {
+  root: string
+  sourceDirectories?: Array<string>
+  target?: ReactCompilerTarget
+}): ReactCompilerTestPlugin => {
+  const directories = sourceDirectories.map((directory) => resolve(root, directory))
+  return {
+    name: 'toolpath:react-compiler-tests',
+    enforce: 'pre',
+    transform: async (code, id) => {
+      const file = withoutQuery(id)
+      // Relative, so a `tests` directory above the checkout does not exclude the whole source.
+      const sourcePath = directories
+        .map((directory) => relative(directory, file))
+        .find(
+          (path) =>
+            path !== '..' &&
+            !path.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) &&
+            !isAbsolute(path),
+        )
+      if (
+        sourcePath === undefined ||
+        !/\.[cm]?[jt]sx?$/.test(file) ||
+        /\.d\.[cm]?ts$/.test(file) ||
+        NODE_MODULES.test(file) ||
+        /(?:^|[/\\])(?:__tests__|tests?|__mocks__)(?:[/\\])|\.(?:test|spec|setup|config)\.[cm]?[jt]sx?$/.test(
+          sourcePath,
+        )
+      ) {
+        return null
+      }
+      const result = await compileReactSource(code, file, target)
+      if (result.skips.length > 0) {
+        throw new Error(skipReport(result.skips))
+      }
+      return { code: result.code, map: result.map }
+    },
+  }
+}
+
 /** The parts of an esbuild plugin this one uses; assignable to esbuild's and tsup's `Plugin`. */
 export interface ReactCompilerEsbuildPlugin {
   name: string
@@ -402,28 +503,9 @@ export const reactCompilerEsbuildPlugin = ({
         return undefined
       }
       const loader = loaderFor(path)
-      const skips = new Map<string, ReactCompilerSkip>()
-      const options = {
-        ...reactCompilerOptions({ target }),
-        logger: {
-          logEvent: (filename: string | null, event: ReactCompilerLogEvent) => {
-            recordSkip(skips, filename, event)
-          },
-        },
-      }
-      const { transformAsync } = await import('@babel/core')
-      let result: Awaited<ReturnType<typeof transformAsync>>
+      let result: CompiledSource
       try {
-        result = await transformAsync(await readFile(path, 'utf8'), {
-          filename: path,
-          babelrc: false,
-          configFile: false,
-          sourceMaps: 'inline',
-          // esbuild reports its own diagnostics at lines of this output; keep them the source's.
-          retainLines: true,
-          parserOpts: { plugins: parserPlugins(path) },
-          plugins: [[compilerPlugin(), options]],
-        })
+        result = await compileReactSource(await readFile(path, 'utf8'), path, target)
       } catch (error) {
         const location = syntaxErrorLocation(error)
         if (location === undefined) {
@@ -443,12 +525,12 @@ export const reactCompilerEsbuildPlugin = ({
           warnings: [],
         }
       }
-      const messages = [...skips.values()].map((skip): SkipMessage => ({
+      const messages = result.skips.map((skip): SkipMessage => ({
         text: `React Compiler skipped this function, which runs uncompiled: ${skip.reason}. Fix it, or opt it out with a 'use no memo' directive and a comment saying why.`,
         location: skip.line === undefined ? { file: path } : { file: path, line: skip.line },
       }))
       return {
-        contents: result?.code ?? '',
+        contents: result.code,
         loader,
         errors: onSkip === 'error' ? messages : [],
         warnings: onSkip === 'warn' ? messages : [],

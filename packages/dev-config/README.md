@@ -1,158 +1,127 @@
 # @toolpath/dev-config
 
-Shared ESLint, Prettier and TypeScript configuration for Toolpath repositories, and helpers that
-keep React Compiler switched on. It is configuration only: nothing is generated or synchronized,
-and each repository adds a few small files once.
+Shared oxlint and TypeScript configuration for Toolpath repositories, the ESLint and Prettier configs that remain, and helpers
+that keep React Compiler switched on. It is configuration only: nothing is generated or
+synchronized, and each repository adds a few small files once.
 
 ```sh
-pnpm add -D @toolpath/dev-config eslint prettier typescript@~6.0.3
+pnpm add -D @toolpath/dev-config oxlint oxlint-tsgolint prettier \
+  typescript@npm:@typescript/typescript6@6.0.2 @typescript/native@npm:typescript@7.0.2
 ```
 
-TypeScript 6.0 is required. TypeScript 7.0 (npm `latest`) ships no compiler API, and
-typescript-eslint, which runs every type-aware rule here, refuses to load with it. TypeScript 6.0
-has 7.0's defaults and rejects what 7.0 removed, so code that is clean on 6.0 is ready for 7.0 once
-typescript-eslint supports it.
+That is TypeScript's documented side-by-side setup. `tsc` runs TypeScript 7, and `import 'typescript'`
+gets the TypeScript 6 API for tools that need one, such as declaration builds, because TypeScript 7.0
+ships no compiler API. Remove the alias when your tools support TypeScript 7's API.
 
-## ESLint
+## oxlint
 
-```js
-// eslint.config.mjs
-import { createEslintConfig } from '@toolpath/dev-config/eslint'
+```ts
+// oxlint.config.ts
+import { createOxlintConfig } from '@toolpath/dev-config/oxlint'
 
-export default createEslintConfig({ tsconfigRootDir: import.meta.dirname, react: true })
+export default createOxlintConfig({ react: true })
 ```
 
-Run it as `eslint . --max-warnings=0`. Every rule is an error or off; none warns.
+Run it as `oxlint`. Every rule is an error or off, and a disable comment that suppresses nothing is
+an error. Type-aware rules run on TypeScript 7, so a tsconfig needs to be valid there (no `baseUrl`).
 
-- **All JS and TS files:** `@eslint/js` recommended, plus `curly`, `eqeqeq`, `prefer-const`,
-  `no-var`, `no-eval`, `no-implied-eval`, `no-new-func`, `no-self-compare`,
+- **All JS and TS files:** the correctness rules of `@eslint/js` recommended, plus `curly`,
+  `eqeqeq`, `prefer-const`, `no-var`, `no-eval`, `no-new-func`, `no-self-compare`,
   `no-template-curly-in-string`, `no-unreachable-loop`, and arrow callbacks
   (`prefer-arrow-callback`, which allows named function expressions, so `memo(function Row…)`
   keeps its name). Unused names may start with `_`, but a `_` name that is read is reported.
 - **Defect-finding plugin rules**, none of their style presets:
-  - `eslint-plugin-unicorn`: logic slips (`a | b` in a condition, `2 ^ 8`, `total += total + n`),
-    async and event timing (`currentTarget` read after `await`, `resolve()` called twice),
-    discarded results (a thrown-away `.map()`), HTML sinks and URL protocol comparisons.
-  - `eslint-plugin-regexp`: invalid and misleading regular expressions and super-linear
-    backtracking (ReDoS).
-  - `eslint-plugin-import-x`: `no-extraneous-dependencies` (devDependencies only in tests and
-    test setup files, stories, scripts and `*.config.*`), `no-relative-packages`, `no-duplicates`, `no-self-import`,
-    `no-useless-path-segments` and `no-cycle`.
-- **TypeScript files:** typescript-eslint's `strictTypeChecked` preset, plus:
-  - `strict-boolean-expressions`: a condition is a boolean, a nullable boolean or a nullable
-    object; numbers and strings are compared explicitly (`count > 0`, `name !== ''`).
+  - `unicorn`: event timing (`currentTarget` read after `await`), promises (`resolve()` called
+    twice), discarded results (a thrown-away `.map()`), HTML sinks and URL protocol comparisons.
+  - `regexp`: misleading regular expressions and super-linear backtracking (ReDoS).
+  - `import`: `no-duplicates`, `no-self-import` and `no-cycle`.
+  - `no-extraneous-dependencies`: devDependencies only in tests and test setup files, stories,
+    scripts, `*.config.*`, `vite.*`, `*-test-support.*` and React Router's `app/routes.ts`.
+  - `no-relative-packages`: a relative import may not reach into another package.
+- **TypeScript files:** typescript-eslint's `strictTypeChecked` rules, plus:
+  - `strict-boolean-expressions`: booleans, strings, nullable booleans and nullable objects or
+    strings may be used as conditions; numbers are compared explicitly (`count > 0`). String
+    truthiness treats an empty string like a missing value.
   - Type assertions are `as` only, never on an object or array literal (use `satisfies` or an
     annotation), and never narrow a type without proof (`no-unsafe-type-assertion`: use a type
-    guard or a parser). Non-null assertions (`!`) are banned by the preset.
+    guard or a parser).
+  - Non-null assertions (`!`) are allowed only on an index access (`values[i]!`), where a loop bound
+    usually proves the value exists. `map.get(key)!`, `list.find(…)!` and `box.size!` need a guard.
+  - `no-unnecessary-condition` trusts your types, so fix a wrong type instead of deleting a guard
+    it flags. `while (true)` is allowed.
   - `restrict-template-expressions` accepts only strings and numbers; `switch-exhaustiveness-check`
     lets no `default:` absorb a union member; `no-floating-promises` checks thenables;
-    `only-throw-error` rejects throwing `unknown`.
+    `only-throw-error` rejects throwing `unknown`, and allows `Response`, `Promise` (Suspense) and
+    React Router's `data()`.
   - `method-signature-style: property` (method syntax makes parameters bivariant),
     `prefer-readonly`, `prefer-nullish-coalescing`, `prefer-optional-chain`,
     `require-array-sort-compare`, `Array<T>`, separate type-only imports and
     `no-import-type-side-effects`.
   - `@ts-ignore` is banned. `@ts-expect-error` is allowed only in tests, with a 10-character
     reason; shipped code fixes the type.
-- **Tests** (`*.test.*`, `*.spec.*`, `*.test-d.*`, `tests/` and similar): `@vitest/eslint-plugin` recommended,
+- **Tests** (`*.test.*`, `*.spec.*`, `*.test-d.*`, `tests/` and similar): Vitest's correctness rules,
   plus no `.only`, `.skip` or `.todo`, awaited async expectations, `toThrow` with a message, and
-  `vi.mock` hoisting and `import()` paths. Tests may use `!`, type assertions and `async`
-  callbacks without `await`, because a wrong one fails the test; the async and `no-unsafe-*`
-  rules stay on.
+  `vi.mock` hoisting. Tests may use `!`, type assertions, `async` callbacks without `await`, mock
+  classes and spreads of class instances, because a wrong one fails the test; the async and
+  `no-unsafe-*` rules stay on.
 - **`react: true`**, for every JS and TS file, since hooks live in `.ts` files too:
-  - `eslint-plugin-react-hooks` `recommended-latest`, the Rules of React and React Compiler's
-    diagnostics. `exhaustive-deps` is an error.
-  - `@eslint-react` `recommended-type-checked` (`recommended` for JS), with its warnings made
-    errors where they catch defects or deprecated APIs (`forwardRef`, `<Context.Provider>`,
-    leaked listeners and timers) and its naming and duplicate-of-hooks rules off.
-  - `eslint-plugin-jsx-a11y-x` `recommended` for JSX, and buttons need a `type` outside tests and
-    stories.
-- Build output and generated files are ignored: `dist`, `build`, `coverage`, `.react-router`,
+  - The Rules of React and React Compiler's diagnostics, except `immutability`, which flags the
+    cancel flag in an effect's cleanup. `reactCompilerGuard()` covers what it would have caught.
+  - `@eslint-react`'s leak checks (listeners, timers, observers, `fetch`), `<Context.Provider>` and
+    `forwardRef`, and JSX typos.
+  - Accessibility rules for JSX, and buttons need a literal `type` outside tests and stories.
+- Installs, build output and generated files are ignored: `node_modules`, `dist`, `build`, `coverage`, `.react-router`,
   `playwright-report`, `test-results` and `storybook-static`. Pass more globs as `ignores`.
+- **`forbidStyling: true`**: `src/` may not import a stylesheet, `@toolpath/ui`, Phosphor, Base UI,
+  Tailwind, `clsx` or `tailwind-merge`, or render a `className` or `style`.
 
-The typed rules need `strictNullChecks`; extend one of the tsconfig bases below.
+The typed rules need `strictNullChecks`; extend one of the tsconfig bases below. They also read the
+built types of workspace dependencies, so a Turborepo `lint` task needs `"dependsOn": ["^build"]`;
+without it, lint passes where dependencies happen to be built and fails on a clean CI checkout.
 
-### Suppressions
+The `unicorn-js`, `regexp`, `eslint-react`, `import-x-js` and `toolpath` rules run through oxlint's
+JS plugins, which get no type information. They roughly double lint time, and they are still alpha.
 
-`@eslint-community/eslint-plugin-eslint-comments` keeps suppressions honest:
+### Disable comments
 
-- Every `eslint-disable` comment gives a reason after `--`. None is unlimited
-  (`/* eslint-disable */`) or left open to the end of the file. One that suppresses nothing is an
-  error.
-- Comments may only disable rules, never configure them: `/* eslint rule: "off" */` is an error.
-- The rules in `UNSUPPRESSIBLE` cannot be disabled by a comment. Each has a fix that is not a
-  suppression: the eslint-comments rules themselves, `ban-ts-comment`, `consistent-type-assertions`,
-  `no-explicit-any`, `no-floating-promises` (write `void` for a deliberate one),
-  `no-misused-promises`, the `no-unsafe-*` rules except `no-unsafe-type-assertion`,
-  `strict-boolean-expressions`, `no-extraneous-dependencies`, the `eval` family,
-  `rules-of-hooks`, `exhaustive-deps` and `vitest/no-focused-tests`.
-
-A comment that configures rules can still switch off the rules that forbid it. Close that in CI by
-running the comment rules alone with inline configuration disabled:
-
-```js
-// eslint.comments-audit.config.mjs
-import { createCommentAuditConfig } from '@toolpath/dev-config/eslint'
-
-export default createCommentAuditConfig()
-```
-
-```sh
-echo '{}' > eslint.comments-audit-suppressions.json   # once; commit it
-eslint --no-inline-config -c eslint.comments-audit.config.mjs \
-  --suppressions-location eslint.comments-audit-suppressions.json . --max-warnings=0
-```
-
-The audit reads its own suppressions file, which stays empty. Without it, it reads the lint's
-`eslint-suppressions.json` (see [Adopting it](#adopting-it-in-an-existing-repository)): it fails on
-every entry for a rule it does not run, and it honours comment findings that `--suppress-all`
-recorded.
-
-An exception to a rule that cannot be disabled belongs in `eslint.config.mjs`, scoped to the files
-that need it, where review sees it:
-
-```js
-export default [
-  ...createEslintConfig({ tsconfigRootDir: import.meta.dirname }),
-  { files: ['src/generated/**'], rules: { '@typescript-eslint/no-unsafe-assignment': 'off' } },
-]
-```
-
-### `exhaustive-deps`
-
-Suppressing `react-hooks/exhaustive-deps` also makes React Compiler skip the whole component, and
-turning it off in configuration changes the dependencies the compiler derives. Rewrite the code
-instead: read the latest value of a prop or state without re-running the effect with
-`useEffectEvent` (React 19.2 or later).
+`// oxlint-disable-next-line typescript/no-explicit-any` turns a rule off for a line. Say why next to
+it. Use `oxlint-disable`, not `eslint-disable`, for hook rules: React Compiler skips a component with
+an `eslint-disable` of `react-hooks/*`, and `reactCompilerGuard()` then fails the build.
 
 ### React Router
 
-Run the type generator before lint, or the unsuppressible `no-unsafe-*` rules fail on route
-modules in a fresh checkout:
+Run the type generator before lint, or the `no-unsafe-*` rules fail on route modules in a fresh
+checkout:
 
 ```json
-"lint": "react-router typegen && eslint . --max-warnings=0"
+"lint": "react-router typegen && oxlint"
+```
+
+### TypeORM
+
+Skip migrations, because one that has shipped must not change, and allow the cycles two-way
+relations need:
+
+```ts
+const config = createOxlintConfig({ ignores: ['src/migrations/**'] })
+
+export default {
+  ...config,
+  overrides: [
+    ...(config.overrides ?? []),
+    { files: ['src/entities/**'], rules: { 'import/no-cycle': 'off' } },
+  ],
+}
 ```
 
 ### Adopting it in an existing repository
 
-Fix what fixes itself, then record the rest as a baseline, so new code is clean from the first
-day and old findings are fixed when someone works on that file:
-
-```sh
-eslint . --fix
-eslint . --suppress-all   # writes eslint-suppressions.json; commit it
-```
-
-Lint then fails on any new finding, and on a file with more findings of a rule than recorded. A
-fixed finding makes lint fail (exit 2) until `eslint . --prune-suppressions` removes it from the
-file, so the baseline only shrinks. Review changes to `eslint-suppressions.json` like changes to the
-config: rerunning `--suppress-all` would absorb new findings. Suppressions apply to the ESLint CLI
-only; editors still show suppressed findings.
+Run `oxlint --fix`, fix what remains, then add it to CI. In a monorepo, move one package at a time.
 
 ### The packages' own config
 
 The Toolpath packages lint themselves with a smaller, correctness-only config. It runs on ESLint
-9.39 or 10; `createEslintConfig` above needs ESLint 10.4. The config checks
+9.39 or 10, for packages that have not moved to oxlint. The config checks
 duplicate keys and cases, unreachable code, `eqeqeq` (allowing `== null`), `no-var`,
 `prefer-const`, unused names (a `_` prefix opts out), and, in `.tsx` files,
 `react/no-unstable-nested-components` and `react-hooks/exhaustive-deps`. With `forbidStyling`,
@@ -200,10 +169,11 @@ echo 'pnpm exec lint-staged' > .husky/pre-commit
 | `library.json` | Published libraries for any renderer: `NodeNext`, React JSX, no DOM or Node globals |
 
 `base.json` turns on `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
-`noImplicitOverride`, `noImplicitReturns`, `noFallthroughCasesInSwitch`,
+`noImplicitOverride`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals`,
+`noUnusedParameters`,
 `noUncheckedSideEffectImports`, `erasableSyntaxOnly` (no enums, namespaces or parameter
 properties) and `skipLibCheck: false`, and makes unreachable code and unused labels errors. The
-bases set `noEmit`; the build tool (Vite, tsup, esbuild) emits the JavaScript.
+bases set `noEmit`; the build tool (Vite, tsdown, esbuild) emits the JavaScript.
 
 - Include tests, specs and tool configs in the tsconfig that type-checks the project; lint reads
   types from it. A tsconfig split into project references (`"files": []` and `"references"`, as
@@ -335,6 +305,42 @@ functions: the guard then reports a skip in that module without a line, and cann
 function's `'use no memo'`. Opt such a module out with `'use no memo'` at its top, or pass
 `{ onSkip: 'warn' }`.
 
+### tsdown libraries
+
+```js
+// tsdown.config.js
+import pluginBabel from '@rolldown/plugin-babel'
+import {
+  assertReactCompiled,
+  reactCompilerGuard,
+  reactCompilerOptions,
+} from '@toolpath/dev-config/react-compiler'
+import { defineConfig } from 'tsdown'
+
+export default defineConfig({
+  entry: ['src/index.ts'],
+  format: 'esm',
+  platform: 'neutral',
+  dts: true,
+  clean: true,
+  plugins: [
+    pluginBabel({ plugins: [['babel-plugin-react-compiler', reactCompilerOptions()]] }),
+    reactCompilerGuard(),
+  ],
+  hooks: {
+    'build:done': () => {
+      assertReactCompiled('dist')
+    },
+  },
+})
+```
+
+The config is JavaScript because `@rolldown/plugin-babel`'s published types fail
+`skipLibCheck: false`. A package without React Compiler can use `tsdown.config.ts`, or flags alone:
+`tsdown src/index.ts --format esm --dts --clean --platform neutral`. `platform: 'neutral'` emits
+`.js` and `.d.ts`; the default, `node`, emits `.mjs` and `.d.mts`. Pass the Babel plugin directly
+rather than through `reactCompilerPreset`, which needs `@vitejs/plugin-react` 6 and so Vite 8.
+
 ### tsup and esbuild libraries
 
 tsup 9 or later is needed for declarations on TypeScript 6; tsup 8 passes `baseUrl`, which
@@ -368,6 +374,44 @@ output imports the compiler runtime, which is why `react` stays external; a bund
 does not count. It reads only the output, so it also throws when the compiler skipped or opted out
 every function, and `clean: true` keeps an earlier build's files from passing it.
 
+### Vitest
+
+Use the same test suite and configuration in both modes. `test`, which CI runs, enables
+React Compiler, so a local run catches what CI would; `test:source` runs untransformed source:
+
+```ts
+// vitest.config.ts
+import { reactCompilerTestPlugin } from '@toolpath/dev-config/react-compiler'
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  plugins:
+    process.env.REACT_COMPILER_TESTS === '1'
+      ? [reactCompilerTestPlugin({ root: import.meta.dirname })]
+      : [],
+  test: { environment: 'jsdom', include: ['tests/**/*.test.{ts,tsx}'] },
+})
+```
+
+```json
+"test": "REACT_COMPILER_TESTS=1 vitest run",
+"test:source": "vitest run",
+"test:ci": "pnpm run test"
+```
+
+The explicit flag keeps Vitest's normal mode and environment-file selection in both runs.
+The plugin compiles loaded files under `src/` before Vite lowers TypeScript or JSX,
+including hooks in `.ts` and modules imported through internal paths. It excludes tests,
+setup/config files and dependencies. Apps with other source directories pass
+`sourceDirectories: ['app', 'src']`. No separate test roster or import aliases are needed.
+It shares the compiler invocation and default React 19 target with `reactCompilerEsbuildPlugin`,
+and compiler skips fail the run. Pass the same `target` to both integrations for React 17 or 18.
+
+This tests compiler-transformed source, not the bundled `dist` files. Keep the production
+build guard and package-output checks too. Running the source suite locally and the compiled
+suite in CI avoids doubling CI test execution; run both commands locally when investigating
+compiler-specific behavior. Build `dev-config` before loading its exports in a fresh workspace.
+
 ### Expo
 
 Expo runs the compiler itself when `app.json` sets `"experiments": { "reactCompiler": true }`.
@@ -390,8 +434,8 @@ There is no build check for Metro, so skipped functions are not reported there.
 
 ## CI
 
-The checks hold only where CI runs them: the comment audit closes the inline-configuration
-loophole only in CI, and the React Compiler checks only fail a build that runs. Name the commands
+The checks hold only where CI runs them: the React Compiler checks only fail a build that runs.
+Name the commands
 as scripts, so CI and people run the same thing (a React Router app's `lint` also runs
 `react-router typegen` first; a tsconfig split into references uses `tsc -b`; a monorepo's scripts
 can call its task runner):
@@ -400,8 +444,7 @@ can call its task runner):
 // package.json
 "scripts": {
   "format:check": "prettier --check .",
-  "lint": "eslint . --max-warnings=0",
-  "lint:comments": "eslint --no-inline-config -c eslint.comments-audit.config.mjs --suppressions-location eslint.comments-audit-suppressions.json . --max-warnings=0",
+  "lint": "oxlint",
   "check-types": "tsc --noEmit",
   "build": "vite build"
 }
@@ -427,7 +470,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run format:check
       - run: pnpm run lint
-      - run: pnpm run lint:comments
       - run: pnpm run check-types
       - run: pnpm run build
 ```

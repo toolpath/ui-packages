@@ -12,7 +12,8 @@
  * named.
  */
 export type DropAt =
-  { id: string; zone: 'before' | 'inside' | 'after' } | { zone: 'first' | 'last' }
+  | { id: string; zone: 'before' | 'inside' | 'after' }
+  | { zone: 'first' | 'last' }
 
 /**
  * A group as the app's list shows it: where it sits, and how many levels of groups it holds. A

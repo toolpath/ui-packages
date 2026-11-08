@@ -4,6 +4,15 @@
   "tasks": {
     "lint": {
       "dependsOn": ["^lint", "build"]
+    },
+    "check-types": {
+      "dependsOn": ["^check-types", "^build", "build"]
+    },
+    "test": {
+      "dependsOn": ["^build", "build"]
+    },
+    "test:ci": {
+      "dependsOn": ["^build", "build"]
     }
   }
 }

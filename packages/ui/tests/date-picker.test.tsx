@@ -574,6 +574,9 @@ describe('DateRangePicker', { timeout: 30_000 }, () => {
     expect(screen.getByRole('grid', { name: 'March 2026' })).toBeInTheDocument()
     await user.keyboard('{Enter}{ArrowRight}{Enter}')
     expect(selectedRange()).toHaveTextContent('2026-03-20/2026-03-21')
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Period calendar' })).not.toBeInTheDocument(),
+    )
 
     await user.click(screen.getByRole('button', { name: /^Period/ }))
     await user.click(await screen.findByRole('button', { name: 'Previous month' }))
