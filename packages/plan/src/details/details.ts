@@ -7,6 +7,7 @@ import {
   type Coverage,
   type CoverageFeature,
   type FaceGroup,
+  type PlanFeature,
 } from '../faces/coverage'
 import type { DirectionsKnown } from '../check/directions'
 import type { EnginePlan, PlanDirection } from '../results/plan'
@@ -100,6 +101,11 @@ export interface PlanDetailsConstraints {
   groups: ReadonlyArray<PlanSetupView>
   /** Every feature assigned, by tag (lower case). */
   assigned: ReadonlySet<string>
+  /**
+   * Every feature the constraints can name (`planFeaturesOf`): the report's, and a trimmed one only
+   * where it is assigned. None before the analysis is read.
+   */
+  features: ReadonlyArray<PlanFeature>
   /** Each face assigned, done or open; null before the analysis is read. */
   coverage: Coverage | null
   /** The faces done, numbered by the analysis' kernel. */
@@ -117,6 +123,11 @@ export interface PlanDetailsResults {
   leftOut: ReadonlyArray<{ groupId: string; name: string }>
   /** Every feature the plan's actions cut, by tag (lower case); none before the plan is read. */
   machined: ReadonlySet<string>
+  /**
+   * Every feature the plan's tags can name (`planFeaturesOf`): the report's, then each the plan
+   * trimmed. None before the analysis is read.
+   */
+  features: ReadonlyArray<PlanFeature>
   /** Each face done, machined or not machined; null before the plan and the analysis are read. */
   coverage: Coverage | null
   /**
@@ -250,6 +261,9 @@ const constraintsOf = ({
     get assigned() {
       return assigned()
     },
+    get features() {
+      return features()
+    },
     get coverage() {
       return coverage()
     },
@@ -316,6 +330,9 @@ const resultsOf = (
     },
     get machined() {
       return machined()
+    },
+    get features() {
+      return features()
     },
     get coverage() {
       return coverage()

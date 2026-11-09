@@ -328,6 +328,18 @@ describe('planDetails: trimmed features', () => {
     expect(constraints.counts).toEqual({ assigned: 2, done: 0, open: 1 })
   })
 
+  it('lists every trimmed feature among the results’ features, and only the assigned in the constraints’', () => {
+    const { constraints, results } = details()
+    expect(results.features.map(({ tag, trimmed }) => ({ tag, trimmed }))).toEqual([
+      { tag: 'a', trimmed: undefined },
+      { tag: 'b', trimmed: undefined },
+      { tag: 't', trimmed: true },
+      { tag: 'u', trimmed: true },
+    ])
+    expect(constraints.features.map((feature) => feature.tag)).toEqual(['a', 'b', 't'])
+    expect(constraints.features[2]).toMatchObject({ fromFeatureTag: 'b', regionIdxs: [2] })
+  })
+
   it('reads the faces a trimmed feature the plan cuts owns as machined, and one it does not as not', () => {
     const { results } = details()
     expect(regions(results.coverage?.faces.machined)).toEqual([1, 2])
@@ -344,6 +356,8 @@ describe('planDetails: before anything is read', () => {
     )
     expect(details.constraints.setups).toEqual([])
     expect(details.constraints.coverage).toBeNull()
+    expect(details.constraints.features).toEqual([])
+    expect(details.results.features).toEqual([])
     expect(details.constraints.checks).toEqual([])
     expect(details.results.setups).toEqual([])
     expect(details.results.coverage).toBeNull()

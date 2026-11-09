@@ -277,18 +277,18 @@ describe('resultsView, with trimmed features', () => {
           featureTag: "x'",
           featureType: 'boss',
           regionIdxs: [3],
-          fromFeatureTag: 'x',
+          fromFeatureTag: 'a',
         }),
       ],
     })
     const [only] = resultsView({ plan: left, constraints: null, part: reportPart }).setups
     expect(only!.notMachined).toEqual([
-      { tag: "X'", label: 'Feature x (trimmed)', type: 'boss', trimmed: true },
+      { tag: "X'", label: 'Feature a (trimmed)', type: 'boss', trimmed: true },
     ])
     expect(only!.rows).toEqual([
       {
         tag: "X'",
-        label: 'Feature x (trimmed)',
+        label: 'Feature a (trimmed)',
         type: 'boss',
         trimmed: true,
         tool: null,

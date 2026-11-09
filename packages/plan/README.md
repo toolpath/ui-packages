@@ -93,10 +93,13 @@ assignments too: a trimmed feature is in it only where it is assigned. Its faces
 done face, so assigning one unmarks nothing.
 
 `planView` and `resultsView` mark a trimmed tag's row `trimmed` and label it from what it was
-trimmed from, `Pocket (trimmed)`, or from its own type where Toolpath does not say
-(`trimmedFeatureLabel`). The row takes its origin's bore (`featureBore`) where the trimmed type is
-the origin's, so a trimmed hole groups with the holes of its bore; where the type changed, it has
-none. A tag the part has a type for (`featureType`) is the report's, and reads as the report's row:
+trimmed from, `Pocket (trimmed)`, or from its own type where Toolpath does not say or the part has
+no type for that feature (`trimmedFeatureLabel`). The row takes its origin's bore (`featureBore`)
+where the trimmed type is the origin's, so a trimmed hole groups with the holes of its bore; where
+the type changed, it has none. `trimmedOrigin(feature, typeOf)` is that rule: the feature a trimmed
+one borrows its datasheet, bore, rules and type from, or null. `trimmedByTag(plan, part)` and
+`featureRow(part, trimmed, tag)` are the lookups the views read rows with, for an app that names a
+tag the same way elsewhere. A tag the part has a type for (`featureType`) is the report's, and reads as the report's row:
 `PlanPart` reads the report alone. `draftView(draft, part, plan)` reads an assigned trimmed tag the
 same way from the latest plan, and as the part labels it with none. `planFromResults` (and
 `fromPlan` with `assignments`) assigns trimmed tags where they were planned, as it assigns any
@@ -106,13 +109,14 @@ What the app does:
 
 - Parse the plan's `trimmedFeatures` into `EnginePlan`.
 - With `planDetails`, nothing more for the views: it passes `planFeaturesOf` to `classifyFaces` and
-  `groupFaces`, and the latest plan to `draftView`. An app that builds its page from `/parts` passes
+  `groupFaces`, and the latest plan to `draftView`, and gives each view's list as `features`. An app that builds its page from `/parts` passes
   `planFeaturesOf` with the assignments (`assigned`) in the constraints view, without them in the
   results view, and the latest plan to `draftView`.
 - Look a tag's faces up for selection, zoom and `PlanRules.regionsOf` through `planFeaturesOf`,
   so a trimmed tag resolves to its own faces.
-- DFM: count a trimmed tag's time and flags under its `fromFeatureTag`'s rules. The rules are the
-  app's, so the package does not look them up.
+- DFM: count a trimmed tag's time and flags as its own, measured by the rules and datasheet of
+  its `trimmedOrigin`, else by its own type. The rules are the app's, so the package does not look
+  them up.
 
 ## Edits: one menu, one function, one question
 

@@ -1,5 +1,19 @@
 # @toolpath/plan
 
+## 0.6.0
+
+### Minor Changes
+
+- 71a75cb: `trimmedOrigin(feature, typeOf)` names the report feature a trimmed feature borrows its datasheet,
+  bore, rules and type from: the one it was cut from, where the trimming kept its type, else null.
+  `trimmedByTag`, `TrimmedByTag` and `featureRow`, the lookups `planView` reads rows with, are
+  exported too, so an app names a tag the same way off the tree. A trimmed row whose origin the part
+  has no type for now reads by its own type, `Face (trimmed)`, rather than by the part's label for an
+  unknown tag.
+
+  `planDetails` gives each view's features as `features`: `constraints.features`, with a trimmed
+  feature only where it is assigned, and `results.features`, with every one the plan trimmed.
+
 ## 0.5.1
 
 ### Patch Changes

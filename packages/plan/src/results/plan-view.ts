@@ -1,5 +1,6 @@
 import { tagKey, unlistedTrimmedFeatures } from '../faces/coverage'
 import {
+  featureTypeLabel,
   notMachinedOf,
   trimmedFeatureLabel,
   type EnginePlan,
@@ -115,7 +116,10 @@ export type TrimmedByTag = ReadonlyMap<string, TrimmedFeature>
  * A plan's trimmed features by tag (lower case), but any whose tag the part's report lists — one
  * the part has a type for (`featureType`) — as `planFeaturesOf` leaves them out. None with no plan.
  */
-export const trimmedByTag = (plan: WithTrimmedFeatures, part: PlanPart): TrimmedByTag =>
+export const trimmedByTag = (
+  plan: WithTrimmedFeatures,
+  part: Pick<PlanPart, 'featureType'>,
+): TrimmedByTag =>
   new Map(
     unlistedTrimmedFeatures(plan, (key) => part.featureType?.(key) !== undefined).map((feature) => [
       tagKey(feature.featureTag),
@@ -124,24 +128,41 @@ export const trimmedByTag = (plan: WithTrimmedFeatures, part: PlanPart): Trimmed
   )
 
 /**
+ * The report feature a trimmed feature borrows from — its datasheet, bore, rules and type: the one
+ * it was cut from (`fromFeatureTag`), where trimming left its type as it was (`typeOf` gives the
+ * report's type for a tag). Null for one cut from no single feature, or whose type the trimming
+ * changed: that one is read by its own type alone.
+ */
+export const trimmedOrigin = (
+  feature: Pick<TrimmedFeature, 'featureType' | 'fromFeatureTag'>,
+  typeOf: (tag: string) => string | undefined,
+): string | null => {
+  const origin = feature.fromFeatureTag
+  return origin !== null && typeOf(origin) === feature.featureType ? origin : null
+}
+
+/**
  * A tag's row, as the part reads it. A trimmed tag reads as what it was trimmed from, with its own
- * type (`trimmedFeatureLabel`), and that feature's bore where the trimming left its type as it was.
+ * type (`trimmedFeatureLabel`), or as its own type where the part has no type for that feature
+ * (`featureType`); and with that feature's bore where it borrows from it (`trimmedOrigin`).
  */
 export const featureRow = (
-  part: PlanPart,
+  part: Pick<PlanPart, 'featureLabel' | 'featureType' | 'featureBore'>,
   trimmedFeatures: TrimmedByTag,
   tag: string,
 ): PlanFeatureRow => {
   const trimmedFeature = trimmedFeatures.get(tagKey(tag))
   if (trimmedFeature) {
-    const origin = trimmedFeature.fromFeatureTag
-    const bore =
-      origin && part.featureType?.(origin) === trimmedFeature.featureType
-        ? part.featureBore?.(origin)
-        : undefined
+    const typeOf = (each: string) => part.featureType?.(each)
+    const origin = trimmedOrigin(trimmedFeature, typeOf)
+    const bore = origin ? part.featureBore?.(origin) : undefined
+    // A part that reads types and has none for the origin does not list it: no label of its own.
+    const unknown = (from: string) => part.featureType !== undefined && typeOf(from) === undefined
     return {
       tag,
-      label: trimmedFeatureLabel(trimmedFeature, part.featureLabel),
+      label: trimmedFeatureLabel(trimmedFeature, (from) =>
+        unknown(from) ? featureTypeLabel(trimmedFeature.featureType) : part.featureLabel(from),
+      ),
       type: trimmedFeature.featureType,
       trimmed: true,
       ...(bore ? { bore } : {}),

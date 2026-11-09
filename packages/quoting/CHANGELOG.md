@@ -1,5 +1,12 @@
 # @toolpath/quoting
 
+## 0.4.2
+
+### Patch Changes
+
+- Updated dependencies [71a75cb]
+  - @toolpath/plan@0.6.0
+
 ## 0.4.1
 
 ### Patch Changes

@@ -131,12 +131,16 @@ export {
 export * from './details/state'
 export {
   type FeatureBore,
+  featureRow,
   type PlanFeatureRow,
   type PlannedSetupView,
   type PlanOrientationView,
   type PlanPart,
   type PlanSetupView,
   planView,
+  trimmedByTag,
+  type TrimmedByTag,
+  trimmedOrigin,
 } from './results/plan-view'
 export { type ResultsFeatureRow, type ResultsSetupView, type UnmachinedMark } from './results/view'
 export * from './draft/compare'
