@@ -6,8 +6,11 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { parsePartGeometry } from '../src/engine/geometry.js'
 import { ExplodedPart } from '../src/exploded-part.js'
 import type { ExplodeGroup, ExplodePick } from '../src/model/explode.js'
-import type { PartModel } from '../src/model/types.js'
+import { axis2Matrix } from '../src/model/placement.js'
+import type { Axis2, PartModel } from '../src/model/types.js'
+import { PartCollection } from '../src/part-collection.js'
 import { PartMesh } from '../src/part-mesh.js'
+import { REGION_ATTRIBUTE } from '../src/render/part.js'
 import { EXCLUDE_FROM_FRAME } from '../src/render/camera.js'
 import type { PartPick } from '../src/render/picking.js'
 import { createSectionStore } from '../src/render/section-store.js'
@@ -243,6 +246,95 @@ describe('<PartMesh visible={false}>', () => {
     expect((onPick.mock.calls[0]![0] as PartPick).region).toBe(
       model.regionIndex.regionForTriangle(0),
     )
+  })
+})
+
+describe('<PartCollection> placements', () => {
+  const IDENTITY: Axis2 = {
+    location: { x: 0, y: 0, z: 0 },
+    axis: { x: 0, y: 0, z: 1 },
+    refDirection: { x: 1, y: 0, z: 0 },
+  }
+  /** At x = 60, tipped so the part's +Z runs along +X and its +Y up. */
+  const TIPPED: Axis2 = {
+    location: { x: 60, y: 0, z: 0 },
+    axis: { x: 1, y: 0, z: 0 },
+    refDirection: { x: 0, y: 1, z: 0 },
+  }
+
+  /** Each item's part, which takes the pointer, in item order. */
+  const surfacesOf = (scene: Object3D) => {
+    const found: Array<Object3D> = []
+    scene.traverse((object) => {
+      if ((object as WithHandlers).__r3f?.handlers?.onClick) {
+        found.push(object)
+      }
+    })
+    return found
+  }
+
+  /** The ray hit straight down onto whatever is drawn over `at`. */
+  const hitAt = (scene: Object3D, at: Vector3) => {
+    scene.updateMatrixWorld(true)
+    const ray = new Raycaster(new Vector3(at.x, at.y, 1000), new Vector3(0, 0, -1))
+    return ray.intersectObjects(surfacesOf(scene), true)[0]!
+  }
+
+  const items = (placements: ReadonlyArray<Axis2 | undefined>) =>
+    placements.map((placement, index) => ({ id: `copy#${index}`, model, geometry, placement }))
+
+  it('draws, picks and paints copies of one mesh at their placements', async () => {
+    const onPick = vi.fn<(id: string, pick: PartPick) => void>()
+    const onHover = vi.fn<(id: string, pick: PartPick | null) => void>()
+    const element = (placements: ReadonlyArray<Axis2 | undefined>) => (
+      <PartCollection items={items(placements)} onPick={onPick} onHover={onHover} />
+    )
+    const scene = await mount(element([IDENTITY, TIPPED]))
+    scene.scene.updateMatrixWorld(true)
+    const [first, second] = surfacesOf(scene.scene)
+    expect(first!.matrixWorld.equals(new THREE.Matrix4())).toBe(true)
+    const tipped = axis2Matrix(TIPPED)!
+    second!.matrixWorld.elements.forEach((value, index) =>
+      expect(value).toBeCloseTo(tipped.elements[index]!),
+    )
+
+    const centre = geometry.boundingBox!.getCenter(new Vector3())
+    for (const [index, surface] of [first!, second!].entries()) {
+      const hit = hitAt(scene.scene, centre.clone().applyMatrix4(surface.matrixWorld))
+      let owner: Object3D | null = hit.object
+      while (owner && owner !== surface) owner = owner.parent
+      expect(owner).toBe(surface)
+      expect((hit.object as THREE.Mesh).geometry).toBe(geometry)
+      const handlers = scene.handlersOf(surface)
+      scene.press(10)
+      handlers.onPointerMove!(pointer(hit).event)
+      handlers.onClick!(pointer(hit, { timeStamp: 1000 * (index + 1) }).event)
+      expect(onHover).toHaveBeenLastCalledWith(`copy#${index}`, expect.anything())
+      const [id, pick] = onPick.mock.calls.at(-1)!
+      expect(id).toBe(`copy#${index}`)
+      expect(pick.region).toBe(model.regionIndex.regionForTriangle(hit.faceIndex!))
+      // The face under the ray faces up in the world, whichever face of the part it is.
+      expect(pick.normal[2]).toBeCloseTo(1)
+    }
+    // Facing up, the tipped copy shows its +Y face, which its mesh reports as such.
+    const tippedHit = hitAt(scene.scene, centre.clone().applyMatrix4(tipped))
+    expect(tippedHit.face!.normal.y).toBeCloseTo(1)
+
+    // Dropping one copy leaves the other painted from the shared mesh.
+    await scene.rerender(element([IDENTITY]))
+    expect(geometry.hasAttribute(REGION_ATTRIBUTE)).toBe(true)
+  })
+
+  it('draws an item without a placement where its mesh lies, as before', async () => {
+    const scene = await mount(<PartCollection items={items([undefined])} />)
+    scene.scene.updateMatrixWorld(true)
+    let group = surfacesOf(scene.scene)[0]!
+    while (group.parent && group.parent !== scene.scene) {
+      expect(group.matrix.equals(new THREE.Matrix4())).toBe(true)
+      group = group.parent
+    }
+    expect(group.position.toArray()).toEqual([0, 0, 0])
+    expect(group.quaternion.toArray()).toEqual([0, 0, 0, 1])
   })
 })
 

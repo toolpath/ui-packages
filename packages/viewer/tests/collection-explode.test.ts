@@ -2,7 +2,8 @@ import { Box3, BoxGeometry, BufferGeometry, Group, Vector3 } from 'three'
 import { describe, expect, it } from 'vitest'
 import { collectionBounds, collectionExplodeOffsets } from '../src/model/collection.js'
 import { createExplodeAmount } from '../src/model/explode-amount.js'
-import type { Vec3 } from '../src/model/types.js'
+import { axis2Matrix } from '../src/model/placement.js'
+import type { Axis2, Vec3 } from '../src/model/types.js'
 import { createCollectionPlacement, offsetsKey } from '../src/render/collection-placement.js'
 
 /** A box body of the given size, centred at the given point. */
@@ -169,5 +170,84 @@ describe('collection placement', () => {
     c.position.set(1, 1, 1)
     placement.place(new Map([['c', { x: 0, y: 8, z: 0 }]]), 1)
     expect(c.position.toArray()).toEqual([1, 1, 1])
+  })
+})
+
+describe('placed items', () => {
+  /** A quarter turn about +Z at `x`: the item's +X runs along +Y. */
+  const turned = (x: number): Axis2 => ({
+    location: { x, y: 0, z: 0 },
+    axis: { x: 0, y: 0, z: 1 },
+    refDirection: { x: 0, y: 1, z: 0 },
+  })
+  const IDENTITY: Axis2 = {
+    location: { x: 0, y: 0, z: 0 },
+    axis: { x: 0, y: 0, z: 1 },
+    refDirection: { x: 1, y: 0, z: 0 },
+  }
+
+  it('measures each item where its placement draws it', () => {
+    const geometry = new BoxGeometry(20, 10, 4)
+    const bounds = collectionBounds([
+      { id: 'a', geometry },
+      { id: 'b', geometry, placement: turned(100) },
+    ])
+    expect(bounds.min.toArray()).toEqual([-10, -10, -2])
+    expect(bounds.max.toArray()).toEqual([105, 10, 2])
+    // Measuring neither moves nor keeps the transform on the shared geometry.
+    expect(geometry.boundingBox!.max.toArray()).toEqual([10, 5, 2])
+  })
+
+  it('measures an item without a placement, or at the identity, exactly as before', () => {
+    const items = [cube('a', 4, { x: 3, y: -1, z: 7 }), body('b', { x: 2, y: 6, z: 1 })]
+    const before = collectionBounds(items)
+    const offsets = collectionExplodeOffsets(items)
+    const unset = items.map((item) => ({ ...item, placement: undefined }))
+    const identity = items.map((item) => ({ ...item, placement: IDENTITY }))
+    expect(collectionBounds(unset)).toEqual(before)
+    expect(collectionExplodeOffsets(unset)).toEqual(offsets)
+    expect(collectionBounds(identity)).toEqual(before)
+    expect(collectionExplodeOffsets(identity)).toEqual(offsets)
+  })
+
+  it('pulls copies of one geometry apart from their placed bounds', () => {
+    const { geometry } = cube('shared', 10)
+    const items = [
+      { id: 'a', geometry, placement: IDENTITY },
+      { id: 'b', geometry, placement: { ...IDENTITY, location: { x: 11, y: 0, z: 0 } } },
+    ]
+    const offsets = collectionExplodeOffsets(items)
+    // Unplaced, the two would lie on one another and stack up +Z; placed, they part along X.
+    expect(offsets.get('a')).toEqual({ x: 0, y: 0, z: 0 })
+    const b = offsets.get('b')!
+    expect(b.x).toBeGreaterThan(0)
+    expect([b.y, b.z]).toEqual([0, 0])
+    expect(collectionBounds(items, { offsets }).max.x).toBeCloseTo(16 + b.x)
+  })
+
+  it('refuses a placement with no frame', () => {
+    const { geometry } = cube('a', 1)
+    const flat = { ...IDENTITY, refDirection: { x: 0, y: 0, z: 2 } }
+    expect(() => collectionBounds([{ id: 'a', geometry, placement: flat }])).toThrow(RangeError)
+  })
+
+  it('puts a group at its placement, moved by its offset in the collection frame', () => {
+    const placement = createCollectionPlacement()
+    const [a, b] = [new Group(), new Group()]
+    placement.add('a', a, axis2Matrix(turned(100)))
+    placement.add('b', b)
+    expect(placement.place(null, 0)).toBe(true)
+    expect(a.position.toArray()).toEqual([100, 0, 0])
+    expect(new Vector3(1, 0, 0).applyQuaternion(a.quaternion).y).toBeCloseTo(1)
+    expect(b.quaternion.toArray()).toEqual([0, 0, 0, 1])
+
+    placement.place(new Map([['a', { x: 0, y: 0, z: 10 }]]), 0.5)
+    expect(a.position.toArray()).toEqual([100, 0, 5])
+
+    // Placed again without a frame, it goes back to the origin, unturned.
+    placement.add('a', a)
+    placement.place(null, 0)
+    expect(a.position.toArray()).toEqual([0, 0, 0])
+    expect(a.quaternion.toArray()).toEqual([0, 0, 0, 1])
   })
 })

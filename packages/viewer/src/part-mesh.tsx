@@ -32,7 +32,7 @@ import { createPart, type PartDisplay } from './render/part.js'
 import { type SharpCornerOptions, sharpCornerKey } from './render/sharp-corners.js'
 import { type ThreadOptions, threadKey } from './render/threads.js'
 import { regionAdjacency } from './render/adjacency.js'
-import { type PartPick, buildPick, viewDirection } from './render/picking.js'
+import { type PartPick, buildPick, turnDirection, viewDirection } from './render/picking.js'
 import { readTarget } from './render/orbit-target.js'
 import { readPointer } from './render/pointer.js'
 import { useSectionStore, useViewerControls } from './viewer.js'
@@ -422,8 +422,11 @@ export const PartMesh = ({
 
     // The owner whose machining direction most nearly faces the viewer wins a
     // tie, so which reading a click means depends on where it was made from.
+    // The model's directions are in the mesh's frame, and the pick's normal in the world's: they
+    // differ for a part a collection places.
     const target = readTarget(controls)
-    const normal = event.face?.normal ?? UP
+    const turned = part.object.matrixWorld
+    const normal = turnDirection(event.face?.normal ?? UP, turned)
     const source = readPointer(event.nativeEvent)
 
     const pick = buildPick({
@@ -435,7 +438,7 @@ export const PartMesh = ({
       pointer: { clientX: source.clientX, clientY: source.clientY },
       activeDirection,
       doubled,
-      viewDirection: viewDirection(camera, target),
+      viewDirection: turnDirection(viewDirection(camera, target), turned, true),
       modifiers: {
         alt: source.altKey,
         ctrl: source.ctrlKey,

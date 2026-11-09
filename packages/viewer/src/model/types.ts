@@ -19,6 +19,18 @@ export interface Vec3 {
 }
 
 /**
+ * A right-handed placement, as a STEP `axis2_placement_3d`: its point `(x, y, z)` sits at
+ * `location + x·refDirection + y·(axis × refDirection) + z·axis`. Read as directions, not
+ * lengths: `axis` is normalised and `refDirection` projected square to it and normalised, so a
+ * non-unit or slightly skewed frame neither scales nor shears.
+ */
+export interface Axis2 {
+  readonly location: Vec3
+  readonly axis: Vec3
+  readonly refDirection: Vec3
+}
+
+/**
  * Opaque per-feature identity — 16 hex characters (64 bits).
  *
  * Never substitute an array position for this. The `features` array is not

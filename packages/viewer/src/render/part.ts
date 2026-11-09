@@ -48,6 +48,9 @@ const MAX_DEPTH_LAYER = 63
 /** The vertex attribute carrying each vertex's column in the state texture. */
 export const REGION_ATTRIBUTE = 'aRegion'
 
+/** Each geometry's live parts' region attributes, oldest first. */
+const regionAttributes = new WeakMap<BufferGeometry, Array<Float32BufferAttribute>>()
+
 /** How much of a painted region's color also lights it from within. */
 const EMISSIVE_MIX = 0.4
 
@@ -211,10 +214,11 @@ export function buildRegionAttribute(
  * loader's caller owns it, and a viewer destroying an object it was handed is a
  * good way to break a cache that is legitimately sharing it.
  *
- * Two parts on one geometry is still not a thing to *render*, but it is a state
- * that happens: a report changing identity rebuilds the part against the same
- * cached mesh, and for a moment both exist. So dispose removes the attribute
- * only if it is still the one this part set — see the note where it is built.
+ * Two parts on one geometry happen: a report changing identity rebuilds the
+ * part against the same cached mesh, and for a moment both exist, and a
+ * collection can draw one mesh at several placements. So dispose hands the
+ * attribute back to the latest part still on the geometry, and removes it only
+ * with the last — see the note where it is built.
  */
 export function createPart(
   model: PartModel,
@@ -239,6 +243,9 @@ export function createPart(
     1,
   )
   geometry.setAttribute(REGION_ATTRIBUTE, regionAttribute)
+  const sharing = regionAttributes.get(geometry) ?? []
+  sharing.push(regionAttribute)
+  regionAttributes.set(geometry, sharing)
 
   // One texel per region, plus the transparent slot. RGB is the paint color in
   // the renderer's working space; A is how much of it shows.
@@ -665,9 +672,17 @@ export function createPart(
     dispose() {
       object.clear()
       // Only what this part put there. Another may have taken the geometry over
-      // in the meantime — see the note where the attribute is built.
+      // in the meantime — see the note where the attribute is built — and one
+      // still drawing it gets its own back.
+      const held = sharing.indexOf(regionAttribute)
+      if (held >= 0) sharing.splice(held, 1)
       if (geometry.getAttribute(REGION_ATTRIBUTE) === regionAttribute) {
-        geometry.deleteAttribute(REGION_ATTRIBUTE)
+        const latest = sharing.at(-1)
+        if (latest) {
+          geometry.setAttribute(REGION_ATTRIBUTE, latest)
+        } else {
+          geometry.deleteAttribute(REGION_ATTRIBUTE)
+        }
       }
       material.dispose()
       focusMaterial.dispose()

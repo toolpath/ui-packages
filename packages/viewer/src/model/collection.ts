@@ -1,9 +1,12 @@
 import { Box3, type BufferGeometry, Vector3 } from 'three'
-import type { Vec3 } from './types.js'
+import { placementMatrix } from './placement.js'
+import type { Axis2, Vec3 } from './types.js'
 
 interface CollectionBody {
   id: string
   geometry: BufferGeometry
+  /** Where the geometry is drawn, as `PartCollectionItem.placement`. Omitted, where it lies. */
+  placement?: Axis2
 }
 
 export interface CollectionBoundsOptions {
@@ -165,7 +168,11 @@ const overlapInterval = (
   return from < to ? [from, to] : null
 }
 
-/** Each item's own bounds, in order, refusing two items with one id. */
+/**
+ * Each item's own bounds where it is drawn, in order, refusing two items with one id. A placed
+ * item's box is its geometry's box carried by the placement, as three.js measures a transformed
+ * mesh, so the bounds agree with the viewer's framing.
+ */
 const measureBodies = (
   items: ReadonlyArray<CollectionBody>,
 ): Array<{ id: string; bounds: Box3 }> => {
@@ -178,6 +185,8 @@ const measureBodies = (
     if (!item.geometry.boundingBox) {
       item.geometry.computeBoundingBox()
     }
-    return { id: item.id, bounds: item.geometry.boundingBox?.clone() ?? new Box3() }
+    const bounds = item.geometry.boundingBox?.clone() ?? new Box3()
+    const matrix = placementMatrix(item.placement)
+    return { id: item.id, bounds: matrix ? bounds.applyMatrix4(matrix) : bounds }
   })
 }

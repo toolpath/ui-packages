@@ -231,6 +231,7 @@ export {
 export type { BuildPickInput, PartPick, PickModifiers, PointerLocation } from './render/picking.js'
 export type { ViewerControls, ViewerHandle, ViewerView } from './types.js'
 export type {
+  Axis2,
   FeatureTag,
   FeatureType,
   KnownFeatureType,

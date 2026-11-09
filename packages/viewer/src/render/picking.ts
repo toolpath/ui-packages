@@ -1,4 +1,4 @@
-import type { Camera, Vector3 } from 'three'
+import { Matrix3, Vector3, type Camera, type Matrix4 } from 'three'
 import type { FeatureTag, PartModel, Vec3 } from '../model/types.js'
 import { bestOwner, rankOwners } from './selection.js'
 import type { SharpCorner } from './sharp-corners.js'
@@ -94,6 +94,24 @@ export function viewDirection(camera: Camera, target: Vector3): Vec3 {
 
   if (length === 0) return { x: 0, y: 0, z: 1 }
   return { x: dx / length, y: dy / length, z: dz / length }
+}
+
+const IDENTITY = new Matrix3()
+
+/**
+ * Turns a mesh's surface normal into the world, or a world direction, such as the view, into the
+ * mesh's frame (`toMesh`), by `matrixWorld`. Returned as it is when the mesh is not turned,
+ * so an unplaced part's pick is exactly what its mesh reports.
+ */
+export const turnDirection = (direction: Vec3, matrixWorld: Matrix4, toMesh = false): Vec3 => {
+  const turn = toMesh
+    ? new Matrix3().setFromMatrix4(matrixWorld).invert()
+    : new Matrix3().getNormalMatrix(matrixWorld)
+  if (turn.equals(IDENTITY)) return direction
+  const { x, y, z } = new Vector3(direction.x, direction.y, direction.z)
+    .applyMatrix3(turn)
+    .normalize()
+  return { x, y, z }
 }
 
 export interface BuildPickInput {

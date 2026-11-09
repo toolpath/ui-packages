@@ -7,13 +7,13 @@ import {
   Group,
   LineBasicMaterial,
   LineSegments,
-  Matrix4,
   Mesh,
   MeshLambertMaterial,
   Quaternion,
   Vector3,
 } from 'three'
-import type { Vec3 } from '../model/types.js'
+import { axis2Matrix } from '../model/placement.js'
+import type { Axis2, Vec3 } from '../model/types.js'
 import { STOCK_OBJECT } from './camera.js'
 import {
   SYNC_EDGE_TRIANGLES,
@@ -56,7 +56,7 @@ export interface CylinderStockFigure {
  */
 export interface BoxStockFigure {
   /** Omit for a box whose corners are already in part coordinates. */
-  frame?: { location: Vec3; axis: Vec3; refDirection: Vec3 }
+  frame?: Axis2
   lower: Vec3
   upper: Vec3
 }
@@ -264,24 +264,17 @@ export function orientedBoxStockGeometry(figure: BoxStockFigure): BufferGeometry
   if (size.toArray().some((value) => !(value > 0))) {
     throw new RangeError('Box stock upper corner must be above its lower corner on every axis.')
   }
-  // Directions, not lengths: as in a STEP placement, the axis is normalised and
-  // the reference direction is projected square to it, so a non-unit or
-  // slightly skewed frame neither scales nor shears the block.
-  const z = new Vector3(axis.x, axis.y, axis.z).normalize()
-  const x = new Vector3(refDirection.x, refDirection.y, refDirection.z)
-  const reference = x.length()
-  x.addScaledVector(z, -x.dot(z))
-  // Projection leaves float noise, not zero, when the two are parallel.
-  if (!(z.lengthSq() > 0 && x.length() > 1e-9 * reference)) {
+  // Directions, not lengths, so a non-unit or slightly skewed frame neither
+  // scales nor shears the block.
+  const matrix = axis2Matrix(frame)
+  if (!matrix) {
     throw new RangeError(
       'Box stock frame axis and reference direction must be non-zero and not parallel.',
     )
   }
-  x.normalize()
-  const y = new Vector3().crossVectors(z, x)
   return new BoxGeometry(size.x, size.y, size.z)
     .translate((lower.x + upper.x) / 2, (lower.y + upper.y) / 2, (lower.z + upper.z) / 2)
-    .applyMatrix4(new Matrix4().makeBasis(x, y, z).setPosition(location.x, location.y, location.z))
+    .applyMatrix4(matrix)
 }
 
 /** Per-side allowance and centre offset in millimetres, in the part's coordinates. */

@@ -217,4 +217,22 @@ describe('createPart — framing and teardown', () => {
     newer.dispose()
     expect(geometry.hasAttribute(REGION_ATTRIBUTE)).toBe(false)
   })
+
+  /** A collection drawing one mesh at two placements drops either copy first. */
+  it('hands the attribute back to an older part still drawing the geometry', async () => {
+    const { model, part } = await loadCube()
+    const geometry = part.mesh.geometry
+    const older = geometry.getAttribute(REGION_ATTRIBUTE)
+
+    const newer = createPart(model, geometry, DEFAULT_THEME)
+    newer.dispose()
+    newer.dispose()
+
+    expect(geometry.getAttribute(REGION_ATTRIBUTE)).toBe(older)
+    part.paintRegion(0, HIGHLIGHT, 1)
+    expect(part.regionPaint(0)?.color).toBe(HIGHLIGHT)
+
+    part.dispose()
+    expect(geometry.hasAttribute(REGION_ATTRIBUTE)).toBe(false)
+  })
 })

@@ -1,5 +1,11 @@
 # @toolpath/viewer
 
+## 3.6.0
+
+### Minor Changes
+
+- 4408a40: `PartCollectionItem` takes an optional `placement`, an `Axis2` (`location`, `axis`, `refDirection`), so one part's geometry and model can be drawn at several placements, each as its own item. Bounds, `collectionExplodeOffsets`, explode, picks, hover, paint, section caps and framing follow each item's placement; explode offsets stay in the collection's frame. A pick's `normal` is now in world space for a part drawn turned, as documented, and its owner ranking reads the view in the part's own frame. Items without a placement draw as before. `Axis2` is exported, and box stock's `frame` takes the same type.
+
 ## 3.5.0
 
 ### Minor Changes

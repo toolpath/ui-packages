@@ -10,7 +10,8 @@ import { useFrame, useThree } from '@react-three/fiber'
 import type { Box3, Group } from 'three'
 import { collectionBounds, collectionExplodeOffsets } from './model/collection.js'
 import type { ExplodeAmount } from './model/explode-amount.js'
-import type { Vec3 } from './model/types.js'
+import { placementKey, placementMatrix } from './model/placement.js'
+import type { Axis2, Vec3 } from './model/types.js'
 import { PartMesh, type PartMeshProps } from './part-mesh.js'
 import type { PartPick } from './render/picking.js'
 import { CollectionBoundsContext, CollectionSectionsContext } from './collection-context.js'
@@ -26,6 +27,13 @@ import { useStableList } from './stable-list.js'
 export interface PartCollectionItem extends Omit<PartMeshProps, 'onPick' | 'onHover'> {
   /** Caller-owned identity, distinct even when two models share a part id. */
   id: string
+  /**
+   * Where the geometry is drawn: its point `p` at
+   * `location + p.x·refDirection + p.y·(axis × refDirection) + p.z·axis`, in the collection's
+   * frame. Omitted, it is drawn where it lies. Items may share one geometry and model at
+   * different placements, each picked, painted and cut as itself.
+   */
+  placement?: Axis2
 }
 
 /** Pulls a collection's items apart from one another, each item as one whole. */
@@ -71,7 +79,10 @@ export const PartCollection = ({
   // list. Hidden items count, so hiding one does not move the frame, grid or section.
   const measured = useStableList(
     items,
-    (held, next) => held.id === next.id && held.geometry === next.geometry,
+    (held, next) =>
+      held.id === next.id &&
+      held.geometry === next.geometry &&
+      placementKey(held.placement) === placementKey(next.placement),
   )
   const offsets = useOffsets(measured, explode)
   const bounds = useMemo(
@@ -84,11 +95,11 @@ export const PartCollection = ({
   return (
     <CollectionBoundsContext.Provider value={bounds}>
       <CollectionSectionsContext.Provider value={sections}>
-        {items.map(({ id, ...item }, index) => {
+        {items.map(({ id, placement: frame, ...item }, index) => {
           // Bodies that lie on one another settle in list order rather than fighting over pixels.
           const props = { ...item, depthLayer: item.depthLayer ?? index }
           return (
-            <PlacedItem key={id} id={id} placement={placement}>
+            <PlacedItem key={id} id={id} frame={frame} placement={placement}>
               <PartMesh
                 {...props}
                 onPick={onPick ? (pick) => onPick(id, pick) : undefined}
@@ -105,20 +116,26 @@ export const PartCollection = ({
 }
 
 /**
- * The group an item is moved by. Always there, so starting or ending an explosion does not
- * remount the item.
+ * The group an item is placed and moved by. Always there, so starting or ending an explosion,
+ * or giving or taking a placement, does not remount the item.
  */
 const PlacedItem = ({
   id,
+  frame,
   placement,
   children,
 }: {
   id: string
+  frame: Axis2 | undefined
   placement: CollectionPlacement
   children: ReactNode
 }) => {
   const group = useRef<Group>(null)
-  useLayoutEffect(() => placement.add(id, group.current!), [id, placement])
+  const key = placementKey(frame)
+  // Keyed by value, so a placement rebuilt with the same figures is not a change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const matrix = useMemo(() => placementMatrix(frame), [key])
+  useLayoutEffect(() => placement.add(id, group.current!, matrix), [id, matrix, placement])
   return <group ref={group}>{children}</group>
 }
 

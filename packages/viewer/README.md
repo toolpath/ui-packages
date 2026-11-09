@@ -705,6 +705,35 @@ To show a whole file and also one body as a part, switch between
 `ViewerHandle.fit()` after switching, since the viewer frames its first content
 only.
 
+To draw one body several times, as a file holding copies of one shape, give
+each copy its own item with its own `id`, the same `geometry` and `model`, and
+a `placement`: an `Axis2` of `location`, `axis` and `refDirection`, in
+millimetres in the collection's frame. A point `p` of the mesh is drawn at
+`location + p.x·refDirection + p.y·(axis × refDirection) + p.z·axis`; the axis
+is normalised and the reference direction projected square to it, so a frame
+neither scales nor shears, and one with a zero axis, a reference direction
+along it, or a non-finite value throws `RangeError`. Each copy is picked,
+hovered, painted and cut as itself: its picks report its `id`, a pick's `point`
+and `normal` are in the collection's frame, and its feature tags and region
+numbers are the shared model's. The shared bounds, `collectionBounds` and
+`collectionExplodeOffsets` measure each item where it is placed, so pass the
+placements to them too. An item without a `placement` is drawn where its mesh
+lies. Copies are separate meshes rather than one instanced mesh, which suits a
+handful of them.
+
+```tsx
+// placements: the Axis2 of each copy of one body, the first the identity
+const copies = placements.map((placement, k) => ({
+  id: `${partId}#${k}`,
+  model,
+  geometry,
+  placement,
+}))
+return <PartCollection items={copies} onPick={(id, pick) => inspect(id, pick)} />
+```
+
+MeasureTool snaps to the first item drawing a shared geometry, so measuring on another copy may snap to the first; draw measured parts unshared.
+
 To pull the bodies apart so each one can be seen, pass `explode={{ amount }}`.
 Each item moves as a whole, with its edges, paint, threads and children, by its
 offset times the amount; picks, hover, and the section cap follow it. The
