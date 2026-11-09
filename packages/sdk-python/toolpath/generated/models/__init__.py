@@ -41,6 +41,8 @@ from .file_body_bounding_box import FileBodyBoundingBox
 from .file_mesh_response import FileMeshResponse
 from .file_response import FileResponse
 from .file_shape import FileShape
+from .file_shape_placement import FileShapePlacement
+from .file_shape_placement_placement import FileShapePlacementPlacement
 from .file_thumbnail import FileThumbnail
 from .file_thumbnails_response import FileThumbnailsResponse
 from .fixed_box_stock import FixedBoxStock
@@ -366,6 +368,8 @@ __all__ = (
     "FileMeshResponse",
     "FileResponse",
     "FileShape",
+    "FileShapePlacement",
+    "FileShapePlacementPlacement",
     "FileThumbnail",
     "FileThumbnailsResponse",
     "FixedBoxStock",

@@ -1,5 +1,41 @@
 # @toolpath/api
 
+## 0.20.0
+
+### Minor Changes
+
+- 01ca5bb: Regenerate the TypeScript SDK for Engine API 1.44.0.
+
+  ### Engine API 1.44.0
+
+  A file's shapes say where each copy sits. **Inspect a file** now reads a file's copies from its own
+  assemblies: a body an assembly places more than once is one shape, with a placement for each.
+
+  **Files** (experimental):
+
+  - `FileShape.placements` on `GET /v1/files/{id}` and `POST /v1/files/{id}/parts`: one
+    `FileShapePlacement` per copy, `{ body, placement }`. `placement` is a frame, absolute, in the
+    file's coordinates and in mm, that carries a point of `body`, as **Get file mesh** draws it, to
+    where the copy sits. Each is one of the file's own assembly placements, in the file's order, so
+    always a rotation and a translation, never a mirror image or a scale. The first is where the body
+    was loaded, at the identity.
+  - `FileShape.count` is the length of `placements`, so it now counts a body an assembly places more
+    than once once for each placement. It was one for each body.
+  - Behaviour change: `FileBody.shape` is now each body's own `index`, and each shape has one body.
+    Bodies modelled separately are separate shapes, however alike: three identical inserts modelled
+    side by side are three shapes of `count` 1, where they were grouped as one shape of `count` 3 by
+    their mass properties. A mirror image or a scaled copy of a body is never the same shape.
+
+  Known limits:
+
+  - Copies are only those the file's assemblies place. Identical bodies modelled separately are not
+    matched, so a quote reads each as its own shape.
+  - `placements` lists every copy inline, with no pagination, however many copies a file holds.
+
+  Files inspected before this release are not re-read: their shapes and counts are as they were,
+  grouped by mass properties, and each of a shape's bodies is listed once in `placements`, at the
+  identity placement of its own `body`.
+
 ## 0.19.0
 
 ### Minor Changes

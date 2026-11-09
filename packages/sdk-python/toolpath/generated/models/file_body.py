@@ -27,11 +27,13 @@ class FileBody:
         shape (int): **Experimental.** Available now and still gaining functionality. It may change in breaking ways in
             a minor API release; each such change is listed in the release notes, so check them before upgrading.
 
-            The shape this body is: the `index` of the lowest-indexed body of the file it matches, in any position and
-            orientation, and its own `index` when it is the first. Bodies are matched on volume, surface area, face count,
-            mass distribution and handedness, not exact geometry, so some different bodies match: a hole pattern rotated on
-            a symmetric plate, or a near-symmetric part and its mirror image. One part of a shape can be quoted by its
-            `count`.
+            The shape this body is: its own `index`. Copies come only from the file’s own assemblies: a body an assembly
+            places more than once is one shape with a placement for each (`FileShape.placements`). Bodies modelled
+            separately are separate shapes, however alike, and a mirror image or a scaled copy is never the same shape. On a
+            file inspected before placements were reported, it is the `index` of the lowest-indexed body it matched on
+            volume, surface area, face count, mass distribution and handedness, in any position and orientation — not exact
+            geometry, so some different bodies matched: a hole pattern rotated on a symmetric plate, or a near-symmetric
+            part and its mirror image. One part of a shape can be quoted by its `count`.
         has_thumbnail (bool): Whether the inspection stored a thumbnail of this body, listed by **Get file thumbnails**
             (`GET /v1/files/{id}/thumbnails`). Rendering is best-effort, so a body can have none, and a file inspected
             before thumbnails has none for any body. Only the first 200 bodies of a file are rendered.
