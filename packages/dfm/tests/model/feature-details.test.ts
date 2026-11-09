@@ -102,6 +102,41 @@ describe('featureMeasurements: measurements against machining considerations', (
   })
 })
 
+describe('featureMeasurements: a thread', () => {
+  it('gives a tapped hole’s thread its size and pitch, and a stud’s says it is external', () => {
+    const hole = feature('h', { featureType: 'threaded_blind_hole' })
+    const stud = feature('s', { featureType: 'circular_wall' })
+    const tapped = rowsOf(hole, {
+      h: { kind: 'Hole', threading: { basicDiameter: 6, threadPitch: 1 } },
+    })
+    const threaded = rowsOf(stud, {
+      s: {
+        kind: 'CircularWall',
+        threading: { basicDiameter: 10, threadPitch: 1.5, external: true },
+      },
+    })
+    expect(byKey(tapped, 'thread')).toMatchObject({ label: 'Thread', value: '6 mm × 1 mm pitch' })
+    expect(byKey(threaded, 'thread')).toMatchObject({
+      label: 'Thread',
+      value: '10 mm × 1.5 mm pitch, external',
+    })
+    expect(byKey(threaded, 'thread')?.derivation).toContain('facts.threading.spec.side = External')
+  })
+
+  it('says a left-hand thread is left-hand, a hole’s or a stud’s', () => {
+    const hole = feature('h', { featureType: 'threaded_blind_hole' })
+    const stud = feature('s', { featureType: 'circular_wall' })
+    const left = { basicDiameter: 10, threadPitch: 1.5, leftHand: true as const }
+    const tapped = rowsOf(hole, { h: { kind: 'Hole', threading: left } })
+    const threaded = rowsOf(stud, {
+      s: { kind: 'CircularWall', threading: { ...left, external: true } },
+    })
+    expect(byKey(tapped, 'thread')?.value).toBe('10 mm × 1.5 mm pitch, left-hand')
+    expect(byKey(threaded, 'thread')?.value).toBe('10 mm × 1.5 mm pitch, external, left-hand')
+    expect(byKey(tapped, 'thread')?.derivation).toContain('facts.threading.spec.handedness = Left')
+  })
+})
+
 describe('featureMeasurements: an undercut', () => {
   const tslot = feature('t', { featureType: 'undercut_filleted_tslot' })
   // A wall reading on the slot's cutter band, as `featureSheet` makes for a slot with walls.

@@ -443,13 +443,20 @@ export const featureMeasurements = ({
     })
   }
   if (sheet?.threading) {
+    // What sets a thread apart from the usual one, a right-hand thread in a hole: a stud's is on
+    // the outside of it, and a left-hand one needs a left-hand tap or a thread mill run the other
+    // way.
+    const external = sheet.threading.external === true
+    const leftHand = sheet.threading.leftHand === true
     rows.push({
       key: 'thread',
       label: 'Thread',
-      value: `${formatLength(sheet.threading.basicDiameter, units, inchMark)} × ${formatLength(sheet.threading.threadPitch, units, inchMark)} pitch`,
+      value: `${formatLength(sheet.threading.basicDiameter, units, inchMark)} × ${formatLength(sheet.threading.threadPitch, units, inchMark)} pitch${external ? ', external' : ''}${leftHand ? ', left-hand' : ''}`,
       derivation: [
         `facts.threading.spec.basicDiameter = ${mm(sheet.threading.basicDiameter)}`,
         `facts.threading.spec.threadPitch = ${mm(sheet.threading.threadPitch)}`,
+        ...(external ? ['facts.threading.spec.side = External'] : []),
+        ...(leftHand ? ['facts.threading.spec.handedness = Left'] : []),
       ],
     })
   }

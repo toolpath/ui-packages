@@ -1,5 +1,15 @@
 # @toolpath/viewer
 
+## 3.7.0
+
+### Minor Changes
+
+- fb3fc7c: `threadMark` reads a stud's thread off its circular wall's datasheet (`facts.threading`, an
+  external thread the Engine cut out of the mesh), as it reads a tapped hole's, so `threads` on
+  `<PartMesh>` draws threaded studs too. A cylinder among the mark's regions wider than
+  `majorDiameter`, a stud's shoulder as a hole's counterbore, stays plain. On a stud the silhouette
+  stays round. The Threads tool's note now names holes and studs.
+
 ## 3.6.0
 
 ### Minor Changes

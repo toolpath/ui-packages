@@ -186,7 +186,7 @@ const SCRIPTS: Record<RuleProcess, PromptScript> = {
       '### Round 3 — drilling (holes, threads, countersinks)',
       '10. The smallest drill they stock: `hole` with `diameter` below it. Whether they want holes that have no drill fit, so must be milled, called out: `hole` with `maxDrill` at 0.',
       '11. The depth-to-diameter ratio where holes get hard, and where they need gun drilling or a second setup: two bands of `hole` with `ld`, usually looser than milled work.',
-      '12. Threads: the smallest thread they tap (`hole` with `threadDiameter` below it), and whether every threaded hole should be marked (`threadedHole` with `present`).',
+      '12. Threads: the smallest thread they tap (`hole` with `threadDiameter` below it), the finest pitch they cut (`thread` with `threadPitch` below it, holes and studs alike), and whether every threaded hole should be marked (`threadedHole` with `present`), or every thread, on studs too (`thread` with `present`).',
       '13. Countersinks and counterbores: whether to call out countersinks (`chamfer` with `countersink`) or counterbored holes (`hole` with `counterbore`).',
       '',
       '### Round 4 — closing',

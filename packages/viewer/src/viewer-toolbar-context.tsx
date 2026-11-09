@@ -35,7 +35,7 @@ export interface ViewerToolbarControls {
   dfm?: ViewerToolbarControl
   /** The DFM rules' sharp corners, drawn on the part: see `sharpCorners` on `<PartMesh>`. */
   sharpCorners?: ViewerToolbarControl
-  /** Threads drawn in their holes: see `threads` on `<PartMesh>`. */
+  /** Threads drawn on their holes and studs: see `threads` on `<PartMesh>`. */
   threads?: ViewerToolbarControl
   hover?: ViewerToolbarControl
   focus?: ViewerToolbarControl

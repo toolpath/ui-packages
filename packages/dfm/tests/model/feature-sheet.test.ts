@@ -155,6 +155,50 @@ describe('featureSheet: the figures the rules read', () => {
     expect(featureSheet(circular(true))).toEqual({ kind: 'CircularWall', standsOnAFloor: true })
     expect(featureSheet(circular(false))).toEqual({ kind: 'CircularWall' })
   })
+
+  it('gives a stud the external thread its circular wall carries', () => {
+    const stud = {
+      facts: {
+        kind: 'CircularWall',
+        diameter: 10,
+        standsOnAFloor: true,
+        threading: {
+          spec: { side: 'External', basicDiameter: 10, threadPitch: 1.5, handedness: 'Right' },
+          process: 'ThreadMill',
+        },
+      },
+    }
+    expect(featureSheet(stud)).toEqual({
+      kind: 'CircularWall',
+      standsOnAFloor: true,
+      threading: { basicDiameter: 10, threadPitch: 1.5, external: true },
+    })
+  })
+
+  it('says a left-hand thread is left-hand, and a right-hand one nothing', () => {
+    const threading = (handedness?: string) => ({
+      spec: { basicDiameter: 10, threadPitch: 1.5, side: 'External', handedness },
+    })
+    const sheetOf = (handedness?: string) =>
+      featureSheet({ facts: { kind: 'CircularWall', threading: threading(handedness) } }).threading
+    expect(sheetOf('Left')).toEqual({
+      basicDiameter: 10,
+      threadPitch: 1.5,
+      external: true,
+      leftHand: true,
+    })
+    expect(sheetOf('Right')).toEqual({ basicDiameter: 10, threadPitch: 1.5, external: true })
+    expect(sheetOf()).toEqual({ basicDiameter: 10, threadPitch: 1.5, external: true })
+  })
+
+  it('reads a thread off a hole or a circular wall only, and a hole’s as internal', () => {
+    const threading = { spec: { side: 'Internal', basicDiameter: 6, threadPitch: 1 } }
+    expect(featureSheet({ facts: { kind: 'Hole', threading } }).threading).toEqual({
+      basicDiameter: 6,
+      threadPitch: 1,
+    })
+    expect(featureSheet({ facts: { kind: 'Pocket', threading } }).threading).toBeUndefined()
+  })
 })
 
 describe('featureSheet: an undercut’s own figures', () => {

@@ -6,6 +6,7 @@ import {
   withSurroundedFaces,
   type DfmSources,
 } from '../../src/model/dfm-flags.js'
+import { metricsForSubject } from '../../src/model/dfm-metrics.js'
 import { RULE_COLORS, type DfmRule } from '../../src/model/dfm-rules.js'
 import { featureSheet, type FeatureSheets } from '../../src/model/feature-sheet.js'
 import type { DfmFeature } from '../../src/model/geometry.js'
@@ -154,6 +155,46 @@ describe('which features a subject names', () => {
     expect(named('type:circular_wall')).toEqual(['stud', 'outline', 'unread'])
     // Its diameter is the cylinder's, not a bore: a stud is milled.
     expect(named('drilled')).toEqual([])
+  })
+
+  it('names a threaded stud a thread but not a threaded hole, and reads its pitch', () => {
+    const features = [
+      feature('tapped', { featureType: 'threaded_blind_hole', regionIdxs: [0] }),
+      feature('stud', { featureType: 'circular_wall', regionIdxs: [1] }),
+      feature('plain', { featureType: 'circular_wall', regionIdxs: [2] }),
+    ]
+    const thread = (side: string, basicDiameter: number, threadPitch: number) => ({
+      spec: { side, basicDiameter, threadPitch },
+      process: side === 'External' ? 'ThreadMill' : 'CutTap',
+    })
+    const sources = sourcesOf({
+      tapped: hole({}, { threading: thread('Internal', 6, 1) }),
+      stud: {
+        facts: {
+          kind: 'CircularWall',
+          standsOnAFloor: true,
+          threading: thread('External', 3, 0.35),
+        },
+      },
+      plain: { facts: { kind: 'CircularWall', standsOnAFloor: true } },
+    })
+    const named = (subject: string): string[] =>
+      caught(features, sources, [rule({ subject })])[0] ?? []
+    expect(named('threadedHole')).toEqual(['tapped'])
+    expect(named('thread')).toEqual(['tapped', 'stud'])
+    const fine = rule({ subject: 'thread', metric: 'threadPitch', op: 'lte', value: 0.5 })
+    expect(caught(features, sources, [fine])[0]).toEqual(['stud'])
+  })
+
+  it('offers a thread or a boss the thread measures, but a stud’s no thread percentage', () => {
+    const keys = (subject: string) => metricsForSubject(subject).map((each) => each.key)
+    expect(keys('thread')).toEqual(
+      expect.arrayContaining(['threaded', 'threadPitch', 'threadDiameter']),
+    )
+    expect(keys('boss')).toEqual(expect.arrayContaining(['threaded', 'threadPitch']))
+    expect(keys('boss')).not.toContain('threadPercentage')
+    expect(keys('threadedHole')).toContain('threadPercentage')
+    expect(keys('pocket')).not.toContain('threadPitch')
   })
 })
 

@@ -14,13 +14,19 @@ import { buildRegionIndex } from '../src/model/region-index.js'
 import type { PartModel, PartModelFeature, PartModelRegion } from '../src/model/types.js'
 import { buildRegionTexels, createPart } from '../src/render/part.js'
 import { DEFAULT_THEME } from '../src/render/theme.js'
-import { type ThreadOptions, fitBore, threadKey, writeThreadTexels } from '../src/render/threads.js'
+import {
+  type ThreadOptions,
+  fitCylinder,
+  threadKey,
+  writeThreadTexels,
+} from '../src/render/threads.js'
 
 /**
- * A tapped hole arrives as a plain bore, so the thread is drawn from a fit of
- * the bore's own facets. What is checked here is that fit, which regions of a
- * hole it accepts, what reaches the texture the shader reads, and how a
- * datasheet becomes a mark.
+ * A tapped hole arrives as a plain bore, and a threaded stud as a plain
+ * cylinder, so the thread is drawn from a fit of the cylinder's own facets.
+ * What is checked here is that fit, which regions of a hole or a stud it
+ * accepts, what reaches the texture the shader reads, and how a datasheet
+ * becomes a mark.
  */
 
 const SEGMENTS = 12
@@ -78,6 +84,19 @@ const cylinder = (
 const cone = (origin: Vector3, axis: Vector3, radius: number, from: number, to: number) =>
   revolve(origin, axis, () => [radius, 0, from, to])
 
+/** The same triangles wound the other way, so each facet faces the other side. */
+const flipped = (values: number[]): number[] => {
+  const flip: number[] = []
+  for (let first = 0; first < values.length; first += 9) {
+    flip.push(
+      ...values.slice(first, first + 3),
+      ...values.slice(first + 6, first + 9),
+      ...values.slice(first + 3, first + 6),
+    )
+  }
+  return flip
+}
+
 function geometryOf(...parts: number[][]): BufferGeometry {
   const geometry = new BufferGeometry()
   geometry.setAttribute('position', new Float32BufferAttribute(parts.flat(), 3))
@@ -87,31 +106,31 @@ function geometryOf(...parts: number[][]): BufferGeometry {
 const ORIGIN = new Vector3(10, -4, 2)
 const AXIS = new Vector3(1, 2, 2).normalize()
 
-/**
- * A tapped M6 hole: the bore (region 0), its drill point (1), and a 10 mm
- * counterbore over it (2) — one feature over all three.
- */
-function tappedHole(): { model: PartModel; geometry: BufferGeometry; feature: PartModelFeature } {
-  const bore = cylinder(ORIGIN, AXIS, 2.5, 0, 12)
-  const point = cone(ORIGIN, AXIS, 2.5, 0, -1.5)
-  const counterbore = cylinder(ORIGIN, AXIS, 5, 12, 16)
+interface OneFeature {
+  model: PartModel
+  geometry: BufferGeometry
+  feature: PartModelFeature
+}
+
+/** A part of one feature over every region, each region one of `regions`' triangle lists. */
+function oneFeature(partId: string, featureType: string, regions: number[][]): OneFeature {
   const triangles = (values: number[]) => values.length / 9
 
   let start = 0
-  const table: PartModelRegion[] = [bore, point, counterbore].map((values, idx) => {
+  const table: PartModelRegion[] = regions.map((values, idx) => {
     const range = { start, end: start + triangles(values) }
     start = range.end
     return { idx, splitOrigin: idx, shapeKind: 'Cylinder', area: 1, triangles: range }
   })
   const feature: PartModelFeature = {
     tag: '00000000000000aa',
-    featureType: 'ThreadedBlindHole',
+    featureType,
     machiningDirection: { x: 0, y: 0, z: 1 },
     axis: null,
-    regionIdxs: [0, 1, 2],
+    regionIdxs: table.map((region) => region.idx),
   }
   const model: PartModel = {
-    partId: 'tapped',
+    partId,
     kernelVersion: '0.28.0',
     features: [feature],
     regions: table,
@@ -127,8 +146,31 @@ function tappedHole(): { model: PartModel; geometry: BufferGeometry; feature: Pa
     warnings: [],
   }
 
-  return { model, geometry: geometryOf(bore, point, counterbore), feature }
+  return { model, geometry: geometryOf(...regions), feature }
 }
+
+/**
+ * A tapped M6 hole: the bore (region 0), its drill point (1), and a 10 mm
+ * counterbore over it (2) — one feature over all three.
+ */
+const tappedHole = (): OneFeature =>
+  oneFeature('tapped', 'ThreadedBlindHole', [
+    cylinder(ORIGIN, AXIS, 2.5, 0, 12),
+    cone(ORIGIN, AXIS, 2.5, 0, -1.5),
+    cylinder(ORIGIN, AXIS, 5, 12, 16),
+  ])
+
+/**
+ * An M10 stud, its facets facing out: the threaded cylinder at its major
+ * diameter (region 0), the chamfer at its end (1), and a 16 mm shoulder it
+ * stands on (2) — one feature over all three.
+ */
+const threadedStud = (): OneFeature =>
+  oneFeature('stud', 'CircularWall', [
+    flipped(cylinder(ORIGIN, AXIS, 5, 0, 15)),
+    flipped(cone(ORIGIN, AXIS, 5, 15, 16)),
+    flipped(cylinder(ORIGIN, AXIS, 8, -4, 0)),
+  ])
 
 const M6: ThreadOptions = { threads: [{ regions: [0, 1, 2], pitch: 1, majorDiameter: 6 }] }
 
@@ -137,42 +179,54 @@ function distanceToAxis(point: Vector3): number {
   return offset.sub(AXIS.clone().multiplyScalar(offset.dot(AXIS))).length()
 }
 
-describe('fitBore', () => {
+describe('fitCylinder', () => {
   const rangeOf = (geometry: BufferGeometry) => [
     { start: 0, end: geometry.getAttribute('position').count / 3 },
   ]
 
-  it('finds a tilted bore’s axis, a point on it, and its radius', () => {
+  it('finds a tilted cylinder’s axis, a point on it, and its radius', () => {
     const geometry = geometryOf(cylinder(ORIGIN, AXIS, 3, 0, 8))
-    const bore = fitBore(geometry.getAttribute('position'), rangeOf(geometry))
+    const fit = fitCylinder(geometry.getAttribute('position'), rangeOf(geometry))
 
-    expect(bore).not.toBeNull()
-    expect(Math.abs(bore!.axis.dot(AXIS))).toBeCloseTo(1, 5)
-    expect(distanceToAxis(bore!.origin)).toBeCloseTo(0, 4)
+    expect(fit).not.toBeNull()
+    expect(Math.abs(fit!.axis.dot(AXIS))).toBeCloseTo(1, 5)
+    expect(distanceToAxis(fit!.origin)).toBeCloseTo(0, 4)
     // Through the triangles' centres: inside the circle, outside its facets' midpoints.
-    expect(bore!.radius).toBeLessThan(3)
-    expect(bore!.radius).toBeGreaterThan(3 * FACET_MIDPOINT)
+    expect(fit!.radius).toBeLessThan(3)
+    expect(fit!.radius).toBeGreaterThan(3 * FACET_MIDPOINT)
   })
 
-  it('fits half a cylinder, as a split bore face comes', () => {
-    const geometry = geometryOf(cylinder(ORIGIN, AXIS, 3, 0, 8, 0.5))
-    const bore = fitBore(geometry.getAttribute('position'), rangeOf(geometry))
+  it('fits a stud as it fits a bore, whichever way its facets face', () => {
+    const inward = geometryOf(cylinder(ORIGIN, AXIS, 3, 0, 8))
+    const outward = geometryOf(flipped(cylinder(ORIGIN, AXIS, 3, 0, 8)))
+    const bore = fitCylinder(inward.getAttribute('position'), rangeOf(inward))
+    const stud = fitCylinder(outward.getAttribute('position'), rangeOf(outward))
 
-    expect(Math.abs(bore!.axis.dot(AXIS))).toBeCloseTo(1, 5)
-    expect(distanceToAxis(bore!.origin)).toBeCloseTo(0, 4)
+    expect(stud).not.toBeNull()
+    expect(Math.abs(stud!.axis.dot(bore!.axis))).toBeCloseTo(1, 6)
+    expect(stud!.origin.distanceTo(bore!.origin)).toBeCloseTo(0, 5)
+    expect(stud!.radius).toBeCloseTo(bore!.radius, 6)
+  })
+
+  it('fits half a cylinder, as a split bore or stud face comes', () => {
+    const geometry = geometryOf(cylinder(ORIGIN, AXIS, 3, 0, 8, 0.5))
+    const fit = fitCylinder(geometry.getAttribute('position'), rangeOf(geometry))
+
+    expect(Math.abs(fit!.axis.dot(AXIS))).toBeCloseTo(1, 5)
+    expect(distanceToAxis(fit!.origin)).toBeCloseTo(0, 4)
   })
 
   it('refuses a cone and a flat face', () => {
     const point = geometryOf(cone(ORIGIN, AXIS, 3, 0, -2))
     const floor = geometryOf([0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0])
 
-    expect(fitBore(point.getAttribute('position'), rangeOf(point))).toBeNull()
-    expect(fitBore(floor.getAttribute('position'), rangeOf(floor))).toBeNull()
+    expect(fitCylinder(point.getAttribute('position'), rangeOf(point))).toBeNull()
+    expect(fitCylinder(floor.getAttribute('position'), rangeOf(floor))).toBeNull()
   })
 
   it('reads nothing from no triangles', () => {
     const geometry = geometryOf([])
-    expect(fitBore(geometry.getAttribute('position'), [{ start: 0, end: 0 }])).toBeNull()
+    expect(fitCylinder(geometry.getAttribute('position'), [{ start: 0, end: 0 }])).toBeNull()
   })
 })
 
@@ -189,6 +243,21 @@ describe('writeThreadTexels', () => {
     const { data, width } = texels(M6)
 
     expect(data[3]).toBe(1)
+    expect(data[1 * 4 + 3]).toBe(0)
+    expect(data[2 * 4 + 3]).toBe(0)
+    expect(distanceToAxis(new Vector3(data[0], data[1], data[2]))).toBeCloseTo(0, 4)
+    const axis = new Vector3(data[width * 4], data[width * 4 + 1], data[width * 4 + 2])
+    expect(Math.abs(axis.dot(AXIS))).toBeCloseTo(1, 5)
+  })
+
+  it('threads a stud’s cylinder only: not its chamfer, and not a shoulder wider than the thread', () => {
+    const { model, geometry } = threadedStud()
+    const width = model.regions.length + 1
+    const data = new Float32Array(width * 2 * 4).fill(7)
+    const M10 = { threads: [{ regions: [0, 1, 2], pitch: 1.5, majorDiameter: 10 }] }
+    writeThreadTexels(data, width, geometry, model, buildRegionTexels(model), M10)
+
+    expect(data[3]).toBe(1.5)
     expect(data[1 * 4 + 3]).toBe(0)
     expect(data[2 * 4 + 3]).toBe(0)
     expect(distanceToAxis(new Vector3(data[0], data[1], data[2]))).toBeCloseTo(0, 4)
@@ -278,6 +347,29 @@ describe('threadMark', () => {
   it('reads a left-hand thread as a negative pitch', () => {
     const left = { ...spec, handedness: 'Left' }
     expect(threadMark(feature, hole({ spec: left, process: 'ThreadMill' }))?.pitch).toBe(-1)
+  })
+
+  it('reads a stud’s thread off its circular wall, left-hand as a negative pitch', () => {
+    const { feature: wall } = threadedStud()
+    const stud = (threading: unknown) => ({
+      featureType: 'CircularWall',
+      facts: { kind: 'CircularWall', standsOnAFloor: true, threading },
+    })
+    const external = {
+      side: 'External',
+      basicDiameter: 10,
+      threadPitch: 1.5,
+      maxMajorDiameter: 9.968,
+    }
+
+    expect(threadMark(wall, stud({ spec: external, process: 'ThreadMill' }))).toEqual({
+      regions: [0, 1, 2],
+      pitch: 1.5,
+      majorDiameter: 10,
+    })
+    const left = { ...external, handedness: 'Left' }
+    expect(threadMark(wall, stud({ spec: left, process: 'ThreadMill' }))?.pitch).toBe(-1.5)
+    expect(threadMark(wall, stud(undefined))).toBeNull()
   })
 
   it('reads nothing from a plain hole, another feature, or an unexpected shape', () => {

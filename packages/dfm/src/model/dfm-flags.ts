@@ -69,6 +69,9 @@ const featureIs = (
     case 'hole':
       return type.includes('hole') || kind === 'hole'
     case 'threadedHole':
+      return kind === 'hole' && sheet?.threading !== undefined
+    case 'thread':
+      // Any feature the model threads: a tapped hole, or a threaded stud.
       return sheet?.threading !== undefined
     case 'pocket':
       return type.includes('pocket') || kind === 'pocket'

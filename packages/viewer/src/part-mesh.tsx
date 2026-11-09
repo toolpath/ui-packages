@@ -152,10 +152,11 @@ export interface PartMeshProps {
    */
   sharpCorners?: SharpCornerOptions | null
   /**
-   * Draws threads into the bores they are cut in: each mark's pitch, as a
-   * helix of light and shade over the hole's cylinders. The Engine cuts a
-   * modeled internal thread out of the mesh, so without this a tapped hole is
-   * a plain bore. Off when omitted or `null`. See `threadMark` in `/engine`.
+   * Draws threads onto the holes and studs they are cut in: each mark's
+   * pitch, as a helix of light and shade over the feature's cylinders. The
+   * Engine cuts a modeled thread out of the mesh, so without this a tapped
+   * hole is a plain bore and a threaded stud a plain cylinder. Off when
+   * omitted or `null`. See `threadMark` in `/engine`.
    */
   threads?: ThreadOptions | null
   /** Wireframe shows region boundaries and any hovered/painted faces, with no triangle diagonals. */

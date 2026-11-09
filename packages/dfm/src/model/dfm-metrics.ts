@@ -1,5 +1,6 @@
 import { MM_PER_INCH } from '@toolpath/tool-support'
 import { directionLabel } from './direction-label.js'
+import { THREAD_KINDS } from './feature-sheet.js'
 import { featureTypeLabel, type DfmFeature } from './geometry.js'
 import type { TurnedFactsKind } from './turning-metrics.js'
 import type { Units } from './units.js'
@@ -621,8 +622,8 @@ export const FEATURE_METRICS: readonly DfmMetric[] = [
     op: 'gte',
     start: 0,
     path: 'facts.threading.spec.threadPitch',
-    kinds: ['Hole'],
-    hint: 'The model threads it',
+    kinds: THREAD_KINDS,
+    hint: 'The model threads it: a tapped hole, or a threaded stud',
   }),
   define({
     key: 'threadPitch',
@@ -632,7 +633,7 @@ export const FEATURE_METRICS: readonly DfmMetric[] = [
     op: 'lte',
     start: { mm: 0.5, inch: 0.4536 },
     path: 'facts.threading.spec.threadPitch',
-    kinds: ['Hole'],
+    kinds: THREAD_KINDS,
     hint: 'A modelled thread’s pitch (0.454 mm is 56 TPI)',
   }),
   define({
@@ -643,7 +644,7 @@ export const FEATURE_METRICS: readonly DfmMetric[] = [
     op: 'lte',
     start: { mm: 3, inch: 3.175 },
     path: 'facts.threading.spec.basicDiameter',
-    kinds: ['Hole'],
+    kinds: THREAD_KINDS,
     hint: 'The thread’s nominal major diameter',
   }),
   define({
@@ -654,7 +655,7 @@ export const FEATURE_METRICS: readonly DfmMetric[] = [
     op: 'lte',
     start: TOOL,
     path: 'facts.threading.spec.minMinorDiameter',
-    kinds: ['Hole'],
+    kinds: THREAD_KINDS,
     hint: 'The smallest minor diameter allowed',
   }),
   define({
@@ -665,7 +666,7 @@ export const FEATURE_METRICS: readonly DfmMetric[] = [
     op: 'lte',
     start: TOOL,
     path: 'facts.threading.spec.maxMinorDiameter',
-    kinds: ['Hole'],
+    kinds: THREAD_KINDS,
     hint: 'The largest minor diameter allowed',
   }),
   define({
@@ -676,7 +677,7 @@ export const FEATURE_METRICS: readonly DfmMetric[] = [
     op: 'lte',
     start: TOOL,
     path: 'facts.threading.spec.minMajorDiameter',
-    kinds: ['Hole'],
+    kinds: THREAD_KINDS,
     hint: 'The smallest major diameter allowed',
   }),
   define({
@@ -1019,6 +1020,7 @@ const GROUP_SUBJECTS: readonly DfmSubject[] = [
   { value: 'drilled', label: 'Drilled features', group: 'Groups', kinds: HOLE_KINDS },
   { value: 'hole', label: 'Holes', group: 'Groups', kinds: HOLE_KINDS },
   { value: 'threadedHole', label: 'Threaded holes', group: 'Groups', kinds: HOLE_KINDS },
+  { value: 'thread', label: 'Threads', group: 'Groups', kinds: THREAD_KINDS },
   { value: 'pocket', label: 'Pockets', group: 'Groups', kinds: POCKET_KINDS },
   { value: 'slot', label: 'Slots', group: 'Groups', kinds: UNDERCUT_KINDS },
   { value: 'undercut', label: 'Undercuts', group: 'Groups', kinds: UNDERCUT_KINDS },
@@ -1095,6 +1097,7 @@ export const QUICK_SUBJECTS: readonly string[] = [
   'milled',
   'hole',
   'threadedHole',
+  'thread',
   'countersink',
   'pocket',
   'boss',

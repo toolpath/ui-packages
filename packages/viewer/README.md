@@ -448,7 +448,7 @@ tag left out paints nothing; clear it in the app.
 | `opacity`                            | 0–1, default 1. Below 1 the part is see-through, drawn after solid parts; it still takes the pointer.                 |
 | `depthLayer`                         | 0–63, default 0. Where two parts' surfaces coincide, the lower layer is drawn.                                        |
 | `sharpCorners`                       | `{ features: tags }` for externally flagged features, or `null`.                                                      |
-| `threads`                            | `{ threads: marks }` to draw threads in their holes, or `null`. See "Showing threads".                                |
+| `threads`                            | `{ threads: marks }` to draw threads on their holes and studs, or `null`. See "Showing threads".                      |
 | `section`, `onSectionChange`         | Controlled section options and change reporting. Omit `section` to follow the viewer's section store.                 |
 | `onAdjacency`                        | Receive touching-region sets for the prepared mesh.                                                                   |
 | `theme`                              | Partial `ViewerTheme` for the part.                                                                                   |
@@ -1131,16 +1131,18 @@ web, and `labelClassName` on React Native.
 
 ### Showing threads
 
-The Engine cuts a modeled internal thread out of the mesh, so a tapped hole arrives as a
-plain bore. Pass `threads={{ threads: marks }}` to draw each thread back in as shading
-over its hole's cylinders, at its pitch and hand. Build a mark from a hole's Engine
-datasheet with `threadMark(feature, datasheet)` from `@toolpath/viewer/engine`; it is
-`null` unless the datasheet carries a thread, so only threads the Engine reports are
-drawn. A `ThreadMark` is `{ regions, pitch, majorDiameter }`: `pitch` is in mm and
-negative for a left-hand thread, and cylinders wider than `majorDiameter` (a counterbore)
-stay plain. The axis is fitted from the mesh, so marks need no coordinates. The datasheet
-gives no thread length, so a tap-drill section of the same bore below the thread is
-drawn threaded too.
+The Engine cuts a modeled thread out of the mesh, so a tapped hole arrives as a plain
+bore and a threaded stud as a plain cylinder. Pass `threads={{ threads: marks }}` to draw
+each thread back in as shading over its feature's cylinders, at its pitch and hand. Build
+a mark from a hole's or a circular wall's Engine datasheet with
+`threadMark(feature, datasheet)` from `@toolpath/viewer/engine`; it is `null` unless the
+datasheet carries a thread, so only threads the Engine reports are drawn. A `ThreadMark`
+is `{ regions, pitch, majorDiameter }`: `pitch` is in mm and negative for a left-hand
+thread, and cylinders wider than `majorDiameter` (a counterbore, or a stud's shoulder)
+stay plain. The axis is fitted from the mesh, so marks need no coordinates. Where a thread
+covers only part of a cylinder, the Engine reports each stretch as a feature of its own,
+so only the threaded stretch is drawn. The silhouette stays round: inside a bore it is
+out of sight, and on a stud it shows as a smooth edge.
 
 ### Showing sharp corners and tool marks
 

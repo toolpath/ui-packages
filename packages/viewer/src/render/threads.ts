@@ -7,32 +7,39 @@ import {
 import type { PartModel, TriangleRange } from '../model/types.js'
 
 /**
- * Threads drawn into the bores they are cut in.
+ * Threads drawn onto the cylinders they are cut in: a tapped hole's bore, or
+ * a stud.
  *
- * The kernel cuts a modeled internal thread out of the body before it meshes
- * it, so a tapped hole arrives as a plain bore. A displacement map cannot put
- * the thread back: it moves vertices, and wants UVs and a dense mesh, where
- * the Engine's has neither — a small bore is a handful of 30° facets. So the
+ * The kernel cuts a modeled thread out of the body before it meshes it, so a
+ * tapped hole arrives as a plain bore at the thread's minor diameter, and a
+ * stud as a plain cylinder at its major. A displacement map cannot put the
+ * thread back: it moves vertices, and wants UVs and a dense mesh, where the
+ * Engine's has neither — a small bore is a handful of 30° facets. So the
  * thread is drawn the way a bump map draws: the part's shader tilts each
- * pixel's normal along the bore's axis as a helix of the thread's pitch runs
- * past it, and the light falls as it would on the flanks of a real thread.
- * The silhouette stays round, which inside a bore nobody sees.
+ * pixel's normal along the cylinder's axis as a helix of the thread's pitch
+ * runs past it, and the light falls as it would on the flanks of a real
+ * thread. One tilt serves both sides: from root to crest a hole's wall closes
+ * on the axis as a stud's leaves it, and its normal faces the axis as a
+ * stud's faces away, so either flank turns the same way along the axis. The
+ * silhouette stays round, which inside a bore nobody sees, and which on a
+ * stud shows as a smooth edge.
  *
- * What the shader needs per region is the bore's axis, a point on it, and the
- * pitch. The pitch comes from the caller; the axis and the point are fitted
- * here from the region's own triangles, so the drawing sits on the mesh
- * exactly and needs nothing from the report it does not already carry.
+ * What the shader needs per region is the cylinder's axis, a point on it, and
+ * the pitch. The pitch comes from the caller; the axis and the point are
+ * fitted here from the region's own triangles, so the drawing sits on the
+ * mesh exactly and needs nothing from the report it does not already carry.
  */
 
-/** One thread to draw, on the faces of the hole it is cut in. */
+/** One thread to draw, on the faces of the hole or stud it is cut in. */
 export interface ThreadMark {
-  /** The regions of the threaded hole, as the report numbers them. */
+  /** The regions of the threaded hole or stud, as the report numbers them. */
   readonly regions: readonly number[]
   /** From one crest to the next, in mm. Negative for a left-hand thread. */
   readonly pitch: number
   /**
-   * The thread's major diameter, in mm. A cylinder of the hole wider than
-   * this — a counterbore — is not threaded, and is left plain.
+   * The thread's major diameter, in mm. A cylinder among the regions wider
+   * than this — a hole's counterbore, or a stud's shoulder — is not
+   * threaded, and is left plain.
    */
   readonly majorDiameter: number
 }
@@ -41,8 +48,8 @@ export interface ThreadOptions {
   readonly threads: readonly ThreadMark[]
 }
 
-/** A bore's centreline and size, fitted from its facets. */
-export interface FittedBore {
+/** A cylinder's centreline and size, fitted from its facets: a bore's, or a stud's. */
+export interface FittedCylinder {
   /** A point on the axis, at the middle of the facets along it. */
   readonly origin: Vector3
   /** Unit length; which of its two ways is arbitrary. */
@@ -61,8 +68,9 @@ const MAX_AXIAL_NORMAL = 0.2
 // Facets this far apart in direction are enough to cross into an axis.
 const MIN_AXIS_CROSS = 0.1
 
-// Facet centres sit inside the true circle (cos 15° for a 30° facet), and a
-// tap drill leaves the bore under the major diameter: both pass this slack.
+// Facet centres sit inside the true circle (cos 15° for a 30° facet), a tap
+// drill leaves a bore under the major diameter, and a stud is left at it: all
+// pass this slack.
 const DIAMETER_SLACK = 1.1
 
 type Positions = BufferAttribute | InterleavedBufferAttribute
@@ -129,7 +137,10 @@ function axisOf(facets: readonly Facet[]): Vector3 | null {
  * least-squares sense, to every facet's normal line — each of which passes
  * through the axis. `null` for anything that is not one cylinder.
  */
-export function fitBore(position: Positions, ranges: readonly TriangleRange[]): FittedBore | null {
+export function fitCylinder(
+  position: Positions,
+  ranges: readonly TriangleRange[],
+): FittedCylinder | null {
   const facets = facetsOf(position, ranges)
   const axis = axisOf(facets)
   if (!axis) return null
@@ -206,8 +217,8 @@ function threadedRanges(
     const range = model.regionIndex.rangeForRegion(region)
     if (!range) continue
 
-    const bore = fitBore(position, [range])
-    if (!bore || bore.radius * 2 > mark.majorDiameter * DIAMETER_SLACK) continue
+    const cylinder = fitCylinder(position, [range])
+    if (!cylinder || cylinder.radius * 2 > mark.majorDiameter * DIAMETER_SLACK) continue
 
     regions.push(region)
     ranges.push(range)
@@ -217,10 +228,10 @@ function threadedRanges(
 }
 
 /**
- * Fills the thread texture: for each threaded region's column, its bore's
+ * Fills the thread texture: for each threaded region's column, its cylinder's
  * origin and the pitch in row 0, and its axis in row 1. Every other column is
  * zero, which the shader reads as no thread. The regions of one mark share one
- * fit, so a bore split into two half cylinders draws one unbroken helix.
+ * fit, so a bore or stud split into two half cylinders draws one unbroken helix.
  */
 export function writeThreadTexels(
   data: Float32Array,
@@ -238,8 +249,8 @@ export function writeThreadTexels(
     if (!Number.isFinite(mark.pitch) || mark.pitch === 0) continue
 
     const { regions, ranges } = threadedRanges(position, model, mark)
-    const bore = fitBore(position, ranges)
-    if (!bore) continue
+    const cylinder = fitCylinder(position, ranges)
+    if (!cylinder) continue
 
     for (const region of regions) {
       const column = texels.get(region)
@@ -247,13 +258,13 @@ export function writeThreadTexels(
 
       const first = column * 4
       const second = (width + column) * 4
-      data[first] = bore.origin.x
-      data[first + 1] = bore.origin.y
-      data[first + 2] = bore.origin.z
+      data[first] = cylinder.origin.x
+      data[first + 1] = cylinder.origin.y
+      data[first + 2] = cylinder.origin.z
       data[first + 3] = mark.pitch
-      data[second] = bore.axis.x
-      data[second + 1] = bore.axis.y
-      data[second + 2] = bore.axis.z
+      data[second] = cylinder.axis.x
+      data[second + 1] = cylinder.axis.y
+      data[second + 2] = cylinder.axis.z
     }
   }
 }

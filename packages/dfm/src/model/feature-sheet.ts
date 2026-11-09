@@ -1,3 +1,4 @@
+import type { FactsKind } from './dfm-metrics.js'
 import { clearanceFit, readPinch, type ClearanceFit } from './pinch.js'
 
 /**
@@ -88,7 +89,7 @@ export interface FeatureSheet {
    * whatever its surface reading says.
    */
   unplannable?: true
-  /** For a hole the model threads: its thread. */
+  /** For a hole or a stud the model threads: its thread. */
   threading?: FeatureThreading
   /** For an undercut — a T-slot or a dovetail: what its cutter is held to. */
   undercut?: FeatureUndercut
@@ -126,10 +127,17 @@ export interface FeatureUndercut {
   unmeasured?: true
 }
 
-/** A modelled thread, from a hole's `facts.threading`. Millimetres. */
+/**
+ * A modelled thread, from a hole's or a circular wall's `facts.threading`.
+ * Millimetres.
+ */
 export interface FeatureThreading {
   basicDiameter: number
   threadPitch: number
+  /** A stud's thread, on the outside of its cylinder; left out for a hole's, inside it. */
+  external?: true
+  /** A left-hand thread (`spec.handedness`); left out for a right-hand one. */
+  leftHand?: true
 }
 
 /** Feature tag, lower-cased → its sheet. */
@@ -181,13 +189,29 @@ const undercutOf = (facts: Record<string, unknown>): FeatureUndercut | undefined
   return undefined
 }
 
-/** A hole's thread, where the model has one. */
+/**
+ * The datasheet kinds that carry a modelled thread: a hole, inside it, and a circular wall, a
+ * stud's, outside. The sheet reads a thread off these alone, and the thread measures are theirs.
+ */
+export const THREAD_KINDS: readonly FactsKind[] = ['Hole', 'CircularWall']
+
+/** A hole's or a stud's thread, where the model has one. */
 const threadingOf = (facts: Record<string, unknown>): FeatureThreading | undefined => {
+  if (!THREAD_KINDS.some((kind) => kind === facts.kind)) return undefined
   const spec = recordOf(recordOf(facts.threading).spec)
   const basicDiameter = asNumber(spec.basicDiameter)
   const threadPitch = asNumber(spec.threadPitch)
   if (basicDiameter === undefined || threadPitch === undefined || threadPitch <= 0) return undefined
-  return { basicDiameter, threadPitch }
+  // `side`, from Engine API 1.36.0: `External` on a stud, and left out or `Internal` in a hole.
+  const external = spec.side === 'External'
+  // `handedness`: absent, right-hand.
+  const leftHand = spec.handedness === 'Left'
+  return {
+    basicDiameter,
+    threadPitch,
+    ...(external ? { external: true as const } : {}),
+    ...(leftHand ? { leftHand: true as const } : {}),
+  }
 }
 
 /**
@@ -360,7 +384,7 @@ export const featureSheet = (datasheet: unknown): FeatureSheet => {
   const clearance = walled ? fit : undefined
   const cornerRadius = clearance ? insideCornerRadius(clearance) : undefined
   const sharp = cornerRadius !== undefined && cornerRadius < SHARP_RADIUS_MM && !cramped
-  const threading = kind === 'Hole' ? threadingOf(facts) : undefined
+  const threading = threadingOf(facts)
   const undercut = undercutOf(facts)
   const invalidGeometry = isInvalidGeometry(facts, datasheet)
   const unplannable = isUnplannable(facts, datasheet)

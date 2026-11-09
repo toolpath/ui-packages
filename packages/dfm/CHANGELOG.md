@@ -1,5 +1,19 @@
 # @toolpath/dfm
 
+## 1.5.0
+
+### Minor Changes
+
+- b0068c2: A stud's thread reads as a tapped hole's does. `featureSheet` fills `threading` from a circular
+  wall's `facts.threading`, with `external: true` where its `side` is `External`, and the feature
+  details' Thread row says "external". A sheet's `threading`, a hole's or a stud's, also carries
+  `leftHand: true` for a left-hand thread, so a viewer can draw one from the sheet alone, and the
+  Thread row says "left-hand". The thread measures (`threaded`, `threadPitch`, `threadDiameter`, and
+  the minor and major diameters) are offered for circular walls too, while `threadPercentage` stays
+  with holes, since a stud's thread reads none of it. A new `thread` subject, "Threads", names every
+  threaded feature, holes and studs, and is on the quick list. `threadedHole` now names holes only,
+  as it did before studs carried threads.
+
 ## 1.4.1
 
 ### Patch Changes

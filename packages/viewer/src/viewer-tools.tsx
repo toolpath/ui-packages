@@ -92,7 +92,7 @@ const GROUPS: ReadonlyArray<GroupEntry> = [
         label: 'Sharp corners',
         note: 'Mark the sharp inside corners the rules flag',
       },
-      { action: 'threads', label: 'Threads', note: 'Draw the threads in the tapped holes' },
+      { action: 'threads', label: 'Threads', note: 'Draw the threads on the holes and studs' },
       { action: 'hover', label: 'Hover details', note: 'Name the feature under the pointer' },
       {
         action: 'focus',
