@@ -29,6 +29,9 @@ await waitForJob(client, analysis.jobId, {
 const report = await client.parts.getPart({ id: part.partId, jobId: analysis.jobId })
 ```
 
+The client has one property for each generated API: `client.parts`, `client.jobs`, `client.files`
+for CAD files with several bodies, `client.plans`, `client.toolpaths` and the rest.
+
 ## Waiting for a job
 
 Every operation that queues work returns a `jobId`. Wait for it with `waitForJob`, not by calling

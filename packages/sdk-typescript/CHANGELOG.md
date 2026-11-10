@@ -1,5 +1,11 @@
 # @toolpath/api
 
+## 0.22.0
+
+### Minor Changes
+
+- 85bb8ad: `createToolpathClient` adds `files`, the generated `FilesApi`, for uploading and inspecting a CAD file with several bodies and making parts of them, so no operation in the contract needs a client built by hand.
+
 ## 0.21.0
 
 ### Minor Changes

@@ -2,6 +2,7 @@ import {
   Configuration,
   DemoApi,
   FeaturesApi,
+  FilesApi,
   JobsApi,
   KeysApi,
   PartsApi,
@@ -21,6 +22,7 @@ export interface ToolpathClientOptions {
 export interface ToolpathClient {
   demo: DemoApi
   features: FeaturesApi
+  files: FilesApi
   jobs: JobsApi
   keys: KeysApi
   parts: PartsApi
@@ -43,6 +45,7 @@ export const createToolpathClient = ({
   return {
     demo: new DemoApi(configuration),
     features: new FeaturesApi(configuration),
+    files: new FilesApi(configuration),
     jobs: new JobsApi(configuration),
     keys: new KeysApi(configuration),
     parts: new PartsApi(configuration),
