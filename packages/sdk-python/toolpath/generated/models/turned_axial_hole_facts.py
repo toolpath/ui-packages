@@ -22,7 +22,9 @@ class TurnedAxialHoleFacts:
 
     Attributes:
         kind (Literal['AxialHole']): Discriminant of a `TurnedFeatureFacts`; always `'AxialHole'` here.
-        through (bool): Whether it runs through the part.
+        through (bool): Deprecated: `isThrough`, the same flag — whether it runs through the part. A feature measured
+            since Engine API 1.36.0 carries `isThrough` too, and one measured earlier `through` alone. Removed in the next
+            API major.
         depth (float): Its extent along the axis, in mm.
         steps (list[HoleStep]): Its cylinders, from the mouth inward.
         is_through (bool | Unset): Whether it runs through the part.

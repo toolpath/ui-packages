@@ -1,5 +1,50 @@
 # @toolpath/api
 
+## 0.21.0
+
+### Minor Changes
+
+- 30084ad: Regenerate the TypeScript SDK for Engine API 1.45.0.
+
+  ### Engine API 1.45.0
+
+  tp-kernel 0.33.0. Plans pick their tools across the whole job. Two datasheet fields the kernel no
+  longer states are still served, now deprecated.
+
+  **Features** (`GET /v1/parts/{id}/features`):
+
+  - `SinkFacts.center` is deprecated: read `topCenter`, the same point in part coordinates. Every
+    countersink still carries `center`, `topCenter`'s x and y in the datasheet's frame, and one
+    enriched before 1.39.0 carries `center` alone. Removed in the next API major.
+  - Visibility detection, chamfers, ring floors and clearance measurement are fixed, so some features
+    and datasheets read differently. A part analyzed before this release keeps its readings until it
+    is analyzed again.
+  - A part with thousands of features side by side, such as a plate of pins, analyzes in a fraction
+    of the time and memory.
+
+  **Parts** (`GET /v1/parts/{id}`):
+
+  - `TurnedAxialHoleFacts.through`, in a turned feature's datasheet, is deprecated: read `isThrough`,
+    the same flag. Every turned hole still carries `through`, and one measured before 1.36.0 carries
+    `through` alone. Removed in the next API major.
+
+  **Plans** (no change of shape):
+
+  - Tools are picked across the whole job rather than setup by setup, and each setup's roughs are
+    settled before its finishes are placed. Plans use fewer tools and estimate shorter cutting times,
+    at a few more tool changes.
+  - A direction may get a partial rougher of its own: a flat endmill wider than its features'
+    roughers, sized to save the most time ahead of them, which roughs on its own or in a whole-part
+    rough. Which features are machinable does not change.
+  - `intent`: `Rough3d` is no longer reported (not since 1.31.0) and is removed in the next API
+    major.
+
+  **CAM export** (`camExportUrl`, experimental):
+
+  - Each milling action's clearance, top and bottom are also stated from the nearest of the part's,
+    the initial stock's and the action's features' tops and bottoms, as a CAM system sets its heights
+    (`heights.relative` in `job.json`).
+
 ## 0.20.0
 
 ### Minor Changes

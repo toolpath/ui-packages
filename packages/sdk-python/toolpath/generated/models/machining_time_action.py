@@ -24,7 +24,8 @@ class MachiningTimeAction:
         idx (int): Position of this item in machining order.
         intent (MachiningTimeActionIntent): What kind of pass this action is, as tp-kernel states it. Coarser than the
             pass’s concrete strategy, which the kernel keeps to itself: a whole-part rough reads `AdaptiveRough`, and a
-            drill finish, a facing pass, an undercut and a chamfer all read `Finish`.
+            drill finish, a facing pass, an undercut and a chamfer all read `Finish`. Plans no longer report `Rough3d`,
+            which reads `AdaptiveRough` instead; the value is removed in the next API major.
         tool_name (str): Name of the tool this action uses.
         feature_tags (list[str]): Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from
             `GET /v1/parts/{id}`), or, for a feature the plan’s skipped regions trimmed, to the plan’s `trimmedFeatures`.
