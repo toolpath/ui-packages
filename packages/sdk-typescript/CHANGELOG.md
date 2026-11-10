@@ -1,5 +1,12 @@
 # @toolpath/api
 
+## 0.22.1
+
+### Patch Changes
+
+- 39763db: Generated files no longer repeat the Engine API version and description in their header comment, so
+  a release changes only the generated files whose code changes.
+
 ## 0.22.0
 
 ### Minor Changes

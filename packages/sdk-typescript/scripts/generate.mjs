@@ -41,6 +41,10 @@ try {
     '/out',
     '--config',
     '/local/codegen/typescript-fetch.yaml',
+    // Overrides only the file header, which otherwise carries the API version and description
+    // and so rewrites every generated file on each release. Other templates are the generator's.
+    '--template-dir',
+    '/local/codegen/templates',
   ])
   await rm(generatedRoot, { recursive: true, force: true })
   await mkdir(generatedRoot, { recursive: true })
