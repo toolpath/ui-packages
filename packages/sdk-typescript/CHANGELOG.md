@@ -1,5 +1,21 @@
 # @toolpath/api
 
+## 0.22.2
+
+### Patch Changes
+
+- 1edbfc4: Regenerate the TypeScript SDK for Engine API 1.45.1.
+
+  ### Engine API 1.45.1
+
+  Parasolid files named `.xmt_txt` or `.xmt_bin` can be uploaded as a file, as `.x_t` and `.x_b`
+  can. No field or shape changes: the `filename` descriptions on `POST /v1/parts`, `POST /v1/files`
+  and `POST /v1/holders` change to list the two extensions.
+
+  - `POST /v1/files` accepts a `filename` ending in `.xmt_txt` or `.xmt_bin`. It answered
+    `400 invalid_request`.
+  - `POST /v1/parts` and `POST /v1/holders` already took either extension, and are unchanged.
+
 ## 0.22.1
 
 ### Patch Changes

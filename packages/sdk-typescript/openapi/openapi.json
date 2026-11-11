@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Toolpath Engine API",
-    "version": "1.45.0",
+    "version": "1.45.1",
     "description": "Public REST API for Toolpath engine operations.\n\n**Waiting for a job.** Every operation that queues work answers `202` with a `jobId`.\nWait for it with **Stream job updates** (`GET /v1/jobs/{id}/events`), a server-sent event\nstream that sends the job at once, sends it again on every change, and closes after\nsending `succeeded` or `failed`. Both are final. An attempt exceeding its configured\ndeadline (default 300 seconds) fails without retry. Exhausted queue deliveries are\nrecovered by the worker from its DLQ, usually within a few minutes after the last\ndelivery with healthy consumers; outages delay recovery. A job still queued after\n24 hours fails. Read the result as soon as the stream sends `succeeded`, and report the `error`\nas soon as it sends `failed`. Do not wait by calling **Get a job** or a result endpoint in\na loop: a stream is one request however long the job runs, while a loop spends one request\nof the key’s rate limit on every call. In a browser, read the stream with `fetch` and an\nSSE parser: `EventSource` cannot send the `Authorization` header.\n\n**Experimental.** Machining plans and toolpath calculation — creating, listing, and reading\nplans, calculating toolpaths, and reading toolpath results and machining time — and\nmulti-body CAD files, under the `Files` tag, are experimental: available now but still\ngaining functionality; planned additions include plan constraints and specifying material and\nstock, among others. You can build against them today, but they may change substantially in a\nminor release — reshaped, renamed, or removed — where the rest of the API keeps breaking\nchanges for a major version, apart from small ones with no material effect on clients. Every\nbreaking change is listed in the release notes, so check them before upgrading. Plan and\ntoolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental\noperation, field, and schema is marked `x-toolpath-experimental`.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis,\nfeature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access\ncan be edited on an existing key in the portal. Every operation states its area in its\n`x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in\n`x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs\nDFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key\nwith no access to the operation’s area is refused with 403 `product_mismatch`; one with read\naccess used for a write is refused with 403 `read_only_key`."
   },
   "tags": [
@@ -7414,10 +7414,10 @@
               "minLength": 1,
               "maxLength": 255,
               "example": "part.step",
-              "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format. The part returns it as its `filename`."
+              "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`/`.xmt_txt`/`.xmt_bin`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format. The part returns it as its `filename`."
             },
             "required": false,
-            "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format. The part returns it as its `filename`.",
+            "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`/`.xmt_txt`/`.xmt_bin`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format. The part returns it as its `filename`.",
             "name": "filename",
             "in": "query"
           },
@@ -8140,10 +8140,10 @@
               "minLength": 1,
               "maxLength": 255,
               "example": "assembly.step",
-              "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. A name with no extension, or one no reader is chosen for, is refused."
+              "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`/`.xmt_txt`/`.xmt_bin`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. A name with no extension, or one no reader is chosen for, is refused."
             },
             "required": true,
-            "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. A name with no extension, or one no reader is chosen for, is refused.",
+            "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`/`.xmt_txt`/`.xmt_bin`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. A name with no extension, or one no reader is chosen for, is refused.",
             "name": "filename",
             "in": "query"
           }
@@ -9956,10 +9956,10 @@
               "minLength": 1,
               "maxLength": 255,
               "example": "holder.step",
-              "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format."
+              "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`/`.xmt_txt`/`.xmt_bin`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format."
             },
             "required": false,
-            "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format.",
+            "description": "Name of the CAD file you are about to upload. The extension selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`/`.xmt_txt`/`.xmt_bin`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which fails processing for any other format.",
             "name": "filename",
             "in": "query"
           }

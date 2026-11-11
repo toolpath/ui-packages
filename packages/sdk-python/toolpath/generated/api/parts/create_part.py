@@ -106,10 +106,11 @@ def sync_detailed(
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
-            selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`,
-            `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`.
-            Omitting it stores the upload as `.step`, which fails processing for any other format. The
-            part returns it as its `filename`. Example: part.step.
+            selects the reader, so it must match the file you send: `.step`/`.stp`,
+            `.x_t`/`.x_b`/`.xmt_txt`/`.xmt_bin`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`,
+            `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which
+            fails processing for any other format. The part returns it as its `filename`. Example:
+            part.step.
         body_index (int | Unset): **Experimental.** Available now and still gaining functionality.
             It may change in breaking ways in a minor API release; each such change is listed in the
             release notes, so check them before upgrading.
@@ -164,10 +165,11 @@ def sync(
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
-            selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`,
-            `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`.
-            Omitting it stores the upload as `.step`, which fails processing for any other format. The
-            part returns it as its `filename`. Example: part.step.
+            selects the reader, so it must match the file you send: `.step`/`.stp`,
+            `.x_t`/`.x_b`/`.xmt_txt`/`.xmt_bin`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`,
+            `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which
+            fails processing for any other format. The part returns it as its `filename`. Example:
+            part.step.
         body_index (int | Unset): **Experimental.** Available now and still gaining functionality.
             It may change in breaking ways in a minor API release; each such change is listed in the
             release notes, so check them before upgrading.
@@ -217,10 +219,11 @@ async def asyncio_detailed(
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
-            selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`,
-            `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`.
-            Omitting it stores the upload as `.step`, which fails processing for any other format. The
-            part returns it as its `filename`. Example: part.step.
+            selects the reader, so it must match the file you send: `.step`/`.stp`,
+            `.x_t`/`.x_b`/`.xmt_txt`/`.xmt_bin`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`,
+            `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which
+            fails processing for any other format. The part returns it as its `filename`. Example:
+            part.step.
         body_index (int | Unset): **Experimental.** Available now and still gaining functionality.
             It may change in breaking ways in a minor API release; each such change is listed in the
             release notes, so check them before upgrading.
@@ -273,10 +276,11 @@ async def asyncio(
 
     Args:
         filename (str | Unset): Name of the CAD file you are about to upload. The extension
-            selects the reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`,
-            `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`.
-            Omitting it stores the upload as `.step`, which fails processing for any other format. The
-            part returns it as its `filename`. Example: part.step.
+            selects the reader, so it must match the file you send: `.step`/`.stp`,
+            `.x_t`/`.x_b`/`.xmt_txt`/`.xmt_bin`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`,
+            `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. Omitting it stores the upload as `.step`, which
+            fails processing for any other format. The part returns it as its `filename`. Example:
+            part.step.
         body_index (int | Unset): **Experimental.** Available now and still gaining functionality.
             It may change in breaking ways in a minor API release; each such change is listed in the
             release notes, so check them before upgrading.

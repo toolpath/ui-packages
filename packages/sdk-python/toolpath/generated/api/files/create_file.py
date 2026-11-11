@@ -99,9 +99,10 @@ def sync_detailed(
 
     Args:
         filename (str): Name of the CAD file you are about to upload. The extension selects the
-            reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`,
-            `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. A name with
-            no extension, or one no reader is chosen for, is refused. Example: assembly.step.
+            reader, so it must match the file you send: `.step`/`.stp`,
+            `.x_t`/`.x_b`/`.xmt_txt`/`.xmt_bin`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`,
+            `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. A name with no extension, or one no reader is
+            chosen for, is refused. Example: assembly.step.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -141,9 +142,10 @@ def sync(
 
     Args:
         filename (str): Name of the CAD file you are about to upload. The extension selects the
-            reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`,
-            `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. A name with
-            no extension, or one no reader is chosen for, is refused. Example: assembly.step.
+            reader, so it must match the file you send: `.step`/`.stp`,
+            `.x_t`/`.x_b`/`.xmt_txt`/`.xmt_bin`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`,
+            `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. A name with no extension, or one no reader is
+            chosen for, is refused. Example: assembly.step.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -178,9 +180,10 @@ async def asyncio_detailed(
 
     Args:
         filename (str): Name of the CAD file you are about to upload. The extension selects the
-            reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`,
-            `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. A name with
-            no extension, or one no reader is chosen for, is refused. Example: assembly.step.
+            reader, so it must match the file you send: `.step`/`.stp`,
+            `.x_t`/`.x_b`/`.xmt_txt`/`.xmt_bin`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`,
+            `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. A name with no extension, or one no reader is
+            chosen for, is refused. Example: assembly.step.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -218,9 +221,10 @@ async def asyncio(
 
     Args:
         filename (str): Name of the CAD file you are about to upload. The extension selects the
-            reader, so it must match the file you send: `.step`/`.stp`, `.x_t`/`.x_b`, `.sldprt`,
-            `.catpart`, `.prt`, `.igs`/`.iges`, `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. A name with
-            no extension, or one no reader is chosen for, is refused. Example: assembly.step.
+            reader, so it must match the file you send: `.step`/`.stp`,
+            `.x_t`/`.x_b`/`.xmt_txt`/`.xmt_bin`, `.sldprt`, `.catpart`, `.prt`, `.igs`/`.iges`,
+            `.ipt`, `.par`, `.sat`/`.sab`, or `.3dm`. A name with no extension, or one no reader is
+            chosen for, is refused. Example: assembly.step.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
