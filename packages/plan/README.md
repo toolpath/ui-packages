@@ -72,7 +72,8 @@ one object of named fields, the same fields as their actions:
 left out; each function's `*Options` type (`MoveFeatureOptions`, …) says what it falls back to.
 
 `classifyFaces` (in `/parts`) reads what the draft and the plan leave of each face: assigned,
-done, open, machined or not machined (`COVERAGE_KINDS`). A viewer paints faces from it.
+at shape in stock, done, open, machined or not machined (`COVERAGE_KINDS`). A viewer paints faces
+from it.
 
 ### Trimmed features
 
@@ -117,6 +118,15 @@ What the app does:
 - DFM: count a trimmed tag's time and flags as its own, measured by the rules and datasheet of
   its `trimmedOrigin`, else by its own type. The rules are the app's, so the package does not look
   them up.
+
+### Faces at shape in stock
+
+A part cut from another body of its file (`@toolpath/quoting/inputs`' `BodyStock`) can have faces
+that body already leaves at their final surface. Pass their regions to `classifyFaces` in the
+results view as `materialFree`, or to `planDetails` as `materialFree`: those faces are at shape
+(`atShape`), ranked above done, never Not machined, and covered, and `details.faces` shows them as
+`atShape`. They are not the shop's done faces: never send them as `doneRegions`. The constraints
+view takes none.
 
 ## Edits: one menu, one function, one question
 
@@ -321,11 +331,13 @@ an input changes. Each part is worked out only when it is read, and only once.
   constraints works, with the `kernelVersion` its assignments name: a session's draft has none, so
   lay it over the plan as saved (`{ ...saved, ...session.draft }`). The app says whether the plan is
   of `saved` (`planIsOfSaved`). `part` is how a tag reads (`PlanPart`), and each feature the checks
-  name.
+  name. `materialFree` is the regions the part's stock body leaves at their final surface, read
+  from the plan's stock envelope: at shape in the results.
 - **`details.constraints`**: the tree (`setups`, `groups`), each face assigned, done or open
   (`coverage`), the faces done, the counts, and the checks before Apply.
 - **`details.results`**: Toolpath's setups, named by the groups they are from while the plan is of
-  `saved`; each face machined, done or not machined; the Not machined list; the counts; whether
+  `saved`; each face at shape in stock, machined, done or not machined; the Not machined list; the
+  counts; whether
   the constraints changed since; and the checklist before the part moves on (`confirm`, `allClear`).
 - **Checks** (`PlanCheck` before Apply, `ConfirmCheck` before the part moves on) are a `kind` and
   its facts, with a `severity`: `blocking` stops the plan being sent, `warning` and `info` are worth
@@ -334,8 +346,8 @@ an input changes. Each part is worked out only when it is read, and only once.
 - **`details.find`**: a group, its path, an assignment, where an assignment from a direction goes,
   the setup that machines a feature, and whether a group or a setup holds one.
 - **`details.faces(shown)`**: how each face shows, as a kind (`ShownFace`): in a group's
-  `direction`, `otherDirection` (with a group open, only other directions take it), `done` or
-  `notMachined`. An open face is not listed. `shared` lists the other directions that take a face
+  `direction`, `otherDirection` (with a group open, only other directions take it), `atShape`,
+  `done` or `notMachined`. An open face is not listed. `shared` lists the other directions that take a face
   too. The app chooses the tab, the open group, and whether every group shows; it gives each kind
   and direction its colour.
 

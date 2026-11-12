@@ -1,5 +1,21 @@
 # @toolpath/plan
 
+## 1.0.0
+
+### Major Changes
+
+- 2f42534: Coverage reads the faces a stock body leaves at their final surface as at shape in stock.
+
+  - `CoverageKind` gains `atShape`, after `assigned` and before `done` in `COVERAGE_KINDS`. A
+    `Coverage['faces']` literal needs an `atShape` list.
+  - `classifyFaces` takes `materialFree` in the results view (`@toolpath/quoting/inputs`'
+    `materialFreeRegions(envelope)`): those faces are at shape, above done, so never Not machined.
+    The constraints view takes none.
+  - `planDetails` takes `materialFree` and passes it to the results' coverage; `results.counts`
+    gains `atShape`, the faces at shape.
+  - `ShownFace` gains the kind `atShape`, which `shownFaces` and `details.faces` give those faces. An
+    exhaustive switch over a face's kind needs the case.
+
 ## 0.6.0
 
 ### Minor Changes

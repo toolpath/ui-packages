@@ -124,6 +124,11 @@ export interface PartObject {
    */
   setVisible(visible: boolean): void
   /**
+   * Takes the part out of picking while it is still drawn, so a part behind it takes the
+   * pointer. Independent of `setVisible`: the part picks only while visible and not inert.
+   */
+  setInert(inert: boolean): void
+  /**
    * Draws the sharp corners of the features the DFM rules flag, bold and
    * through the part — see `render/sharp-corners.ts`. `null` hides them. Setting what is already drawn
    * costs a string comparison, so a caller may pass a fresh object each render.
@@ -267,8 +272,7 @@ export function createPart(
   let focused = false
   let currentTheme = theme
   let partOpacity = 1
-  // What a shown part picks with, kept while it is hidden.
-  let shownRaycast: Mesh['raycast'] = () => {}
+  let inert = false
   let clipping: Plane[] | null = null
 
   // Found and built on first use: most parts are never asked for them, and
@@ -423,6 +427,13 @@ export function createPart(
   // otherwise be painted over by the very surface they exist to cap.
   mesh.renderOrder = 3
   acceleratePicking(mesh)
+  // What the part picks with: the one place hiding and inertness read it from, so neither can
+  // take the other's stand-in for it.
+  const pickRaycast = mesh.raycast
+  const ignoreRay: Mesh['raycast'] = () => {}
+  const syncRaycast = () => {
+    mesh.raycast = object.visible && !inert ? pickRaycast : ignoreRay
+  }
 
   // Region boundaries rather than an angle threshold: a small bore's facets sit
   // 30 degrees apart and would each be drawn as an edge.
@@ -613,12 +624,12 @@ export function createPart(
     setVisible(visible) {
       if (visible === object.visible) return
       object.visible = visible
-      if (visible) {
-        mesh.raycast = shownRaycast
-      } else {
-        shownRaycast = mesh.raycast
-        mesh.raycast = () => {}
-      }
+      syncRaycast()
+    },
+
+    setInert(next) {
+      inert = next
+      syncRaycast()
     },
 
     setDepthLayer(layer) {

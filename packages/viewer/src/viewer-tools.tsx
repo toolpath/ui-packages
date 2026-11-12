@@ -65,6 +65,11 @@ const GROUPS: ReadonlyArray<GroupEntry> = [
     icon: 'stock',
     tools: [
       { action: 'stock', label: 'Stock', note: 'The smallest stock the part fits in' },
+      {
+        action: 'assembly',
+        label: 'Assembly',
+        note: "The assembly's other bodies, faded round the part",
+      },
       { action: 'axes', label: 'Axes', note: "X, Y and Z through the part's middle" },
       { action: 'grid', label: 'Grid', note: 'A grid under the part, for scale' },
       { action: 'banana', label: 'Banana', note: 'A banana beside the part, for scale' },

@@ -19,11 +19,36 @@ const facts = (over: Partial<RunFacts> = {}): RunFacts => ({
   baseline: null,
   planned: false,
   tryAgain: true,
+  made: true,
   ...over,
 })
 const timed = (fingerprint: string | null, withoutPlan = false) => ({ fingerprint, withoutPlan })
 
 describe('the run the inputs need', () => {
+  it('is nothing for a part counted 0, asked or not, whatever it stands at', () => {
+    for (const pipeline of ['ready', 'plan_failed', 'analysis_failed', 'gone'] as const) {
+      for (const tryAgain of [true, false]) {
+        expect(runDecision(facts({ pipeline, tryAgain, made: false, current: 'new' }))).toBe(
+          'unmade',
+        )
+      }
+    }
+  })
+
+  it('reads the model only of a part counted 0 whose size a part made is priced from, when asked', () => {
+    const needed = { made: false, sizeNeeded: true, current: 'new' }
+    for (const pipeline of ['ready', 'plan_failed', 'analysis_failed', 'gone'] as const) {
+      expect(runDecision(facts({ ...needed, pipeline }))).toBe('measure')
+      // A save sends nothing: only a person, or its first run, has it read.
+      expect(runDecision(facts({ ...needed, pipeline, tryAgain: false }))).toBe('wait')
+    }
+    for (const pipeline of ['analyzing', 'sending'] as const) {
+      expect(runDecision(facts({ ...needed, pipeline }))).toBe('pending')
+    }
+    // Counted 0 with no part priced from it: nothing, as before.
+    expect(runDecision(facts({ ...needed, sizeNeeded: false }))).toBe('unmade')
+  })
+
   it('is nothing when the plan is of the inputs as they stand', () => {
     expect(runDecision(facts({ baseline: timed('now') }))).toBe('available')
   })

@@ -46,6 +46,14 @@ const StockIcon = () => (
   </SvgIcon>
 )
 
+/** A solid cube in front of a dashed one: the part, and the assembly round it. */
+const AssemblyIcon = () => (
+  <SvgIcon>
+    <path d="M9 8V5l6-3 6 3v7l-6 3M9 5l6 3 6-3M15 8v3" strokeDasharray="1.5 2" />
+    <path d="M3 11l6-3 6 3v7l-6 3-6-3zM3 11l6 3 6-3M9 14v7" />
+  </SvgIcon>
+)
+
 const AxesIcon = () => (
   <SvgIcon>
     <path d="M5 19V3m0 16h16M5 19l10-10M2 6l3-3 3 3m10 10 3 3-3 3M11 9h4v4" />
@@ -141,6 +149,7 @@ export type ToolbarIconName =
   | 'reset'
   | 'top'
   | 'stock'
+  | 'assembly'
   | 'axes'
   | 'grid'
   | 'banana'
@@ -161,6 +170,7 @@ const ICONS: Record<ToolbarIconName, () => ReactNode> = {
   reset: ResetIcon,
   top: TopIcon,
   stock: StockIcon,
+  assembly: AssemblyIcon,
   axes: AxesIcon,
   grid: GridIcon,
   banana: BananaIcon,

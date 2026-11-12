@@ -26,6 +26,11 @@ export interface ViewerToolbarControl {
  */
 export interface ViewerToolbarControls {
   stock?: ViewerToolbarControl
+  /**
+   * The assembly drawn round the part: see `subject` on `<PartCollection>`. Pressed while shown.
+   * `assemblyControl` gives it only where there is an assembly to show.
+   */
+  assembly?: ViewerToolbarControl
   axes?: ViewerToolbarControl
   grid?: ViewerToolbarControl
   banana?: ViewerToolbarControl
@@ -40,7 +45,10 @@ export interface ViewerToolbarControls {
   hover?: ViewerToolbarControl
   focus?: ViewerToolbarControl
   wireframe?: ViewerToolbarControl
-  /** The part pulled apart: see `<ExplodedPart>`. Pressed while it is apart. */
+  /**
+   * The part pulled apart (see `<ExplodedPart>`), or a collection's items pulled apart from one
+   * another (see `explode` on `<PartCollection>`). Pressed while apart.
+   */
   explode?: ViewerToolbarControl
   section?: ViewerToolbarControl
   measure?: ViewerToolbarControl
@@ -48,6 +56,22 @@ export interface ViewerToolbarControls {
   reset?: ViewerToolbarControl
   top?: ViewerToolbarControl
 }
+
+/**
+ * The `assembly` control for a `<PartCollection>` of `parts` worked on as its `subject` says,
+ * pressed while `shown`. Given only where there is an assembly round the subject to show and hide:
+ * a `subject`, and at least one part that is not it. Otherwise undefined, so the button is left
+ * off the bar: with no subject every part is a subject and `assembly.visible` hides nothing, and a
+ * subject with no other part has nothing round it. Pure.
+ */
+export const assemblyControl = (
+  parts: ReadonlyArray<{ id: string }>,
+  subject: string | null | undefined,
+  { shown, onToggle }: { shown: boolean; onToggle: () => void },
+): ViewerToolbarControl | undefined =>
+  subject != null && parts.some(({ id }) => id !== subject)
+    ? { pressed: shown, onClick: onToggle }
+    : undefined
 
 const ViewerToolbarContext = createContext<ViewerToolbarControls | null>(null)
 

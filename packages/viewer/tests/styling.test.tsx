@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { HoverCard } from '../src/hover-card.js'
 import { ViewerToolbar, ViewerToolbarProvider } from '../src/viewer-toolbar.js'
+import { assemblyControl } from '../src/viewer-toolbar-context.js'
 
 describe('viewer styling hooks', () => {
   it('keeps stable toolbar classes and action identifiers beside a caller class', () => {
@@ -98,6 +99,64 @@ describe('viewer styling hooks', () => {
     expect(render(true)).toContain('data-viewer-toolbar-action="sharpCorners"')
     expect(render(true)).toContain('aria-label="Hide sharp corners"')
     expect(render(false)).toContain('aria-label="Show sharp corners"')
+  })
+
+  it('puts the assembly button on the default bar right after stock, labelled for what a press does', () => {
+    const render = (pressed: boolean, disabled = false) =>
+      renderToStaticMarkup(
+        <ViewerToolbarProvider
+          controls={{
+            axes: { onClick: () => {} },
+            assembly: { pressed, disabled, onClick: () => {} },
+            stock: { onClick: () => {} },
+          }}
+        >
+          <ViewerToolbar />
+        </ViewerToolbarProvider>,
+      )
+
+    const markup = render(true)
+    const order = ['stock', 'assembly', 'axes'].map((action) =>
+      markup.indexOf(`data-viewer-toolbar-action="${action}"`),
+    )
+    expect(order[0]).toBeGreaterThan(-1)
+    expect(order).toEqual([...order].sort((a, b) => a - b))
+    expect(markup).toContain('aria-label="Hide assembly" aria-pressed="true"')
+    expect(render(false)).toContain('aria-label="Show assembly" aria-pressed="false"')
+    expect(render(false)).not.toContain('disabled=""')
+    expect(render(false, true)).toContain('disabled=""')
+    expect(() => renderToStaticMarkup(<ViewerToolbar.AssemblyButton />)).toThrow(
+      'useViewerToolbar must be used inside <ViewerToolbarProvider>',
+    )
+    const composed = renderToStaticMarkup(
+      <ViewerToolbarProvider controls={{ assembly: { pressed: false, onClick: () => {} } }}>
+        <ViewerToolbar>
+          <ViewerToolbar.Controls>
+            <ViewerToolbar.AssemblyButton />
+          </ViewerToolbar.Controls>
+        </ViewerToolbar>
+      </ViewerToolbarProvider>,
+    )
+    expect(composed).toContain('data-viewer-toolbar-action="assembly"')
+  })
+
+  it('leaves the assembly button off the bar for a lone part', () => {
+    const state = { shown: true, onToggle: () => {} }
+    const render = (parts: ReadonlyArray<{ id: string }>) =>
+      renderToStaticMarkup(
+        <ViewerToolbarProvider
+          controls={{
+            stock: { onClick: () => {} },
+            assembly: assemblyControl(parts, 'part', state),
+          }}
+        >
+          <ViewerToolbar />
+        </ViewerToolbarProvider>,
+      )
+    expect(render([{ id: 'part' }])).not.toContain('data-viewer-toolbar-action="assembly"')
+    expect(render([{ id: 'part' }, { id: 'vice' }])).toContain(
+      'data-viewer-toolbar-action="assembly"',
+    )
   })
 
   it('requires a provider for compound toolbar controls', () => {

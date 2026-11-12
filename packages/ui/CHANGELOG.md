@@ -1,5 +1,18 @@
 # @toolpath/ui
 
+## 1.7.0
+
+### Minor Changes
+
+- ab964f0: `TreeGroup` folds rows under a header, for lists that lay out their own rows rather than through
+  `Table`. `TreeGroup.Header` sets the header apart, `TreeGroup.Toggle` is its caret (a 24px target,
+  `aria-expanded`, `aria-controls`), and `TreeGroup.Items` is the `role="group"` of its rows,
+  shown while it is expanded. The root, header and items take `div` props and a `ref`. Given a
+  `disabledReason`, the toggle stays focusable but does nothing, and gives the reason as its
+  description and as a tooltip. `TreeGuide` draws `Table`'s tree connector down a whole row, ending
+  at its branch for the last item. Neither needs `Table` or its context; the application holds
+  whether a group is expanded.
+
 ## 1.6.1
 
 ### Patch Changes

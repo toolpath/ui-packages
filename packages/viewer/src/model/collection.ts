@@ -9,7 +9,21 @@ interface CollectionBody {
   placement?: Axis2
 }
 
-export interface CollectionBoundsOptions {
+/** Which of a collection's items is the body being worked on, as `<PartCollection subject>`. */
+interface CollectionSubjectOptions {
+  /**
+   * The id of the part being worked on; every other item is the assembly round it, neither
+   * measured nor moved. Null or omitted, every item is a subject. An id no item has makes every
+   * item the assembly round a subject drawn elsewhere.
+   */
+  subject?: string | null
+}
+
+/** Whether the item with this id is a subject, as `<PartCollection subject>` says. */
+export const isSubject = (id: string, subject: string | null | undefined): boolean =>
+  subject == null || id === subject
+
+export interface CollectionBoundsOptions extends CollectionSubjectOptions {
   /**
    * Each item's full displacement, as `<PartCollection explode>` takes it. Given, the bounds
    * hold every item wherever an explode amount from 0 to 1 puts it: each item's box both where
@@ -18,13 +32,18 @@ export interface CollectionBoundsOptions {
   offsets?: ReadonlyMap<string, Vec3>
 }
 
-/** Measures a complete collection without moving or taking ownership of its geometry. */
+/**
+ * Measures a complete collection without moving or taking ownership of its geometry: its
+ * subject, never the assembly round it, or every item without one. With a `subject` no item
+ * has, the bounds are empty, as an empty collection's are: the body being worked on is elsewhere
+ * in the scene.
+ */
 export const collectionBounds = (
   items: ReadonlyArray<CollectionBody>,
-  { offsets }: CollectionBoundsOptions = {},
+  { offsets, subject }: CollectionBoundsOptions = {},
 ): Box3 => {
   const box = new Box3()
-  for (const { id, bounds } of measureBodies(items)) {
+  for (const { id, bounds } of worked(measureBodies(items), subject)) {
     box.union(bounds)
     const offset = offsets?.get(id)
     if (offset) {
@@ -34,7 +53,7 @@ export const collectionBounds = (
   return box
 }
 
-export interface CollectionExplodeOptions {
+export interface CollectionExplodeOptions extends CollectionSubjectOptions {
   /**
    * The space left between bodies' bounding boxes once apart, as a fraction of the whole
    * collection's bounding-box diagonal. 0.05 by default.
@@ -63,18 +82,23 @@ const ZERO: Vec3 = Object.freeze({ x: 0, y: 0, z: 0 })
  * centred on the collection's centre, as nested bodies often are, has no line of its own and
  * moves up (+Z) instead, so several of them stack. Hidden items count like any other.
  *
- * A single body, and a body with no geometry, gets a zero offset. The result depends only on
- * the bodies' bounds and order. Pure: no React, DOM or GPU.
+ * A single body, and a body with no geometry, gets a zero offset. Given a `subject`, the
+ * assembly round it is left out and stays where it is, and the subject, a single body, stays
+ * too: every offset is zero. The result depends only on the bodies' bounds and order. Pure: no
+ * React, DOM or GPU.
  */
 export const collectionExplodeOffsets = (
   items: ReadonlyArray<CollectionBody>,
-  { gap = DEFAULT_GAP }: CollectionExplodeOptions = {},
+  { gap = DEFAULT_GAP, subject }: CollectionExplodeOptions = {},
 ): Map<string, Vec3> => {
   const bodies = measureBodies(items)
   const offsets = new Map<string, Vec3>()
   const whole = new Box3()
   for (const body of bodies) {
     offsets.set(body.id, ZERO)
+  }
+  const moving = worked(bodies, subject)
+  for (const body of moving) {
     whole.union(body.bounds)
   }
   if (whole.isEmpty()) {
@@ -83,7 +107,7 @@ export const collectionExplodeOffsets = (
   const centre = whole.getCenter(new Vector3())
   const diagonal = whole.getSize(new Vector3()).length()
   const space = Math.max(0, gap) * diagonal
-  const placing = bodies
+  const placing = moving
     .filter((body) => !body.bounds.isEmpty())
     .map((body) => {
       const away = body.bounds.getCenter(new Vector3()).sub(centre)
@@ -166,6 +190,33 @@ const overlapInterval = (
     to = Math.min(to, Math.max(enter, leave))
   }
   return from < to ? [from, to] : null
+}
+
+/** The bodies a collection is measured and pulled apart by: its subjects, never its assembly. */
+const worked = <T extends { id: string }>(
+  bodies: ReadonlyArray<T>,
+  subject: string | null | undefined,
+): ReadonlyArray<T> => bodies.filter((body) => isSubject(body.id, subject))
+
+/**
+ * Where to pin something to an item, such as a `SceneLabel` among its children: the centre of
+ * its geometry's bounding box (`'centre'`), or of the box's top (+Z) or bottom face. In the
+ * geometry's own frame, which the item's placement and explosion then carry. The origin for an
+ * empty geometry.
+ */
+export const collectionItemAnchor = (
+  item: CollectionBody,
+  anchor: 'top' | 'centre' | 'bottom' = 'top',
+): Vec3 => {
+  if (!item.geometry.boundingBox) {
+    item.geometry.computeBoundingBox()
+  }
+  const box = item.geometry.boundingBox
+  if (!box || box.isEmpty()) {
+    return ZERO
+  }
+  const { x, y, z } = box.getCenter(new Vector3())
+  return { x, y, z: anchor === 'top' ? box.max.z : anchor === 'bottom' ? box.min.z : z }
 }
 
 /**

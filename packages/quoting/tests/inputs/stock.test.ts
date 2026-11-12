@@ -3,7 +3,9 @@ import {
   BOX_ENVELOPE,
   defaultStock,
   echoesStock,
+  effectiveStock,
   fixedBoxCheck,
+  materialFreeRegions,
   NO_FIRST_FOLDER,
   parseStock,
   placedAlong,
@@ -13,6 +15,15 @@ import {
   TILTED_FIRST_FOLDER,
   type FixedStock,
 } from '../../src/inputs/stock'
+import {
+  isPermanentPlanFailure,
+  PART_BODY_LOST,
+  planFailureWords,
+  STOCK_BODY_LOST,
+  STOCK_BODY_MISFIT,
+  STOCK_BODY_REFUSALS,
+  STOCK_BODY_UNUSABLE,
+} from '../../src/inputs/plan-failure'
 import { fromInput, toInput } from '../../src/units/units'
 
 describe('stock inputs', () => {
@@ -215,6 +226,148 @@ describe('a calculation echoing the stock it was sent', () => {
     expect(stockEdited(policy, baseline)).toBe(false)
     expect(stockEdited(box(203.2, 31.75, 90), baseline)).toBe(true)
     expect(stockEdited(null, baseline)).toBe(false)
+  })
+})
+
+describe('a body of the part’s file as its stock', () => {
+  const auto = defaultStock()
+  const body = { mode: 'body' as const, bodyIndex: 2 }
+  const envelope = (input: unknown, materialFree: Array<number> = []) => ({
+    input,
+    resolved: { shape: 'body', bodyIndex: 2, materialFreeRegions: materialFree },
+  })
+
+  it('stands for the part’s policy while it has one, which is kept to come back to', () => {
+    expect(effectiveStock({ policy: auto, bodyIndex: 2 })).toEqual(body)
+    expect(effectiveStock({ policy: null, bodyIndex: 0 })).toEqual({ mode: 'body', bodyIndex: 0 })
+    expect(effectiveStock({ policy: auto, bodyIndex: null })).toBe(auto)
+    expect(effectiveStock({ policy: null, bodyIndex: null })).toBeNull()
+  })
+
+  it('is echoed by the same body alone', () => {
+    expect(echoesStock(body, envelope(body))).toBe(true)
+    expect(echoesStock(body, envelope({ mode: 'body', bodyIndex: 3 }))).toBe(false)
+    expect(echoesStock(body, envelope(auto))).toBe(false)
+    // A policy is not echoed by a body it was not sent.
+    expect(echoesStock(auto, envelope(body))).toBe(false)
+  })
+
+  it('reads as edited until a calculation of the body lands', () => {
+    expect(stockEdited(body, { stock: envelope(body) })).toBe(false)
+    expect(stockEdited(body, { stock: { input: auto, resolved: null } })).toBe(true)
+    expect(stockEdited(body, null)).toBe(true)
+  })
+
+  it('says a part Toolpath could not fit in its stock body as that, and nothing else so', () => {
+    const outside =
+      'part_outside_initial_stock: the part stands outside its stock body, body 2 of its file'
+    expect(planFailureWords(outside, 2)).toBe(STOCK_BODY_MISFIT)
+    // Without a stock body, the stock the part stands outside is a fixed one: said as Toolpath said it.
+    expect(planFailureWords(outside, null)).toBe(outside)
+    const noFixture =
+      'invalid_argument: setup planning: no fixture on the initial stock holds a first setup'
+    expect(planFailureWords(noFixture, 2)).toBe(noFixture)
+    expect(planFailureWords(null, 2)).toBeNull()
+  })
+
+  it.each([
+    [
+      'its part’s body lost',
+      'body_mismatch: the file’s bodies changed since it was read (2 solid bodies, where it held 3); make the part again',
+      null,
+      PART_BODY_LOST,
+    ],
+    [
+      'its part’s body not found',
+      'body_not_found: the file holds 2 solid bodies, none at index 5; upload it again',
+      2,
+      PART_BODY_LOST,
+    ],
+    [
+      'its stock body lost',
+      'body_mismatch: the file’s bodies changed since the stock body was chosen (2 solid bodies, where it held 3); plan again with a stock body from the file as it now reads',
+      2,
+      STOCK_BODY_LOST,
+    ],
+    [
+      'its stock body not found',
+      'body_not_found: the file holds 2 solid bodies, none at the stock body’s index 4; plan again with a stock body from the file as it now reads',
+      4,
+      STOCK_BODY_LOST,
+    ],
+    [
+      'a stock body that is its own',
+      'own_body: the stock body and the part both resolve to body 1 of the file',
+      1,
+      STOCK_BODY_REFUSALS.own_body,
+    ],
+    [
+      'a stock body Toolpath can’t use',
+      'stock_body_unusable: body 3 of its file could not be faceted',
+      3,
+      STOCK_BODY_UNUSABLE,
+    ],
+  ])('words a plan failed for %s with what to do, and offers no Try again', (_, raw, at, words) => {
+    expect(planFailureWords(raw, at)).toBe(words)
+    expect(isPermanentPlanFailure(words!)).toBe(true)
+    // An error kept as Toolpath gave it, before it was worded, is as permanent.
+    expect(isPermanentPlanFailure(raw)).toBe(true)
+  })
+
+  it('takes a misfit, and a stock body Toolpath refused, as permanent too: same inputs, same answer', () => {
+    const outside =
+      'part_outside_initial_stock: the part stands outside its stock body, body 2 of its file'
+    expect(planFailureWords(outside, 2)).toBe(STOCK_BODY_MISFIT)
+    expect(isPermanentPlanFailure(STOCK_BODY_MISFIT)).toBe(true)
+    // Outside a fixed stock, said as Toolpath said it: as permanent.
+    expect(isPermanentPlanFailure(outside)).toBe(true)
+    for (const words of Object.values(STOCK_BODY_REFUSALS)) {
+      expect(isPermanentPlanFailure(words)).toBe(true)
+    }
+    expect(isPermanentPlanFailure('unknown_body: no body at index 9')).toBe(true)
+    expect(isPermanentPlanFailure('stock_body_requires_file: not made from a file')).toBe(true)
+  })
+
+  it('takes a failure that another run can get past as not permanent', () => {
+    expect(isPermanentPlanFailure(null)).toBe(false)
+    expect(isPermanentPlanFailure('Toolpath could not calculate this part.')).toBe(false)
+    expect(
+      isPermanentPlanFailure('refused_user_plan: 1 refused: setup 0: FeatureTag(0) is excluded'),
+    ).toBe(false)
+    expect(isPermanentPlanFailure('geometry: the kernel ran out of memory')).toBe(false)
+  })
+
+  /** The plan and the report prepared alike. */
+  const alike = { plan: 'prep-1', report: 'prep-1' }
+
+  it('reads the regions a stock body leaves at their final surface', () => {
+    expect(materialFreeRegions(envelope(body, [0, 1, 28]), alike)).toEqual([0, 1, 28])
+  })
+
+  it.each([
+    ['another preparation', { plan: 'prep-2', report: 'prep-1' }],
+    ['a plan that serves none', { plan: null, report: 'prep-1' }],
+    ['a report that serves none', { plan: 'prep-1', report: null }],
+    ['neither serving one', { plan: null, report: null }],
+  ])(
+    'reads no regions at shape from a plan of %s: its indices are not the report’s',
+    (_, preps) => {
+      expect(materialFreeRegions(envelope(body, [0, 1, 28]), preps)).toEqual([])
+    },
+  )
+
+  it.each([
+    ['a box', { resolved: { shape: 'box', materialFreeRegions: [1] } }],
+    ['a cylinder', { resolved: { shape: 'cylinder', materialFreeRegions: [1] } }],
+    ['no resolved stock', { input: body, resolved: null }],
+    ['no stock', undefined],
+    ['a body with none', { resolved: { shape: 'body', bodyIndex: 2 } }],
+  ])('reads no regions at shape for %s', (_, stock) => {
+    expect(materialFreeRegions(stock, alike)).toEqual([])
+  })
+
+  it('keeps only region indices', () => {
+    expect(materialFreeRegions(envelope(body, [3, 1.5, Number.NaN, 7]), alike)).toEqual([3, 7])
   })
 })
 

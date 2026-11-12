@@ -189,6 +189,9 @@ importers:
         specifier: workspace:^
         version: link:../tool-support
     devDependencies:
+      '@toolpath/api':
+        specifier: workspace:^
+        version: link:../sdk-typescript
       '@toolpath/dev-config':
         specifier: workspace:^
         version: link:../dev-config

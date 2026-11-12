@@ -697,9 +697,10 @@ two fighting over each pixel; set an item's `depthLayer` (0 to 63, lower in
 front) to put another body there, such as the one being pointed at. To show
 one body at a time, as when stepping through a list of them, set the others'
 `visible` to false: a hidden item draws nothing and lets the pointer through,
-and showing it again rebuilds nothing. Its children are not hidden with it. It
-still counts toward the shared bounds, so the frame, grid, and section do not
-jump when a body is hidden.
+and showing it again rebuilds nothing. A hidden subject's children are not
+hidden with it. A hidden subject still counts toward the shared bounds, so the
+frame, grid, and section do not jump when a body is hidden; the assembly round
+a subject never counts, shown or hidden (see [Subject and assembly](#subject-and-assembly)).
 To show a whole file and also one body as a part, switch between
 `<PartCollection>` and `<EnginePart>` inside one `<Viewer>`, and call
 `ViewerHandle.fit()` after switching, since the viewer frames its first content
@@ -770,6 +771,91 @@ const Exploding = ({ items }) => {
 ```
 
 The collection never uploads files or starts Engine analysis.
+
+#### Subject and assembly
+
+A collection is an assembly of parts, and its `subject` prop marks the one being
+worked on, by item id. Change it to work on another; nothing is mounted again.
+
+- **No subject** (`null` or omitted): the whole assembly is the subject. Every
+  item is picked, lit and framed, as the overview of a file.
+- **A subject**: that item is drawn as itself, and every other item is the
+  assembly round it.
+- **A subject drawn outside the collection**: when `subject` names an id that no
+  item has, such as a part drawn by its own `<PartMesh>` or `<EnginePart>`
+  beside the collection, every item is the assembly round it. The collection's
+  bounds are then empty and it frames nothing, as an empty collection does, so
+  scene tools that should measure the part go beside it, not inside.
+- **A lone part**: a single item with no subject is the subject, so a part on
+  its own needs nothing set.
+
+The viewer owns how the assembly looks and behaves. Each of its items is drawn
+translucent grey, solid, as `ASSEMBLY_APPEARANCE` says (`opacity` 0.5, `theme`
+`{ part: 0x9ca3af, edgeOpacity: 0.6 }`, `display` `'solid'` and `depthLayer`
+`ASSEMBLY_DEPTH_LAYER`, 63, the rearmost, so a subject lying on it is drawn).
+It is `inert` (a `PartMesh` prop): it takes no hover, reports no pick or hover,
+and rays pass through it, so a subject behind it takes the pointer. Its own
+`children` are not made inert, but a child with no pointer handlers never takes
+the pointer, and a `SceneLabel` is HTML. It is never framed, and is left out of
+the shared bounds and `collectionExplodeOffsets`, so the frame, grid and section
+fit the subject; it does not move when the collection explodes (nor does a lone
+subject), though an `explode.offsets` entry of its own still moves it. It is not
+cut unless it passes its own `section`, so no cap of its hides the subject's. A
+`section` it does pass is placed and capped by the subject's bounds, so a body
+much larger than the subject is capped only across its box, and with the
+subject outside the collection there is no cut. `collectionBounds` and
+`collectionExplodeOffsets` follow the same rules given `{ subject }`.
+
+An item's own appearance props win over the defaults; a `theme` replaces the
+default one rather than merging with it, except that the default `edgeOpacity`
+stays unless the theme gives its own. The collection's `assembly` prop styles
+and shows the set: `appearance` sits between the defaults and each item's
+props, and `visible: false` hides the whole assembly, kept mounted, without
+moving the frame, grid or cut. A hidden assembly item's children hide with it,
+whether the set or its own `visible: false` hides it; a hidden subject's do
+not. `collectionItemProps(item, { subject, assembly })` gives the props an item
+is drawn with. A body that should be faded but still picked, such as one not
+quoted, is just an `opacity` on an item of a collection with no subject.
+
+```tsx
+const items = [
+  { id: 'part', model, geometry },
+  { id: 'vice', model: viceModel, geometry: viceGeometry },
+  // The housing in amber, a little stronger than the rest of the assembly.
+  {
+    id: 'housing',
+    model: housingModel,
+    geometry: housingGeometry,
+    opacity: 0.8,
+    theme: { part: 0xf59e0b, edgeOpacity: 0.9 },
+  },
+]
+// `worked` is the part being worked on, or null for the whole assembly.
+return <PartCollection items={items} subject={worked} assembly={{ visible: showAssembly }} />
+```
+
+`assemblyControl(items, subject, { shown, onToggle })` gives the toolbar's
+`assembly` control for the same collection. It is given only where there is a
+`subject` and at least one item that is not it, and is `undefined` otherwise: a
+subject with nothing round it, or no subject at all, when every item is a
+subject and `assembly.visible` hides nothing. A toolbar leaves a control it is
+not given off the bar, so the Assembly button hides itself where it would do
+nothing (see [Toolbar and camera buttons](#toolbar-and-camera-buttons)).
+
+To label a body, pass a `SceneLabel` as its item's `children`: it is drawn in
+the item's placed group, so it follows the item's `placement` and explosion, and
+hides with an assembly item. `collectionItemAnchor(item, 'top' | 'centre' |
+'bottom')` gives a point to pin it to: the centre of the top (+Z) face of the
+item's geometry's bounding box by default, or the box's centre or bottom face's,
+in the geometry's own frame.
+
+```tsx
+const anchor = collectionItemAnchor(vice)
+const labelled = {
+  ...vice,
+  children: <SceneLabel kind="note" position={[anchor.x, anchor.y, anchor.z]} text="Vice" />,
+}
+```
 
 ### `<ViewCube>`, `<Grid>`, and `<Axes>`
 
@@ -854,17 +940,36 @@ retains measurements in React state when the tool is unmounted.
 With no children, `ViewerToolbar` renders configured controls in standard order.
 For custom composition use `ViewerToolbar.Controls`, `ViewerToolbar.Divider`, and
 its `*Button` components. A button without a matching provider control throws.
-The supported action names are `stock`, `axes`, `grid`, `banana`, `tools`,
+The supported action names are `stock`, `assembly`, `axes`, `grid`, `banana`, `tools`,
 `directions`, `dfm`, `sharpCorners`, `threads`, `hover`, `focus`, `wireframe`, `explode`,
 `section`, `measure`, `fit`, `reset`, and `top`; button names capitalize the action, such as
 `ViewerToolbar.SharpCornersButton`. `useViewerToolbar()` reads those controls. A control with
 `disabled: true` is shown greyed, and a click does nothing.
+
+`assembly` shows and hides the assembly round the subject of a `<PartCollection>`
+(see [Subject and assembly](#subject-and-assembly)), pressed while it is shown, and comes
+right after `stock` on the default bar, as `ViewerToolbar.AssemblyButton`. Build it with
+`assemblyControl`, which leaves it off the bar for a part with no assembly round it:
+
+```tsx
+const [shown, setShown] = useState(true)
+const assembly = assemblyControl(items, subject, { shown, onToggle: () => setShown((was) => !was) })
+return (
+  <ViewerToolbarProvider controls={{ stock, assembly }}>
+    <Viewer>
+      <PartCollection items={items} subject={subject} assembly={{ visible: shown }} />
+    </Viewer>
+    <ViewerToolbar />
+  </ViewerToolbarProvider>
+)
+```
 
 `viewerToolGroups(controls, options?)` describes the same controls for a toolbar
 that groups, explains and pins its tools, such as `@toolpath/ui`'s `ToolDock`. It
 puts them in four groups (`scene`, `dfm`, `tools`, `view`), each tool with its
 label, a line on what it does, its icon, whether it is on, and its `onClick`. A
 control you did not supply is left out, and so is a group left with none.
+`scene` holds `stock`, `assembly`, `axes`, `grid`, `banana` and `tools`, in that order.
 `explode` is the last of the `dfm` group; it keeps one label, so pass
 `labels: { explode: 'Collapse' }` while the part is apart. `options.labels` renames a tool, `options.notes` replaces its line, and
 `options.gates` says why a tool cannot work yet:

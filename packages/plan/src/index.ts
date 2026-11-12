@@ -12,8 +12,8 @@
  * - `results/`: what Toolpath planned from them (`plan`) — setups, each with its direction and its
  *   actions, and what it could not reach — in the kernel's shape (`plan-view`), as a tree
  *   (`view`), and why a feature is left (`leftovers`).
- * - `faces/`: what a draft and a plan leave of each face: done, assigned, open, machined or not
- *   machined.
+ * - `faces/`: what a draft and a plan leave of each face: assigned, at shape in stock, done, open,
+ *   machined or not machined.
  * - `details/`: the plan's details in one call (`planDetails`): its constraints, Toolpath's plan, its
  *   lookups, how each face shows and where a feature is (`state`). The functions it is built from
  *   are `@toolpath/plan/parts`.

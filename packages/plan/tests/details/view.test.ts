@@ -140,6 +140,7 @@ describe('shownFaces', () => {
   ]
   const faces = {
     assigned: [face(1, 'p', 'a'), face(3, 'q')],
+    atShape: [],
     done: [face(4, 'a')],
     open: [face(2, 'a'), face(5, 'c')],
     machined: [],
@@ -166,6 +167,16 @@ describe('shownFaces', () => {
     expect(shownFaces({ faces, setups, openId: null })).toEqual(whole)
     // An id no group has is no group open either.
     expect(shownFaces({ faces, setups, openId: 'gone' })).toEqual(whole)
+  })
+
+  it('shows a face at shape in its stock body as at shape, before the done, where the app shows something else', () => {
+    const atShape = { ...faces, atShape: [face(7, 'a')] }
+    expect(shownFaces({ faces: atShape, setups, openId: null, uncovered: false })).toEqual([
+      inDirection(1, 0),
+      inDirection(3, 2),
+      { region: 7, kind: 'atShape' },
+      done,
+    ])
   })
 
   it('leaves out what no group covers where the app shows something else there', () => {

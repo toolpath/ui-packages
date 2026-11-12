@@ -107,6 +107,9 @@ export interface PartMeshProps {
    * one `<SectionTool>` places and `ViewerHandle.setSection` sets — and shows
    * the handle whenever there is one. Passing it takes that over: the cut is
    * then the consumer's, and the viewer's own is ignored.
+   *
+   * In a `PartCollection` the cut is placed and capped by the collection's shared bounds,
+   * which leave out its assembly items.
    */
   section?: SectionOptions
   /**
@@ -184,6 +187,12 @@ export interface PartMeshProps {
    */
   visible?: boolean
   /**
+   * Takes no pointer: reports no hover or pick, and rays pass through it, so a body behind
+   * takes them. It is still drawn, framed and cut. Its `children` are not made inert. False by
+   * default.
+   */
+  inert?: boolean
+  /**
    * Objects drawn on the part, such as `<ToolMarks>`. They can read its model
    * and mesh with `usePartContext`.
    */
@@ -226,6 +235,7 @@ export const PartMesh = ({
   opacity = 1,
   depthLayer = 0,
   visible = true,
+  inert = false,
   children,
 }: PartMeshProps) => {
   const { camera, controls, invalidate, size } = useThree()
@@ -357,6 +367,12 @@ export const PartMesh = ({
   }, [invalidate, part, visible])
 
   useLayoutEffect(() => {
+    part.setInert(inert)
+  }, [inert, part])
+  // Whether the part answers the pointer at all.
+  const pointed = visible && !inert
+
+  useLayoutEffect(() => {
     part.setClippingPlanes(cut ? [cut.plane] : null)
     invalidate()
   }, [cut, invalidate, part])
@@ -476,11 +492,11 @@ export const PartMesh = ({
 
   // A tool taking the pointer takes the hover with it, or the face under the
   // pointer at that moment would stay painted until the pointer left the part.
-  // So does hiding the part.
+  // So does hiding the part, or making it inert.
   useLayoutEffect(() => {
-    if ((!engaged && visible) || hoverRegion.current === null) return
+    if ((!engaged && pointed) || hoverRegion.current === null) return
     dropHover()
-  }, [dropHover, engaged, visible])
+  }, [dropHover, engaged, pointed])
 
   const dragSection = useCallback(
     (constant: number) => {
@@ -526,10 +542,10 @@ export const PartMesh = ({
   }, [cut, geometry, handleColor, onDrag, part, resolved, sections, showHandle, visible])
   useLayoutEffect(() => () => sections?.set(part, null), [part, sections])
 
-  // A press over the part is the part's, and still reaches what is behind it. Hidden, the part
-  // takes no rays.
+  // A press over the part is the part's, and still reaches what is behind it. Hidden or inert,
+  // the part takes no rays.
   const gestures = usePickGestures<PartPick>({
-    visible,
+    visible: pointed,
     engaged,
     hover,
     claim: false,

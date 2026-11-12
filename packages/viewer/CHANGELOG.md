@@ -1,5 +1,32 @@
 # @toolpath/viewer
 
+## 3.9.0
+
+### Minor Changes
+
+- f57208c: `PartCollection` takes an optional `subject`: the id of the part being worked on. Omitted or
+  `null`, the whole assembly is the subject and every item is drawn as before, picked and framed;
+  a lone item without a subject is the subject. Given, every other item is the assembly round it, and the
+  subject may be drawn outside the collection, as an `EnginePart` beside it, in which case every
+  item is the assembly. The assembly is drawn faded as `ASSEMBLY_APPEARANCE` says (`opacity` 0.5,
+  a grey `theme` with `edgeOpacity` 0.6, `display` `'solid'`, `depthLayer` `ASSEMBLY_DEPTH_LAYER`),
+  under the collection's new `assembly.appearance` and each item's own props, which
+  `collectionItemProps` resolves; a theme over the default keeps its `edgeOpacity` unless it gives
+  one. It is inert through `PartMesh`'s new `inert` prop, which any part can take: no hover or
+  pick, and rays pass through it to a body behind. It is never framed and is left out of the shared
+  bounds and explode offsets, so a collection whose subject is drawn elsewhere has empty bounds, as
+  an empty one does. It is not cut unless it passes its own `section`, which the subject's bounds
+  then measure. `assembly={{ visible: false }}` hides the whole assembly, kept mounted with its
+  children, without moving the frame, grid or cut. `collectionBounds` and
+  `collectionExplodeOffsets` take the same `subject`; with a subject, `explode` moves nothing
+  unless `explode.offsets` is given. `collectionItemAnchor` gives a point on an item's bounding
+  box to pin a `SceneLabel` child to.
+  The toolbar gains an `assembly` control, `ViewerToolbar.AssemblyButton` after the stock button,
+  and an `assembly` entry after `stock` in `viewerToolGroups`' `scene` group.
+  `assemblyControl(items, subject, { shown, onToggle })` builds it, and gives none unless there is a
+  subject and some item other than it, so the button hides itself where it would hide nothing.
+  The native root now also exports `PartCollectionExplode` and `collectionExplodeOffsets`.
+
 ## 3.8.0
 
 ### Minor Changes

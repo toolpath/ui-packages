@@ -43,10 +43,12 @@ export const artifactStateOf = ({ current, run, artifact }: ArtifactFacts): Arti
 /** The run a part's pipeline says it is on. */
 export const runStatusOf = (pipeline: PartPipeline): RunStatus => {
   switch (pipeline) {
+    case 'inspecting':
     case 'analyzing':
     case 'sending':
     case 'planning':
       return 'pending'
+    case 'inspection_failed':
     case 'analysis_failed':
     case 'plan_failed':
     case 'gone':

@@ -40,6 +40,32 @@ export type FixedStock =
     }
 export type StockOption = AutomaticStock | FixedStock
 
+/**
+ * Stock taken where it lies: another body of the part's own file (Engine API 1.35, `BodyStock`),
+ * never sized or squared up. Not a policy the stock editor makes: an app keeps it beside the
+ * policy, which it leaves as it was, to come back to once the body is cleared (`effectiveStock`).
+ */
+export interface BodyStock {
+  mode: 'body'
+  /** The body's index among the part's file's bodies: not the part's own. */
+  bodyIndex: number
+}
+
+/** The stock a plan is asked for: the part's policy, or the body of its file it is cut from. */
+export type PlanStock = StockOption | BodyStock
+
+/**
+ * The stock a part is planned from: the body of its file it is cut from where it has one, else its
+ * policy. The one rule a request, a fingerprint and an echo read.
+ */
+export const effectiveStock = ({
+  policy,
+  bodyIndex,
+}: {
+  policy: StockOption | null
+  bodyIndex: number | null
+}): PlanStock | null => (bodyIndex === null ? policy : { mode: 'body', bodyIndex })
+
 export const STOCK_LABELS = {
   automaticFlatBar: 'Flat Bar',
   automaticRoundStock: 'Round Stock',
@@ -222,9 +248,40 @@ export const sameStock = (
  * no policy has nothing edited.
  */
 export const stockEdited = (
-  policy: StockOption | null,
+  policy: PlanStock | null,
   baseline: Record<string, unknown> | null,
 ): boolean => (policy ? !echoesStock(policy, baseline?.stock) : false)
+
+/* ---------- A body of the part's file as its stock ---------- */
+
+/**
+ * The part's regions a stock body leaves already at their final surface, read from a calculation's
+ * stock envelope (`stock.resolved`, `StockBody.materialFreeRegions`, Engine API 1.35): the plan
+ * machines none of them, and none needs it. None for any other stock, or none.
+ *
+ * Its indices are the plan's, which hold only in the region space it was prepared in: none unless
+ * the plan's (`planSpec.preparationId`) is the report's the regions are read against
+ * (`preparationId`, both Engine API 1.41). A later release can prepare the part otherwise, and its
+ * indices would name other faces; one that serves neither has none either.
+ */
+export const materialFreeRegions = (
+  envelope: unknown,
+  preparations: { plan: string | null; report: string | null },
+): Array<number> => {
+  const resolved = record(envelope) ? envelope.resolved : null
+  if (
+    preparations.plan === null ||
+    preparations.plan !== preparations.report ||
+    !record(resolved) ||
+    resolved.shape !== 'body' ||
+    !Array.isArray(resolved.materialFreeRegions)
+  ) {
+    return []
+  }
+  return resolved.materialFreeRegions.filter((region): region is number =>
+    Number.isSafeInteger(region),
+  )
+}
 
 /* ---------- A fixed box: the part's axes, and Toolpath's frame ---------- */
 
@@ -325,10 +382,20 @@ export const placedAlong = (envelope: unknown): PlanDirection | null => {
 /**
  * Whether a calculation's stock envelope echoes `policy` as it was sent (`stock.input`): the same
  * stock — but a fixed box turned into the frame Toolpath placed it in (`placedAlong`) or, with no
- * placement to read, into the frame of any one of the part's axes.
+ * placement to read, into the frame of any one of the part's axes. A body is echoed by the same
+ * body alone.
  */
-export const echoesStock = (policy: StockOption, envelope: unknown): boolean => {
-  const sent = parseStock(record(envelope) ? envelope.input : undefined)
+export const echoesStock = (policy: PlanStock, envelope: unknown): boolean => {
+  const input = record(envelope) ? envelope.input : undefined
+  if (policy.mode === 'body' || (record(input) && input.mode === 'body')) {
+    return (
+      policy.mode === 'body' &&
+      record(input) &&
+      input.mode === 'body' &&
+      input.bodyIndex === policy.bodyIndex
+    )
+  }
+  const sent = parseStock(input)
   if (typeof sent === 'string') {
     return false
   }

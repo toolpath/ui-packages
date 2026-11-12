@@ -132,8 +132,18 @@ describe('planDetails: the results', () => {
     expect(regions(results.coverage?.faces.machined)).toEqual([1])
     expect(regions(results.coverage?.faces.notMachined)).toEqual([2])
     expect(results.notMachined.map((group) => group.tag)).toEqual(['b'])
-    expect(results.counts).toEqual({ machined: 1, done: 1, notMachined: 1 })
+    expect(results.counts).toEqual({ machined: 1, atShape: 0, done: 1, notMachined: 1 })
     expect(results.planCounts).toEqual({ setups: 1, orientations: 1 })
+  })
+
+  it('reads the faces the stock body leaves at shape as at shape, never not machined', () => {
+    const { results } = planDetails(inputs({ materialFree: [2] }))
+    expect(regions(results.coverage?.faces.atShape)).toEqual([2])
+    expect(regions(results.coverage?.faces.notMachined)).toEqual([])
+    expect(results.counts).toEqual({ machined: 1, atShape: 1, done: 1, notMachined: 0 })
+    expect(
+      planDetails(inputs({ materialFree: [2] })).faces({ tab: 'results', openId: null }).faces,
+    ).toContainEqual({ region: 2, kind: 'atShape' })
   })
 
   it('gives every feature the plan’s actions cut, by tag in lower case', () => {
@@ -345,7 +355,7 @@ describe('planDetails: trimmed features', () => {
     expect(regions(results.coverage?.faces.machined)).toEqual([1, 2])
     expect(regions(results.coverage?.faces.notMachined)).toEqual([3])
     expect(results.notMachined.map((group) => group.tag)).toEqual(['u'])
-    expect(results.counts).toEqual({ machined: 2, done: 0, notMachined: 1 })
+    expect(results.counts).toEqual({ machined: 2, atShape: 0, done: 0, notMachined: 1 })
   })
 })
 

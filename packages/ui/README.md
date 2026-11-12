@@ -200,6 +200,7 @@ installed version.
 | `ToolDock`                               | Toolbar for many tools, `spread` (pins and All tools) or `grouped` (menus); `defaultLayout`, `LayoutToggle`. See below.                                                           |
 | `Table`                                  | Data table with a header element and row render function; sorting, selection, grouping, tree, and virtualization options. See below.                                              |
 | `EditableCell`, `useEditableGrid`        | Inline editing and grid navigation. The application parses/validates committed strings and persists changes.                                                                      |
+| `TreeGroup`, `TreeGuide`                 | Rows folded under a header, for lists that lay out their own rows. `label`, `expanded`, `onExpandedChange`; `Header`, `Toggle` (`disabledReason`), `Items`. See below.            |
 | `Panels`                                 | Resizable layout; `Group`, `Panel`, `Separator`, `Collapsed`, layout/ref hooks, and related types.                                                                                |
 | `ScrollArea`                             | Scrollable container; optional render function receives `{ hasOverflow }`. Give it a constrained size.                                                                            |
 | `Pagination`                             | One-based `page`, `onClick(page)`, and `pagination: { totalPages, perPage }`. The application fetches or slices the data.                                                         |
@@ -569,6 +570,55 @@ index, header `sortKey`, or `[key, 'asc' | 'desc']`; `onSortChange` reports sort
 Give scrollable or virtualized tables an explicitly sized parent. Tree and grouped
 modes cannot be combined. Column layout is stored in localStorage when you supply
 a table `id`; use a distinct ID for each table layout.
+
+### Tree groups
+
+`TreeGroup` folds a group of rows under a header, for a list that lays out its own rows, a CSS
+grid of editable cells say, rather than through `Table`'s grouped or tree modes. It draws and
+names the group; the application holds whether it is expanded, remembers that if it wants to, and
+leaves a collapsed group's rows out of its own keyboard model.
+
+```tsx
+import { TreeGroup, TreeGuide } from '@toolpath/ui'
+import { useState } from 'react'
+
+export const Assembly = ({ name, parts }: { name: string; parts: Array<string> }) => {
+  const [expanded, setExpanded] = useState(true)
+  return (
+    <TreeGroup label={name} expanded={expanded} onExpandedChange={setExpanded}>
+      <TreeGroup.Header className="flex items-center gap-2 px-2 py-2">
+        <TreeGroup.Toggle />
+        {name}
+      </TreeGroup.Header>
+      <TreeGroup.Items>
+        {parts.map((part, index) => (
+          <div key={part} className="flex min-h-10 items-start gap-2 px-2">
+            <TreeGuide last={index === parts.length - 1} branchAt="1.25rem" />
+            <span className="py-2.5">{part}</span>
+          </div>
+        ))}
+      </TreeGroup.Items>
+    </TreeGroup>
+  )
+}
+```
+
+- `TreeGroup`, `TreeGroup.Header` and `TreeGroup.Items` take the usual `div` props and a
+  `ref`. A rule below the group closes it off from what follows; there is none above it, since
+  the row or group before it already ends in one.
+- `TreeGroup.Header` sets the header apart: a quiet ground and bolder text. Put the header's own
+  cells in it.
+- `TreeGroup.Toggle` is an `IconButton` caret, a 24px target by default, with
+  `aria-expanded`, and `aria-controls` while the items are shown. It is named "Collapse …" or
+  "Expand …" after the group's `label`. Given a `disabledReason`, it stays focusable but does
+  nothing, is `aria-disabled`, and gives the reason as its description and as a tooltip on hover
+  and focus.
+- `TreeGroup.Items` is a `role="group"` named by `label`, rendered only while the group is
+  expanded.
+- `TreeGuide` is the guide down one item's row: a line the full
+  height of the row and a branch across to the item at `branchAt`; `last` ends the line at
+  the branch. It stretches to its row in a flex row; in a grid row, place it with `className`
+  (`absolute inset-y-0 left-4` in a `relative` row).
 
 ### Resizable panels
 

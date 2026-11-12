@@ -57,6 +57,34 @@ describe('classifyFaces', () => {
     expect(regionsOf(faces, 'open')).toEqual([])
   })
 
+  it('reads what the stock body leaves at shape as at shape, above done, never not machined', () => {
+    // Nothing cuts Last (4) or None (5); the stock leaves 4 and 5 at shape, and 3 though Cut owns it.
+    const { total, faces } = classifyFaces({
+      regions,
+      features,
+      machined: new Set(['assignment', 'cut']),
+      done: [5],
+      materialFree: [3, 4, 5],
+    })
+    expect(regionsOf(faces, 'atShape')).toEqual([5, 4, 3])
+    expect(regionsOf(faces, 'done')).toEqual([])
+    expect(regionsOf(faces, 'machined')).toEqual([2, 1])
+    expect(regionsOf(faces, 'notMachined')).toEqual([6])
+    expect(total - areaOf(faces.notMachined)).toBe(15)
+  })
+
+  it('leaves the constraints view to the person’s assignments whatever the stock', () => {
+    // @ts-expect-error -- what the stock leaves at shape is the results view's alone
+    const { faces } = classifyFaces({
+      regions,
+      features,
+      assigned: new Set(['assignment']),
+      materialFree: [3],
+    })
+    expect(regionsOf(faces, 'atShape')).toEqual([])
+    expect(regionsOf(faces, 'open')).toContain(3)
+  })
+
   it('matches tags whatever their case', () => {
     const { faces } = classifyFaces({ regions, features, machined: new Set(['cut']) })
     expect(faces.machined.map((face) => face.region)).toEqual([3, 2])
@@ -122,13 +150,14 @@ describe('planFeaturesOf', () => {
     // Face 3 done; the plan names only the trimmed tag.
     expect(kinds(features, ["a'"], [3])).toEqual([
       ['assigned', []],
+      ['atShape', []],
       ['done', [3]],
       ['open', []],
       ['machined', [1, 2]],
       ['notMachined', [4, 5, 6]],
     ])
     // Joined to the report alone, the same faces read as not machined.
-    expect(kinds(report, ["a'"], [3])[3]).toEqual(['machined', []])
+    expect(kinds(report, ["a'"], [3])[4]).toEqual(['machined', []])
   })
 
   it('reads what an assignment from another direction leaves of a feature as machined', () => {
@@ -137,6 +166,7 @@ describe('planFeaturesOf', () => {
     const features = planFeaturesOf(report, { trimmedFeatures: [cut] })
     expect(kinds(features, ['d', "c'"])).toEqual([
       ['assigned', []],
+      ['atShape', []],
       ['done', []],
       ['open', []],
       ['machined', [4, 5, 6]],

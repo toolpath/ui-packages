@@ -51,6 +51,13 @@ const StockButton = () => (
     label={(pressed) => (pressed ? 'Hide stock' : 'Show stock')}
   />
 )
+const AssemblyButton = () => (
+  <ToolbarButton
+    action="assembly"
+    icon="assembly"
+    label={(pressed) => (pressed ? 'Hide assembly' : 'Show assembly')}
+  />
+)
 const AxesButton = () => (
   <ToolbarButton
     action="axes"
@@ -178,6 +185,7 @@ const DefaultControls = () => {
   const controls = useViewerToolbar()
   const display = [
     controls.stock ? <StockButton key="stock" /> : null,
+    controls.assembly ? <AssemblyButton key="assembly" /> : null,
     controls.axes ? <AxesButton key="axes" /> : null,
     controls.grid ? <GridButton key="grid" /> : null,
     controls.banana ? <BananaButton key="banana" /> : null,
@@ -242,6 +250,7 @@ export const ViewerToolbar = Object.assign(ViewerToolbarRoot, {
   Controls,
   Divider,
   StockButton,
+  AssemblyButton,
   AxesButton,
   GridButton,
   BananaButton,

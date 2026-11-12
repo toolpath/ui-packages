@@ -29,7 +29,11 @@ export type {
 export { VisibilityGroup } from './visibility-group.js'
 export type { VisibilityGroupProps } from './visibility-group.js'
 export { usePartContext } from './part-context.js'
-export { ViewerToolbarProvider, useViewerToolbar } from './viewer-toolbar-context.js'
+export {
+  ViewerToolbarProvider,
+  assemblyControl,
+  useViewerToolbar,
+} from './viewer-toolbar-context.js'
 export type { ViewerToolbarControl, ViewerToolbarControls } from './viewer-toolbar-context.js'
 export { Stock } from './stock.js'
 export type { StockProps, StockSource, StockAppearanceProps } from './stock.js'
@@ -315,7 +319,23 @@ export type {
 export type { ExtendedCameraControlsOptions } from './render/controls.js'
 export type { ControlScheme, ControlSchemeOption } from './render/control-schemes.js'
 export type { Retarget, ViewerProps } from './viewer.js'
-export { PartCollection } from './part-collection.js'
-export type { PartCollectionItem, PartCollectionProps } from './part-collection.js'
-export { collectionBounds, collectionExplodeOffsets } from './model/collection.js'
+export {
+  ASSEMBLY_APPEARANCE,
+  ASSEMBLY_DEPTH_LAYER,
+  PartCollection,
+  collectionItemProps,
+} from './part-collection.js'
+export type {
+  AssemblyAppearance,
+  PartCollectionAssembly,
+  PartCollectionExplode,
+  PartCollectionItem,
+  PartCollectionProps,
+} from './part-collection.js'
+export {
+  collectionBounds,
+  collectionExplodeOffsets,
+  collectionItemAnchor,
+} from './model/collection.js'
+export type { CollectionBoundsOptions, CollectionExplodeOptions } from './model/collection.js'
 export { BODY_PALETTE, bodyColors } from './render/body-colors.js'

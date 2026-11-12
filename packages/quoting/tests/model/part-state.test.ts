@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { PART_BODY_LOST, STOCK_BODY_LOST, STOCK_BODY_UNUSABLE } from '../../src/inputs/plan-failure'
 import {
   canEstimateWithoutTimes,
+  canRetry,
   initialPipeline,
   isSignedOff,
   isWaiting,
@@ -137,5 +139,32 @@ describe('estimating without times', () => {
     ]
     expect(stuck.map(canEstimateWithoutTimes)).toEqual([true, true, true, true])
     expect(not.map(canEstimateWithoutTimes)).toEqual([false, false, false, false, false])
+  })
+})
+
+describe('trying again', () => {
+  it('offers Try again where another run can get past what Toolpath said', () => {
+    const refused: Array<PartState> = [
+      { kind: 'plan_failed', error: 'Toolpath could not calculate this part.' },
+      { kind: 'update_failed', error: 'refused_user_plan: 1 refused: setup 0: FeatureTag(0)' },
+      { kind: 'analysis_failed', error: 'geometry: the kernel ran out of memory' },
+      { kind: 'inspection_failed', error: 'Toolpath could not read this file.' },
+      { kind: 'gone' },
+    ]
+    expect(refused.map(canRetry)).toEqual([true, true, true, true, true])
+  })
+
+  it('offers none where it failed for good: its words say what to change', () => {
+    const forGood: Array<PartState> = [
+      { kind: 'plan_failed', error: PART_BODY_LOST },
+      { kind: 'update_failed', error: STOCK_BODY_LOST },
+      { kind: 'plan_failed', error: STOCK_BODY_UNUSABLE },
+      // Kept as Toolpath gave it, before it was worded.
+      {
+        kind: 'analysis_failed',
+        error: 'body_mismatch: the file’s bodies changed since it was read',
+      },
+    ]
+    expect(forGood.map(canRetry)).toEqual([false, false, false, false])
   })
 })

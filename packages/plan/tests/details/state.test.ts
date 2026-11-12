@@ -76,7 +76,14 @@ describe('readingOf', () => {
     const face = (region: number) => ({ region }) as unknown as Face
     const coverage: Coverage = {
       total: 2,
-      faces: { assigned: [face(1)], done: [face(2)], open: [], machined: [], notMachined: [] },
+      faces: {
+        assigned: [face(1)],
+        atShape: [],
+        done: [face(2)],
+        open: [],
+        machined: [],
+        notMachined: [],
+      },
     }
     const groups: Array<PlanSetupView> = []
     const plan = readingOf(groups, coverage)

@@ -98,3 +98,45 @@ describe('hidden parts', () => {
     part.dispose()
   })
 })
+
+describe('inert parts', () => {
+  it('pick only while visible and not inert, whatever order the two change in', async () => {
+    const model = cubeModel()
+    const geometry = await parsePartGeometry(loadMeshFixture('local-0.3.0-cube'), model.mesh)
+    const part = createPart(model, geometry, DEFAULT_THEME)
+    part.object.updateMatrixWorld(true)
+    const own = part.mesh.raycast
+    const ray = new Raycaster(new Vector3(0, 0, 100), new Vector3(0, 0, -1))
+    const steps: Record<string, () => void> = {
+      hide: () => part.setVisible(false),
+      show: () => part.setVisible(true),
+      inert: () => part.setInert(true),
+      wake: () => part.setInert(false),
+    }
+    const orders = (names: ReadonlyArray<string>): Array<Array<string>> =>
+      names.length === 0
+        ? [[]]
+        : names.flatMap((name) =>
+            orders(names.filter((other) => other !== name)).map((rest) => [name, ...rest]),
+          )
+    let visible = true
+    let inert = false
+    for (const order of orders(Object.keys(steps))) {
+      for (const step of order) {
+        steps[step]!()
+        visible = step === 'show' ? true : step === 'hide' ? false : visible
+        inert = step === 'inert' ? true : step === 'wake' ? false : inert
+        // Hidden, the object is out of drawing; the mesh's own raycast says whether it picks.
+        expect(ray.intersectObject(part.mesh).length > 0).toBe(visible && !inert)
+      }
+      // Repeated calls change nothing.
+      steps[order.at(-1)!]!()
+    }
+    part.setVisible(true)
+    part.setInert(false)
+    expect(part.mesh.raycast).toBe(own)
+    part.setInert(true)
+    expect(part.object.visible).toBe(true)
+    part.dispose()
+  })
+})

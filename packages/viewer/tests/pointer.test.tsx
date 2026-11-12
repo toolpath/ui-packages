@@ -16,6 +16,7 @@ import type { PartPick } from '../src/render/picking.js'
 import { createSectionStore } from '../src/render/section-store.js'
 import { resolveTheme } from '../src/render/theme.js'
 import { SectionView } from '../src/section-view.js'
+import { useContentBox } from '../src/content-box.js'
 import { cubeModel, loadMeshFixture } from './fixtures.js'
 
 /*
@@ -246,6 +247,40 @@ describe('<PartMesh visible={false}>', () => {
     expect((onPick.mock.calls[0]![0] as PartPick).region).toBe(
       model.regionIndex.regionForTriangle(0),
     )
+  })
+})
+
+describe('<PartMesh inert>', () => {
+  it('is drawn but reports no hover or pick, and lets rays through', async () => {
+    const onPick = vi.fn()
+    const onHover = vi.fn()
+    const part = (inert: boolean) => (
+      <PartMesh model={model} geometry={geometry} inert={inert} onPick={onPick} onHover={onHover} />
+    )
+    const scene = await mount(part(true))
+    let surface: Object3D | undefined
+    scene.scene.traverse((object) => {
+      if ((object as WithHandlers).__r3f?.handlers?.onClick) {
+        surface = object
+      }
+    })
+    scene.scene.updateMatrixWorld(true)
+    const ray = () =>
+      new Raycaster(new Vector3(0, 0, 1000), new Vector3(0, 0, -1)).intersectObject(surface!, true)
+    expect(surface!.parent!.visible).toBe(true)
+    expect(ray()).toEqual([])
+    const handlers = scene.handlersOf(surface!)
+    const hit = { faceIndex: 0, point: new Vector3() }
+    scene.press(10)
+    handlers.onPointerMove!(pointer(hit).event)
+    handlers.onClick!(pointer(hit).event)
+    expect(onHover).not.toHaveBeenCalled()
+    expect(onPick).not.toHaveBeenCalled()
+
+    await scene.rerender(part(false))
+    expect(ray()).not.toEqual([])
+    handlers.onClick!(pointer(hit, { timeStamp: 1000 }).event)
+    expect(onPick).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -495,5 +530,256 @@ describe('<ExplodedPart> pointer', () => {
     handlers().onClick!(pointer(hit as never).event)
     expect(onHover).not.toHaveBeenCalled()
     expect(onPick).not.toHaveBeenCalled()
+  })
+})
+
+describe('<PartCollection> assembly', () => {
+  /** Lifted 50 above the part, so a ray straight down meets it first. */
+  const ABOVE: Axis2 = {
+    location: { x: 0, y: 0, z: 50 },
+    axis: { x: 0, y: 0, z: 1 },
+    refDirection: { x: 1, y: 0, z: 0 },
+  }
+
+  /** Each item's part, which takes the pointer, in item order. */
+  const surfacesOf = (scene: Object3D) => {
+    const found: Array<Object3D> = []
+    scene.traverse((object) => {
+      if ((object as WithHandlers).__r3f?.handlers?.onClick) {
+        found.push(object)
+      }
+    })
+    return found
+  }
+
+  /** The group a collection places an item by, holding its part and its children. */
+  const placedGroupOf = (surface: Object3D) => surface.parent!.parent!
+
+  /** Whether the object and everything over it are visible. */
+  const drawn = (object: Object3D) => {
+    let shown = object.visible
+    object.traverseAncestors((ancestor) => {
+      shown &&= ancestor.visible
+    })
+    return shown
+  }
+
+  const centre = () => geometry.boundingBox!.getCenter(new Vector3())
+
+  interface Vice {
+    /** The collection's `assembly.visible`. */
+    assembly?: boolean
+    /** The vice's own `visible`. */
+    visible?: boolean
+    /** The collection's `subject`. */
+    subject?: string | null
+  }
+
+  const render = async (first: Vice = {}) => {
+    const onPick = vi.fn<(id: string, pick: PartPick) => void>()
+    const onHover = vi.fn<(id: string, pick: PartPick | null) => void>()
+    const element = ({ assembly = true, visible = true, subject = 'part' }: Vice) => (
+      <PartCollection
+        subject={subject}
+        items={[
+          { id: 'part', model, geometry },
+          {
+            id: 'vice',
+            model,
+            geometry,
+            placement: ABOVE,
+            visible,
+            children: <mesh name="vice-label" />,
+          },
+        ]}
+        onPick={onPick}
+        onHover={onHover}
+        assembly={{ visible: assembly }}
+      />
+    )
+    const scene = await mount(element(first))
+    return { scene, onPick, onHover, element }
+  }
+
+  /** The item whose part a ray straight down through the middle meets first, and the hit. */
+  const firstHit = (scene: Object3D) => {
+    scene.updateMatrixWorld(true)
+    const [part, vice] = surfacesOf(scene)
+    const hit = new Raycaster(centre().clone().setZ(1000), new Vector3(0, 0, -1)).intersectObjects(
+      [part!, vice!],
+      true,
+    )[0]!
+    let owner: Object3D | null = hit.object
+    while (owner && owner !== part && owner !== vice) owner = owner.parent
+    return { owner: owner === part ? 'part' : 'vice', hit }
+  }
+
+  it('lets a press through to the subject behind, and reports no hover or pick of its own', async () => {
+    const { scene, onPick, onHover } = await render()
+    const [part, vice] = surfacesOf(scene.scene)
+    scene.scene.updateMatrixWorld(true)
+    const top = centre().clone().setZ(1000)
+    const hit = new Raycaster(top, new Vector3(0, 0, -1)).intersectObjects(
+      surfacesOf(scene.scene),
+      true,
+    )[0]!
+    let owner: Object3D | null = hit.object
+    while (owner && owner !== part && owner !== vice) owner = owner.parent
+    expect(owner).toBe(part)
+    // Drawn all the same.
+    expect(drawn(vice!)).toBe(true)
+    vice!.traverse((object) => expect(object.layers.mask).not.toBe(0))
+
+    scene.press(10)
+    const handlers = scene.handlersOf(vice!)
+    handlers.onPointerMove!(pointer(hit).event)
+    handlers.onClick!(pointer(hit).event)
+    expect(onHover).not.toHaveBeenCalled()
+    expect(onPick).not.toHaveBeenCalled()
+    scene.handlersOf(part!).onClick!(pointer(hit, { timeStamp: 1000 }).event)
+    expect(onPick).toHaveBeenCalledWith('part', expect.anything())
+  })
+
+  it('stays inert when mounted hidden and then shown', async () => {
+    const { scene, element, onPick, onHover } = await render({ assembly: false })
+    await scene.rerender(element({ assembly: true }))
+    const { owner, hit } = firstHit(scene.scene)
+    expect(owner).toBe('part')
+    const vice = surfacesOf(scene.scene)[1]!
+    scene.press(10)
+    scene.handlersOf(vice).onPointerMove!(pointer(hit).event)
+    scene.handlersOf(vice).onClick!(pointer(hit).event)
+    expect(onHover).not.toHaveBeenCalled()
+    expect(onPick).not.toHaveBeenCalled()
+  })
+
+  it('picks again once the whole assembly is the subject, though hidden at the time', async () => {
+    const { scene, element, onPick } = await render()
+    await scene.rerender(element({ visible: false }))
+    await scene.rerender(element({ visible: false, subject: null }))
+    await scene.rerender(element({ visible: true, subject: null }))
+    const { owner, hit } = firstHit(scene.scene)
+    expect(owner).toBe('vice')
+    scene.press(10)
+    scene.handlersOf(surfacesOf(scene.scene)[1]!).onClick!(pointer(hit).event)
+    expect(onPick).toHaveBeenCalledWith('vice', expect.anything())
+  })
+
+  it('frames and measures nothing for a subject drawn outside it, as an empty one', async () => {
+    const boxes: Array<Box3> = []
+    const Measure = () => {
+      boxes.push(useContentBox())
+      return null
+    }
+    const scene = await mount(
+      <PartCollection
+        subject="part"
+        items={[
+          { id: 'vice', model, geometry },
+          { id: 'jaw', model, geometry, placement: ABOVE },
+        ]}
+      >
+        <Measure />
+      </PartCollection>,
+    )
+    const surfaces = surfacesOf(scene.scene)
+    expect(surfaces).toHaveLength(2)
+    for (const surface of surfaces) {
+      expect(placedGroupOf(surface).userData[EXCLUDE_FROM_FRAME]).toBe(true)
+    }
+    expect(boxes.at(-1)!.isEmpty()).toBe(true)
+  })
+
+  it('is left out of framing', async () => {
+    const { scene } = await render()
+    const [part, vice] = surfacesOf(scene.scene)
+    expect(placedGroupOf(vice!).userData[EXCLUDE_FROM_FRAME]).toBe(true)
+    expect(placedGroupOf(part!).userData[EXCLUDE_FROM_FRAME]).toBe(false)
+  })
+
+  it('frames every item as the whole assembly, and a lone item as the subject', async () => {
+    const { scene, element } = await render({ subject: null })
+    for (const surface of surfacesOf(scene.scene)) {
+      expect(placedGroupOf(surface).userData[EXCLUDE_FROM_FRAME]).toBe(false)
+    }
+    await scene.rerender(element({ subject: 'part' }))
+    expect(placedGroupOf(surfacesOf(scene.scene)[1]!).userData[EXCLUDE_FROM_FRAME]).toBe(true)
+
+    const onPick = vi.fn<(id: string, pick: PartPick) => void>()
+    const lone = await mount(
+      <PartCollection items={[{ id: 'part', model, geometry }]} onPick={onPick} />,
+    )
+    const [part] = surfacesOf(lone.scene)
+    expect(placedGroupOf(part!).userData[EXCLUDE_FROM_FRAME]).toBe(false)
+    lone.scene.updateMatrixWorld(true)
+    const hit = new Raycaster(centre().clone().setZ(1000), new Vector3(0, 0, -1)).intersectObject(
+      part!,
+      true,
+    )[0]!
+    lone.press(10)
+    lone.handlersOf(part!).onClick!(pointer(hit).event)
+    expect(onPick).toHaveBeenCalledWith('part', expect.anything())
+  })
+
+  it('hides as a set and comes back without remounting, its children with it', async () => {
+    const { scene, element } = await render()
+    const [, vice] = surfacesOf(scene.scene)
+    const label = scene.find('vice-label')
+
+    await scene.rerender(element({ assembly: false }))
+    expect(surfacesOf(scene.scene)[1]).toBe(vice)
+    expect(placedGroupOf(vice!).visible).toBe(false)
+    expect(drawn(vice!)).toBe(false)
+    expect(drawn(label)).toBe(false)
+    vice!.traverse((object) => expect(object.layers.mask).toBe(0))
+
+    await scene.rerender(element({ assembly: true }))
+    expect(surfacesOf(scene.scene)[1]).toBe(vice)
+    expect(scene.find('vice-label')).toBe(label)
+    expect(drawn(vice!)).toBe(true)
+    expect(drawn(label)).toBe(true)
+    vice!.traverse((object) => expect(object.layers.mask).not.toBe(0))
+  })
+
+  it("leaves a hidden subject's children shown, as before", async () => {
+    const scene = await mount(
+      <PartCollection
+        items={[{ id: 'part', model, geometry, visible: false, children: <mesh name="note" /> }]}
+      />,
+    )
+    expect(drawn(scene.find('note'))).toBe(true)
+  })
+
+  it('is not cut with the subjects unless it passes its own section', async () => {
+    const own = geometry.clone()
+    const uses = (scene: Object3D, of: BufferGeometry) => {
+      let count = 0
+      scene.traverse((object) => {
+        if ((object as THREE.Mesh).geometry === of) count += 1
+      })
+      return count
+    }
+    const element = (subjectCut: boolean, assemblyCut?: boolean) => (
+      <PartCollection
+        subject="part"
+        items={[
+          { id: 'part', model, geometry, section: { enabled: subjectCut } },
+          {
+            id: 'vice',
+            model,
+            geometry: own,
+            section: assemblyCut === undefined ? undefined : { enabled: assemblyCut },
+          },
+        ]}
+      />
+    )
+    const scene = await mount(element(false))
+    const [partUses, viceUses] = [uses(scene.scene, geometry), uses(scene.scene, own)]
+    await scene.rerender(element(true))
+    expect(uses(scene.scene, geometry)).toBeGreaterThan(partUses)
+    expect(uses(scene.scene, own)).toBe(viceUses)
+    await scene.rerender(element(true, true))
+    expect(uses(scene.scene, own)).toBeGreaterThan(viceUses)
+    own.dispose()
   })
 })

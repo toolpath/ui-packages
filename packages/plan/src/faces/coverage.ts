@@ -10,17 +10,20 @@ import {
   one rule: the constraints view reads the person's assignments — a face is done, assigned, or open
   (left to Toolpath); the results view reads Toolpath's plan — a face is done, machined, or not
   machined. Done outranks the rest: a done face is done whoever assigns a feature over it, and an
-  assignment done whole is unassigned (`markDoneEdit`).
+  assignment done whole is unassigned (`markDoneEdit`). Above even that, in the results view, a
+  face the part's stock body leaves at its final surface (`materialFree`) is at shape: nothing needs
+  to cut it, so it is never Not machined, and it counts as covered.
 */
 
-export type CoverageKind = 'assigned' | 'done' | 'open' | 'machined' | 'notMachined'
+export type CoverageKind = 'assigned' | 'atShape' | 'done' | 'open' | 'machined' | 'notMachined'
 
 /**
- * In the order the coverage bar draws them. A face itself is weighed by `classifyFaces`, done
- * first.
+ * In the order the coverage bar draws them. A face itself is weighed by `classifyFaces`, at shape
+ * and done first.
  */
 export const COVERAGE_KINDS: ReadonlyArray<CoverageKind> = [
   'assigned',
+  'atShape',
   'done',
   'open',
   'machined',
@@ -145,6 +148,8 @@ export interface ConstraintsCoverage extends ClassifiedPart {
   assigned: ReadonlySet<string>
   /** One view at a time: never Toolpath's plan beside the assignments. */
   machined?: never
+  /** What a stock body leaves at shape is a result: never beside the pins. */
+  materialFree?: never
 }
 
 /**
@@ -153,20 +158,28 @@ export interface ConstraintsCoverage extends ClassifiedPart {
  */
 export interface ResultsCoverage extends ClassifiedPart {
   machined: ReadonlySet<string>
+  /**
+   * The regions the part's stock body leaves at their final surface, read from its stock envelope:
+   * at shape, whoever owns them, done or not. Never sent as done faces.
+   */
+  materialFree?: ReadonlyArray<number>
   /** One view at a time: never the assignments beside Toolpath's plan. */
   assigned?: never
 }
 
 /**
- * Each face in exactly one kind: done first, then — constraints — assigned or open, or — results —
- * machined or not machined. Every tag set is lower case. The other view's kinds are empty.
+ * Each face in exactly one kind: in the results view at shape first; then done; then —
+ * constraints — assigned or open, or — results — machined or not machined. Every tag set is lower
+ * case. The other view's kinds are empty.
  */
 export const classifyFaces = (input: ConstraintsCoverage | ResultsCoverage): Coverage => {
   const { regions, features, done = [] } = input
   const owners = ownersByRegion(features)
   const doneSet = new Set(done)
+  const atShape = new Set(input.assigned === undefined ? (input.materialFree ?? []) : [])
   const faces: Coverage['faces'] = {
     assigned: [],
+    atShape: [],
     done: [],
     open: [],
     machined: [],
@@ -174,7 +187,7 @@ export const classifyFaces = (input: ConstraintsCoverage | ResultsCoverage): Cov
   }
   for (const region of regions) {
     const face = { region: region.idx, area: region.area, owners: owners.get(region.idx) ?? [] }
-    faces[kindOf(face, doneSet, input)].push(face)
+    faces[kindOf(face, atShape, doneSet, input)].push(face)
   }
   for (const kind of COVERAGE_KINDS) {
     faces[kind].sort((a, b) => b.area - a.area)
@@ -193,12 +206,19 @@ const ownersByRegion = (features: ReadonlyArray<CoverageFeature>): Map<number, A
   return owners
 }
 
-/** Who machines one face: done first, then by the view’s assignments or Toolpath's plan. */
+/**
+ * Who machines one face: at shape in stock (results only) first, then done, then by the view’s
+ * assignments or Toolpath's plan.
+ */
 const kindOf = (
   face: Face,
+  atShape: ReadonlySet<number>,
   done: ReadonlySet<number>,
   input: ConstraintsCoverage | ResultsCoverage,
 ): CoverageKind => {
+  if (atShape.has(face.region)) {
+    return 'atShape'
+  }
   if (done.has(face.region)) {
     return 'done'
   }

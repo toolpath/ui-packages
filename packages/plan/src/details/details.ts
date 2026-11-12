@@ -92,6 +92,11 @@ export interface PlanDetailsInputs {
   analysis: PartAnalysis | null
   /** Whether `plan` is of `saved`: only then are its setups named by the groups they are from. */
   planIsOfSaved: boolean
+  /**
+   * The regions the part's stock body leaves at their final surface, read from the plan's stock
+   * envelope: at shape in the results. None for any other stock.
+   */
+  materialFree?: ReadonlyArray<number>
 }
 
 /** The person's constraints, as the tree and the Constraints view show them. */
@@ -128,7 +133,10 @@ export interface PlanDetailsResults {
    * trimmed. None before the analysis is read.
    */
   features: ReadonlyArray<PlanFeature>
-  /** Each face done, machined or not machined; null before the plan and the analysis are read. */
+  /**
+   * Each face at shape in stock, done, machined or not machined; null before the plan and the
+   * analysis are read.
+   */
   coverage: Coverage | null
   /**
    * The faces done as saved, numbered by the analysis' kernel: the ones the plan is made from.
@@ -136,8 +144,8 @@ export interface PlanDetailsResults {
   done: ReadonlyArray<number>
   /** The faces nothing machines, gathered under the features that would machine them. */
   notMachined: ReadonlyArray<FaceGroup>
-  /** Features machined, faces done, and features not machined. */
-  counts: { machined: number; done: number; notMachined: number }
+  /** Features machined, faces at shape in stock, faces done, and features not machined. */
+  counts: { machined: number; atShape: number; done: number; notMachined: number }
   /** Setups, and the directions they are machined from. */
   planCounts: { setups: number; orientations: number }
   /** The constraints changed since these results. */
@@ -182,6 +190,7 @@ export interface PlanDetails {
 
 const NO_FACES: Coverage['faces'] = {
   assigned: [],
+  atShape: [],
   done: [],
   open: [],
   machined: [],
@@ -283,7 +292,7 @@ const resultsOf = (
   inputs: PlanDetailsInputs,
   constraints: PlanDetailsConstraints,
 ): PlanDetailsResults => {
-  const { plan, saved, part, analysis, planIsOfSaved } = inputs
+  const { plan, saved, part, analysis, planIsOfSaved, materialFree } = inputs
   const kernel = analysis?.kernelVersion ?? null
   const view = once(() => resultsView({ plan, constraints: planIsOfSaved ? saved : null, part }))
   const done = once(() => (saved ? currentFor(saved.done, saved.doneKernel, kernel) : []))
@@ -296,12 +305,14 @@ const resultsOf = (
           features: features(),
           done: done(),
           machined: machined(),
+          materialFree,
         })
       : null,
   )
   const notMachined = once(() => groupFaces(coverage()?.faces.notMachined ?? [], features()))
   const counts = once(() => ({
     machined: groupFaces(coverage()?.faces.machined ?? [], features()).length,
+    atShape: coverage()?.faces.atShape.length ?? 0,
     done: coverage()?.faces.done.length ?? 0,
     notMachined: notMachined().length,
   }))

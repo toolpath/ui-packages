@@ -242,4 +242,16 @@ describe('a part’s inputs', () => {
     const automatic = SAMPLES[1]!
     expect(stockSent(automatic.part, automatic.draft)).toEqual(automatic.part.machiningStock)
   })
+
+  it('are planned from a body of the file in place of the policy, which stays to come back to', () => {
+    const box = SAMPLES[4]!
+    const cut = { ...box.part, stockBodyIndex: 3 }
+    // Sent as it is: no first folder is needed for a body.
+    expect(stockSent(cut, box.draft)).toEqual({ mode: 'body', bodyIndex: 3 })
+    expect(planInputsOf(cut, box.draft).stock).toEqual({ mode: 'body', bodyIndex: 3 })
+    expect(fingerprintOf(cut, box.draft)).not.toBe(fingerprintOf(box.part, box.draft))
+    expect(fingerprintOf({ ...box.part, stockBodyIndex: null }, box.draft)).toBe(
+      fingerprintOf(box.part, box.draft),
+    )
+  })
 })

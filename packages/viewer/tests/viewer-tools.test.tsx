@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { assemblyControl } from '../src/viewer-toolbar-context.js'
 import { viewerToolGroups } from '../src/viewer-tools.js'
 
 describe('viewerToolGroups', () => {
@@ -70,5 +71,24 @@ describe('viewerToolGroups', () => {
     expect(explode?.gate).toBe('No rule violations to explode')
     explode?.onClick()
     expect(onClick).toHaveBeenCalledOnce()
+  })
+
+  it('puts Assembly in the scene group after Stock, only when supplied', () => {
+    const [scene] = viewerToolGroups({
+      grid: { onClick: () => {} },
+      assembly: { pressed: true, onClick: () => {} },
+      stock: { onClick: () => {} },
+    })
+
+    expect(scene?.tools.map((tool) => tool.id)).toEqual(['stock', 'assembly', 'grid'])
+    const assembly = scene?.tools[1]
+    expect(assembly?.label).toBe('Assembly')
+    expect(assembly?.note).toBe("The assembly's other bodies, faded round the part")
+    expect(assembly?.on).toBe(true)
+    const [without] = viewerToolGroups({
+      stock: { onClick: () => {} },
+      assembly: assemblyControl([{ id: 'part' }], null, { shown: true, onToggle: () => {} }),
+    })
+    expect(without?.tools.map((tool) => tool.id)).toEqual(['stock'])
   })
 })

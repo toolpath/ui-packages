@@ -61,11 +61,13 @@ export const planDetailOf = ({
     return null
   }
   switch (state.kind) {
+    case 'inspecting':
     case 'analyzing':
       return 'reading'
     case 'planning':
     case 'updating':
       return 'calculating'
+    case 'inspection_failed':
     case 'analysis_failed':
     case 'plan_failed':
     case 'update_failed':
@@ -121,10 +123,10 @@ export const moveFor = (
   }
   // Nothing to price until Toolpath has read the model.
   const prices = to === 'estimate' || to === 'quote'
-  if (prices && state.kind === 'analyzing') {
+  if (prices && (state.kind === 'inspecting' || state.kind === 'analyzing')) {
     return { kind: 'refused', reason: MODEL_UNREAD }
   }
-  if (prices && state.kind === 'analysis_failed') {
+  if (prices && (state.kind === 'inspection_failed' || state.kind === 'analysis_failed')) {
     return { kind: 'refused', reason: MODEL_FAILED }
   }
   if (to === 'quote') {

@@ -23,14 +23,14 @@ export const QUOTE_STATUSES = ['new', 'estimated', 'sent', 'won', 'lost'] as con
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number]
 
 /**
- * A revision is `estimated` only once every one of its parts is, and one with no parts yet is
- * `new` — there is nothing to have estimated.
+ * A revision is `estimated` only once every one of its assemblies being quoted is signed off, and
+ * one with none is `new` — there is nothing to have estimated. `quotedAssemblyCounts` counts them.
  */
 export const quoteStatus = (revision: {
   sentAt: Date | null
   outcome: 'won' | 'lost' | null
-  partCount: number
-  estimatedPartCount: number
+  assemblyCount: number
+  estimatedAssemblyCount: number
 }): QuoteStatus => {
   /*
     A quote with nothing on it is new, whatever it once was. Deleting the last part takes the
@@ -38,7 +38,7 @@ export const quoteStatus = (revision: {
     it would be an empty page with a total of zero. The stamps are cleared when the last
     part goes, so this is belt and braces for a revision that lost its parts another way.
   */
-  if (revision.partCount === 0) {
+  if (revision.assemblyCount === 0) {
     return 'new'
   }
   /*
@@ -46,7 +46,7 @@ export const quoteStatus = (revision: {
     were checked, so taking a sign-off back drops the quote to the start whatever it was stamped —
     the stamp is cleared alongside, and this makes the reading honest even where it was not.
   */
-  if (revision.estimatedPartCount !== revision.partCount) {
+  if (revision.estimatedAssemblyCount !== revision.assemblyCount) {
     return 'new'
   }
   /* How it ended outranks having been sent, which is the fact it supersedes. */

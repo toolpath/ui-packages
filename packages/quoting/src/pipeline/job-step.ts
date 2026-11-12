@@ -1,4 +1,5 @@
-import type { StockOption } from '../inputs/stock'
+import type { PlanStock } from '../inputs/stock'
+import type { SendHolding } from '../model/part-state'
 import type { WaitingPipeline } from './run-decision'
 
 /*
@@ -20,8 +21,28 @@ export const SEND_LOST = 'Sending the plan to Toolpath did not finish. Try again
 /** What a part's plan says when Toolpath no longer has the job planning it, and has no times. */
 export const JOB_LOST = 'Toolpath no longer has the job planning this part. Try again to send it.'
 
-/** What a part's plan says when no plan was queued with its analysis, and its stock is not why. */
+/**
+ * What a part's plan says when no plan was queued with its analysis, and its stock is not why: kept
+ * only where the plan sent once the model is read is not sent after all — a plan of those inputs
+ * there already, or the quote revised meanwhile. One sent says how it went instead.
+ */
 export const PLAN_NOT_QUEUED = 'Could not start the machining-time calculation for this part.'
+
+/** What a new part of a file says when sending its analysis and plan never finished. */
+export const MODEL_SEND_LOST = 'Sending the part to Toolpath did not finish. Try again to send it.'
+
+/** What a file says when making its parts never finished. */
+export const FILE_SEND_LOST = 'Making parts of this file did not finish. Try again.'
+
+/** What a file says when Toolpath listed none of its bodies: the job reading it is gone. */
+export const INSPECTION_LOST =
+  'Toolpath no longer has the job reading this file. Try again to read it.'
+
+/** What a file says when Toolpath found no solid body in it (`no_solid_bodies`). */
+export const NO_SOLID_BODIES = 'Toolpath found no solid body in this file.'
+
+/** How many parts one file may be made into: what Toolpath makes from a file in one request. */
+export const MAX_FILE_PARTS = 100
 
 /** Toolpath's answer about a job. `gone`: it no longer has it. */
 export type JobAnswer =
@@ -40,6 +61,11 @@ export interface WaitingFacts {
   planJobId: string | null
   planId: string | null
   plannedJobId: string | null
+  /**
+   * What a send (`sending`) carries (`holdingOf`), which says where a lost one leaves the part: a
+   * file's parts being made, a new part's first analysis and plan, or a plan — the default.
+   */
+  holding?: SendHolding
 }
 
 /** The step a waiting part takes (`jobStep`). */
@@ -49,13 +75,21 @@ export type JobStep =
   /** Fail, saying why; `settle`: then ask for the newest inputs' run (`runDecision`). */
   | {
       step: 'fail'
-      pipeline: 'analysis_failed' | 'plan_failed'
+      pipeline: 'inspection_failed' | 'analysis_failed' | 'plan_failed'
       error: string | null
       settle: boolean
     }
   /**
+   * The file's inspection ended, or Toolpath no longer has its job: read its bodies, and make parts
+   * of them as `inspectedStep` says.
+   */
+  | { step: 'inspected' }
+  /**
    * The model is read: measure it, and wait on the plan queued with it (`planJobId`). With none,
-   * the plan fails (`notQueued`) and the newest inputs are asked for.
+   * the part is taken off its job: a stock that could not be sent fails its plan saying why
+   * (`notQueued`), and a part not made fails it as not made; otherwise its plan is sent now, from
+   * its inputs as they stand — Toolpath refused the one sent with the analysis, slowing the key
+   * down, say — and a refusal fails it in Toolpath's words. Then the newest inputs are asked for.
    */
   | { step: 'analyzed'; planJobId: string | null }
   /** The job ended or is forgotten: read the times of its plan, `planId` (`timesStep`). */
@@ -65,9 +99,7 @@ export type JobStep =
 export const jobStep = (part: WaitingFacts): JobStep => {
   const wait = { step: 'wait', notePlanned: false } as const
   if (part.pipeline === 'sending') {
-    return part.heldMs > SENDING_MS
-      ? { step: 'fail', pipeline: 'plan_failed', error: SEND_LOST, settle: false }
-      : wait
+    return part.heldMs > SENDING_MS ? sendLost(part.holding ?? 'plan') : wait
   }
   const { job } = part
   if (!job) {
@@ -84,6 +116,16 @@ export const jobStep = (part: WaitingFacts): JobStep => {
         part.plannedJobId === null,
     }
   }
+  if (part.pipeline === 'inspecting') {
+    return job.status === 'failed'
+      ? {
+          step: 'fail',
+          pipeline: 'inspection_failed',
+          error: inspectionError(job.error),
+          settle: false,
+        }
+      : { step: 'inspected' }
+  }
   if (part.pipeline === 'analyzing') {
     return job.status === 'failed'
       ? { step: 'fail', pipeline: 'analysis_failed', error: job.error, settle: false }
@@ -97,8 +139,54 @@ export const jobStep = (part: WaitingFacts): JobStep => {
     : { step: 'fail', pipeline: 'plan_failed', error: JOB_LOST, settle: true }
 }
 
+/** Where a send that never said how it went leaves the part, by what it carried. */
+const sendLost = (holding: SendHolding): JobStep => {
+  switch (holding) {
+    case 'file':
+      return { step: 'fail', pipeline: 'inspection_failed', error: FILE_SEND_LOST, settle: false }
+    case 'model':
+      return { step: 'fail', pipeline: 'analysis_failed', error: MODEL_SEND_LOST, settle: false }
+    case 'plan':
+      return { step: 'fail', pipeline: 'plan_failed', error: SEND_LOST, settle: false }
+  }
+}
+
+/** A failed inspection's error, in the words the part shows: Toolpath's own, but for no bodies. */
+export const inspectionError = (error: string | null): string | null =>
+  error?.startsWith('no_solid_bodies') ? NO_SOLID_BODIES : error
+
+/** What `inspectedStep` reads of a file whose inspection ended. */
+export interface InspectedFacts {
+  /** How many solid bodies Toolpath listed in the file, copies included: none when it listed none. */
+  bodies: number
+  /** How many distinct shapes those bodies are. */
+  shapes: number
+}
+
+/** What a file whose inspection ended takes: a part of each shape, or a failure saying why. */
+export type InspectedStep = { step: 'make' } | { step: 'fail'; error: string }
+
+/**
+ * Whether a file's shapes are made parts: a part of each distinct shape, however many bodies the
+ * file has, with no more than {@link MAX_FILE_PARTS} shapes. A file with no bodies listed lost its
+ * inspection — one that succeeded lists at least one — and is tried again by a person. Nothing is
+ * made of a file refused, so nothing is billed for it.
+ */
+export const inspectedStep = ({ bodies, shapes }: InspectedFacts): InspectedStep => {
+  if (bodies === 0) {
+    return { step: 'fail', error: INSPECTION_LOST }
+  }
+  if (shapes > MAX_FILE_PARTS) {
+    return {
+      step: 'fail',
+      error: `This file has ${shapes} distinct bodies. At most ${MAX_FILE_PARTS} can be quoted from one file.`,
+    }
+  }
+  return { step: 'make' }
+}
+
 /** Why an analysis read with no plan queued fails its plan: a stock it could not send says why. */
-export const notQueued = (stock: StockOption | string | null): string =>
+export const notQueued = (stock: PlanStock | string | null): string =>
   typeof stock === 'string' ? stock : PLAN_NOT_QUEUED
 
 /** How reading a finished plan's machining times went. */

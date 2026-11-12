@@ -226,6 +226,7 @@ export type FaceDirection = Pick<PlanOrientationView, 'direction' | 'directionIn
  * - `direction`: a group's direction machines it — assigned there, or Toolpath's setup — shown in
  *   that direction's colour.
  * - `otherDirection`: with a group open, only other directions take it.
+ * - `atShape`: the part's stock body leaves it at its final surface, so nothing cuts it.
  * - `done`: marked done, so left alone.
  * - `notMachined`: nothing machines it.
  *
@@ -233,7 +234,7 @@ export type FaceDirection = Pick<PlanOrientationView, 'direction' | 'directionIn
  */
 export type ShownFace =
   | ({ region: number; kind: 'direction' } & FaceDirection)
-  | { region: number; kind: 'otherDirection' | 'done' | 'notMachined' }
+  | { region: number; kind: 'otherDirection' | 'atShape' | 'done' | 'notMachined' }
 
 /** Another direction that takes a face too: the app draws it across the face, in its colour. */
 export type SharedFace = { region: number } & FaceDirection
@@ -313,7 +314,8 @@ const faceDirection = ({ direction, directionIndex }: FaceDirection): FaceDirect
 /**
  * How each face shows, as `classifyFaces` reads the plan — the one rule for what machines each
  * face, in either view. An assigned face shows in its group's direction, and so does a face
- * Toolpath machines, in its setup's; a done face is `done`; an open face — left to Toolpath — is
+ * Toolpath machines, in its setup's; a face at shape in its stock body is `atShape`, and a done face
+ * `done`; an open face — left to Toolpath — is
  * not listed; a Not machined face is `notMachined`. With no group open every group shows, the
  * other directions of a shared face in `sharedFaces`; with one open, only its own direction does —
  * it and the groups inside it facing the same way (FLD59). A face only other directions take,
@@ -334,6 +336,7 @@ export const shownFaces = ({
   return [
     ...faces.assigned.flatMap(fromGroup),
     ...faces.machined.flatMap(fromGroup),
+    ...faces.atShape.map((face) => ({ region: face.region, kind: 'atShape' as const })),
     ...faces.done.map((face) => ({ region: face.region, kind: 'done' as const })),
     ...(uncovered
       ? faces.notMachined.map((face) => ({ region: face.region, kind: 'notMachined' as const }))
