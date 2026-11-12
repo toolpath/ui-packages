@@ -9,6 +9,12 @@ export { featureTriangles } from './render/feature-triangles.js'
 export { PartMesh } from './part-mesh.js'
 export { createExplodeAmount } from './model/explode-amount.js'
 export type { ExplodeAmount } from './model/explode-amount.js'
+export { createExplodeMotion } from './model/explode-motion.js'
+export type {
+  ExplodeMotion,
+  ExplodeMotionOptions,
+  ExplodeMotionSnapshot,
+} from './model/explode-motion.js'
 export { EXPLODE_LIMITS, explodeFits, explodeLayout } from './render/explode-layout.js'
 export { ExplodedPart } from './exploded-part.js'
 export type { ExplodedPartProps } from './exploded-part.js'
@@ -311,5 +317,5 @@ export type { ControlScheme, ControlSchemeOption } from './render/control-scheme
 export type { Retarget, ViewerProps } from './viewer.js'
 export { PartCollection } from './part-collection.js'
 export type { PartCollectionItem, PartCollectionProps } from './part-collection.js'
-export { collectionBounds } from './model/collection.js'
+export { collectionBounds, collectionExplodeOffsets } from './model/collection.js'
 export { BODY_PALETTE, bodyColors } from './render/body-colors.js'

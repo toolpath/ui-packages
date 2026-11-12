@@ -213,6 +213,7 @@ const NATIVE_FILES = [
   'label-overlay.native.tsx',
   'measure-labels.native.tsx',
   'measure-pointer.native.ts',
+  'model/page-visibility.native.ts',
   'render/keys.native.ts',
   'render/part-picking.native.ts',
   'render/pointer-hover.native.ts',

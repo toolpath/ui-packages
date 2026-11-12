@@ -1,5 +1,13 @@
 # @toolpath/viewer
 
+## 3.8.0
+
+### Minor Changes
+
+- b66465d: The React Native build exports `createExplodeMotion` (with `ExplodeMotion`, `ExplodeMotionOptions` and `ExplodeMotionSnapshot`) and `collectionExplodeOffsets`, as the web build does.
+
+  `createExplodeMotion`'s pause while the page is hidden reads `document` only in the web build.
+
 ## 3.7.0
 
 ### Minor Changes

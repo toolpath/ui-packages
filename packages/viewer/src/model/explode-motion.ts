@@ -1,4 +1,5 @@
 import { readExplodeAmount, type ExplodeAmount } from './explode-amount.js'
+import { pageHidden, watchPageVisibility } from './page-visibility.js'
 
 /**
  * Where an explosion is, as a React readout takes it. `getSnapshot` returns the same object
@@ -52,8 +53,6 @@ const ease = (t: number): number => t * t * t * (t * (t * 6 - 15) + 10)
 const prefersReducedMotion = (): boolean =>
   globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 
-const hidden = (): boolean => globalThis.document?.hidden ?? false
-
 /**
  * Animation for an explosion: easing, real elapsed time, a pause while the tab is hidden, and
  * the person's reduced-motion setting. The application still decides when to move.
@@ -77,6 +76,7 @@ export const createExplodeMotion = (
   let lastFrame: number | null = null
   let lastReadout = -Infinity
   let frame: number | null = null
+  let unwatch: (() => void) | null = null
   const listeners = new Set<() => void>()
   const snapshotOf = (): ExplodeMotionSnapshot => ({
     amount: value,
@@ -110,11 +110,12 @@ export const createExplodeMotion = (
     value = amount
     mode = 'idle'
     stopFrames()
-    globalThis.document?.removeEventListener('visibilitychange', visibility)
+    unwatch?.()
+    unwatch = null
     notify(true)
   }
   const schedule = () => {
-    if (frame === null && mode !== 'idle' && !(mode === 'waiting' && holds > 0) && !hidden()) {
+    if (frame === null && mode !== 'idle' && !(mode === 'waiting' && holds > 0) && !pageHidden()) {
       frame = requestFrame(tick)
     }
   }
@@ -177,7 +178,7 @@ export const createExplodeMotion = (
       stopFrames()
       // Moves wait one frame for pieces that mount in response to this same request.
       mode = 'waiting'
-      globalThis.document?.addEventListener('visibilitychange', visibility)
+      unwatch ??= watchPageVisibility(visibility)
       notify(true)
       schedule()
     },
