@@ -1,14 +1,11 @@
 /**
  * One catalog tool, with or without what holds it, as a Fusion library record.
  *
- * ## The type is not translated
+ * ## The type is a table, at the edge
  *
- * `forms.ts` chose Fusion's own vocabulary *"so that a tool exported there
- * lands on the type it already has"*, and measured against Autodesk's schema
- * all 24 forms are valid Fusion types. So the mapping is the identity function
- * and there is no table between two vocabularies for an `SFDM` to get lost in.
- * `'other'` is the one input with no answer, and it is refused rather than
- * rounded to the nearest wrong type.
+ * Every kind has a Fusion type (`catalog.ts`'s `CAM_TYPES`), and measured
+ * against Autodesk's schema every one of them is a valid Fusion type, so no
+ * kind is rounded to the nearest wrong one.
  *
  * ## What Fusion cannot be told
  *
@@ -22,10 +19,11 @@
  * product line have no counterpart at all.
  */
 
-import type { Assembly } from '../../holding.js'
-import type { CatalogTool } from '../catalog.js'
+import type { CuttingTool, RotatingToolAssembly } from '../../model.js'
+import type { UnitSystem } from '../../units.js'
+import { camIdentity, camType, isoGeometry } from '../catalog.js'
 import type { ExportNote } from '../report.js'
-import { fusionHolder, type CatalogHolder, type FusionHolder } from './holder.js'
+import { fusionHolder, type FusionHolder, type FusionSegment } from './holder.js'
 import {
   fusionGeometry,
   type FillMode,
@@ -49,10 +47,12 @@ export interface FusionPostProcess {
 
 export interface FusionTool {
   readonly type: string
-  readonly unit: CatalogTool['unit']
+  readonly unit: UnitSystem
   readonly guid: string
   readonly BMC: string
   readonly geometry: Readonly<Record<string, FusionValue>>
+  /** The tool above its flutes, below the holder: see `fusionGeometry`'s shaft writer. */
+  readonly shaft: { readonly segments: readonly FusionSegment[] }
   readonly 'post-process': FusionPostProcess
   readonly 'start-values': { readonly presets: readonly FusionPreset[] }
   readonly description?: string
@@ -66,18 +66,15 @@ export interface FusionTool {
 /**
  * What a tool, its holder and how far it stands out arrive as.
  *
- * The holder is a {@link CatalogHolder} rather than a bare `Holder` because
- * Fusion requires a guid on an embedded holder as much as on a tool, and this
- * package mints none. `assembly` carries the stickout and the holder together
- * so a caller that already has an `Assembly` does not take it apart.
+ * `assembly` carries the stickout and the holder together so a caller that
+ * already has a `RotatingToolAssembly` does not take it apart. Fusion requires
+ * a guid on an embedded holder as much as on a tool, and this package mints
+ * none.
  */
 export interface ToolRequest {
-  readonly tool: CatalogTool
+  readonly tool: CuttingTool
   /** The holder and the stickout, where the tool is set up in one. */
-  readonly assembly?: {
-    readonly stickout: Assembly['stickout']
-    readonly holder?: CatalogHolder
-  }
+  readonly assembly?: Pick<RotatingToolAssembly, 'stickout' | 'holder' | 'number'>
   /**
    * The tool's cutting-data presets, stated in the tool's own unit system.
    *
@@ -107,14 +104,14 @@ export interface ToolResult {
  * catalog holds none of them. A tool number of zero is "unassigned", which is
  * what a tool straight out of a vendor catalog is.
  */
-const postProcess = (tool: CatalogTool): FusionPostProcess => ({
+const postProcess = (number = 0): FusionPostProcess => ({
   'break-control': false,
   comment: '',
-  'diameter-offset': tool.number ?? 0,
-  'length-offset': tool.number ?? 0,
+  'diameter-offset': number,
+  'length-offset': number,
   live: true,
   'manual-tool-change': false,
-  number: tool.number ?? 0,
+  number,
   turret: 0,
 })
 
@@ -132,34 +129,39 @@ const EPSILON = 1e-6
  * anything less is a bull nose — of which a zero radius, a flat-ended taper, is
  * the ordinary case. Fusion has only the two words.
  */
-const taperedType = (tool: CatalogTool): string | null => {
-  const { RE, DC } = tool.geometry
+const taperedType = (tool: CuttingTool): string | null => {
+  const { RE, DC } = isoGeometry(tool)
   if (RE === undefined || DC === undefined) return null
   return RE >= DC / 2 - EPSILON ? 'tapered_ball' : 'tapered_bull_nose'
 }
 
 export const fusionTool = (request: ToolRequest): ToolResult => {
   const { tool, assembly, fill = 'derived' } = request
-  const subject = tool.guid
+  const identity = camIdentity(tool)
   const notes: ExportNote[] = []
   const note = (kind: ExportNote['kind'], message: string, field?: string): void => {
-    notes.push({ subject, kind, message, ...(field === undefined ? {} : { field }) })
+    notes.push({
+      subject: identity?.guid ?? tool.name,
+      kind,
+      message,
+      ...(field === undefined ? {} : { field }),
+    })
+  }
+  if (identity === null) {
+    note('skipped', 'the tool states no valid guid, and Fusion requires one', 'guid')
+    return { tool: null, notes }
   }
 
-  const rules = tool.form === 'holder' ? null : fusionType(tool.form)
+  const type = camType(tool)
+  const rules = fusionType(type)
   if (rules === null) {
-    note(
-      'skipped',
-      `${JSON.stringify(tool.form)} is not a tool type Fusion has — the tool is left out ` +
-        `rather than exported as the nearest thing that is`,
-      'type',
-    )
+    note('skipped', `${JSON.stringify(type)} is not a tool type Fusion has`, 'type')
     return { tool: null, notes }
   }
 
   let holder: FusionHolder | undefined
   let holderGauge: number | null = null
-  if (assembly?.holder !== undefined) {
+  if (assembly !== undefined && assembly.holder !== null) {
     const written = fusionHolder(assembly.holder)
     notes.push(...written.notes)
     if (written.holder !== null) {
@@ -170,6 +172,7 @@ export const fusionTool = (request: ToolRequest): ToolResult => {
 
   const geometry = fusionGeometry({
     tool,
+    identity,
     rules,
     stickout: assembly?.stickout ?? null,
     holderGauge,
@@ -182,7 +185,7 @@ export const fusionTool = (request: ToolRequest): ToolResult => {
   if (geometry.missing.length > 0) {
     note(
       'skipped',
-      `Fusion requires ${geometry.missing.join(', ')} for a ${tool.form} and none is stated`,
+      `Fusion requires ${geometry.missing.join(', ')} for a ${type} and none is stated`,
     )
     return { tool: null, notes }
   }
@@ -212,23 +215,25 @@ export const fusionTool = (request: ToolRequest): ToolResult => {
     note('filled', 'read from the corner radius against the cutting diameter', 'tapered-type')
   }
 
-  const presets = fusionPresets(subject, tool.form, rules, request.presets ?? [])
-  notes.push(...presets.notes)
+  // The catalog's own words, else the tool's name where it has one.
+  const description = tool.description ?? (tool.name === '' ? undefined : tool.name)
 
-  const description = tool.description ?? tool.label
+  const presets = fusionPresets(identity.guid, type, rules, request.presets ?? [])
+  notes.push(...presets.notes)
 
   return {
     tool: {
-      type: tool.form,
-      unit: tool.unit,
-      guid: tool.guid,
+      type,
+      unit: identity.unit,
+      guid: identity.guid,
       BMC: material,
       geometry: geometry.geometry,
-      'post-process': postProcess(tool),
+      shaft: { segments: geometry.segments },
+      'post-process': postProcess(assembly?.number),
       'start-values': { presets: presets.presets },
       ...(description === undefined ? {} : { description }),
       ...(tool.vendor === undefined ? {} : { vendor: tool.vendor }),
-      ...(tool.catalogNumber === undefined ? {} : { 'product-id': tool.catalogNumber }),
+      ...(tool.productId === undefined ? {} : { 'product-id': tool.productId }),
       ...(tool.productLink === undefined ? {} : { 'product-link': tool.productLink }),
       ...(tapered === undefined ? {} : { 'tapered-type': tapered }),
       ...(holder === undefined ? {} : { holder }),

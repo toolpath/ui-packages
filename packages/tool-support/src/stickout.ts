@@ -28,9 +28,9 @@
  * function with more arguments:
  *
  * ```
- * geometry.LBH      ≡ stickoutRange(tool).setup                       — no holder, no feature
- * Assembly.stickout ≡ stickoutRange(tool, { grip, required }).setup
- * the ceiling       ≡ stickoutRange(tool, …).max
+ * the setup length              ≡ stickoutRange(tool).setup                  — no holder, no feature
+ * RotatingToolAssembly.stickout ≡ stickoutRange(tool, { grip, required }).setup
+ * the ceiling                   ≡ stickoutRange(tool, …).max
  * ```
  *
  * `min ≤ setup ≤ max` holds by construction, so a drawn stickout can never
@@ -45,23 +45,10 @@
  * earlier default carried zero for both and so produced the bare flute length.
  */
 
-import { DEFAULT_CLAMPING, clampWanted, type ClampingRule } from './clamping.js'
-import type { Geometry } from './geometry.js'
-import { hasNeck } from './tool.js'
+import { DEFAULT_CLAMPING, clampWanted, headLength, type ClampingRule } from './clamping.js'
+import type { CuttingTool } from './model.js'
+import { statedOverallLength } from './stack.js'
 import type { UnitSystem } from './units.js'
-
-/**
- * What this module needs of a tool: its geometry, and which unit system its
- * step is counted in.
- *
- * Deliberately narrower than a whole {@link Tool} so a build can ask before a
- * tool is finished being built, and so nothing here can reach for a catalog
- * number or a vendor.
- */
-export interface StickoutTool {
-  readonly geometry: Geometry
-  readonly unitSystem: UnitSystem
-}
 
 /**
  * The share of a tool's overall length a holder must always have hold of.
@@ -110,20 +97,21 @@ export const DEFAULT_STICKOUT_POLICY: StickoutPolicy = {
  * number nobody can trace.
  *
  * `clamp` is the shop's clamping length, or the vendor's own `LSCN`; `hold` is
- * {@link HELD_SHARE}; `collet` is the collet's published grip. They used to be
+ * {@link HELD_SHARE}; `grip` is the published grip, a collet's or a bore
+ * holder's own. They used to be
  * a ceiling each in a different file; here they are three caps and the tightest
  * wins.
  */
-export type StickoutLimit = 'clamp' | 'hold' | 'collet'
+export type StickoutLimit = 'clamp' | 'hold' | 'grip'
 
 export interface StickoutRange {
-  /** Shortest, mm: the flutes out of the collet, or the neck where there is one. */
+  /** Shortest, mm: the flutes out of the collet, or the neck or shoulder where there is one. */
   readonly min: number
   /**
    * The length to set the tool up at, mm: the least that works for this
    * feature, floored and stepped by the policy, held under {@link max}.
    *
-   * This is `geometry.LBH` when asked with no holder and no feature, and an
+   * This is a catalog's `LBH` when asked with no holder and no feature, and an
    * assembly's stickout when asked with both.
    */
   readonly setup: number
@@ -150,13 +138,12 @@ export interface StickoutRange {
 export interface StickoutRequest {
   /**
    * How much shank the holder actually grips, mm — a collet's published grip
-   * length. Null where the vendor does not publish one, which REGO-FIX's
-   * powRgrip line does not, and null for a bore or shrink holder, whose grip
-   * this package does not carry.
+   * length, or a bore holder's own `clampLength`. Null where the vendor does
+   * not publish one, which REGO-FIX's powRgrip line does not.
    *
    * **A length rather than a {@link Collet}**, so this module depends on
    * nothing in `holding.ts` and the two cannot form a cycle. `stickoutLimits`
-   * there is the collet-shaped way in.
+   * there is the collet- or holder-shaped way in.
    */
   readonly grip?: number | null
   /** What the holder needs to clear the part, mm, from the sweep. */
@@ -173,30 +160,26 @@ const round = (value: number) => Math.round(value * 100) / 100
 const STICKOUT_TOLERANCE = 1e-6
 
 /**
- * The least a tool can stand out: its flutes, or its neck where it has one.
+ * The least a tool can stand out: its flutes, or its neck or shoulder where it
+ * has one.
  *
- * The collet face sits at the end of the flutes, and a stated neck — which a
- * collet must not close on — pushes it back to the shoulder. A tool that states
- * no flute length has no known head, so it has no known stickout at all and
- * this answers `null`; it carries no `LBH` either, rather than one derived from
- * `OAL` and `SFDM` alone.
+ * The collet face sits at the end of the flutes, and the shaft's
+ * `unclampableLength` pushes it back past the section: a collet must not close on
+ * a neck, and a shoulder wider than the shank is not what it clamps either. A
+ * relief as wide as the shank is shank, and does not. The clamping rule's
+ * {@link headLength}, so the two agree.
  */
-export const minStickout = (tool: StickoutTool): number | null => {
-  const { LCF } = tool.geometry
-  if (LCF === undefined) {
-    return null
-  }
-  const shoulder = tool.geometry['shoulder-length']
-  return hasNeck(tool) && shoulder !== undefined ? shoulder : LCF
-}
+export const minStickout = (tool: CuttingTool): number => headLength(tool)
 
 /**
  * The setup length before the ceiling: what is needed, no shorter than the
  * policy's least, on the policy's step for this tool — the nearest step, or the
- * one above it where the nearest falls short of what is needed.
+ * one above it where the nearest falls short of what is needed. A tool that
+ * does not say which system it was published in is stepped as the millimetres
+ * it is stored in.
  */
-const steppedTo = (tool: StickoutTool, needed: number, policy: StickoutPolicy): number => {
-  const step = policy.step[tool.unitSystem]
+const steppedTo = (tool: CuttingTool, needed: number, policy: StickoutPolicy): number => {
+  const step = policy.step[tool.unitSystem ?? 'millimeters']
   const preferred = Math.max(needed, policy.least)
   if (step <= 0) {
     return preferred
@@ -205,27 +188,16 @@ const steppedTo = (tool: StickoutTool, needed: number, policy: StickoutPolicy): 
   return nearest + STICKOUT_TOLERANCE < needed ? nearest + step : nearest
 }
 
-/**
- * Every stickout this tool has, in one answer.
- *
- * `null` only when the tool states no flute length, because then nothing about
- * where it stands out of a holder can be worked out at all.
- */
-export const stickoutRange = (
-  tool: StickoutTool,
-  request: StickoutRequest = {},
-): StickoutRange | null => {
+/** Every stickout this tool has, in one answer. */
+export const stickoutRange = (tool: CuttingTool, request: StickoutRequest = {}): StickoutRange => {
   const min = minStickout(tool)
-  if (min === null) {
-    return null
-  }
   const {
     grip = null,
     required = null,
     rule = DEFAULT_CLAMPING,
     policy = DEFAULT_STICKOUT_POLICY,
   } = request
-  const { OAL } = tool.geometry
+  const OAL = statedOverallLength(tool)
 
   /**
    * The three ways of saying "this much stays in the holder", as three caps on
@@ -235,8 +207,8 @@ export const stickoutRange = (
    * separate files and nothing ever compared them.
    */
   const caps: Array<{ readonly by: StickoutLimit; readonly at: number }> = []
-  if (OAL !== undefined) {
-    const clamp = clampWanted(tool.geometry, rule)
+  if (OAL !== null) {
+    const clamp = clampWanted(tool, rule)
     if (clamp !== null) {
       caps.push({ by: 'clamp', at: OAL - clamp })
     }
@@ -244,7 +216,7 @@ export const stickoutRange = (
       caps.push({ by: 'hold', at: OAL * (1 - policy.heldShare) })
     }
     if (grip !== null) {
-      caps.push({ by: 'collet', at: OAL - grip })
+      caps.push({ by: 'grip', at: OAL - grip })
     }
   }
 
@@ -261,22 +233,21 @@ export const stickoutRange = (
     setup: round(max === null ? wanted : Math.min(wanted, max)),
     max,
     limitedBy: tightest?.by ?? null,
-    grip: OAL === undefined ? null : round(Math.max(0, OAL - min)),
-    wantedGrip: OAL === undefined || tightest === null ? null : round(OAL - tightest.at),
+    grip: OAL === null ? null : round(Math.max(0, OAL - min)),
+    wantedGrip: OAL === null || tightest === null ? null : round(OAL - tightest.at),
     gripShort,
   }
 }
 
 /**
  * What this tool would be set up at on its own: no holder chosen and no feature
- * to reach. This is `geometry.LBH`, and a build writes it with exactly this
- * call.
+ * to reach — the `stickout` an assembly takes where nobody has chosen one.
  */
 export const setupStickout = (
-  tool: StickoutTool,
+  tool: CuttingTool,
   rule: ClampingRule = DEFAULT_CLAMPING,
   policy: StickoutPolicy = DEFAULT_STICKOUT_POLICY,
-): number | null => stickoutRange(tool, { rule, policy })?.setup ?? null
+): number => stickoutRange(tool, { rule, policy }).setup
 
 /**
  * The furthest this tool can ever stand out of a holder, mm.
@@ -287,7 +258,7 @@ export const setupStickout = (
  * down there at all" asks this.
  */
 export const stickoutCeiling = (
-  tool: StickoutTool,
+  tool: CuttingTool,
   rule: ClampingRule = DEFAULT_CLAMPING,
   policy: StickoutPolicy = DEFAULT_STICKOUT_POLICY,
-): number | null => stickoutRange(tool, { rule, policy })?.max ?? null
+): number | null => stickoutRange(tool, { rule, policy }).max

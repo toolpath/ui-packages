@@ -39,7 +39,7 @@
  * than a library that lies about one. `library.ts` reports which.
  */
 
-import type { ToolForm } from '../../forms.js'
+import type { CamType } from '../catalog.js'
 import { MASTERCAM_SEED } from './schema.generated.js'
 
 /**
@@ -63,7 +63,7 @@ export const MC_TOOL_TYPE = {
   reamer: 6,
   'tap right hand': 4,
   'tap left hand': 4,
-} as const satisfies Partial<Record<ToolForm, number>>
+} as const satisfies Partial<Record<CamType, number>>
 
 /**
  * A form with no code of its own, and the confirmed one whose silhouette
@@ -73,7 +73,7 @@ export const MC_TOOL_TYPE = {
  * stated per entry because "near enough" is exactly the judgement that should
  * not be silent, and it is a whole sentence because it is reported verbatim.
  */
-export const MC_TOOL_TYPE_COERCED: Partial<Record<ToolForm, { to: number; because: string }>> = {
+export const MC_TOOL_TYPE_COERCED: Partial<Record<CamType, { to: number; because: string }>> = {
   'face mill': {
     to: 10,
     because: 'a face mill is a flat-bottomed cutter, so it is written as Endmill1 Flat',

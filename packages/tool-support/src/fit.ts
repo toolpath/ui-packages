@@ -28,24 +28,23 @@
  */
 
 import type { FeatureDemand } from './demand.js'
-import type { ToolForm } from './forms.js'
-import type { Tool } from './tool.js'
+import type { ToolKind } from './kinds.js'
+import type { CuttingTool } from './model.js'
+import { dimensionsOf } from './tool.js'
 
 /**
- * The forms that go into a hole bore-first, and so are bounded by the bore
+ * The kinds that go into a hole bore-first, and so are bounded by the bore
  * rather than by what can helix down it.
  *
- * Stated over {@link ToolForm} rather than over a coarser tool type, which is a
- * refinement: the coarse vocabulary this replaced had one word, `drill`, for
- * what a CAM library calls a drill, a centre drill and a spot drill, so a
- * stated spot drill could not be recognised as going in bore-first. All three
- * do.
+ * A drill, a centre drill and a spot drill are three kinds rather than one, so
+ * a stated spot drill is recognised as going in bore-first. All three do, and
+ * so does a reamer.
  */
-export const DRILLING_FORMS: ReadonlySet<ToolForm> = new Set<ToolForm>([
-  'drill',
-  'center drill',
-  'spot drill',
-  'reamer',
+export const DRILLING_KINDS: ReadonlySet<ToolKind> = new Set<ToolKind>([
+  'DrillBit',
+  'CenterDrill',
+  'SpotDrill',
+  'Reamer',
 ])
 
 /** Why a tool cannot cut a feature, in the words a machinist would use. */
@@ -62,17 +61,12 @@ export interface ToolFit<T> {
 }
 
 /** Whether one tool can cut one feature, and why not where it cannot. */
-export const fitAgainst = (
-  tool: Pick<Tool, 'geometry' | 'form'>,
-  demand: FeatureDemand,
-): FitFailure[] => {
+export const fitAgainst = (tool: CuttingTool, demand: FeatureDemand): FitFailure[] => {
   const failures: FitFailure[] = []
   const say = (reason: string) => failures.push({ featureTag: demand.featureTag, reason })
 
-  const diameter = tool.geometry.DC
-  const fluteLength = tool.geometry.LCF
-  const cornerRadius = tool.geometry.RE
-  const drilling = DRILLING_FORMS.has(tool.form as ToolForm)
+  const { diameter, fluteLength, cornerRadius } = dimensionsOf(tool)
+  const drilling = DRILLING_KINDS.has(tool.kind)
 
   // A hole states its own limits, and which one applies depends on how the tool
   // goes in: a drill is bounded by the bore, an endmill by what can helix in it.
@@ -80,11 +74,11 @@ export const fitAgainst = (
     ? (demand.maxDrillDiameter ?? demand.holeDiameter ?? demand.maxToolDiameter)
     : (demand.maxEndmillDiameter ?? demand.maxToolDiameter)
 
-  if (diameter !== undefined && widest !== undefined && diameter > widest) {
+  if (widest !== undefined && diameter > widest) {
     say(`⌀${diameter} mm is wider than the ${widest} mm this feature admits`)
   }
 
-  if (fluteLength !== undefined && demand.depth !== undefined && fluteLength < demand.depth) {
+  if (demand.depth !== undefined && fluteLength < demand.depth) {
     say(`${fluteLength} mm of flute does not reach ${demand.depth} mm deep`)
   }
 
@@ -115,7 +109,7 @@ export const fitAgainst = (
  * Generic in the tool, so a caller gets its own records back rather than a
  * projection of them.
  */
-export const fitTools = <T extends Pick<Tool, 'geometry' | 'form'>>(
+export const fitTools = <T extends CuttingTool>(
   tools: readonly T[],
   demands: readonly FeatureDemand[],
 ): ToolFit<T>[] =>

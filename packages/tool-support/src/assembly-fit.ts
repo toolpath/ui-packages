@@ -1,6 +1,7 @@
-import { clearance, describeCollision, type SweptAssembly } from './clearance.js'
+import { clearance, describeCollision } from './clearance.js'
 import type { FeatureDemand } from './demand.js'
 import { fitAgainst, type FitFailure } from './fit.js'
+import type { RotatingToolAssembly } from './model.js'
 
 /**
  * Whether the whole stack reaches, not just the cutter.
@@ -22,7 +23,7 @@ import { fitAgainst, type FitFailure } from './fit.js'
  * holder's catalog number and its published maximum stickout — comes back
  * intact rather than as a projection of itself.
  */
-export interface AssemblyFit<A extends SweptAssembly = SweptAssembly> {
+export interface AssemblyFit<A extends RotatingToolAssembly = RotatingToolAssembly> {
   readonly assembly: A
   readonly fits: boolean
   readonly failures: readonly FitFailure[]
@@ -35,20 +36,22 @@ export interface AssemblyFit<A extends SweptAssembly = SweptAssembly> {
  * - **Holder collision, on a report without a reach curve.** From Engine API
  *   1.0.4 every datasheet carries one and `clearance.ts` sweeps the nose and
  *   the shank over it; an older report is not checked rather than guessed. The
- *   silhouette swept is the catalog's — nose diameter, shank, neck — not a
- *   holder's CAD.
+ *   silhouette swept is the holder's cone stack and the tool's shaft, each
+ *   layer at its widest.
  * - **Deflection.** Reach is geometry; whether a stack at that reach can take
  *   a cut is rigidity, and this package has no force model.
- * - **A bore holder's grip length**, which is why those assemblies use the
- *   whole tool as their stickout and are an upper bound rather than a fact.
+ * - **A bore holder's grip length, where it states no `clampLength`.** One
+ *   that states it caps the stickout as a collet's grip does; one that does
+ *   not leaves the stickout the shop's setup length rather than one its grip
+ *   bounds.
  * - **Reach, on an assembly whose collet publishes no grip length.** REGO-FIX's
- *   powRgrip collets do not, so those assemblies carry no stickout and their
- *   reach goes unchecked rather than guessed.
+ *   powRgrip collets do not, so the stickout such an assembly carries is the
+ *   shop's setup length rather than one its grip bounds.
  */
 export const NOT_MODELLED = [
   'holder collision without a reach curve',
   'deflection',
-  'bore holder grip',
+  'bore holder grip without a stated clamp length',
   'reach without a published collet grip',
 ] as const
 
@@ -60,16 +63,13 @@ export const NOT_MODELLED = [
  * whole distance from the part top to the bottom of the feature, because the
  * holder nose cannot go below the top of the part.
  */
-export const assemblyAgainst = (assembly: SweptAssembly, demand: FeatureDemand): FitFailure[] => {
+export const assemblyAgainst = (
+  assembly: RotatingToolAssembly,
+  demand: FeatureDemand,
+): FitFailure[] => {
   const failures = [...fitAgainst(assembly.tool, demand)]
 
-  // An unstated stickout is not checked, the same rule the cutter checks
-  // follow: what nobody has said is not a limit anybody can be held to.
-  if (
-    assembly.stickout !== null &&
-    demand.reachBelowTop !== undefined &&
-    assembly.stickout < demand.reachBelowTop
-  ) {
+  if (demand.reachBelowTop !== undefined && assembly.stickout < demand.reachBelowTop) {
     failures.push({
       featureTag: demand.featureTag,
       reason: `${assembly.stickout.toFixed(1)} mm of stickout does not clear ${demand.reachBelowTop.toFixed(1)} mm below the part top`,

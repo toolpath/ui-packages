@@ -37,7 +37,8 @@
 import type { ExportNote, ExportResult } from '../report.js'
 import { FUSION_GEOMETRY_KINDS, FUSION_LIBRARY_VERSION, isPresetFloat } from './schema.js'
 import { fusionTool, type FusionTool, type ToolRequest } from './tool.js'
-import { fusionHolder, type CatalogHolder, type FusionHolder } from './holder.js'
+import type { Holder } from '../../model.js'
+import { fusionHolder, type FusionHolder } from './holder.js'
 
 export interface FusionLibrary {
   readonly version: number
@@ -52,7 +53,7 @@ export interface FusionLibrary {
  */
 export interface LibraryRequest {
   readonly tools?: readonly ToolRequest[]
-  readonly holders?: readonly CatalogHolder[]
+  readonly holders?: readonly Holder[]
 }
 
 /**

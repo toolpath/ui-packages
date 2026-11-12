@@ -1,13 +1,16 @@
-import { hasNeck } from '@toolpath/tool-support'
+import {
+  conesToProfile,
+  dimensionsOf,
+  shaftParts,
+  sliceAt,
+  type Cone,
+  type CuttingTool,
+  type Extension,
+  type Holder,
+  type ToolKind,
+} from '@toolpath/tool-support'
 
-import { isHolderProfile } from './types.js'
-import type {
-  Provenance,
-  ViewerAssembly,
-  ViewerHolder,
-  ViewerHolderProfile,
-  ViewerTool,
-} from './types.js'
+import { drawnExtension, staged, type Drawable, type Provenance } from './types.js'
 
 /**
  * An assembly as a drawing: its outline in the plane of its own axis.
@@ -24,12 +27,12 @@ import type {
  * cylinder of that size and nothing above it, rather than a body invented to
  * look like one.
  *
- * **And what cannot be drawn honestly is not drawn at all.** There is no
- * fallback cylinder for a form without a generator. A silent cylinder is how a
- * made-up shape ships: it renders, it looks plausible, and it is wrong — a
- * keyseat cutter drawn flat is a featureless sliver two pixels tall, and a
- * reader has no way to tell that from a measurement. {@link assemblyOutline}
- * returns `null` instead and the caller says so in words.
+ * **Every kind has a tip.** A kind with a shape of its own is drawn as its
+ * numbers say; a kind no generator was written for borrows the nearest one
+ * ({@link TIPS}) and its tip is marked `assumed`, so a renderer, or a
+ * simulation that must not cut with a guess, can tell the two apart. What
+ * cannot be drawn at all — a point angle that describes no cone — is not:
+ * {@link assemblyOutline} returns `null` and the caller says so in words.
  */
 
 export type OutlinePart =
@@ -37,6 +40,7 @@ export type OutlinePart =
   | 'flutes'
   | 'neck'
   | 'shank'
+  | 'extension'
   | 'collet'
   | 'nose'
   | 'body'
@@ -67,8 +71,9 @@ export interface Outline {
 /** Below this a radius is treated as absent rather than tiny. */
 const EPSILON = 1e-6
 
-const stated = (tool: ViewerTool, code: string): Provenance =>
-  tool.provenance?.[code] ?? 'vendor-stated'
+/** Where a tool's field came from: what its record says, else the vendor's. */
+const stated = (tool: CuttingTool, field: string): Provenance =>
+  tool.provenance?.[field] ?? 'vendor-stated'
 
 /** Points along a quarter arc from (r0, z0) to (r1, z1) bulging outward, for a ball or a corner. */
 const arc = (
@@ -112,14 +117,14 @@ interface Tip {
 /**
  * A cone at the vendor's point angle.
  *
- * `SIG` is the full included angle, so the half-angle off the axis is `SIG/2`
- * and the cone reaches full radius at `r / tan(SIG/2)`. Where the vendor
+ * `tipAngleDeg` is the full included angle, so the half-angle off the axis is
+ * half that, and the cone reaches full radius at `r / tan(angle / 2)`. Where the vendor
  * publishes no angle the tool is still drawn — a drill with no point angle at
  * 118°, a chamfer mill at 90° — and the segment is marked `assumed` so the
  * renderer can say which number is nobody's.
  */
-const cone = (tool: ViewerTool, r: number, whenUnstated: number): Tip | null => {
-  const angle = tool.geometry.SIG
+const cone = (tool: CuttingTool, r: number, whenUnstated: number): Tip | null => {
+  const angle = tool.type === 'solid' ? tool.tipAngleDeg : undefined
   const half = ((angle ?? whenUnstated) / 2) * (Math.PI / 180)
   const top = r / Math.tan(half)
   // A point angle of zero, or of more than a half turn, describes no cone. A
@@ -132,292 +137,286 @@ const cone = (tool: ViewerTool, r: number, whenUnstated: number): Tip | null => 
       { r: 0, z: 0 },
       { r, z: top },
     ],
-    provenance: angle === undefined ? 'assumed' : stated(tool, 'SIG'),
+    provenance: angle === undefined ? 'assumed' : stated(tool, 'tipAngleDeg'),
     top,
   }
 }
 
+/** The tip generators: what the end of a tool is shaped like. */
+type TipShape = 'square' | 'ball' | 'corner' | 'disc' | 'point' | 'chamfer'
+
 /**
- * The tip, by what the tool is.
+ * Each kind's tip, and whether the generator is its own.
  *
- * A ball is a half circle, a bull nose a corner radius on a flat, a drill a
- * cone at its point angle, a chamfer mill a cone at its own. A slot mill is the
- * one disc rounded at both ends. A tap is square — deliberately: the vendors
- * publish no chamfer lead, and the length over which a plug tap tapers would
- * have to be invented to draw it. Both hands of tap, because the hand of the
- * thread is not visible in an elevation.
+ * A ball is a half circle, a corner a radius on a flat, a point a cone at the
+ * drill's angle (118° where none is stated), a chamfer a cone at its own (90°).
+ * A disc is the one tip rounded at both ends of its flutes. A face mill is
+ * square: its inserts cut a flat bottom, as an end mill's flutes do. A tap is square —
+ * deliberately: the vendors publish no chamfer lead, and the length over which
+ * a plug tap tapers would have to be invented to draw it.
  *
- * **Anything else is `null`.** Four of the generators this was ported from
- * invent shape out of a hardcoded taper angle or a neck radius of `r * 0.4`,
- * and none of them came across. Where a vendor publishes nothing, this draws
- * nothing.
+ * **`borrowed` is a shape nobody wrote for the kind**, the nearest that was:
+ * a thread mill, a boring bar, a counterbore and a reamer end square; a tapered mill and a circle-segment taper on a corner; a lollipop and
+ * the other circle segments on a ball; a dovetail on a disc; a corner rounding
+ * mill square at its full diameter. Its tip is `assumed`, whatever its numbers'
+ * own provenance.
  */
-const tip = (tool: ViewerTool, LCF: number): Tip | null => {
-  const DC = tool.geometry.DC ?? 0
-  const r = DC / 2
-  const RE = tool.geometry.RE ?? 0
+export const TIPS: Readonly<
+  Record<ToolKind, { readonly shape: TipShape; readonly borrowed?: true }>
+> = {
+  FlatEndmill: { shape: 'square' },
+  RadiusEndmill: { shape: 'corner' },
+  BallEndmill: { shape: 'ball' },
+  FaceEndmill: { shape: 'square' },
+  ChamferEndmill: { shape: 'chamfer' },
+  Countersink: { shape: 'chamfer' },
+  CornerRoundingMill: { shape: 'square', borrowed: true },
+  DrillBit: { shape: 'point' },
+  ThreadMill: { shape: 'square', borrowed: true },
+  CuttingTap: { shape: 'square' },
+  FormingTap: { shape: 'square' },
+  KeyseatCutter: { shape: 'disc' },
+  DovetailCutter: { shape: 'disc', borrowed: true },
+  TaperedEndmill: { shape: 'corner', borrowed: true },
+  LollipopMill: { shape: 'ball', borrowed: true },
+  CircleSegmentBarrel: { shape: 'ball', borrowed: true },
+  CircleSegmentLens: { shape: 'ball', borrowed: true },
+  CircleSegmentOval: { shape: 'ball', borrowed: true },
+  CircleSegmentTaper: { shape: 'corner', borrowed: true },
+  BoringBar: { shape: 'square', borrowed: true },
+  Counterbore: { shape: 'square', borrowed: true },
+  CenterDrill: { shape: 'point' },
+  Reamer: { shape: 'square', borrowed: true },
+  SpotDrill: { shape: 'point' },
+}
+
+/** The tip by its shape, from the tool's own numbers. */
+const shaped = (tool: CuttingTool, shape: TipShape): Tip | null => {
+  const { diameter, fluteLength, cornerRadius = 0 } = dimensionsOf(tool)
+  const r = diameter / 2
   const square: Tip = {
     points: [
       { r: 0, z: 0 },
       { r, z: 0 },
     ],
-    provenance: stated(tool, 'DC'),
+    provenance: stated(tool, 'diameter'),
     top: 0,
   }
-  switch (tool.form) {
-    case 'flat end mill':
-    case 'tap left hand':
-    case 'tap right hand':
+  // Clamped to the cutting radius and to half the flute length: a radius
+  // larger than either describes no tool, and the polygon it builds crosses
+  // itself.
+  const corner = Math.min(cornerRadius, r, fluteLength / 2)
+  const rounded = (): Tip => ({
+    points: [
+      { r: 0, z: 0 },
+      { r: r - corner, z: 0 },
+      ...arc({ r: r - corner, z: corner }, corner, -90, 0),
+    ],
+    provenance: stated(tool, 'cornerRadius'),
+    top: corner,
+  })
+  switch (shape) {
+    case 'square':
       return square
-    case 'ball end mill':
-      return { points: arc({ r: 0, z: r }, r, -90, 0), provenance: stated(tool, 'DC'), top: r }
-    case 'bull nose end mill': {
-      // Clamped to the cutting radius and to half the flute length: a radius
-      // larger than either describes no tool, and the polygon it builds
-      // crosses itself.
-      const corner = Math.min(RE, r, LCF / 2)
-      if (corner <= EPSILON) {
-        return square
-      }
+    case 'ball':
       return {
-        points: [
-          { r: 0, z: 0 },
-          { r: r - corner, z: 0 },
-          ...arc({ r: r - corner, z: corner }, corner, -90, 0),
-        ],
-        provenance: stated(tool, 'RE'),
-        top: corner,
+        points: arc({ r: 0, z: r }, r, -90, 0),
+        provenance: stated(tool, 'diameter'),
+        top: r,
       }
-    }
-    case 'slot mill': {
+    case 'corner':
+      return corner <= EPSILON ? square : rounded()
+    case 'disc':
       /**
        * **A radius on both ends of the disc.** A keyseat or woodruff cutter
        * carries its corner radius at the top of the flute as well as at the
-       * bottom — unlike a bull nose, which has one only at the tip. Drawn with
-       * the bull nose's generator it is a flat sliver, which is what the form
-       * looked like before it had a generator of its own.
+       * bottom — unlike a bull nose, which has one only at the tip.
        */
-      const corner = Math.min(RE, r, LCF / 2)
-      if (corner <= EPSILON) {
-        return square
-      }
-      return {
-        points: [
-          { r: 0, z: 0 },
-          { r: r - corner, z: 0 },
-          ...arc({ r: r - corner, z: corner }, corner, -90, 0),
-        ],
-        provenance: stated(tool, 'RE'),
-        top: corner,
-        crown: arc({ r: r - corner, z: LCF - corner }, corner, 0, 90),
-      }
-    }
-    case 'drill':
-    case 'spot drill':
-    case 'center drill':
+      return corner <= EPSILON
+        ? square
+        : { ...rounded(), crown: arc({ r: r - corner, z: fluteLength - corner }, corner, 0, 90) }
+    case 'point':
       return cone(tool, r, 118)
-    case 'chamfer mill':
-    case 'counter sink':
+    case 'chamfer':
       return cone(tool, r, 90)
-    default:
-      return null
   }
 }
 
-/**
- * A measured holder as segments, placed with its nose face at the stickout.
- *
- * Two frames meet here and they run opposite ways. A profile is stated on its
- * own datum with `z` increasing toward the cutting end; an outline is stated
- * with `z` increasing *up* from the tool tip. So the nose vertex — the last
- * one, the highest `z` either way the profile is datumed — lands at the
- * stickout and the stack is walked back from it:
- *
- * ```
- * z = stickout + (noseZ - zProfile)
- * ```
- *
- * **Nothing is resampled, smoothed or reduced.** The vertices are the
- * measurement, grooves and thread reliefs included, and the whole point of
- * carrying a profile is that they survive the trip.
- *
- * **The split is the gage line, and it is exact rather than a heuristic.**
- * Everything above the spindle face is the connection — the flange and the cone
- * that leads up to it — which the sheet draws in its own darker grey, and
- * `z = 0` on a `gage-line` profile *is* that face. Where the polyline crosses
- * it between two vertices the crossing point is interpolated and shared by both
- * segments, as every other pair of segments here shares its meeting point. A
- * `nose`-datumed profile has no spindle face to split on and stays one segment.
- */
-const profileSegments = (holder: ViewerHolderProfile, stickout: number): Array<OutlineSegment> => {
-  const nose = holder.points[holder.points.length - 1]
-  if (holder.points.length < 2 || nose === undefined) {
-    return []
-  }
-  const provenance = holder.provenance?.['points'] ?? 'vendor-stated'
-  const gage = stickout + nose[0]
-  const up = [...holder.points]
-    .reverse()
-    .map(([z, r]): OutlinePoint => ({ r, z: stickout + (nose[0] - z) }))
+/** The tip of this tool, `assumed` where its kind borrows another's shape. */
+const tip = (tool: CuttingTool): Tip | null => {
+  const { shape, borrowed } = TIPS[tool.kind]
+  const drawn = shaped(tool, shape)
+  return drawn === null || borrowed !== true ? drawn : { ...drawn, provenance: 'assumed' }
+}
 
-  const cut = holder.datum === 'gage-line' ? up.findIndex((point) => point.z > gage) : -1
-  if (cut <= 0) {
-    return [{ part: 'body', points: up, provenance }]
+/**
+ * A polyline split at one height into the part below and the part above,
+ * sharing the point where they meet: interpolated where the height falls
+ * between two vertices, and a vertex already at that height where one sits on
+ * it. Where the solid steps on the line, `step` says which part takes the
+ * step face. `above` is empty where nothing stands above the height.
+ */
+const splitAt = (
+  points: ReadonlyArray<OutlinePoint>,
+  z: number,
+  step: 'below' | 'above',
+): [Array<OutlinePoint>, Array<OutlinePoint>] => {
+  const at = points.findIndex((point) =>
+    step === 'below' ? point.z > z + EPSILON : point.z >= z - EPSILON,
+  )
+  // Taking the step above, the first vertex on the line ends the part below.
+  const onLine = at >= 0 && Math.abs(points[at]!.z - z) <= EPSILON
+  const cut = step === 'above' && onLine ? at + 1 : at
+  if (cut <= 0 || cut >= points.length) {
+    return [[...points], []]
   }
-  const below = up.slice(0, cut)
-  const above = up.slice(cut)
+  const below = points.slice(0, cut)
   const last = below[below.length - 1]!
-  const first = above[0]!
+  const first = points[cut]!
   const meet =
-    last.z === gage
+    Math.abs(last.z - z) <= EPSILON
       ? last
-      : {
-          r: last.r + ((gage - last.z) / (first.z - last.z)) * (first.r - last.r),
-          z: gage,
-        }
+      : { r: last.r + ((z - last.z) / (first.z - last.z)) * (first.r - last.r), z }
   if (meet !== last) {
     below.push(meet)
   }
-  above.unshift(meet)
-  return [
-    { part: 'body', points: below, provenance },
-    { part: 'flange', points: above, provenance },
-  ]
+  return [below, [meet, ...points.slice(cut)]]
 }
 
 /**
- * A holder as the vendor's table states it: a nose, a body, and a flange.
+ * A holder as segments, placed with its nose face at the stickout.
  *
- * The stylised form — every diameter a number somebody published, nothing
- * between them invented. `top` is where the holder ends, which is what the
- * assembly's own height is measured to.
+ * The stack runs from the nose up, as the outline does, so it is drawn as its
+ * layers state: the first layer is the `nose`, the rest `body` up to the
+ * spindle face at the gauge length, and what stands above that face — the
+ * connection, where a stack carries one — `flange`, which the sheet shades
+ * darker. **Nothing is resampled, smoothed or reduced**: a measured holder's
+ * vertices are the measurement, grooves and thread reliefs included.
  */
-const parametricSegments = (
-  holder: ViewerHolder,
-  stickout: number,
-  DC: number,
-): Array<OutlineSegment> => {
-  if (holder.noseDiameter === null) {
+const holderSegments = (holder: Holder, stickout: number): Array<OutlineSegment> => {
+  const [nose] = holder.layers
+  if (nose === undefined) {
     return []
   }
-  const segments: Array<OutlineSegment> = []
-  const rh = holder.noseDiameter / 2
-  const holderStated = (code: string): Provenance => holder.provenance?.[code] ?? 'vendor-stated'
-
-  // The nose, for its stated length; with none stated, for the gauge length
-  // as before, so an older dataset draws what it always did.
-  const noseLength = holder.noseLength ?? holder.gaugeLength ?? Math.max(20, DC * 3)
-  segments.push({
-    part: 'nose',
-    points: [
-      { r: rh, z: stickout },
-      { r: rh, z: stickout + noseLength },
-    ],
-    provenance:
-      holder.noseLength !== null
-        ? holderStated('noseLength')
-        : holder.gaugeLength === null
-          ? 'assumed'
-          : holderStated('noseDiameter'),
-  })
-  let top = stickout + noseLength
-  let radius = rh
-
-  if (holder.bodyDiameter !== null && holder.bodyLength !== null) {
-    const rb = holder.bodyDiameter / 2
-    segments.push({
-      part: 'body',
-      points: [
-        { r: rb, z: top },
-        { r: rb, z: top + holder.bodyLength },
-      ],
-      provenance: holderStated('bodyDiameter'),
-    })
-    top += holder.bodyLength
-    radius = rb
-  }
-
-  if (holder.projection !== null && holder.flangeDiameter !== null) {
-    const flangeAt = stickout + holder.projection
-    const rf = holder.flangeDiameter / 2
-    if (flangeAt > top) {
-      /**
-       * **The last stated diameter, carried up to the flange.**
-       *
-       * This was a cone from the body out to the flange, and it was an
-       * invention: on a PG 10 × 062 it flared ⌀18 to ⌀46 over 34 mm — more
-       * than half the drawn holder, in a shape the vendor never published,
-       * and the sweep treated it as solid. Tools were turned down for metal
-       * that is not there (Paul, 2026-08-31).
-       *
-       * Justin Mimbs' reach-curve note models a holder as cylinders: each
-       * layer at its widest, no credit for a taper, and the last diameter
-       * carried upward. This is that carry — assumed, because the vendor
-       * states nothing here, but assumed to be *no wider than what it
-       * states* rather than assumed to flare.
-       */
-      segments.push({
-        part: 'body',
-        points: [
-          { r: radius, z: top },
-          { r: radius, z: flangeAt },
-        ],
-        provenance: 'assumed',
-      })
-    }
-    // The flange: its diameter is the taper's, and it runs from the
-    // projection up to the gauge line — both stated. Where the gauge length
-    // is not, the 20 mm of a BT 30 V-flange stands in.
-    const flangeTop =
-      holder.gaugeLength !== null && holder.gaugeLength > holder.projection
-        ? stickout + holder.gaugeLength
-        : flangeAt + 20
-    segments.push({
-      part: 'flange',
-      points: [
-        { r: rf, z: flangeAt },
-        { r: rf, z: flangeTop },
-      ],
-      provenance: holder.gaugeLength === null ? 'assumed' : holderStated('flangeDiameter'),
-    })
-  }
-
-  return segments
+  const provenance = holder.provenance?.['layers'] ?? 'vendor-stated'
+  const points = conesToProfile(holder.layers, stickout).map(([z, r]) => ({ r, z }))
+  // The nose is its own layer, and the step out to the body is the body's face.
+  const [front, rest] = splitAt(points, stickout + nose.thickness, 'above')
+  // The step on the spindle face is the holder's, below the connection.
+  const [body, connection] =
+    holder.gaugeLength === null ? [rest, []] : splitAt(rest, stickout + holder.gaugeLength, 'below')
+  return (
+    [
+      ['nose', front],
+      ['body', body],
+      ['flange', connection],
+    ] as const
+  )
+    .filter(([, run]) => run.length >= 2)
+    .map(([part, run]) => ({ part, points: run, provenance }))
 }
 
 /**
- * The outline of one assembly at its stickout.
+ * A modular extension as one segment, from its head face up to the holder face.
  *
- * Flutes to the flute length, a neck where a shoulder is stated, the shank up
- * to the stickout, and the holder nose above that for its gauge length.
- *
- * `null` where there is no honest picture: a form without a generator, or a
- * tool that states neither a cutting diameter nor a flute length.
+ * Its layers run from the head face, `stickout − extensionProtrusion` above the
+ * tip, and are cut at the holder face, since what is above it is in the holder.
+ * Only a {@link drawnExtension} is drawn. Where its layers came from is its own
+ * `provenance.layers`, and where nobody says, `assumed`: never `vendor-stated`
+ * for a number nobody stated.
  */
-export const assemblyOutline = (assembly: ViewerAssembly): Outline | null => {
-  const { tool, holder, stickout } = assembly
-  const { DC, LCF, SFDM } = tool.geometry
-  if (DC === undefined || LCF === undefined) {
-    return null
+const extensionSegment = (
+  extension: Extension,
+  face: number,
+  stickout: number,
+): OutlineSegment | null => {
+  const points = conesToProfile(extension.layers, face).map(([z, r]) => ({ r, z }))
+  const [exposed] = splitAt(points, stickout, 'below')
+  return exposed.length < 2
+    ? null
+    : {
+        part: 'extension',
+        points: exposed,
+        provenance: extension.provenance?.['layers'] ?? 'assumed',
+      }
+}
+
+/**
+ * The tool above its flutes as segments, from the top of the flutes up: the
+ * `layers` of its `shaft` in view, each from its bottom diameter to its top,
+ * so a tapered layer is drawn as the cone it is.
+ *
+ * A layer is `neck` or `shank` as `shaftParts` reads it, as the clearance
+ * sweep does: `neck` below the shank run and narrower than the shank —
+ * clamping's neck, the one a collet must not close on — and `shank`
+ * otherwise, a shoulder wider than the shank included. Neighbouring layers of
+ * one part are one segment. `held` marks the shank as
+ * cut at the stickout: its length there is the shop's `chosen` one.
+ */
+const shaftSegments = (
+  tool: CuttingTool,
+  layers: ReadonlyArray<Cone>,
+  held: boolean,
+): Array<OutlineSegment> => {
+  const { fluteLength } = dimensionsOf(tool)
+  const parts = shaftParts(tool, layers)
+  const provenance = stated(tool, 'shaft')
+  const runs: Array<{ part: 'neck' | 'shank'; layers: Array<Cone>; bottom: number }> = []
+  let bottom = 0
+  for (const [index, layer] of layers.entries()) {
+    const top = bottom + layer.thickness
+    const part = parts[index] ?? 'shank'
+    const last = runs.at(-1)
+    // A layer of no height is a step between two others, not a section.
+    if (layer.thickness > 0) {
+      if (last?.part === part) {
+        last.layers.push(layer)
+      } else {
+        runs.push({ part, layers: [layer], bottom })
+      }
+    }
+    bottom = top
   }
-  const r = DC / 2
+  return runs.map((run) => ({
+    part: run.part,
+    points: conesToProfile(run.layers, fluteLength + run.bottom).map(([z, r]) => ({ r, z })),
+    provenance: run.part === 'shank' && held ? 'chosen' : provenance,
+  }))
+}
+
+/**
+ * The outline of a tool, or of an assembly at its stickout.
+ *
+ * Flutes to the flute length, then the tool's `shaft` above them, cut at the
+ * stickout or at the head face of a modular extension (whole, for a tool drawn
+ * with no holder), the extension up to the stickout, and the holder stack
+ * above that. A tool that states no shaft is drawn to the top of its flutes.
+ *
+ * `null` only where there is no honest picture: a point angle that describes
+ * no cone.
+ */
+export const assemblyOutline = (subject: Drawable): Outline | null => {
+  const view = staged(subject)
+  const { tool, holder, stickout, extension } = view
+  const { diameter, fluteLength } = dimensionsOf(tool)
+  const r = diameter / 2
   const segments: Array<OutlineSegment> = []
 
-  const point = tip(tool, LCF)
+  const point = tip(tool)
   if (point === null) {
     return null
   }
   segments.push({ part: 'tip', points: point.points, provenance: point.provenance })
 
   const crown = point.crown ?? []
-  const straightTop = crown[0]?.z ?? LCF
+  const straightTop = crown[0]?.z ?? fluteLength
   segments.push({
     part: 'flutes',
     points: [
       { r, z: point.top },
       { r, z: straightTop },
     ],
-    provenance: stated(tool, 'LCF'),
+    provenance: stated(tool, 'fluteLength'),
   })
   if (crown.length > 0) {
     // Its own segment, because its shape is the corner radius' and its
@@ -426,50 +425,36 @@ export const assemblyOutline = (assembly: ViewerAssembly): Outline | null => {
     segments.push({ part: 'flutes', points: crown, provenance: point.provenance })
   }
 
-  const neckDiameter = tool.geometry['shoulder-diameter']
-  const shoulder = tool.geometry['shoulder-length']
-  let top = LCF
-  if (neckDiameter !== undefined && shoulder !== undefined && shoulder > LCF) {
-    const rn = neckDiameter / 2
-    segments.push({
-      // A shoulder as wide as the cut is plain shank; only a narrower one is a neck.
-      part: hasNeck(tool) ? 'neck' : 'shank',
-      points: [
-        { r: rn, z: LCF },
-        { r: rn, z: shoulder },
-      ],
-      provenance: stated(tool, 'shoulder-length'),
-    })
-    top = shoulder
+  // On an extension, the shaft runs into it at its head face. Held, it runs up
+  // into the holder at the stickout; without a holder the whole tool is in
+  // view, so the whole shaft is drawn.
+  const face = drawnExtension(view)
+  const modular =
+    face === null || extension === undefined || stickout === null
+      ? null
+      : extensionSegment(extension, face, stickout)
+  const inHolder = holder !== null && stickout !== null
+  const shaftTop = modular !== null ? modular.points[0]!.z : inHolder ? stickout : null
+  const layers = tool.shaft ?? []
+  const shaft = shaftSegments(
+    tool,
+    shaftTop === null ? layers : sliceAt(layers, shaftTop - fluteLength),
+    inHolder,
+  )
+  segments.push(...shaft)
+  let top = shaft.at(-1)?.points.at(-1)?.z ?? fluteLength
+  if (modular !== null) {
+    segments.push(modular)
+    top = modular.points.at(-1)?.z ?? top
   }
 
-  const shankTop = stickout ?? tool.geometry.OAL ?? top
-  if (SFDM !== undefined && shankTop > top) {
-    const rs = SFDM / 2
-    segments.push({
-      part: 'shank',
-      points: [
-        { r: rs, z: top },
-        { r: rs, z: shankTop },
-      ],
-      provenance: stickout === null ? stated(tool, 'SFDM') : 'chosen',
-    })
-    top = shankTop
-  }
-
-  const holderSegments =
-    stickout === null || holder === null
-      ? []
-      : isHolderProfile(holder)
-        ? profileSegments(holder, stickout)
-        : parametricSegments(holder, stickout, DC)
-  if (stickout !== null && holder !== null && holderSegments.length > 0) {
+  const held = stickout === null || holder === null ? [] : holderSegments(holder, stickout)
+  if (stickout !== null && holder !== null && held.length > 0) {
     // The seated collet, standing proud of the nose by its protrusion, at its
-    // series diameter — a PG 6 collet is 6 mm across. Common to both holder
-    // forms: a measured envelope is the holder's own solid, and the collet
-    // seated in its nut is no more present in that than in the vendor's table.
+    // series diameter — a PG 6 collet is 6 mm across. A holder's stack is its
+    // own solid, and the collet seated in its nut is not in it.
     const series = /(\d+(?:\.\d+)?)/.exec(holder.colletSeries ?? '')
-    if (holder.colletProtrusion !== null && series) {
+    if (holder.colletProtrusion !== undefined && series) {
       const rc = Number(series[1]) / 2
       segments.push({
         part: 'collet',
@@ -480,10 +465,8 @@ export const assemblyOutline = (assembly: ViewerAssembly): Outline | null => {
         provenance: holder.provenance?.['colletProtrusion'] ?? 'vendor-stated',
       })
     }
-    segments.push(...holderSegments)
-    // Both forms end at their last vertex, so the assembly's height is that
-    // point rather than a total either helper has to hand back separately.
-    top = holderSegments[holderSegments.length - 1]!.points.at(-1)?.z ?? top
+    segments.push(...held)
+    top = held[held.length - 1]!.points.at(-1)?.z ?? top
   }
 
   const radius = Math.max(...segments.flatMap((segment) => segment.points.map((point) => point.r)))

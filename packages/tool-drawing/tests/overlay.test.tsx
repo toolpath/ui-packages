@@ -3,30 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ToolDrawing, frameFor } from '../src/index.js'
 import { assemblyOutline } from '../src/geometry/index.js'
 import { ClearanceOverlay, NO_MARGINS, tightestGaps, describeGaps } from '../src/clearance/index.js'
-import type { ViewerAssembly } from '../src/index.js'
-
-/** A BT30 ER16 holder and a ⌀3 end mill, from the committed sample's shape. */
-const assembly: ViewerAssembly = {
-  tool: {
-    form: 'flat end mill',
-    label: 'TDMX0300',
-    geometry: { DC: 3, LCF: 8, OAL: 50, RE: 0, NOF: 4, SFDM: 6, LBH: 11 },
-    provenance: {},
-  },
-  holder: {
-    gaugeLength: 60,
-    colletSeries: 'ER16',
-    noseDiameter: 34,
-    noseLength: 8,
-    bodyDiameter: 42,
-    bodyLength: 3,
-    projection: 11.6,
-    flangeDiameter: 46,
-    colletProtrusion: 2,
-    provenance: {},
-  },
-  stickout: 25,
-}
+import { bt30 as assembly } from './fixtures.js'
 
 const curve = { horizontalOffset: [0, 2, 8, 15], verticalOffset: [12, 12, 30, 30] }
 const cuttingRadius = 1.5
@@ -170,23 +147,24 @@ describe('the clearance overlay', () => {
   })
 
   /**
-   * **One part may emit several segments**, so a collision is matched by
-   * height as well as by part: this holder draws a stated `body` and the
-   * diameter carried up above it, and only one of them can be in the material.
+   * **A collision is matched by height as well as by part**, so a part named
+   * at a height its segment does not reach strikes nothing: the stack's body
+   * starts above the nose, and a body collision down at the nose face is not
+   * in it.
    */
-  it('strikes the body segment the collision is in, not both of them', () => {
+  it('strikes the body only where the collision is in it', () => {
     vi.stubGlobal('ResizeObserver', StubResizeObserver)
-    const bodies = [...outline.segments.entries()].filter(([, each]) => each.part === 'body')
-    expect(bodies.length).toBe(2)
-    const [, lower] = bodies[0]!
-    const inLower = lower.points[0]!.z
+    const bodies = outline.segments.filter((each) => each.part === 'body')
+    expect(bodies.length).toBe(1)
+    const inBody = bodies[0]!.points[1]!.z
 
-    const { container } = render(
-      <ToolDrawing assembly={assembly} collisions={[{ part: 'body', height: inLower }]} />,
-    )
-    const struck = container.querySelectorAll('[data-struck]')
+    const struckAt = (height: number) =>
+      render(
+        <ToolDrawing assembly={assembly} collisions={[{ part: 'body', height }]} />,
+      ).container.querySelectorAll('[data-struck]').length
 
-    expect(struck).toHaveLength(1)
+    expect(struckAt(inBody)).toBe(1)
+    expect(struckAt(assembly.stickout)).toBe(0)
   })
 
   it('says in the caption whether the assembly cleared, and by how much', () => {

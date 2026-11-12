@@ -63,7 +63,7 @@ export interface CatalogPreset {
   /**
    * The preset's own identifier.
    *
-   * Required, and the exporter mints none — the rule {@link CatalogTool.guid}
+   * Required, and the exporter mints none — the rule a tool's `guid`
    * keeps and for the same reason. Autodesk's schema requires it while also
    * documenting that an omitted one is auto-populated on import; requiring it
    * is the reading that keeps a re-export stable, because an auto-populated

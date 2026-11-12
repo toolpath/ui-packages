@@ -7,7 +7,7 @@ import {
   type LaneLayout,
   type LaneRoom,
   type Side,
-  type ToolDimensions,
+  type DrawingDimensions,
 } from '../model/dimensions.js'
 
 /**
@@ -42,7 +42,7 @@ import {
  */
 
 export interface DimensionLinesProps {
-  readonly model: ToolDimensions
+  readonly model: DrawingDimensions
   readonly layout: LaneLayout
   readonly frame: Frame
   /**

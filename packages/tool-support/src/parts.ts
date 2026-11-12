@@ -1,7 +1,7 @@
 /**
  * What an assembly is made of, named once.
  *
- * Two vocabularies for these eight words stood in this tree: a drawing's
+ * Two vocabularies for these words stood in this tree: a drawing's
  * `OutlinePart`, and a clearance sweep's `SilhouettePart`, which was the same
  * list without the two cutting parts. They were not a duplicate by accident —
  * the sweep genuinely does not check the cutting end, because the cutting end
@@ -22,6 +22,7 @@ export const ASSEMBLY_PARTS = [
   'flutes',
   'neck',
   'shank',
+  'extension',
   'collet',
   'nose',
   'body',

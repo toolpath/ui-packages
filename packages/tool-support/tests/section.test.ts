@@ -38,8 +38,8 @@ const pocket: FeatureSection = {
   curve: null,
 }
 
-const mill = { diameter: 6, form: 'flat end mill' }
-const drill = { diameter: 6, form: 'drill' }
+const mill = { diameter: 6, kind: 'FlatEndmill' } as const
+const drill = { diameter: 6, kind: 'DrillBit' } as const
 
 /** Every vertex of every polygon, for a question about the drawing as a whole. */
 const vertices = (polygons: ReadonlyArray<ReadonlyArray<SectionPoint>>): SectionPoint[] =>

@@ -33,13 +33,7 @@ export {
   type ToolResult,
 } from './tool.js'
 
-export {
-  fusionHolder,
-  type CatalogHolder,
-  type FusionHolder,
-  type FusionSegment,
-  type HolderResult,
-} from './holder.js'
+export { fusionHolder, type FusionHolder, type FusionSegment, type HolderResult } from './holder.js'
 
 export {
   fusionPresets,

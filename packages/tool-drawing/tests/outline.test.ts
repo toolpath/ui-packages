@@ -1,47 +1,50 @@
+import {
+  measuredHolder,
+  parametricHolder,
+  shaftParts,
+  toolSilhouette,
+  type CuttingTool,
+  type Extension,
+  type Holder,
+  type RotatingToolAssembly,
+  type Tool,
+} from '@toolpath/tool-support'
 import { describe, expect, it } from 'vitest'
-import { assemblyOutline } from '../src/geometry/index.js'
+import { TIPS, assemblyOutline } from '../src/geometry/index.js'
 import { radiusAt } from '../src/model/outline.js'
-import type {
-  ViewerAssembly,
-  ViewerHolder,
-  ViewerHolderProfile,
-  ViewerTool,
-} from '../src/geometry/index.js'
+import { cylinder, measured, tool } from './fixtures.js'
 
-const tool = (over: Partial<ViewerTool> = {}): ViewerTool => ({
-  form: 'flat end mill',
-  label: 'TDMX0600',
-  geometry: { DC: 6, LCF: 13, OAL: 57, SFDM: 6, LBH: 19 },
-  provenance: { DC: 'vendor-stated', LCF: 'vendor-stated', SFDM: 'vendor-stated', LBH: 'derived' },
-  ...over,
-})
+/** A ⌀10 nose 50 long, up to its gauge line, and nothing else stated. */
+const holder: Holder = parametricHolder(
+  {
+    noseDiameter: 10,
+    noseLength: 50,
+    bodyDiameter: null,
+    bodyLength: null,
+    projection: null,
+    flangeDiameter: null,
+    gaugeLength: 50,
+  },
+  { colletSeries: 'PG6', provenance: { layers: 'vendor-stated' } },
+)
 
-const holder: ViewerHolder = {
-  gaugeLength: 50,
-  colletSeries: 'PG6',
-  noseDiameter: 10,
-  noseLength: null,
-  bodyDiameter: null,
-  bodyLength: null,
-  projection: null,
-  flangeDiameter: null,
-  colletProtrusion: null,
-  provenance: { noseDiameter: 'vendor-stated' },
-}
-
-const assembly = (over: Partial<ViewerAssembly> = {}): ViewerAssembly => ({
+const assembly = (over: Partial<RotatingToolAssembly> = {}): RotatingToolAssembly => ({
   tool: tool(),
   holder,
+  collet: null,
   stickout: 19,
   ...over,
 })
 
 /** The outline of an assembly that is drawable, or a failed expectation. */
-const drawn = (over: Partial<ViewerAssembly> = {}) => {
+const drawn = (over: Partial<RotatingToolAssembly> = {}) => {
   const outline = assemblyOutline(assembly(over))
   expect(outline).not.toBeNull()
   return outline!
 }
+
+/** The tip of a tool drawn alone. */
+const tipOf = (over: Partial<Tool>) => assemblyOutline(tool(over))!.segments[0]!
 
 describe('an assembly as an outline', () => {
   it('draws tip, flutes, shank and nose from the tip up, and says where each came from', () => {
@@ -67,10 +70,8 @@ describe('an assembly as an outline', () => {
     expect(nose.points[0]).toEqual({ r: 5, z: 30 })
   })
 
-  it('draws a neck where a shoulder is stated', () => {
-    const necked = tool({
-      geometry: { DC: 6, LCF: 13, SFDM: 10, 'shoulder-diameter': 5.6, 'shoulder-length': 32 },
-    })
+  it('draws a neck where one is stated', () => {
+    const necked = tool({ shaft: [cylinder(5.6, 19), cylinder(10, 25)] })
     const outline = drawn({ tool: necked, stickout: 40 })
 
     expect(outline.segments.map((each) => each.part)).toEqual([
@@ -86,17 +87,131 @@ describe('an assembly as an outline', () => {
     ])
   })
 
-  it('draws no nose without a stickout', () => {
-    expect(drawn({ stickout: null }).segments.map((each) => each.part)).toEqual([
-      'tip',
-      'flutes',
-      'shank',
+  it('labels the shaft as the clearance sweep does, a shoulder between necks as shank', () => {
+    // Below the top run of shank: a shank-wide layer, a neck, then a wider shoulder.
+    const shouldered = tool({
+      fluteLength: 12,
+      shaft: [cylinder(6, 8), cylinder(5, 8), cylinder(8, 3), cylinder(6, 49)],
+    })
+    const swept = toolSilhouette(shouldered).map((step) => step.part)
+    expect(swept).toEqual(shaftParts(shouldered))
+    expect(swept).toEqual(['shank', 'neck', 'shank', 'shank'])
+    const parts = assemblyOutline(shouldered)!.segments.map((each) => each.part)
+    // The drawing joins neighbouring layers of one part into one segment.
+    const runs = swept.filter((part, index) => part !== swept[index - 1])
+    expect(parts).toEqual(['tip', 'flutes', ...runs])
+  })
+
+  it('draws a layer as wide as the shank as shank, one section with it', () => {
+    const relief = tool({ shaft: [cylinder(10, 19), cylinder(10, 25)] })
+    const outline = drawn({ tool: relief, stickout: 40 })
+
+    expect(outline.segments.map((each) => each.part)).toEqual(['tip', 'flutes', 'shank', 'nose'])
+    expect(outline.segments[2]?.points).toEqual([
+      { r: 5, z: 13 },
+      { r: 5, z: 32 },
+      { r: 5, z: 40 },
     ])
   })
 
+  it('draws a tapered layer as the cone it is', () => {
+    // A neck flaring from ⌀4 to ⌀5 over 20, under a ⌀6 shank.
+    const tapered = tool({
+      shaft: [{ thickness: 20, bottomDiameter: 4, topDiameter: 5 }, cylinder(6, 24)],
+    })
+    const outline = assemblyOutline(tapered)!
+
+    expect(outline.segments.map((each) => each.part)).toEqual(['tip', 'flutes', 'neck', 'shank'])
+    expect(outline.segments[2]?.points).toEqual([
+      { r: 2, z: 13 },
+      { r: 2.5, z: 33 },
+    ])
+    expect(outline.segments[3]?.points).toEqual([
+      { r: 3, z: 33 },
+      { r: 3, z: 57 },
+    ])
+    expect(outline.height).toBe(57)
+  })
+
+  it('cuts the shaft at the stickout, through a layer where it falls in one', () => {
+    const tapered = tool({
+      shaft: [{ thickness: 20, bottomDiameter: 4, topDiameter: 5 }, cylinder(6, 24)],
+    })
+    const outline = drawn({ tool: tapered, stickout: 23 })
+
+    // Ten of the neck's twenty stand below the nose, so it ends halfway out.
+    expect(outline.segments.map((each) => each.part)).toEqual(['tip', 'flutes', 'neck', 'nose'])
+    expect(outline.segments[2]?.points).toEqual([
+      { r: 2, z: 13 },
+      { r: 2.25, z: 23 },
+    ])
+    expect(outline.segments[3]?.points[0]).toEqual({ r: 5, z: 23 })
+  })
+
+  it('draws a tool on its own, its shank to its overall length and no holder', () => {
+    const alone = assemblyOutline(tool())!
+    expect(alone.segments.map((each) => each.part)).toEqual(['tip', 'flutes', 'shank'])
+    expect(alone.height).toBe(57)
+    expect(alone.segments.at(-1)?.provenance).toBe('vendor-stated')
+  })
+
+  it('draws a modular extension from its head face up to the holder face', () => {
+    // A ⌀8 neck 10 long on a ⌀16 shank, its head face 20 above the tip.
+    const extension: Extension = {
+      systemSize: 'DL06',
+      layers: [
+        { thickness: 10, bottomDiameter: 8, topDiameter: 8 },
+        { thickness: 70, bottomDiameter: 16, topDiameter: 16 },
+      ],
+    }
+    const outline = drawn({ stickout: 60, extension, extensionProtrusion: 40 })
+
+    expect(outline.segments.map((each) => each.part)).toEqual([
+      'tip',
+      'flutes',
+      'shank',
+      'extension',
+      'nose',
+    ])
+    expect(outline.segments[2]?.points.map((each) => each.z)).toEqual([13, 20])
+    expect(outline.segments[3]).toEqual({
+      part: 'extension',
+      points: [
+        { r: 4, z: 20 },
+        { r: 4, z: 30 },
+        { r: 8, z: 30 },
+        { r: 8, z: 60 },
+      ],
+      // Nobody said where its layers came from: not the vendor's.
+      provenance: 'assumed',
+    })
+    expect(outline.segments[4]?.points[0]).toEqual({ r: 5, z: 60 })
+
+    const stated = drawn({
+      stickout: 60,
+      extension: { ...extension, provenance: { layers: 'vendor-stated' } },
+      extensionProtrusion: 40,
+    })
+    expect(stated.segments[3]?.provenance).toBe('vendor-stated')
+
+    // Where it sits is not known, so it is not drawn.
+    expect(drawn({ stickout: 60, extension }).segments.map((each) => each.part)).toEqual([
+      'tip',
+      'flutes',
+      'shank',
+      'nose',
+    ])
+    // Nor where it states no place: a head face at or below the tip.
+    for (const extensionProtrusion of [0, 60, 75]) {
+      expect(
+        drawn({ stickout: 60, extension, extensionProtrusion }).segments.map((each) => each.part),
+      ).toEqual(['tip', 'flutes', 'shank', 'nose'])
+    }
+  })
+
   it('takes a tool with no provenance at its word', () => {
-    const bare: ViewerTool = { form: 'flat end mill', geometry: { DC: 6, LCF: 13, SFDM: 6 } }
-    expect(drawn({ tool: bare, stickout: null }).segments[0]?.provenance).toBe('vendor-stated')
+    const { provenance: _none, ...bare } = tool()
+    expect(assemblyOutline(bare)!.segments[0]?.provenance).toBe('vendor-stated')
   })
 })
 
@@ -106,11 +221,8 @@ describe('an assembly as an outline', () => {
  * this cannot draw from the vendor's own numbers has none, and draws nothing.
  */
 describe('the tip, by what the tool is', () => {
-  const tipOf = (over: Partial<ViewerTool>) =>
-    drawn({ tool: tool(over), stickout: null }).segments[0]!
-
   it('ends a flat end mill square', () => {
-    expect(tipOf({ form: 'flat end mill' }).points).toEqual([
+    expect(tipOf({ kind: 'FlatEndmill' }).points).toEqual([
       { r: 0, z: 0 },
       { r: 3, z: 0 },
     ])
@@ -122,8 +234,8 @@ describe('the tip, by what the tool is', () => {
    * hands, because the hand of the thread is not visible in an elevation.
    */
   it('ends a tap square, on purpose, whichever hand it cuts', () => {
-    for (const form of ['tap right hand', 'tap left hand']) {
-      expect(tipOf({ form }).points).toEqual([
+    for (const kind of ['CuttingTap', 'FormingTap'] as const) {
+      expect(tipOf({ kind }).points).toEqual([
         { r: 0, z: 0 },
         { r: 3, z: 0 },
       ])
@@ -131,17 +243,14 @@ describe('the tip, by what the tool is', () => {
   })
 
   it('draws a ball end mill as a hemisphere reaching the cutting radius', () => {
-    const ball = tipOf({ form: 'ball end mill' })
+    const ball = tipOf({ kind: 'BallEndmill' })
     expect(ball.points[0]).toEqual({ r: 0, z: 0 })
     expect(ball.points.at(-1)).toEqual({ r: 3, z: 3 })
     expect(ball.provenance).toBe('vendor-stated')
   })
 
   it('rounds a bull nose end mill by its corner radius', () => {
-    const bull = tipOf({
-      form: 'bull nose end mill',
-      geometry: { DC: 6, LCF: 13, SFDM: 6, RE: 1 },
-    })
+    const bull = tipOf({ kind: 'RadiusEndmill', cornerRadius: 1 })
     expect(bull.points[0]).toEqual({ r: 0, z: 0 })
     expect(bull.points[1]).toEqual({ r: 2, z: 0 })
     expect(bull.points.at(-1)).toEqual({ r: 3, z: 1 })
@@ -154,13 +263,10 @@ describe('the tip, by what the tool is', () => {
    * than drawn, and the flat case is what a vendor stating no radius gets.
    */
   it('clamps a bull nose radius to the cutting radius and half the flute', () => {
-    const stubby = tipOf({
-      form: 'bull nose end mill',
-      geometry: { DC: 6, LCF: 1, SFDM: 6, RE: 4 },
-    })
+    const stubby = tipOf({ kind: 'RadiusEndmill', fluteLength: 1, cornerRadius: 4 })
     expect(stubby.points.at(-1)).toEqual({ r: 3, z: 0.5 })
 
-    const noRadius = tipOf({ form: 'bull nose end mill', geometry: { DC: 6, LCF: 13, SFDM: 6 } })
+    const noRadius = tipOf({ kind: 'RadiusEndmill' })
     expect(noRadius.points).toEqual([
       { r: 0, z: 0 },
       { r: 3, z: 0 },
@@ -168,33 +274,33 @@ describe('the tip, by what the tool is', () => {
   })
 
   it('cones a drill at its point angle', () => {
-    const stated = tipOf({ form: 'drill', geometry: { DC: 6, LCF: 13, SFDM: 6, SIG: 140 } })
+    const stated = tipOf({ kind: 'DrillBit', tipAngleDeg: 140 })
     expect(stated.provenance).toBe('vendor-stated')
     expect(stated.points[1]?.z).toBeCloseTo(3 / Math.tan((140 / 2) * (Math.PI / 180)))
   })
 
   /** 118° is nobody's number, so the segment says so and a renderer can dash it. */
   it('assumes 118° for a drill with no stated point angle, and marks it assumed', () => {
-    const assumed = tipOf({ form: 'drill' })
+    const assumed = tipOf({ kind: 'DrillBit' })
     expect(assumed.provenance).toBe('assumed')
     expect(assumed.points[1]?.z).toBeCloseTo(3 / Math.tan((118 / 2) * (Math.PI / 180)))
   })
 
   it('cones a spot drill and a centre drill the same way', () => {
-    for (const form of ['spot drill', 'center drill']) {
-      const point = tipOf({ form, geometry: { DC: 6, LCF: 13, SFDM: 6, SIG: 90 } })
+    for (const kind of ['SpotDrill', 'CenterDrill'] as const) {
+      const point = tipOf({ kind, tipAngleDeg: 90 })
       expect(point.points[1]?.r).toBe(3)
       expect(point.points[1]?.z).toBeCloseTo(3)
     }
   })
 
   it('cones a chamfer mill and a counter sink at their stated angle', () => {
-    for (const form of ['chamfer mill', 'counter sink']) {
-      const stated = tipOf({ form, geometry: { DC: 6, LCF: 13, SFDM: 6, SIG: 60 } })
+    for (const kind of ['ChamferEndmill', 'Countersink'] as const) {
+      const stated = tipOf({ kind, tipAngleDeg: 60 })
       expect(stated.provenance).toBe('vendor-stated')
       expect(stated.points[1]?.z).toBeCloseTo(3 / Math.tan((60 / 2) * (Math.PI / 180)))
 
-      const assumed = tipOf({ form, geometry: { DC: 6, LCF: 13, SFDM: 6 } })
+      const assumed = tipOf({ kind })
       expect(assumed.provenance).toBe('assumed')
       expect(assumed.points[1]?.z).toBeCloseTo(3)
     }
@@ -202,9 +308,7 @@ describe('the tip, by what the tool is', () => {
 
   it('draws nothing for a point angle that describes no cone', () => {
     expect(
-      assemblyOutline(
-        assembly({ tool: tool({ form: 'drill', geometry: { DC: 6, LCF: 13, SIG: 0 } }) }),
-      ),
+      assemblyOutline(assembly({ tool: tool({ kind: 'DrillBit', tipAngleDeg: 0 }) })),
     ).toBeNull()
   })
 })
@@ -218,13 +322,15 @@ describe('the tip, by what the tool is', () => {
  */
 describe('a slot mill', () => {
   const keyseat = tool({
-    form: 'slot mill',
-    geometry: { DC: 6, LCF: 1.6, SFDM: 6, OAL: 38, RE: 0.5 },
-    provenance: { RE: 'vendor-stated' },
+    kind: 'KeyseatCutter',
+    fluteLength: 1.6,
+    shaft: [cylinder(6, 36.4)],
+    cornerRadius: 0.5,
+    provenance: { cornerRadius: 'vendor-stated' },
   })
 
   it('rounds the bottom of the disc, the top of it, and runs straight between', () => {
-    const outline = drawn({ tool: keyseat, stickout: null })
+    const outline = assemblyOutline(keyseat)!
 
     expect(outline.segments.map((each) => each.part)).toEqual(['tip', 'flutes', 'flutes', 'shank'])
     const [bottom, straight, top] = outline.segments
@@ -240,10 +346,9 @@ describe('a slot mill', () => {
   })
 
   it('is a plain disc where the vendor states no corner radius', () => {
-    const square = drawn({
-      tool: tool({ form: 'slot mill', geometry: { DC: 6, LCF: 1.6, SFDM: 6, OAL: 38 } }),
-      stickout: null,
-    })
+    const square = assemblyOutline(
+      tool({ kind: 'KeyseatCutter', fluteLength: 1.6, shaft: [cylinder(6, 36.4)] }),
+    )!
     expect(square.segments.map((each) => each.part)).toEqual(['tip', 'flutes', 'shank'])
     expect(square.segments[1]?.points).toEqual([
       { r: 3, z: 0 },
@@ -253,54 +358,82 @@ describe('a slot mill', () => {
 })
 
 /**
- * A form without a generator draws nothing rather than a plausible cylinder.
- * The four generators this was ported from that invent shape — tapered,
- * dovetail, lollipop, probe — did not come across, so those forms land here.
+ * A kind no generator was written for borrows the nearest one, and says so:
+ * its tip is `assumed`, whatever its numbers' own provenance, so a renderer
+ * can dash it and a simulation can refuse to cut with it.
  */
-describe('what cannot be drawn honestly', () => {
-  it('returns no outline for a form with no generator', () => {
-    for (const form of ['tapered mill', 'dovetail mill', 'lollipop mill', 'reamer', 'other']) {
-      expect(assemblyOutline(assembly({ tool: tool({ form }) }))).toBeNull()
+describe('a kind with no shape of its own', () => {
+  const borrowed = Object.entries(TIPS)
+    .filter(([, each]) => each.borrowed === true)
+    .map(([kind]) => kind)
+
+  it('is drawn on the nearest generator, its tip marked assumed', () => {
+    expect(borrowed).toEqual([
+      'CornerRoundingMill',
+      'ThreadMill',
+      'DovetailCutter',
+      'TaperedEndmill',
+      'LollipopMill',
+      'CircleSegmentBarrel',
+      'CircleSegmentLens',
+      'CircleSegmentOval',
+      'CircleSegmentTaper',
+      'BoringBar',
+      'Counterbore',
+      'Reamer',
+    ])
+    for (const kind of borrowed) {
+      const outline = assemblyOutline(tool({ kind: kind as Tool['kind'] }))
+      expect(outline?.segments[0]?.provenance, kind).toBe('assumed')
     }
+    // A lollipop on a ball: the nearest shape, from its own diameter.
+    expect(tipOf({ kind: 'LollipopMill' }).points.at(-1)).toEqual({ r: 3, z: 3 })
   })
 
-  it('returns no outline for a tool that states no diameter or flute length', () => {
-    expect(assemblyOutline(assembly({ tool: tool({ geometry: {} }) }))).toBeNull()
-    expect(assemblyOutline(assembly({ tool: tool({ geometry: { DC: 6 } }) }))).toBeNull()
-    expect(assemblyOutline(assembly({ tool: tool({ geometry: { LCF: 13 } }) }))).toBeNull()
+  it('draws an insert tool from its body', () => {
+    const face: CuttingTool = {
+      type: 'insert',
+      kind: 'FaceEndmill',
+      name: 'face',
+      body: { diameter: 50, fluteLength: 5 },
+      shaft: [cylinder(22, 35)],
+      insert: {},
+    }
+    const outline = assemblyOutline(face)!
+    expect(outline.radius).toBe(25)
+    expect(outline.segments.at(-1)?.points).toEqual([
+      { r: 11, z: 5 },
+      { r: 11, z: 40 },
+    ])
   })
 })
 
 describe('a holder drawn as the body the vendor states', () => {
-  const stated = assembly({
-    stickout: 30,
-    holder: {
-      ...holder,
-      colletSeries: 'PG6',
+  /** A PG 6 chuck: nose, body, the body carried to the flange face at 50, the flange to the gauge line. */
+  const chuck = parametricHolder(
+    {
+      noseDiameter: 10,
       noseLength: 10.55,
       bodyDiameter: 12.02,
       bodyLength: 9.6,
       projection: 50,
       flangeDiameter: 46,
-      colletProtrusion: 2.5,
-      provenance: {
-        noseDiameter: 'vendor-stated',
-        flangeDiameter: 'derived',
-        colletProtrusion: 'derived',
-      },
+      gaugeLength: 70,
     },
-  })
+    {
+      colletSeries: 'PG6',
+      colletProtrusion: 2.5,
+      provenance: { layers: 'vendor-stated', colletProtrusion: 'derived' },
+    },
+  )
 
   /**
    * **Cylinders, not cones** (Paul, 2026-08-31). The stretch between the body
-   * and the flange was drawn as a cone flaring out to the flange's own
-   * diameter — a shape the vendor never published, and most of the drawn
-   * holder. It is the body's own diameter carried up now: still assumed,
-   * because nothing states it, but assumed to be no wider than what *is*
-   * stated rather than assumed to flare.
+   * and the flange is the body's own diameter carried up, assumed to be no
+   * wider than what *is* stated rather than assumed to flare.
    */
-  it('draws collet, nose, body, the body carried to the flange, and the flange', () => {
-    const outline = drawn(stated)
+  it('draws collet, nose, and the body carried up to the flange and the gauge line', () => {
+    const outline = drawn({ stickout: 30, holder: chuck })
     const holderParts = outline.segments.filter(
       (each) => !['tip', 'flutes', 'shank'].includes(each.part),
     )
@@ -309,20 +442,27 @@ describe('a holder drawn as the body the vendor states', () => {
       ['collet', 'derived'],
       ['nose', 'vendor-stated'],
       ['body', 'vendor-stated'],
-      ['body', 'assumed'],
-      ['flange', 'derived'],
-    ])
-    // The carry is the body's own radius, top and bottom.
-    expect(holderParts[3]?.points).toEqual([
-      { r: 6.01, z: 50.15 },
-      { r: 6.01, z: 80 },
     ])
     expect(holderParts[0]?.points).toEqual([
       { r: 3, z: 27.5 },
       { r: 3, z: 30 },
     ])
-    expect(holderParts.at(-1)?.points[0]).toEqual({ r: 23, z: 80 })
+    expect(holderParts[1]?.points).toEqual([
+      { r: 5, z: 30 },
+      { r: 5, z: 40.55 },
+    ])
+    // The step out to the body is the body's face; the carry is the body's own
+    // radius, up to the flange face at 30 + 50, and the flange to the gauge line.
+    expect(holderParts[2]?.points.map(({ r, z }) => [r, Number(z.toFixed(9))])).toEqual([
+      [5, 40.55],
+      [6.01, 40.55],
+      [6.01, 50.15],
+      [6.01, 80],
+      [23, 80],
+      [23, 100],
+    ])
     expect(outline.radius).toBe(23)
+    expect(outline.height).toBe(100)
   })
 
   it('takes a holder with no provenance at its word', () => {
@@ -349,21 +489,25 @@ const profilePoints: ReadonlyArray<readonly [number, number]> = [
   [50, 8],
 ]
 
-const profile: ViewerHolderProfile = {
-  points: profilePoints,
-  datum: 'gage-line',
-  colletSeries: 'PG6',
-  colletProtrusion: null,
-}
+const profile: Holder = measured(profilePoints, { colletSeries: 'PG6' })
 
 describe('a holder drawn as its own model measures it', () => {
+  /**
+   * The holder below the spindle face: its nose and body, which share the
+   * point where they meet, as one polyline.
+   */
+  const belowFace = (outline: ReturnType<typeof drawn>) => {
+    const part = (name: string) => outline.segments.find((each) => each.part === name)!.points
+    return [...part('nose'), ...part('body').slice(1)]
+  }
+
   it('places the nose vertex at the stickout and walks the stack back from it', () => {
     const outline = drawn({ holder: profile })
-    const measured = outline.segments.filter((each) => ['body', 'flange'].includes(each.part))
+    const flange = outline.segments.find((each) => each.part === 'flange')!
 
     // Outline z runs up from the tip and profile z runs toward the nose, so
     // the two frames are opposite: 19 + (50 - z).
-    expect(measured.flatMap((each) => each.points.map((point) => point.z))).toEqual([
+    expect([...belowFace(outline), ...flange.points].map((point) => point.z)).toEqual([
       19, 39, 39, 67, 67, 69, 69, 79, 109,
     ])
     expect(outline.height).toBe(109)
@@ -371,18 +515,19 @@ describe('a holder drawn as its own model measures it', () => {
   })
 
   it('keeps the step faces the measurement found', () => {
-    const body = drawn({ holder: profile }).segments.find((each) => each.part === 'body')!
+    const below = belowFace(drawn({ holder: profile }))
 
     // Two vertices at one z on each face, so the solid steps rather than
     // sloping across the neighbouring vertices.
-    expect(body.points).toEqual([
+    expect(below.slice(0, 5)).toEqual([
       { r: 8, z: 19 },
       { r: 8, z: 39 },
       { r: 16, z: 39 },
       { r: 16, z: 67 },
       { r: 24, z: 67 },
-      { r: 24 - 4 / 6, z: 69 },
     ])
+    expect(below.at(-1)?.z).toBe(69)
+    expect(below.at(-1)?.r).toBeCloseTo(24 - 4 / 6, 9)
   })
 
   it('splits at the gage line, interpolating the crossing and sharing it', () => {
@@ -390,29 +535,28 @@ describe('a holder drawn as its own model measures it', () => {
     const body = outline.segments.find((each) => each.part === 'body')!
     const flange = outline.segments.find((each) => each.part === 'flange')!
 
-    // The spindle face is z = 0 on the profile, so it lands at stickout + 50.
-    expect(body.points.at(-1)).toEqual({ r: 24 - 4 / 6, z: 69 })
+    // The spindle face is the gauge length above the nose: 19 + 50.
+    expect(body.points.at(-1)?.z).toBe(69)
+    expect(body.points.at(-1)?.r).toBeCloseTo(24 - 4 / 6, 9)
     expect(flange.points[0]).toEqual(body.points.at(-1))
     expect(flange.points.at(-1)).toEqual({ r: 11, z: 109 })
   })
 
   it('shares a vertex that already sits on the gage line rather than adding one', () => {
-    const onTheLine: ViewerHolderProfile = {
-      ...profile,
-      points: [
-        [-20, 10],
-        [0, 15],
-        [0, 12],
-        [40, 12],
-        [40, 6],
-        [60, 6],
-      ],
-    }
+    const onTheLine = measured([
+      [-20, 10],
+      [0, 15],
+      [0, 12],
+      [40, 12],
+      [40, 6],
+      [60, 6],
+    ])
     const outline = drawn({ holder: onTheLine })
     const body = outline.segments.find((each) => each.part === 'body')!
     const flange = outline.segments.find((each) => each.part === 'flange')!
 
-    expect(body.points.map((each) => each.z)).toEqual([19, 39, 39, 79, 79])
+    expect(belowFace(outline).map((each) => each.z)).toEqual([19, 39, 39, 79, 79])
+    expect(body.points.at(-1)).toEqual(flange.points[0])
     expect(flange.points).toEqual([
       { r: 15, z: 79 },
       { r: 10, z: 99 },
@@ -420,30 +564,28 @@ describe('a holder drawn as its own model measures it', () => {
   })
 
   it('does not split a profile with no gage line to split on', () => {
-    const nose: ViewerHolderProfile = {
-      ...profile,
+    const nose = measuredHolder({
       datum: 'nose',
       points: [
         [-30, 10],
         [-5, 14],
         [0, 14],
       ],
-    }
+    })
     const parts = drawn({ holder: nose }).segments.map((each) => each.part)
 
-    expect(parts).toEqual(['tip', 'flutes', 'shank', 'body'])
+    expect(parts).toEqual(['tip', 'flutes', 'shank', 'nose', 'body'])
   })
 
-  it('draws no holder from a profile too short to be one', () => {
-    const stub: ViewerHolderProfile = { ...profile, points: [[0, 12]] }
-    const outline = drawn({ holder: stub })
+  it('draws no holder from a stack with no layers', () => {
+    const outline = drawn({ holder: { layers: [], gaugeLength: null } })
 
     expect(outline.segments.map((each) => each.part)).toEqual(['tip', 'flutes', 'shank'])
     expect(outline.height).toBe(19)
   })
 
   it('draws the seated collet on a measured holder too', () => {
-    const seated: ViewerHolderProfile = { ...profile, colletProtrusion: 2.5 }
+    const seated: Holder = { ...profile, colletProtrusion: 2.5 }
     const collet = drawn({ holder: seated }).segments.find((each) => each.part === 'collet')!
 
     expect(collet.points).toEqual([
@@ -455,11 +597,11 @@ describe('a holder drawn as its own model measures it', () => {
   it('calls the measurement vendor-stated unless the caller says otherwise', () => {
     expect(
       drawn({ holder: profile })
-        .segments.filter((each) => ['body', 'flange'].includes(each.part))
+        .segments.filter((each) => ['nose', 'body', 'flange'].includes(each.part))
         .map((each) => each.provenance),
-    ).toEqual(['vendor-stated', 'vendor-stated'])
+    ).toEqual(['vendor-stated', 'vendor-stated', 'vendor-stated'])
 
-    const derived: ViewerHolderProfile = { ...profile, provenance: { points: 'derived' } }
+    const derived: Holder = { ...profile, provenance: { layers: 'derived' } }
     expect(drawn({ holder: derived }).segments.at(-1)?.provenance).toBe('derived')
   })
 })
@@ -482,7 +624,7 @@ describe('the widest the drawing reaches at one height', () => {
   it('follows a sloped face between two vertices', () => {
     // A drill's cone: half a millimetre up a ⌀6 point at 90° is a ⌀1 face.
     const cone = drawn({
-      tool: tool({ form: 'drill', geometry: { DC: 6, LCF: 13, OAL: 57, SFDM: 6, SIG: 90 } }),
+      tool: tool({ kind: 'DrillBit', tipAngleDeg: 90 }),
     })
 
     expect(radiusAt(cone, 0)).toBe(0)

@@ -1,9 +1,9 @@
 /**
  * The one place a holder meets its gage line, asserted from both sides.
  *
- * `@toolpath/tool-support`'s `belowGageLine` **trims** a measured silhouette at
- * the spindle face; this package's `profileSegments` **splits** it there and
- * draws the upper half as a darker `flange`. Different decisions about the same
+ * `@toolpath/tool-support`'s `trimToGauge` **cuts** a holder's stack at the
+ * spindle face, for a sweep or an export; this package **splits** it there and
+ * draws the part above as a darker `flange`. Different decisions about the same
  * line, and both have to interpolate the same crossing between the two vertices
  * it falls between — or a holder meets its gage line in two places, and the
  * picture and the trim disagree about the same measurement.
@@ -15,14 +15,9 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { belowGageLine } from '@toolpath/tool-support'
+import { measuredHolder, trimToGauge, type MeasuredProfile } from '@toolpath/tool-support'
 import { assemblyOutline } from '../src/geometry/index.js'
-import type { ViewerAssembly, ViewerHolderProfile } from '../src/geometry/index.js'
-
-const tool: ViewerAssembly['tool'] = {
-  form: 'flat end mill',
-  geometry: { DC: 6, LCF: 13, OAL: 57, SFDM: 6 },
-}
+import { tool } from './fixtures.js'
 
 const STICKOUT = 19
 
@@ -42,12 +37,7 @@ const points: ReadonlyArray<readonly [number, number]> = [
   [50, 8],
 ]
 
-const profile: ViewerHolderProfile = {
-  points,
-  datum: 'gage-line',
-  colletSeries: 'PG6',
-  colletProtrusion: null,
-}
+const profile: MeasuredProfile = { points, datum: 'gage-line' }
 
 /**
  * The radius the drawing puts at the gage line: the point the `body` and
@@ -56,8 +46,13 @@ const profile: ViewerHolderProfile = {
  * Outline `z` runs up from the tool tip and profile `z` runs toward the nose,
  * so the two frames are opposite and the face lands at `stickout + noseZ`.
  */
-const drawnAtGageLine = (holder: ViewerHolderProfile): number | null => {
-  const outline = assemblyOutline({ tool, holder, stickout: STICKOUT })
+const drawnAtGageLine = (holder: MeasuredProfile): number | null => {
+  const outline = assemblyOutline({
+    tool: tool(),
+    holder: measuredHolder(holder),
+    collet: null,
+    stickout: STICKOUT,
+  })
   expect(outline).not.toBeNull()
   const nose = holder.points[holder.points.length - 1]!
   const gage = STICKOUT + nose[0]
@@ -77,19 +72,21 @@ const drawnAtGageLine = (holder: ViewerHolderProfile): number | null => {
   return end.r
 }
 
-describe('the trim and the split find the same crossing', () => {
+/** The radius the cut stack ends at: where it meets the spindle face. */
+const cutAt = (profile: MeasuredProfile): number =>
+  trimToGauge(measuredHolder(profile)).layers.at(-1)!.topDiameter / 2
+
+describe('the cut and the split find the same crossing', () => {
   it('agrees on an interpolated crossing', () => {
-    const trimmed = belowGageLine(profile)
-    expect(trimmed[0]![0]).toBe(0)
     // Two thirds along from r = 20 to r = 24.
-    expect(trimmed[0]![1]).toBeCloseTo(23.333333333333332, 9)
-    expect(drawnAtGageLine(profile)).toBeCloseTo(trimmed[0]![1], 9)
+    expect(cutAt(profile)).toBeCloseTo(23.333333333333332, 9)
+    expect(drawnAtGageLine(profile)).toBeCloseTo(cutAt(profile), 9)
   })
 
   it('agrees on a vertex that already sits on the face', () => {
     // The other branch of both implementations: no interpolation to do, and
     // the existing vertex is the meeting point.
-    const onFace: ViewerHolderProfile = {
+    const onFace: MeasuredProfile = {
       ...profile,
       points: [
         [-40, 11],
@@ -98,27 +95,33 @@ describe('the trim and the split find the same crossing', () => {
         [50, 8],
       ],
     }
-    const trimmed = belowGageLine(onFace)
-    expect(trimmed[0]).toEqual([0, 24])
+    expect(cutAt(onFace)).toBe(24)
     expect(drawnAtGageLine(onFace)).toBe(24)
   })
 
   it('neither cuts a nose-datumed profile', () => {
     // No gauge plane was solved, so there is no line to cut or split on. The
-    // trim returns the profile whole and the drawing draws one segment.
-    const nosed: ViewerHolderProfile = { ...profile, datum: 'nose' }
-    expect(belowGageLine(nosed)).toBe(nosed.points)
-    expect(drawnAtGageLine(nosed)).toBeNull()
+    // cut returns the holder whole and the drawing draws no connection.
+    const nosed = measuredHolder({ ...profile, datum: 'nose' })
+    expect(trimToGauge(nosed)).toBe(nosed)
+    expect(drawnAtGageLine({ ...profile, datum: 'nose' })).toBeNull()
   })
 
-  it('keeps the same vertices below the face that the trim drops', () => {
+  it('keeps above the face exactly the vertices the cut drops', () => {
     // The two halves are complementary: what the drawing puts in `flange` is
-    // exactly what the trim removes, plus the shared crossing.
-    const trimmed = belowGageLine(profile)
-    const dropped = points.length - (trimmed.length - 1)
+    // every vertex above the spindle face, plus the shared crossing.
+    const dropped = points.filter(([z]) => z < 0).length
 
-    const outline = assemblyOutline({ tool, holder: profile, stickout: STICKOUT })!
+    const outline = assemblyOutline({
+      tool: tool(),
+      holder: measuredHolder(profile),
+      collet: null,
+      stickout: STICKOUT,
+    })!
     const flange = outline.segments.find((segment) => segment.part === 'flange')!
     expect(flange.points).toHaveLength(dropped + 1)
+    // And the stack the cut keeps is exactly as tall as the body drawn below it.
+    const kept = trimToGauge(measuredHolder(profile)).layers
+    expect(kept.reduce((total, layer) => total + layer.thickness, 0)).toBeCloseTo(50, 9)
   })
 })

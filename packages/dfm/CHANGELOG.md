@@ -1,5 +1,12 @@
 # @toolpath/dfm
 
+## 1.5.1
+
+### Patch Changes
+
+- Updated dependencies [652f050]
+  - @toolpath/tool-support@1.0.0
+
 ## 1.5.0
 
 ### Minor Changes

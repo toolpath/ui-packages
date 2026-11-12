@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
-import { TOOL_FORMS } from '../src/forms.js'
+import { CAM_TYPES } from '../src/export/catalog.js'
 import { GEOMETRY_FIELDS, isLengthField } from '../src/geometry.js'
 import {
   ALL_MATERIALS,
@@ -86,12 +86,13 @@ describe('the digest is the one this repository derived', () => {
 describe('the type table matches Autodesk’s published schema', () => {
   const names = Object.keys(FUSION_TYPES).sort()
 
-  it('writes every form the domain has a word for, and the holder', () => {
-    // `forms.ts` claims its vocabulary is Fusion's own so that an exported tool
-    // lands on the type it already has. This is that claim, measured: a form
-    // added to the domain without a table entry fails here rather than
-    // exporting as an invented type.
-    expect(names).toEqual([...TOOL_FORMS.map((form) => form.value), 'holder'].sort())
+  it('writes every kind the domain has, and the holder, and nothing else', () => {
+    // Every kind lands on a type Fusion has, and every type this table writes
+    // is some kind's: a kind added without a table entry, or a table entry no
+    // kind reaches, fails here rather than exporting as an invented type.
+    expect(names).toEqual(
+      [...new Set([...Object.values(CAM_TYPES), 'tap left hand', 'holder'])].sort(),
+    )
   })
 
   it.each(names)('%s', (name) => {

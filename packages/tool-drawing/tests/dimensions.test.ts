@@ -1,59 +1,70 @@
+import { parametricHolder, type Extension, type Holder, type Tool } from '@toolpath/tool-support'
 import { describe, expect, it } from 'vitest'
 import { dimensionsFor, laneLayout, laneOffset, laneRoom } from '../src/index.js'
-import type { LaneRoom, ViewerAssembly, ViewerHolder, ViewerTool } from '../src/index.js'
+import type { LaneRoom } from '../src/index.js'
+import { cylinder, tool as base } from './fixtures.js'
 
-const tool = (geometry: Record<string, number>, form = 'flat end mill'): ViewerTool => ({
-  form,
-  label: 'TDMX0500',
-  geometry,
-  provenance: {},
-})
+const tool = (over: Partial<Tool>): Tool => base({ name: 'TDMX0500', provenance: {}, ...over })
 
 /** A plain end mill: no relief behind the flutes. */
-const plain = tool({ DC: 12, LCF: 30, OAL: 80, SFDM: 12, RE: 0.5 })
+const plain = tool({
+  diameter: 12,
+  fluteLength: 30,
+  shaft: [cylinder(12, 50)],
+  cornerRadius: 0.5,
+})
 
 /** A necked one: the relief is under the shank and past the flutes. */
 const necked = tool({
-  DC: 6,
-  LCF: 12,
-  OAL: 75,
-  SFDM: 6,
-  'shoulder-diameter': 5.4,
-  'shoulder-length': 40,
+  diameter: 6,
+  fluteLength: 12,
+  shaft: [cylinder(5.4, 28), cylinder(6, 35)],
 })
 
-const holder = (gaugeLength: number | null): ViewerHolder => ({
-  gaugeLength,
-  colletSeries: 'PG10',
-  noseDiameter: 16,
-  noseLength: null,
-  bodyDiameter: null,
-  bodyLength: null,
-  projection: null,
-  flangeDiameter: 46,
-  colletProtrusion: null,
-  provenance: {},
-})
+const holder = (gaugeLength: number | null): Holder =>
+  parametricHolder(
+    {
+      noseDiameter: 16,
+      noseLength: null,
+      bodyDiameter: null,
+      bodyLength: null,
+      projection: null,
+      flangeDiameter: 46,
+      gaugeLength,
+    },
+    { colletSeries: 'PG10' },
+  )
 
-const alone = (each: ViewerTool): ViewerAssembly => ({
+/** An assembly of this tool in a holder at this stickout. */
+const held = (each: Tool, stickout: number, gauge: number | null = 98.4) => ({
   tool: each,
-  holder: null,
-  stickout: null,
+  holder: holder(gauge),
+  collet: null,
+  stickout,
 })
 
 const codes = (dims: ReadonlyArray<{ code: string }>) => dims.map((each) => each.code)
 
 describe('what a drawing of the tool alone dimensions', () => {
   it('measures the cut, the shank and the two lengths', () => {
-    const { widths, lengths } = dimensionsFor(alone(plain))
+    const { widths, lengths } = dimensionsFor(plain)
 
     expect(codes(widths)).toEqual(['DC', 'SFDM'])
     expect(codes(lengths)).toEqual(['LCF', 'OAL'])
   })
 
   /** Every length is measured from the tip, which is where the sheet measures from. */
+  it('dimensions neither a shank nor an overall length a reader assumed', () => {
+    const shank = dimensionsFor({ ...plain, provenance: { shank: 'assumed' } })
+    expect(codes(shank.widths)).toEqual(['DC'])
+    expect(codes(shank.lengths)).toEqual(['LCF', 'OAL'])
+    const end = dimensionsFor({ ...plain, provenance: { overallLength: 'assumed' } })
+    expect(codes(end.widths)).toEqual(['DC', 'SFDM'])
+    expect(codes(end.lengths)).toEqual(['LCF'])
+  })
+
   it('measures every length from the tip', () => {
-    expect(dimensionsFor(alone(plain)).lengths.every((each) => each.from === 0)).toBe(true)
+    expect(dimensionsFor(plain).lengths.every((each) => each.from === 0)).toBe(true)
   })
 
   /**
@@ -61,7 +72,7 @@ describe('what a drawing of the tool alone dimensions', () => {
    * cross the moment a tool's shoulder ran past its flutes.
    */
   it('nests the lines shortest first, so none crosses another', () => {
-    const { lengths } = dimensionsFor(alone(necked))
+    const { lengths } = dimensionsFor(necked)
 
     expect(lengths.map((each) => [each.code, each.lane])).toEqual([
       ['LCF', 0],
@@ -71,33 +82,25 @@ describe('what a drawing of the tool alone dimensions', () => {
   })
 
   it('dimensions the relief only on a tool that has one', () => {
-    expect(codes(dimensionsFor(alone(necked)).widths)).toContain('shoulder-diameter')
-    expect(codes(dimensionsFor(alone(plain)).widths)).not.toContain('shoulder-diameter')
-    expect(codes(dimensionsFor(alone(plain)).lengths)).not.toContain('shoulder-length')
+    expect(codes(dimensionsFor(necked).widths)).toContain('shoulder-diameter')
+    expect(codes(dimensionsFor(plain).widths)).not.toContain('shoulder-diameter')
+    expect(codes(dimensionsFor(plain).lengths)).not.toContain('shoulder-length')
   })
 
   /** A vendor's own number or nothing: a corner radius of zero is a square end, not a radius. */
   it('calls out a corner radius only where one is stated', () => {
-    expect(dimensionsFor(alone(plain)).cornerRadius).toBe(0.5)
-    expect(dimensionsFor(alone(tool({ DC: 12, LCF: 30, RE: 0 }))).cornerRadius).toBeNull()
+    expect(dimensionsFor(plain).cornerRadius).toBe(0.5)
+    expect(dimensionsFor(tool({ cornerRadius: 0 })).cornerRadius).toBeNull()
   })
 
-  it('draws nothing for a tool that states no diameter or flute length', () => {
-    expect(dimensionsFor(alone(tool({ OAL: 80 })))).toEqual({
-      lengths: [],
-      widths: [],
-      angles: [],
-      cornerRadius: null,
-    })
+  it('states how far an assembly with no holder stands the tool out, beside its length', () => {
+    const { lengths } = dimensionsFor({ tool: plain, holder: null, collet: null, stickout: 45 })
+    expect(codes(lengths)).toEqual(['LCF', 'stickout', 'OAL'])
   })
 })
 
 describe('what the holder adds, and what it takes away', () => {
-  const assembly = (stickout: number | null, gauge: number | null = 98.4): ViewerAssembly => ({
-    tool: plain,
-    holder: holder(gauge),
-    stickout,
-  })
+  const assembly = (stickout: number, gauge: number | null = 98.4) => held(plain, stickout, gauge)
 
   /**
    * Most of the shank is inside the holder, so a line to the end of it
@@ -120,54 +123,22 @@ describe('what the holder adds, and what it takes away', () => {
   })
 
   /**
-   * The stickout and the below-holder length are the same span from the tip
-   * whenever the shop clamps to its own rule, and the drawing drew both: two
-   * lines of exactly the same length, in two lanes, on opposite flanks.
-   */
-  it('draws one line where the stickout and the below-holder length are one number', () => {
-    const clamped = tool({ DC: 12, LCF: 30, OAL: 80, SFDM: 12, LBH: 45 })
-    const { lengths } = dimensionsFor({ tool: clamped, holder: holder(98.4), stickout: 45 })
-
-    expect(codes(lengths)).toEqual(['LCF', 'LBH'])
-    expect(lengths.find((each) => each.code === 'LBH')?.aliases).toEqual(['stickout'])
-  })
-
-  /**
    * And whatever the two codes are: a tool stood out to its flutes states the
    * same span as its flute length, which drew a third identical ladder.
    */
   it('collapses any two lengths that are the same span, the tool’s code first', () => {
-    const { lengths } = dimensionsFor({ tool: plain, holder: holder(98.4), stickout: 30 })
+    const { lengths } = dimensionsFor(held(plain, 30))
 
     expect(codes(lengths)).toEqual(['LCF'])
     expect(lengths[0]?.aliases).toEqual(['stickout'])
   })
 
-  /** Two numbers stay two lines: the tool stands out further than it reaches. */
+  /** Two numbers stay two lines. */
   it('keeps them apart where they are different numbers', () => {
-    const proud = tool({ DC: 12, LCF: 30, OAL: 80, SFDM: 12, LBH: 40 })
-    const { lengths } = dimensionsFor({ tool: proud, holder: holder(98.4), stickout: 45 })
+    const { lengths } = dimensionsFor(held(plain, 45))
 
-    expect(codes(lengths)).toEqual(['LCF', 'LBH', 'stickout'])
+    expect(codes(lengths)).toEqual(['LCF', 'stickout'])
     expect(lengths.every((each) => each.aliases === undefined)).toBe(true)
-  })
-
-  /**
-   * The stickout is the shop's number and `LBH` is the tool's. Where the tool
-   * is stood out less than the clamping rule assumed, the top of `LBH` is
-   * inside the holder — and the line ran visibly past the nose into the holder
-   * body, which reads as a drawing that got the assembly wrong.
-   */
-  it('declines to dimension a below-holder length that ends inside the holder', () => {
-    const proud = tool({ DC: 12, LCF: 30, OAL: 80, SFDM: 12, LBH: 50 })
-
-    expect(
-      codes(dimensionsFor({ tool: proud, holder: holder(98.4), stickout: 32 }).lengths),
-    ).toEqual(['LCF', 'stickout'])
-    // Below the nose it is a face on the drawing, and it is dimensioned.
-    expect(
-      codes(dimensionsFor({ tool: proud, holder: holder(98.4), stickout: 60 }).lengths),
-    ).toEqual(['LCF', 'LBH', 'stickout'])
   })
 
   it('measures the shank above the nose, not inside the holder', () => {
@@ -184,11 +155,54 @@ describe('what the holder adds, and what it takes away', () => {
    * collet is in front of.
    */
   it('keeps the shank width clear of the seated collet', () => {
-    const seated: ViewerHolder = { ...holder(98.4), colletProtrusion: 10 }
-    const { widths } = dimensionsFor({ tool: plain, holder: seated, stickout: 45 })
+    const seated: Holder = { ...holder(98.4), colletProtrusion: 10 }
+    const { widths } = dimensionsFor({ tool: plain, holder: seated, collet: null, stickout: 45 })
     const shank = widths.find((each) => each.code === 'SFDM')
 
     expect(shank?.at).toBeLessThanOrEqual(35)
+  })
+
+  it('dimensions a modular extension’s protrusion beside the stickout, only where it is stated', () => {
+    const extension: Extension = {
+      systemSize: 'DL12',
+      layers: [{ thickness: 90, bottomDiameter: 16, topDiameter: 16 }],
+    }
+    const modular = { ...assembly(80), extension, extensionProtrusion: 40 }
+    const { lengths, widths } = dimensionsFor(modular)
+
+    expect(lengths.map(({ code, from, to }) => ({ code, from, to }))).toEqual([
+      { code: 'LCF', from: 0, to: 30 },
+      { code: 'extension-protrusion', from: 40, to: 80 },
+      { code: 'stickout', from: 0, to: 80 },
+    ])
+    // The head's shank, between its flutes and the extension's head face.
+    expect(widths.find((each) => each.code === 'SFDM')?.at).toBe(35)
+
+    const { extensionProtrusion: _unstated, ...unplaced } = modular
+    expect(codes(dimensionsFor(unplaced).lengths)).toEqual(['LCF', 'stickout'])
+  })
+
+  it('dimensions no extension the outline does not draw', () => {
+    const bare = dimensionsFor(assembly(80))
+    const unshaped: Extension = { systemSize: 'DL12', layers: [] }
+    const shaped: Extension = {
+      ...unshaped,
+      layers: [{ thickness: 90, bottomDiameter: 16, topDiameter: 16 }],
+    }
+    // One that states no shape, and protrusions that place no head face.
+    for (const [extension, extensionProtrusion] of [
+      [unshaped, 40],
+      [shaped, 0],
+      [shaped, 80],
+      [shaped, 95],
+    ] as const) {
+      const { lengths, widths } = dimensionsFor({ ...assembly(80), extension, extensionProtrusion })
+
+      expect(codes(lengths)).not.toContain('extension-protrusion')
+      expect(widths.find((each) => each.code === 'SFDM')).toEqual(
+        bare.widths.find((each) => each.code === 'SFDM'),
+      )
+    }
   })
 })
 
@@ -200,7 +214,15 @@ describe('what the holder adds, and what it takes away', () => {
  */
 describe('the tip angle', () => {
   it('calls out a drill’s stated tip angle, on the flank it is between', () => {
-    const drill = dimensionsFor(alone(tool({ DC: 10, LCF: 40, OAL: 100, SIG: 140 }, 'drill')))
+    const drill = dimensionsFor(
+      tool({
+        kind: 'DrillBit',
+        diameter: 10,
+        fluteLength: 40,
+        shaft: [cylinder(10, 60)],
+        tipAngleDeg: 140,
+      }),
+    )
 
     const halfwayUpTheFlank: unknown = expect.closeTo(0.911, 2)
     expect(drill.angles).toEqual([
@@ -209,8 +231,12 @@ describe('the tip angle', () => {
   })
 
   it('says nothing about a tool with no point, or a drill that states no angle', () => {
-    expect(dimensionsFor(alone(tool({ DC: 10, LCF: 40, SIG: 140 }))).angles).toEqual([])
-    expect(dimensionsFor(alone(tool({ DC: 10, LCF: 40 }, 'drill'))).angles).toEqual([])
+    expect(dimensionsFor(tool({ diameter: 10, fluteLength: 40, tipAngleDeg: 140 })).angles).toEqual(
+      [],
+    )
+    expect(dimensionsFor(tool({ kind: 'DrillBit', diameter: 10, fluteLength: 40 })).angles).toEqual(
+      [],
+    )
   })
 })
 
@@ -221,7 +247,7 @@ describe('the tip angle', () => {
  * runs up and how far out.
  */
 describe('the lanes the lines run in', () => {
-  const model = dimensionsFor(alone(necked))
+  const model = dimensionsFor(necked)
 
   it('keeps every lane on one flank unless both are offered', () => {
     const one = laneLayout(model, 'one')
@@ -246,8 +272,8 @@ describe('the lanes the lines run in', () => {
     expect(both.count).toEqual({ minus: 2, plus: 1 })
   })
 
-  it('lays no lane for a tool it dimensions nothing on', () => {
-    const nothing = laneLayout(dimensionsFor(alone(tool({ OAL: 80 }))))
+  it('lays no lane for a model with no lengths', () => {
+    const nothing = laneLayout({ lengths: [], widths: [], angles: [], cornerRadius: null })
 
     expect(nothing.lanes).toEqual([])
     expect(nothing.count).toEqual({ minus: 0, plus: 0 })

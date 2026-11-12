@@ -1,6 +1,6 @@
 import type { Extent } from './frame.js'
 import { radiusAt, type Outline } from './outline.js'
-import type { ViewerAssembly } from './types.js'
+import { staged, type Drawable } from './types.js'
 
 /**
  * How much of the stack the sheet is framed to: all of it, or the working end.
@@ -38,26 +38,14 @@ const EPSILON = 1e-6
 /**
  * How much tool is below the holder **on this drawing**.
  *
- * The stickout wherever a holder is drawn, because that is where the nose face
- * was placed: the length below the holder and the stickout are the same span
- * measured by the tool and by the shop, and where the two disagree it is the
- * shop's that the picture was drawn to. Cutting at the tool's own `LBH` with a
- * holder set further back would frame a sheet with no holder on it at all —
- * the one thing the view is meant to show — and the dimension model already
- * refuses to *letter* `LBH` in that case, for the same reason.
- *
- * `LBH` where no holder is drawn, which is the only number that says where one
- * would sit. Null where neither is stated, and there is then nothing to zoom
- * to.
+ * The assembly's stickout: where a holder is drawn that is where its nose
+ * face was placed, and where none is it is still the only number that says
+ * where one would sit. Null for a tool drawn alone, and there is then nothing
+ * to zoom to.
  */
-const exposedLength = (assembly: ViewerAssembly): number | null => {
-  const { stickout, holder } = assembly
-  const stated = stickout !== null && stickout > 0 ? stickout : null
-  if (holder !== null && stated !== null) {
-    return stated
-  }
-  const { LBH } = assembly.tool.geometry
-  return LBH !== undefined && LBH > 0 ? LBH : stated
+const exposedLength = (subject: Drawable): number | null => {
+  const { stickout } = staged(subject)
+  return stickout !== null && stickout > 0 ? stickout : null
 }
 
 /**
@@ -94,7 +82,7 @@ const widestBelow = (outline: Outline, top: number): number =>
  */
 export const extentFor = (
   outline: Outline,
-  assembly: ViewerAssembly,
+  assembly: Drawable,
   zoom: Zoom = 'assembly',
 ): Extent => {
   if (zoom === 'assembly') {

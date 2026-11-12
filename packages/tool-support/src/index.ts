@@ -2,10 +2,11 @@
  * The cutting-tool domain: what a tool, a holder, a collet and an assembly
  * _are_, and the arithmetic that follows from them.
  *
- * This package takes no runtime dependencies and imports no React, no DOM, no
- * `fs` and no Toolpath SDK. Everything else that speaks about cutting tools
- * depends on it and it depends on nothing — which is what lets a Node ingest
- * script, a server route and a React renderer share one answer instead of three.
+ * This package takes no runtime dependency but `zod`, in which the shared tool
+ * record is stated, and imports no React, no DOM, no `fs` and no Toolpath SDK.
+ * Everything else that speaks about cutting tools depends on it and it depends
+ * on none of them — which is what lets a Node ingest script, a server route and
+ * a React renderer share one answer instead of three.
  *
  * ## Why it exists
  *
@@ -26,16 +27,20 @@
  *
  * ## What is here
  *
- * The vocabulary and the contracts: units, provenance, the geometry dictionary,
- * the form list, the holder union, the collet, the profile, the reach curve and
- * what a feature demands of a tool. Everything is a readonly interface or a pure
- * function over one — no classes, deliberately, because a class loses structural
- * typing at a package boundary and `instanceof` breaks across duplicate installs.
+ * The record — a tool, a holder, a collet and the assembly they make, stated as
+ * Zod schemas with each type inferred from its schema — and the vocabulary
+ * around it: kinds, units, provenance, the ISO geometry dictionary, the
+ * measured profile, the reach curve and what a feature demands of a tool.
+ * Everything is plain data or a pure function over it — no classes,
+ * deliberately, because a class loses structural typing at a package boundary
+ * and `instanceof` breaks across duplicate installs.
  *
  * On them, the arithmetic that had been written more than once: {@link hasNeck}
- * and {@link shankOf}, {@link heightAt} and {@link belowGageLine} each had two
+ * and {@link shankOf}, {@link heightAt} and the gauge-line cut ({@link trimToGauge}) each had two
  * copies with a note beside each saying the two must agree and nothing watching
- * whether they did — and {@link stickoutRange}, which had four.
+ * whether they did — and {@link stickoutRange}, which had four. A tool's shank,
+ * length and necks are read off its one cone stack (`stack.ts`), never stated
+ * beside it.
  *
  * With those, the decisions that follow from them: what holds what
  * ({@link holderTakesTool}, {@link gripRanges}), what a shop keeps clamped
@@ -71,35 +76,95 @@ export {
 } from './geometry.js'
 
 export {
-  MILLING_FORMS,
-  TAP_FORMS,
-  TOOL_FORMS,
-  isTapForm,
-  isToolForm,
-  type ToolForm,
-  type ToolFormEntry,
-} from './forms.js'
+  CLAMPINGS,
+  COLLET_KINDS,
+  CatalogSchema,
+  ColletSchema,
+  ConeSchema,
+  CuttingToolSchema,
+  ExtensionSchema,
+  HolderSchema,
+  ISO_MATERIAL_GROUPS,
+  InsertToolSchema,
+  RotatingToolAssemblySchema,
+  SHANK_FORMS,
+  ToolLibrarySchema,
+  ToolSchema,
+  type Catalog,
+  type Clamping,
+  type Collet,
+  type ColletKind,
+  type Cone,
+  type CuttingTool,
+  type Extension,
+  type Holder,
+  type InsertTool,
+  type IsoMaterialGroup,
+  type RotatingToolAssembly,
+  type ShankForm,
+  type Tool,
+  type ToolLibrary,
+} from './model.js'
+
+export {
+  KERNEL_TOOL_KINDS,
+  TOOL_KINDS,
+  isInsertKind,
+  isKernelKind,
+  isTapKind,
+  isToolKind,
+  type KernelToolKind,
+  type ToolKind,
+} from './kinds.js'
 
 export {
   THREAD_METHODS,
-  hasNeck,
+  dimensionsOf,
   isThreadMethod,
-  shankOf,
-  type Shank,
   type ThreadMethod,
-  type Tool,
+  type ToolDimensions,
 } from './tool.js'
 
 export {
-  PROFILES_VERSION,
-  belowGageLine,
-  type HolderProfile,
-  type ProfileDatum,
-  type ProfilePoint,
-} from './profile.js'
+  EPSILON,
+  extensionLength,
+  extensionShank,
+  hasNeck,
+  narrowerThan,
+  neckOf,
+  overallLengthOf,
+  reachNeckOf,
+  sameDiameter,
+  shaftParts,
+  shankOf,
+  sliceAt,
+  stackHeight,
+  statedOverallLength,
+  statedShank,
+  unclampableLength,
+  type Neck,
+  type ShaftPart,
+} from './stack.js'
+
+export { type MeasuredProfile, type ProfileDatum, type ProfilePoint } from './profile.js'
+
+export {
+  measuredHolder,
+  parametricHolder,
+  trimToGauge,
+  type HolderDimensions,
+  type HolderFacts,
+} from './holder.js'
+
+export { conesToProfile, profileToCones } from './cones.js'
+
+export { assemblyFromSummary, toolFromSummary, type KernelToolSummary } from './kernel.js'
+
+export { cuttingDiameter } from './diameter.js'
 
 export {
   canHold,
+  clampedShank,
   colletFitsHolder,
   defaultStickout,
   gripRanges,
@@ -107,15 +172,12 @@ export {
   gripsShank,
   holdBand,
   holderTakesTool,
-  isHolderProfile,
   maxStickout,
   stickoutLimits,
-  type Assembly,
-  type Clamping,
-  type Collet,
+  type ClampedShank,
+  type Grip,
   type GripRanges,
   type HoldBand,
-  type Holder,
 } from './holding.js'
 
 export {
@@ -138,14 +200,13 @@ export {
   type StickoutPolicy,
   type StickoutRange,
   type StickoutRequest,
-  type StickoutTool,
 } from './stickout.js'
 
 export { heightAt, type ReachCurve } from './reach.js'
 
 export type { FeatureDemand } from './demand.js'
 
-export { DRILLING_FORMS, fitAgainst, fitTools, type FitFailure, type ToolFit } from './fit.js'
+export { DRILLING_KINDS, fitAgainst, fitTools, type FitFailure, type ToolFit } from './fit.js'
 
 export {
   ASSEMBLY_PARTS,
@@ -162,12 +223,12 @@ export { materialProfile, type OutlinePoint } from './material.js'
 export {
   clearance,
   describeCollision,
+  extensionSilhouette,
   holderSilhouette,
   toolCollisions,
   toolSilhouette,
   type Clearance,
   type Collision,
-  type SweptAssembly,
 } from './clearance.js'
 
 export {

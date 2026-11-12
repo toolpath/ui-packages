@@ -1,6 +1,9 @@
 /**
  * The claim the whole design rests on: **every arrow points into this package
- * and none point out.**
+ * and none point out.** The one exception is `zod`, in which the shared tool
+ * record (`model.ts`) is stated so a service can validate and publish it from
+ * the same declaration: a schema library, not a sibling, with nothing of its
+ * own to depend on in turn.
  *
  * That is what makes one package a Node CLI, a React renderer and a server
  * route can all depend on. It held on the day it was written and nothing else
@@ -53,34 +56,37 @@ const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as
 const SOURCES = modules(SRC)
 const rel = (path: string) => relative(SRC, path)
 
-describe('the package depends on nothing', () => {
+/** The one package this one may import, and the only runtime dependency it declares. */
+const ALLOWED = 'zod'
+
+describe('the package depends on nothing but zod', () => {
   it('has source to check', () => {
     // Guards every rule below: a tree that moved would leave them iterating
     // nothing and reporting that as a pass.
     expect(SOURCES.length).toBeGreaterThan(0)
   })
 
-  it('declares no runtime or peer dependency', () => {
+  it('declares no runtime dependency but zod, and no peer', () => {
     // The install cost a consumer inherits, stated as a check. A dependency
     // here is a dependency in every application, Node script and React app in
     // the tree at once.
-    expect(manifest.dependencies ?? {}).toEqual({})
+    expect(Object.keys(manifest.dependencies ?? {})).toEqual([ALLOWED])
     expect(manifest.peerDependencies ?? {}).toEqual({})
   })
 
   it.each(SOURCES.map((path) => [rel(path), path] as const))(
-    '%s imports nothing but a sibling module',
+    '%s imports nothing but a sibling module and zod',
     (name, path) => {
       // Bare specifiers only: a relative path is a sibling of this package, and
       // anything else is a package — `react`, `node:fs`, a workspace sibling.
       // Node builtins are barred alongside the rest and deliberately so, since
       // "imports no `fs`" is half of what makes this importable from a browser.
-      const outside = importsOf(path).filter((spec) => !spec.startsWith('.'))
+      const outside = importsOf(path).filter((spec) => !spec.startsWith('.') && spec !== ALLOWED)
 
       expect(
         outside,
         `src/${name} imports ${outside.join(', ')} — this package is the one ` +
-          `thing in the tree that depends on nothing, and every consumer of it ` +
+          `thing in the tree that depends on nothing but zod, and every consumer of it ` +
           `inherits whatever it reaches for`,
       ).toEqual([])
     },

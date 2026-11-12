@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   canHold,
+  clampedShank,
   colletFitsHolder,
   defaultStickout,
   gripRanges,
@@ -18,31 +19,24 @@ import {
   holderTakesTool,
   maxStickout,
   stickoutLimits,
+  MM_PER_INCH,
   type Collet,
+  type Extension,
   type Holder,
-  type StickoutTool,
 } from '../src/index.js'
+import { cylinder } from '../src/cones.js'
+import { shaft, solid } from './tools.js'
 
-const bare: Holder = {
-  noseDiameter: null,
-  noseLength: null,
-  bodyDiameter: null,
-  bodyLength: null,
-  projection: null,
-  flangeDiameter: null,
-  gaugeLength: null,
-  colletSeries: null,
-  colletProtrusion: null,
-}
+const bare: Holder = { layers: [], gaugeLength: null }
 
 const chuck: Holder = { ...bare, clamping: 'collet', colletSeries: 'ER16', taper: 'BT30' }
-const shrink: Holder = { ...bare, clamping: 'shrink', boreDiameter: 12, taper: 'BT30' }
+const shrink: Holder = { ...bare, clamping: 'shrink-fit', boreDiameter: 12, taper: 'BT30' }
 
 const er16: Collet = { series: 'ER16', clampMin: 5.5, clampMax: 6, clampLength: 27.5 }
 const er20: Collet = { series: 'ER20', clampMin: 9, clampMax: 10, clampLength: 30 }
 
-const tool = { geometry: { DC: 6, OAL: 57, LCF: 13, SFDM: 6 } }
-const sized: StickoutTool = { unitSystem: 'millimeters', geometry: tool.geometry }
+const shank = (diameter: number) => solid({ shaft: shaft({ shank: diameter, overallLength: 57 }) })
+const tool = { ...shank(6), unitSystem: 'millimeters' as const }
 
 describe('which collet goes in which holder', () => {
   it('needs the series to match exactly', () => {
@@ -65,7 +59,7 @@ describe('which collet goes in which holder', () => {
   it('is not defeated by a conversion’s last bit', () => {
     // 3/8" is 9.525 on the collet's sheet and 9.524999999999999 on the tool's.
     // Strict, 350 tools in the scraped catalog had no collet in the crib.
-    const threeEighths: Collet = { ...er16, clampMin: 9.525, clampMax: 9.525, clampLength: 27.5 }
+    const threeEighths: Collet = { ...er16, clampMin: 9.525, clampMax: 9.525 }
     expect(gripsShank(threeEighths, 9.524999999999999)).toBe(true)
   })
 
@@ -107,15 +101,29 @@ describe('whether a holder takes a tool', () => {
     // A shrink-fit holder bored for 12 mm does not hold a 10 mm shank at all,
     // and treating the bore as an upper bound would put a tool in a holder
     // that drops it.
-    expect(holderTakesTool(shrink, null, { geometry: { SFDM: 12 } })).toBe(true)
-    expect(holderTakesTool(shrink, null, { geometry: { SFDM: 10 } })).toBe(false)
-    expect(holderTakesTool(shrink, er16, { geometry: { SFDM: 12 } })).toBe(false)
+    expect(holderTakesTool(shrink, null, shank(12))).toBe(true)
+    expect(holderTakesTool(shrink, null, shank(10))).toBe(false)
+    expect(holderTakesTool(shrink, er16, shank(12))).toBe(false)
   })
 
   it('refuses a tool whose shank nobody stated', () => {
     // The one place the domain differs from "what is not stated is not
     // checked".
-    expect(holderTakesTool(chuck, er16, { geometry: { DC: 6, OAL: 57 } })).toBe(false)
+    expect(holderTakesTool(chuck, er16, solid())).toBe(false)
+  })
+
+  it('refuses a tool whose shank is assumed, as one whose shank nobody stated', () => {
+    // A reader's guess at the shank is not a shank: a Fusion entry with no SFDM.
+    const assumed = { ...tool, provenance: { shank: 'assumed' as const } }
+    const bore6: Holder = { ...bare, clamping: 'bore', boreDiameter: 6 }
+    expect(clampedShank({ tool: assumed })).toBeNull()
+    expect(holderTakesTool(chuck, er16, assumed)).toBe(false)
+    expect(holderTakesTool(bore6, null, assumed)).toBe(false)
+    expect(canHold(gripRanges([chuck, bore6], [er16]), assumed)).toBe(false)
+    expect(holderTakesTool(chuck, er16, tool)).toBe(true)
+    // On an extension the extension's shank is held, whatever the head's shaft.
+    const extension: Extension = { systemSize: 'DL06', layers: [cylinder(6, 40)] }
+    expect(clampedShank({ tool: assumed, extension })).toEqual({ diameter: 6 })
   })
 
   it('puts nothing but a tap in a square-drive collet', () => {
@@ -129,19 +137,23 @@ describe('whether a holder takes a tool', () => {
       clampLength: 18,
       squareSize: 4.851,
     }
-    const tap = { form: 'tap right hand', geometry: { SFDM: 6.477, OAL: 70 } }
-    const mill = { form: 'flat end mill', geometry: { SFDM: 6.477, OAL: 70 } }
+    const mill = solid({ shaft: shaft({ shank: 6.477, overallLength: 70 }) })
+    const tap = { ...mill, kind: 'CuttingTap' as const }
+    const former = { ...mill, kind: 'FormingTap' as const }
 
     expect(holderTakesTool(chuck, tapCollet, tap)).toBe(true)
+    expect(holderTakesTool(chuck, tapCollet, former)).toBe(true)
     expect(holderTakesTool(chuck, tapCollet, mill)).toBe(false)
-    // An unstated form is nobody having said, and nobody-has-said does not go
-    // in a square bore.
-    expect(holderTakesTool(chuck, tapCollet, { geometry: { SFDM: 6.477 } })).toBe(false)
     // A tap in a plain round collet is how most shops tap. Refusing it would be
     // this package inventing a policy no vendor stated.
-    const round: Collet = { ...tapCollet, squareSize: null }
+    const { squareSize: _square, ...round } = tapCollet
     expect(holderTakesTool(chuck, round, tap)).toBe(true)
     expect(holderTakesTool(chuck, round, mill)).toBe(true)
+    // A collet that says it is a tap collet takes only a tap, square published or not.
+    const tapKind: Collet = { ...round, kind: 'tap' }
+    expect(holderTakesTool(chuck, tapKind, tap)).toBe(true)
+    expect(holderTakesTool(chuck, tapKind, mill)).toBe(false)
+    expect(holderTakesTool(chuck, { ...tapCollet, kind: 'tap' }, mill)).toBe(false)
   })
 
   it('refuses a holder that does not say how it clamps', () => {
@@ -150,6 +162,126 @@ describe('whether a holder takes a tool', () => {
     expect(holderTakesTool(bare, er16, tool)).toBe(false)
     expect(holderTakesTool(bare, null, tool)).toBe(false)
     expect(colletFitsHolder(er16, bare)).toBe(false)
+  })
+
+  it('takes no tool in, and lists no bore for, a holder with a bore and no clamping', () => {
+    // Absent clamping takes no tool, whatever bore is stated beside it.
+    const unclamped: Holder = { ...bare, boreDiameter: 12 }
+    expect(holderTakesTool(unclamped, null, shank(12))).toBe(false)
+    expect(gripRanges([unclamped], []).bores).toEqual([])
+  })
+
+  it('takes in a side lock only a shank with a flat or a notch, where the tool states its form', () => {
+    const sideLock: Holder = { ...bare, clamping: 'side-lock', boreDiameter: 12 }
+    expect(
+      holderTakesTool(sideLock, null, solid({ shaft: [cylinder(12, 40)], shankForm: 'weldon' })),
+    ).toBe(true)
+    expect(
+      holderTakesTool(
+        sideLock,
+        null,
+        solid({ shaft: [cylinder(12, 40)], shankForm: 'whistle-notch' }),
+      ),
+    ).toBe(true)
+    expect(
+      holderTakesTool(sideLock, null, solid({ shaft: [cylinder(12, 40)], shankForm: 'plain' })),
+    ).toBe(false)
+    // Nobody having said is taken, as it was before the record carried a form.
+    expect(holderTakesTool(sideLock, null, shank(12))).toBe(true)
+    expect(holderTakesTool(sideLock, null, shank(10))).toBe(false)
+  })
+
+  it('grips each form its bore clamping takes', () => {
+    const held = (clamping: Holder['clamping'], shankForm: 'plain' | 'weldon' | 'whistle-notch') =>
+      holderTakesTool(
+        { ...bare, clamping, boreDiameter: 12 },
+        null,
+        solid({ shaft: [cylinder(12, 40)], shankForm }),
+      )
+    expect(held('milling-chuck', 'plain')).toBe(true)
+    expect(held('milling-chuck', 'weldon')).toBe(true)
+    expect(held('milling-chuck', 'whistle-notch')).toBe(false)
+    expect(held('shrink-fit', 'plain')).toBe(true)
+    expect(held('shrink-fit', 'weldon')).toBe(false)
+    expect(held('hydraulic', 'plain')).toBe(true)
+    expect(held('hydraulic', 'weldon')).toBe(true)
+    expect(held('hydraulic', 'whistle-notch')).toBe(false)
+    expect(held('bore', 'whistle-notch')).toBe(true)
+  })
+
+  it('takes a shank through a sleeve in a bore the sleeve’s outside fits', () => {
+    // A 20 mm hydraulic chuck with a 20-to-12 reduction sleeve. The sleeve's
+    // series is its own; the holder need name none.
+    const hydraulic: Holder = { ...bare, clamping: 'hydraulic', boreDiameter: 20 }
+    const sleeve: Collet = {
+      series: 'HC20',
+      kind: 'sleeve',
+      outerDiameter: 20,
+      clampMin: 12,
+      clampMax: 12,
+    }
+    expect(colletFitsHolder(sleeve, hydraulic)).toBe(true)
+    expect(holderTakesTool(hydraulic, sleeve, shank(12))).toBe(true)
+    expect(holderTakesTool(hydraulic, sleeve, shank(10))).toBe(false)
+    expect(holderTakesTool(hydraulic, null, shank(20))).toBe(true)
+    // Not in another bore, a shrink fit's or a collet chuck's, nor with no outside stated.
+    expect(colletFitsHolder(sleeve, { ...hydraulic, boreDiameter: 25 })).toBe(false)
+    expect(colletFitsHolder(sleeve, { ...hydraulic, clamping: 'shrink-fit' })).toBe(false)
+    expect(colletFitsHolder(sleeve, { ...chuck, boreDiameter: 20 })).toBe(false)
+    const { outerDiameter: _outside, ...unsized } = sleeve
+    expect(colletFitsHolder(unsized, hydraulic)).toBe(false)
+    // A collet that is no sleeve still goes only in a collet chuck.
+    expect(holderTakesTool(hydraulic, er16, shank(6))).toBe(false)
+    expect(gripRanges([hydraulic], [sleeve, er16])).toEqual({ spans: [[12, 12]], bores: [20] })
+  })
+
+  it('grips through a hydraulic chuck plus sleeve by the sleeve’s form rule, not the holder’s', () => {
+    // The sleeve grips the shank, so it takes plain or Weldon and refuses only
+    // a Whistle Notch, in a side lock too, which on its own needs a flat.
+    const sleeve: Collet = {
+      series: 'HC20',
+      kind: 'sleeve',
+      outerDiameter: 20,
+      clampMin: 12,
+      clampMax: 12,
+    }
+    const held = (clamping: Holder['clamping'], shankForm?: 'plain' | 'weldon' | 'whistle-notch') =>
+      holderTakesTool(
+        { ...bare, clamping, boreDiameter: 20 },
+        sleeve,
+        solid({ shaft: [cylinder(12, 40)], ...(shankForm === undefined ? {} : { shankForm }) }),
+      )
+    expect(held('hydraulic', 'plain')).toBe(true)
+    expect(held('hydraulic', 'weldon')).toBe(true)
+    expect(held('hydraulic', 'whistle-notch')).toBe(false)
+    expect(held('hydraulic')).toBe(true)
+    expect(held('side-lock', 'plain')).toBe(true)
+    expect(held('side-lock', 'whistle-notch')).toBe(false)
+  })
+
+  it('holds a modular head by its extension’s shank, not its own', () => {
+    // A ⌀10 DUO-LOCK head screwed onto an extension with a ⌀16 shank.
+    const head = solid({ diameter: 10, shaft: [cylinder(10, 40)] })
+    const extension: Extension = {
+      systemSize: 'DL10',
+      shankForm: 'plain',
+      layers: [cylinder(16, 80)],
+    }
+    expect(clampedShank({ tool: head, extension })).toEqual({ diameter: 16, form: 'plain' })
+    expect(clampedShank({ tool: head })).toEqual({ diameter: 10 })
+
+    const er32Chuck: Holder = { ...bare, clamping: 'collet', colletSeries: 'ER32' }
+    const er32: Collet = { series: 'ER32', clampMin: 15, clampMax: 16 }
+    expect(holderTakesTool(er32Chuck, er32, head, extension)).toBe(true)
+    expect(holderTakesTool(er32Chuck, er32, head)).toBe(false)
+
+    const bore16: Holder = { ...bare, clamping: 'hydraulic', boreDiameter: 16 }
+    expect(holderTakesTool(bore16, null, head, extension)).toBe(true)
+    expect(holderTakesTool(bore16, null, head)).toBe(false)
+
+    const ranges = gripRanges([er32Chuck], [er32])
+    expect(canHold(ranges, head, extension)).toBe(true)
+    expect(canHold(ranges, head)).toBe(false)
   })
 })
 
@@ -162,13 +294,20 @@ describe('the furthest a tool can stand out', () => {
     // REGO-FIX's powRgrip line publishes no grip length. A guessed maximum is
     // exactly the number somebody would use to decide a deep pocket is
     // reachable.
-    expect(maxStickout(tool, { ...er16, clampLength: null })).toBeNull()
+    const { clampLength: _grip, ...powRgrip } = er16
+    expect(maxStickout(tool, powRgrip)).toBeNull()
     expect(maxStickout(tool, null)).toBeNull()
-    expect(maxStickout({ geometry: { SFDM: 6 } }, er16)).toBeNull()
+    expect(maxStickout(solid(), er16)).toBeNull()
   })
 
   it('answers null where the grip would leave nothing out', () => {
-    expect(maxStickout({ geometry: { OAL: 20 } }, { ...er16, clampLength: 20 })).toBeNull()
+    expect(maxStickout(shank(6), { ...er16, clampLength: 57 })).toBeNull()
+  })
+
+  it('reads a bore holder’s own grip, and never a collet chuck’s nose', () => {
+    expect(maxStickout(tool, { ...shrink, clampLength: 36 })).toBeCloseTo(21, 9)
+    expect(maxStickout(tool, shrink)).toBeNull()
+    expect(maxStickout(tool, { ...chuck, clampLength: 36 })).toBeNull()
   })
 })
 
@@ -184,17 +323,16 @@ describe('how well the holder has hold', () => {
   })
 
   it('says nothing where the tool states no overall length', () => {
-    expect(holdBand({ geometry: { SFDM: 6 } }, 19, thresholds)).toBeNull()
-    expect(holdBand({ geometry: { OAL: 0 } }, 19, thresholds)).toBeNull()
+    expect(holdBand(solid(), 19, thresholds)).toBeNull()
   })
 })
 
 describe('the collet-shaped way into the range', () => {
   it('maps a collet onto the grip length the range asks for', () => {
     // All a collet was ever contributing. The arithmetic is `stickout.ts`'s.
-    const withGrip = stickoutLimits(sized, er16)!
-    const withoutGrip = stickoutLimits(sized, null)!
-    expect(withGrip.limitedBy).toBe('collet')
+    const withGrip = stickoutLimits(tool, er16)
+    const withoutGrip = stickoutLimits(tool, null)
+    expect(withGrip.limitedBy).toBe('grip')
     expect(withGrip.max).toBeCloseTo(29.5, 9)
     // Without a published grip only the clamping rule and the hold share cap,
     // and on this tool the hold share is the tighter of the two: 57 × 2/3 is
@@ -203,17 +341,17 @@ describe('the collet-shaped way into the range', () => {
     expect(withoutGrip.max).toBeCloseTo(38, 9)
   })
 
+  it('caps the range by a bore holder’s own grip as by a collet’s', () => {
+    const limits = stickoutLimits(tool, { ...shrink, clampLength: 36 })
+    expect(limits.limitedBy).toBe('grip')
+    expect(limits.max).toBeCloseTo(21, 9)
+  })
+
   it('starts an assembly at the setup length, not the bare flutes', () => {
     // A bore assembly read `minStickout` while an otherwise identical collet
     // assembly read the floor and the step — a fifth reading of the one number.
-    expect(defaultStickout(sized, er16)).toBe(stickoutLimits(sized, er16)!.setup)
-    expect(defaultStickout(sized, null)).toBe(stickoutLimits(sized, null)!.setup)
-  })
-
-  it('falls back to the raw maximum for a tool with no known head', () => {
-    const headless = { unitSystem: 'millimeters', geometry: { OAL: 57, SFDM: 6 } } as const
-    expect(stickoutLimits(headless, er16)).toBeNull()
-    expect(defaultStickout(headless, er16)).toBeCloseTo(29.5, 9)
+    expect(defaultStickout(tool, er16)).toBe(stickoutLimits(tool, er16).setup)
+    expect(defaultStickout(tool, null)).toBe(stickoutLimits(tool, null).setup)
   })
 })
 
@@ -257,7 +395,7 @@ describe('what a crib can grip', () => {
     expect(gripsAnyShank(ranges, 12)).toBe(true)
     expect(gripsAnyShank(ranges, 7)).toBe(false)
     expect(canHold(ranges, tool)).toBe(true)
-    expect(canHold(ranges, { geometry: { DC: 6 } })).toBe(false)
+    expect(canHold(ranges, solid())).toBe(false)
   })
 
   it('answers the same as asking the holder itself, down to the last bit', () => {
@@ -265,15 +403,15 @@ describe('what a crib can grip', () => {
     // fast one used to be the strict one: a 3/8" shank converts to
     // 9.524999999999999 and missed a collet whose sheet says 9.525, so the crib
     // reported no holder for a tool `holderTakesTool` plainly accepts.
-    const shank = (3 / 8) * 25.4
+    const shank = (3 / 8) * MM_PER_INCH
     const threeEighths: Collet = { ...er20, clampMin: 9.525, clampMax: 9.525 }
     const nose: Holder = { ...bare, clamping: 'collet', colletSeries: 'ER20' }
     const ranges = gripRanges([nose], [threeEighths])
 
     expect(gripsShank(threeEighths, shank)).toBe(true)
     expect(gripsAnyShank(ranges, shank)).toBe(true)
-    expect(canHold(ranges, { geometry: { SFDM: shank } })).toBe(
-      holderTakesTool(nose, threeEighths, { geometry: { SFDM: shank } }),
+    expect(canHold(ranges, solid({ shaft: [cylinder(shank, 40)] }))).toBe(
+      holderTakesTool(nose, threeEighths, solid({ shaft: [cylinder(shank, 40)] })),
     )
   })
 
@@ -281,14 +419,12 @@ describe('what a crib can grip', () => {
     // The same last bit, on the path that compares one diameter rather than a
     // span: a ½" bore is 12.7 on the holder's sheet and 12.699999999999999 on
     // the tool's.
-    const half = (1 / 2) * 25.4
-    const bore: Holder = { ...bare, clamping: 'shrink', boreDiameter: 12.7 }
+    const half = (1 / 2) * MM_PER_INCH
+    const bore: Holder = { ...bare, clamping: 'shrink-fit', boreDiameter: 12.7 }
     const ranges = gripRanges([bore], [])
 
     expect(gripsAnyShank(ranges, half)).toBe(true)
-    expect(canHold(ranges, { geometry: { SFDM: half } })).toBe(
-      holderTakesTool(bore, null, { geometry: { SFDM: half } }),
-    )
+    expect(canHold(ranges, shank(half))).toBe(holderTakesTool(bore, null, shank(half)))
     // Still one diameter and not an upper bound.
     expect(gripsAnyShank(ranges, 10)).toBe(false)
   })

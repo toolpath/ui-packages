@@ -1,3 +1,4 @@
+import type { ToolKind } from './kinds.js'
 import { heightAt, type ReachCurve } from './reach.js'
 
 /**
@@ -60,18 +61,18 @@ export interface Section {
   }
 }
 
-/** Forms that sit on a hole's axis rather than against its wall. */
-const ON_AXIS: ReadonlySet<string> = new Set([
-  'drill',
-  'spot drill',
-  'center drill',
-  'reamer',
-  'counter sink',
-  'counter bore',
-  'boring bar',
-  'tap right hand',
-  'tap left hand',
-  'thread mill',
+/** Kinds that sit on a hole's axis rather than against its wall. */
+const ON_AXIS: ReadonlySet<ToolKind> = new Set<ToolKind>([
+  'DrillBit',
+  'SpotDrill',
+  'CenterDrill',
+  'Reamer',
+  'Countersink',
+  'Counterbore',
+  'BoringBar',
+  'CuttingTap',
+  'FormingTap',
+  'ThreadMill',
 ])
 
 /** Stock drawn under a floor, mm: enough to read as solid, not a claim about thickness. */
@@ -184,7 +185,7 @@ const wallPolygon = (
 
 export const sectionOutline = (
   section: FeatureSection,
-  tool: { readonly diameter: number; readonly form: string },
+  tool: { readonly diameter: number; readonly kind: ToolKind },
 ): Section => {
   const R = tool.diameter / 2
   const bottom = section.hasFloor ? -FLOOR_BAND : 0
@@ -225,7 +226,7 @@ export const sectionOutline = (
     }
   }
 
-  const onAxis = section.kind === 'hole' && ON_AXIS.has(tool.form) && section.width !== null
+  const onAxis = section.kind === 'hole' && ON_AXIS.has(tool.kind) && section.width !== null
   const leftWall = onAxis ? -(section.width ?? tool.diameter) / 2 : -R
   const width = section.width === null ? null : Math.max(section.width, tool.diameter)
   const rightWall =

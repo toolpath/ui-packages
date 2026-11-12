@@ -1,5 +1,12 @@
 # @toolpath/tool-scraper
 
+## 3.0.4
+
+### Patch Changes
+
+- Updated dependencies [652f050]
+  - @toolpath/tool-support@1.0.0
+
 ## 3.0.3
 
 ### Patch Changes

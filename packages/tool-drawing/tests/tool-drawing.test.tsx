@@ -1,27 +1,30 @@
 import { act, fireEvent, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SHEETS, ToolDrawing } from '../src/index.js'
-import type { ViewerAssembly, ViewerHolderProfile } from '../src/index.js'
+import {
+  measuredHolder,
+  parametricHolder,
+  type MeasuredProfile,
+  type RotatingToolAssembly,
+} from '@toolpath/tool-support'
+import { measured, tool } from './fixtures.js'
 
-const assembly: ViewerAssembly = {
-  tool: {
-    form: 'flat end mill',
-    label: 'TDMX0600',
-    geometry: { DC: 6, LCF: 13, OAL: 57, SFDM: 6, LBH: 19 },
-    provenance: { LBH: 'derived' },
-  },
-  holder: {
-    gaugeLength: 50,
-    colletSeries: 'PG6',
-    noseDiameter: 28,
-    noseLength: null,
-    bodyDiameter: null,
-    bodyLength: null,
-    projection: null,
-    flangeDiameter: null,
-    colletProtrusion: null,
-    provenance: {},
-  },
+/** A ⌀6 end mill 25 mm out of a ⌀28 nose, 50 long up to its gauge line. */
+const assembly: RotatingToolAssembly = {
+  tool: tool({ provenance: {} }),
+  holder: parametricHolder(
+    {
+      noseDiameter: 28,
+      noseLength: 50,
+      bodyDiameter: null,
+      bodyLength: null,
+      projection: null,
+      flangeDiameter: null,
+      gaugeLength: 50,
+    },
+    { colletSeries: 'PG6' },
+  ),
+  collet: null,
   stickout: 25,
 }
 
@@ -30,9 +33,7 @@ const assembly: ViewerAssembly = {
  *
  * **One part may emit several segments**, so this is deliberately not the
  * segment sequence: a slot mill's cutting disc emits two `flutes` (a straight
- * side and a corner arc), and a holder whose flange stands above its stated
- * body emits two `body` (the stated one, and the last stated diameter carried
- * up). A test that does not specifically care about segmentation asserts on
+ * side and a corner arc). A test that does not specifically care about segmentation asserts on
  * the set of parts, so it does not break the next time segmentation changes.
  */
 const partsDrawn = (container: HTMLElement) => [
@@ -40,9 +41,6 @@ const partsDrawn = (container: HTMLElement) => [
     [...container.querySelectorAll('[data-part]')].map((each) => each.getAttribute('data-part')),
   ),
 ]
-
-/** One polygon per segment, not per part. */
-const segmentCount = (container: HTMLElement) => container.querySelectorAll('[data-part]').length
 
 describe('the assembly, drawn', () => {
   it('draws every part from the stated dimensions', () => {
@@ -59,7 +57,7 @@ describe('the assembly, drawn', () => {
   })
 
   it('draws every line solid and keeps the provenance on the element', () => {
-    const drill = { ...assembly, tool: { ...assembly.tool, form: 'drill' } }
+    const drill = { ...assembly, tool: tool({ kind: 'DrillBit' }) }
     const { container } = render(<ToolDrawing assembly={drill} />)
 
     const tip = container.querySelector('[data-part="tip"]')
@@ -70,10 +68,10 @@ describe('the assembly, drawn', () => {
   /**
    * A measured profile is split at the spindle face it is datumed to: a
    * `gage-line` profile *is* referenced to that face, and a `nose` one has no
-   * gauge plane to solve, so it stays one section.
+   * gauge plane to solve, so past its nose it stays one section.
    */
   it('splits a measured holder at its datum', () => {
-    const measured: ViewerHolderProfile = {
+    const profile: MeasuredProfile = {
       points: [
         [-40, 11],
         [-10, 20],
@@ -81,31 +79,29 @@ describe('the assembly, drawn', () => {
         [50, 8],
       ],
       datum: 'gage-line',
-      colletSeries: null,
-      colletProtrusion: null,
     }
     const { container, rerender } = render(
-      <ToolDrawing assembly={{ ...assembly, holder: measured }} />,
+      <ToolDrawing assembly={{ ...assembly, holder: measuredHolder(profile) }} />,
     )
 
-    expect(partsDrawn(container)).toEqual(['tip', 'flutes', 'shank', 'body', 'flange'])
+    expect(partsDrawn(container)).toEqual(['tip', 'flutes', 'shank', 'nose', 'body', 'flange'])
 
     rerender(
       <ToolDrawing
         assembly={{
           ...assembly,
-          holder: {
-            ...measured,
+          holder: measuredHolder({
             datum: 'nose',
             points: [
               [-40, 11],
+              [-30, 9],
               [0, 8],
             ],
-          },
+          }),
         }}
       />,
     )
-    expect(partsDrawn(container)).toEqual(['tip', 'flutes', 'shank', 'body'])
+    expect(partsDrawn(container)).toEqual(['tip', 'flutes', 'shank', 'nose', 'body'])
   })
 })
 
@@ -116,61 +112,37 @@ describe('the assembly, drawn', () => {
  * a drawing in either theme (Paul, 2026-09-01).
  */
 describe('the sheet and its ink', () => {
-  /** Nose, body, the carry above it, and the flange: every holder section drawn. */
-  const carried: ViewerAssembly = {
+  /** A chuck measured whole: a nose, a body, and the connection above its spindle face. */
+  const withConnection: RotatingToolAssembly = {
     ...assembly,
-    stickout: 30,
-    holder: {
-      ...assembly.holder!,
-      noseLength: 10.55,
-      bodyDiameter: 12.02,
-      bodyLength: 9.6,
-      projection: 50,
-      flangeDiameter: 46,
-      colletProtrusion: 2.5,
-    },
-  }
-
-  const connected: ViewerAssembly = {
-    ...assembly,
-    holder: {
-      ...assembly.holder!,
-      bodyDiameter: 40,
-      bodyLength: 20,
-      // Past the nose and the body, so the cone nobody states is drawn up to it.
-      projection: 110,
-      flangeDiameter: 46,
-    },
+    holder: measured([
+      [-40, 11],
+      [-10, 20],
+      [2, 24],
+      [30, 16],
+      [50, 8],
+    ]),
   }
 
   /**
-   * **A holder emits two `body` segments** where the flange stands above the
-   * body the vendor states: the stated body, and then the last stated diameter
-   * carried up to the flange because nothing states what is in between. They
-   * are told apart by provenance, not by part — the carried one is `assumed`,
-   * and it is the spindle connection rather than the holder body.
-   *
-   * This is the second place one part emits several segments, and unlike the
-   * slot mill it is exercisable from the committed sample, which is the only
-   * dataset carrying toolholding.
+   * **The connection is what stands above the spindle face**, painted darker
+   * than the holder body below it. A published holder's stack stops at its
+   * gauge line, so it has none.
    */
-  it('draws both body segments, and paints the carried one as the connection', () => {
-    const { container } = render(<ToolDrawing assembly={carried} />)
-    const bodies = [...container.querySelectorAll('[data-part="body"]')]
+  it('paints the holder grey and the connection above the spindle face darker', () => {
+    const { container } = render(<ToolDrawing assembly={withConnection} />)
+    const painted = (selector: string) => container.querySelector(selector)?.getAttribute('fill')
 
-    expect(bodies).toHaveLength(2)
-    expect(bodies.map((each) => each.getAttribute('data-provenance'))).toEqual([
-      'vendor-stated',
-      'assumed',
-    ])
-    expect(bodies.map((each) => each.getAttribute('fill'))).toEqual(['#474d57', '#3a4048'])
-    // One part, two segments, one name in the note.
-    expect(partsDrawn(container).filter((each) => each === 'body')).toHaveLength(1)
-    expect(segmentCount(container)).toBeGreaterThan(partsDrawn(container).length)
+    expect(painted('[data-part="nose"]')).toBe('#474d57')
+    expect(painted('[data-part="body"]')).toBe('#474d57')
+    expect(painted('[data-part="flange"]')).toBe('#3a4048')
+
+    const published = render(<ToolDrawing assembly={assembly} />).container
+    expect(published.querySelector('[data-part="flange"]')).toBeNull()
   })
 
   it('paints the flutes gold, the body steel and the holder its own grey', () => {
-    const { container } = render(<ToolDrawing assembly={connected} />)
+    const { container } = render(<ToolDrawing assembly={withConnection} />)
     const painted = (selector: string) => container.querySelector(selector)?.getAttribute('fill')
 
     expect(painted('[data-part="flutes"]')).toBe('#c9a44b')
@@ -197,7 +169,7 @@ describe('the sheet and its ink', () => {
   })
 
   it('turns the whole sheet over when the application passes the light theme', () => {
-    const { container } = render(<ToolDrawing assembly={connected} theme="light" />)
+    const { container } = render(<ToolDrawing assembly={withConnection} theme="light" />)
 
     expect(container.querySelector('figure')!.style.background).toBe('rgb(255, 255, 255)')
     expect(container.querySelector('[data-centreline]')?.getAttribute('stroke')).toBe('#15181c')
@@ -212,25 +184,16 @@ describe('the sheet and its ink', () => {
  * reader shown nothing is owed the reason.
  */
 describe('what it will not draw', () => {
-  it('says so rather than drawing a tool with no dimensions', () => {
+  it('names the tool whose numbers describe no shape, rather than drawing a plausible one', () => {
     const { container } = render(
-      <ToolDrawing assembly={{ ...assembly, tool: { ...assembly.tool, geometry: {} } }} />,
-    )
-
-    expect(container.querySelector('svg')).toBeNull()
-    expect(container.textContent).toMatch(/states no cutting diameter or flute length/)
-  })
-
-  it('names the form it has no shape for, rather than drawing a plausible cylinder', () => {
-    const { container } = render(
-      <ToolDrawing assembly={{ ...assembly, tool: { ...assembly.tool, form: 'dovetail mill' } }} />,
+      <ToolDrawing assembly={{ ...assembly, tool: tool({ kind: 'DrillBit', tipAngleDeg: 0 }) }} />,
     )
 
     expect(container.querySelector('svg')).toBeNull()
     expect(container.querySelector('[data-undrawable]')?.getAttribute('data-undrawable')).toBe(
-      'dovetail mill',
+      'DrillBit',
     )
-    expect(container.textContent).toMatch(/is a dovetail mill/)
+    expect(container.textContent).toMatch(/TDMX0600's point angle describes no cone/)
     expect(container.textContent).toMatch(/not drawn, rather than drawn wrong/)
   })
 })
@@ -448,9 +411,7 @@ describe('the dimensions', () => {
   /** The tool alone states its own overall length, and nothing about a holder. */
   it('dimensions the overall length when the tool is drawn by itself', () => {
     vi.stubGlobal('ResizeObserver', StubResizeObserver)
-    const { container } = render(
-      <ToolDrawing assembly={{ ...assembly, holder: null, stickout: null }} dimensions />,
-    )
+    const { container } = render(<ToolDrawing assembly={assembly.tool} dimensions />)
     StubResizeObserver.latest!.measure(900, 900)
     const drawn = codesDrawn(container)
 
@@ -567,26 +528,23 @@ describe('the dimension the reader is pointing at', () => {
   })
 
   /**
-   * One line answers to both its names. Where the shop clamps to its own rule
-   * the stickout and the below-holder length are one number, drawn once — and
-   * a table lighting either of them lights it.
+   * One line answers to both its names. A tool stood out to its flutes states
+   * the stickout and the flute length as one number, drawn once — and a table
+   * lighting either of them lights it.
    */
   it('lights the one line two codes name', () => {
-    const clamped = {
-      ...assembly,
-      tool: { ...assembly.tool, geometry: { ...assembly.tool.geometry, LBH: 25 } },
-    }
+    const flush = { ...assembly, stickout: 13 }
     const drawn = (highlight: string) => {
       vi.stubGlobal('ResizeObserver', StubResizeObserver)
       const { container } = render(
-        <ToolDrawing assembly={clamped} dimensions highlight={highlight} />,
+        <ToolDrawing assembly={flush} dimensions highlight={highlight} />,
       )
       StubResizeObserver.latest!.measure(900, 900)
       return container
     }
 
-    expect(lit(drawn('LBH'))).toEqual(['LBH'])
-    expect(lit(drawn('stickout'))).toEqual(['LBH'])
+    expect(lit(drawn('LCF'))).toEqual(['LCF'])
+    expect(lit(drawn('stickout'))).toEqual(['LCF'])
   })
 
   /** In the sheet's accent, and heavier — colour alone is not the highlight. */
@@ -646,7 +604,8 @@ describe('the zoom to the working end', () => {
     StubResizeObserver.latest = null
   })
 
-  const alone = { ...assembly, holder: null, stickout: null }
+  /** Stood 19 mm out with no holder drawn: the whole tool, and a stickout to zoom to. */
+  const alone = { ...assembly, holder: null, stickout: 19 }
   /** The sheet's own long axis, which is the tool's: the panel is square here. */
   const alongOf = (container: HTMLElement) => {
     const view = viewBoxOf(container)
@@ -722,14 +681,11 @@ describe('the zoom to the working end', () => {
     expect(zoomed).not.toContain('OAL')
     // The two that are below the cut are still drawn: the flute length, and
     // the length below the holder the sheet was cut at.
-    expect(zoomed).toEqual(expect.arrayContaining(['LCF', 'LBH', 'DC']))
+    expect(zoomed).toEqual(expect.arrayContaining(['LCF', 'stickout', 'DC']))
   })
 
   it('frames the whole stack, and claims no zoom, where there is nothing to zoom to', () => {
-    const unstated = {
-      ...alone,
-      tool: { ...alone.tool, geometry: { DC: 6, LCF: 13, OAL: 57, SFDM: 6 } },
-    }
+    const unstated = assembly.tool
     const whole = drawnWith({ assembly: unstated })
     const asked = drawnWith({ assembly: unstated, zoom: 'tool' })
 

@@ -1,5 +1,56 @@
 # @toolpath/tool-drawing
 
+## 2.0.0
+
+### Major Changes
+
+- 652f050: Draw `@toolpath/tool-support`'s shared tool record. A breaking release; to migrate:
+
+  - **Removed types.** `ViewerTool`, `ViewerHolder`, `ViewerHolderProfile`, `ViewerAssembly` and the
+    `isHolderProfile` re-export are gone. Build a tool-support `CuttingTool`, and a `Holder` with its
+    `parametricHolder` (a vendor's table) or `measuredHolder` (a measured profile).
+  - **New `assembly` input.** `<ToolDrawing assembly>`, `assemblyOutline`, `dimensionsFor` and
+    `extentFor` take a `Drawable`: a `CuttingTool` drawn on its own, or a `RotatingToolAssembly` drawn
+    in its holder at its stickout. A bare tool replaces `{ holder: null, stickout: null }`.
+  - **Renamed.** The dimension model `ToolDimensions` is `DrawingDimensions`, so it no longer clashes
+    with tool-support's `ToolDimensions`.
+  - **Tips by kind.** Tips are chosen by `ToolKind` (`TIPS`). A kind with no generator of its own — a
+    thread mill, a dovetail, a lollipop, the circle segments, a boring bar, a counterbore, a reamer,
+    a tapered or corner rounding mill — is drawn on the nearest generator with its tip marked
+    `assumed`, where it was not drawn before. `assemblyOutline` returns `null` only for a point angle
+    that makes no cone, and `<ToolDrawing>` says so in words, `data-undrawable` naming the kind.
+  - **Holders.** A holder is drawn from its cone stack: the first layer is the `nose`, the rest
+    `body` up to the spindle face at the gauge length, and anything above that face `flange`, shaded
+    as the connection — a measured holder's taper, as before. A published holder's stack stops at
+    its gauge line, so it draws no connection, and its body and the diameter carried to the flange
+    are one `body` section. A nose with no stated length is drawn up to the flange face or gauge
+    line where no body is stated behind it; where a body is stated, the body starts at the nose face
+    and is drawn as the `nose`. The collet is drawn from the holder's `colletSeries` and
+    `colletProtrusion`.
+  - **Extensions.** An assembly's modular `extension` is drawn as an `extension` section, shaded as
+    the shank, from its head face (`stickout − extensionProtrusion`) to the holder face, and the
+    tool's shank stops at the head face; `extensionProtrusion` is dimensioned beside the stickout.
+    Neither is drawn for an extension with no `layers`, or without an `extensionProtrusion` greater
+    than zero and less than the stickout, and a layer whose provenance is unstated is drawn
+    `assumed`.
+  - **Tools are drawn from `shaft`.** Above the flutes a tool is its `shaft` cone stack: the whole
+    stack for a tool drawn without a holder, cut at the stickout (or an extension's head face) in
+    one. Each layer is drawn from its bottom diameter to its top, so a tapered layer is a trapezoid,
+    not a rectangle. Each layer is `neck` or `shank` as tool-support's `shaftParts` labels it, as the
+    clearance sweep does: `neck` below the top run of shank and narrower than the shank, a shoulder
+    wider than the shank `shank`. `SFDM` and `OAL` are dimensioned only where stated
+    (`statedShank`, `statedOverallLength`), not where a reader assumed them, and the neck's length and
+    diameter are read with `neckOf`. A tool with no `shaft` is drawn and dimensioned to the top of
+    its flutes, and a shaft shorter than the stickout is drawn only as far as it goes, leaving the gap
+    below the holder nose.
+  - **Without a holder** an assembly draws the whole tool and dimensions its `stickout` beside its
+    overall length. The `LBH` dimension is gone, and `zoom="tool"` cuts at the stickout.
+
+### Patch Changes
+
+- Updated dependencies [652f050]
+  - @toolpath/tool-support@1.0.0
+
 ## 1.0.4
 
 ### Patch Changes

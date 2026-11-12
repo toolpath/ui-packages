@@ -17,17 +17,16 @@
  *
  * ## The one conversion that is not a length
  *
- * `TP` is the hazard `geometry.ts` records and does not resolve: on a metric
- * tap it is a pitch in millimetres, and on an inch tap it is conventionally
- * *threads per inch*, which is a reciprocal. Converting the second as a length
- * gives a number that looks like a pitch and is wrong by a factor of its own
- * value. {@link threadPitch} reads the tool's own unit system to decide which
- * it has, which is the first place in this tree that hazard actually bites.
+ * The record's `thread.pitch` is always millimetres. Mastercam's legacy record
+ * wants threads per inch beside the pitch, which is a reciprocal and not a
+ * length: {@link threadPitch} states both, so an inch tap's 32 threads per inch
+ * goes out as 32 and not as a length converted twice.
  */
 
-import { convertLength } from '../../units.js'
+import type { CuttingTool } from '../../model.js'
+import { convertLength, type UnitSystem } from '../../units.js'
 import type { ExportNote } from '../report.js'
-import type { CatalogTool } from '../catalog.js'
+import { camIdentity, camType, isoGeometry } from '../catalog.js'
 import { derivedGuid, guidBytes, namedGuid, EMPTY_GUID } from './guid.js'
 import { legacyToolRecord } from './legacy.js'
 import type { RowSet } from './rows.js'
@@ -63,8 +62,8 @@ export interface MastercamCuttingData {
  */
 export interface MastercamSetup {
   readonly holderGuid: string
-  /** Tool tip to holder nose, in millimetres. `null` is nobody having decided. */
-  readonly stickout: number | null
+  /** Tool tip to holder nose, in millimetres. */
+  readonly stickout: number
   /**
    * The carousel position for *this* set-up.
    *
@@ -85,7 +84,9 @@ export interface MastercamSetup {
 }
 
 export interface MastercamToolRequest {
-  readonly tool: CatalogTool
+  readonly tool: CuttingTool
+  /** The tool's carousel position, where no set-up states its own. */
+  readonly number?: number
   /** Every holder this tool is set up in. */
   readonly assemblies?: readonly MastercamSetup[]
   readonly cuttingData?: MastercamCuttingData
@@ -116,14 +117,10 @@ const inches = (millimetres: number): number => convertLength(millimetres, 'mill
 /**
  * A tap's pitch in inches, and the threads-per-inch the legacy record wants.
  *
- * `null` where the tool states no `TP` at all.
+ * `null` where the tool states no pitch at all.
  */
-const threadPitch = (tool: CatalogTool): { pitch: number; perInch: number } | null => {
-  const stated = tool.geometry['TP']
+const threadPitch = (stated: number | undefined): { pitch: number; perInch: number } | null => {
   if (stated === undefined || !(stated > 0)) return null
-  // An inch tap's TP is already threads per inch. A metric tap's is a pitch in
-  // millimetres, which converts as the length it is.
-  if (tool.unit === 'inches') return { pitch: 1 / stated, perInch: stated }
   const pitch = inches(stated)
   return { pitch, perInch: 1 / pitch }
 }
@@ -133,7 +130,7 @@ const writeOpParams = (
   rows: RowSet,
   guid: string,
   data: MastercamCuttingData,
-  unit: CatalogTool['unit'],
+  unit: UnitSystem,
   holemaking: boolean,
 ): Uint8Array => {
   const id = derivedGuid(guid, 'op-params')
@@ -200,7 +197,7 @@ const writeOpParams = (
  * reference library the pairing is fixed and exceptionless — flat with none,
  * ball with full, bull with corner, corner-rounder with rounder — and no row
  * pairs a flat end mill with a radius of any kind. Deriving the type from the
- * catalog's `form` and the radius from its `RE` separately produces
+ * tool's kind and the radius from its `RE` separately produces
  * combinations Mastercam never writes, and one of them is what a real catalog
  * actually hits: a flat end mill carrying a corner radius, which is a bull nose
  * somebody named loosely.
@@ -322,20 +319,32 @@ const resolveRadius = (
 export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): ToolResult => {
   const { tool } = request
   const notes: ExportNote[] = []
-  const subject = tool.guid
+  const identity = camIdentity(tool)
+  if (identity === null) {
+    notes.push({
+      subject: tool.name,
+      kind: 'skipped',
+      field: 'guid',
+      message: 'the tool states no valid guid, and every Mastercam row is keyed by one',
+    })
+    return { written: null, notes }
+  }
+  const { guid, unit } = identity
+  const subject = guid
   const note = (kind: ExportNote['kind'], field: string, message: string): void => {
     notes.push({ subject, kind, field, message })
   }
 
-  const confirmed = (MC_TOOL_TYPE as Partial<Record<string, number>>)[tool.form]
-  const coerced = MC_TOOL_TYPE_COERCED[tool.form as keyof typeof MC_TOOL_TYPE_COERCED]
+  const type = camType(tool)
+  const confirmed = (MC_TOOL_TYPE as Partial<Record<string, number>>)[type]
+  const coerced = MC_TOOL_TYPE_COERCED[type]
   const formType = confirmed ?? coerced?.to
   if (formType === undefined) {
     notes.push({
       subject,
       kind: 'skipped',
       message:
-        `Mastercam's legacy tool types have no code that draws a ${tool.form}, and ` +
+        `Mastercam's legacy tool types have no code that draws a ${type}, and ` +
         `writing it as a cylinder would put the wrong solid in a simulation`,
     })
     return { written: null, notes }
@@ -344,9 +353,12 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
     note('coerced', 'MCToolType', coerced.because)
   }
 
-  const { DC, OAL, LCF, SFDM, NOF, RE, SIG } = tool.geometry
-  const shoulderLength = tool.geometry['shoulder-length']
-  const shoulderDiameter = tool.geometry['shoulder-diameter']
+  const geometry = isoGeometry(tool)
+  const { DC, OAL, LCF, SFDM, NOF, RE, TP } = geometry
+  // Mastercam states every angle as included, a chamfer mill's as much as a drill's.
+  const SIG = tool.type === 'solid' ? tool.tipAngleDeg : undefined
+  const shoulderLength = geometry['shoulder-length']
+  const shoulderDiameter = geometry['shoulder-diameter']
   if (DC === undefined || OAL === undefined) {
     notes.push({
       subject,
@@ -361,7 +373,7 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
   // neither of these moves with it.
   const subtype = MC_SUBTYPE[formType]
   const holemaking = MC_HOLEMAKING.has(formType)
-  const thread = threadPitch(tool)
+  const thread = threadPitch(TP)
   const radius = resolveRadius(formType, DC, subtype === 'endmill' ? (RE ?? 0) : 0)
   if (radius.kind === 'skipped') {
     notes.push({ subject, kind: 'skipped', message: radius.message })
@@ -373,12 +385,12 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
   // Every decision that can refuse the tool is made before a single row is
   // written: a refusal after the item row would leave an assembly item with no
   // tool under it, which is worse than the tool being absent.
-  const id = guidBytes(tool.guid)
+  const id = guidBytes(guid)
   // `TlTool.ToolNumber`, the offsets and the legacy record can each hold one
   // number, so a tool set up in two carousel positions states the first here
   // and the rest on their own `TlAssembly` rows.
-  const numbers = (request.assemblies ?? []).map((setup) => setup.number ?? tool.number ?? 0)
-  const number = numbers[0] ?? tool.number ?? 0
+  const numbers = (request.assemblies ?? []).map((setup) => setup.number ?? request.number ?? 0)
+  const number = numbers[0] ?? request.number ?? 0
   if (numbers.some((each) => each !== number)) {
     note(
       'dropped',
@@ -406,34 +418,34 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
   }
 
   const manufacturer = tool.vendor === undefined ? EMPTY_GUID : namedGuid(tool.vendor)
-  rows.addOnce('TlAssemblyItem', tool.guid, {
+  rows.addOnce('TlAssemblyItem', guid, {
     ID: id,
-    CatalogID: tool.catalogNumber ?? '',
+    CatalogID: tool.productId ?? '',
     GeometryFile: '',
     IsMetric: 0,
     Location: '',
     TlToolMaterialID: material,
     TlToolTypeID: EMPTY_GUID,
     TlManufacturerID: manufacturer,
-    Name: tool.label ?? tool.catalogNumber ?? tool.guid,
+    Name: tool.name,
     Description: tool.description ?? '',
     Quantity: 0,
     ThruCoolant: tool.coolantThrough === true ? 1 : 0,
     IsCatalogItem: 0,
     GaugeLength: 0,
     GaugeDiameter: 0,
-    TlGraphicsFileCollectionID: derivedGuid(tool.guid, 'graphics'),
+    TlGraphicsFileCollectionID: derivedGuid(guid, 'graphics'),
     ModelFileID: EMPTY_GUID,
-    MachineSideConnectionID: derivedGuid(tool.guid, 'connection'),
-    WorkpieceSideConnectionMapID: derivedGuid(tool.guid, 'connection-map'),
+    MachineSideConnectionID: derivedGuid(guid, 'connection'),
+    WorkpieceSideConnectionMapID: derivedGuid(guid, 'connection-map'),
     MachineSideProjectionAdjustment: 0,
     IsProjectionAdjustmentEditable: 0,
   })
   // A connection needs a locator, and a locator is an identity transform: this
   // exporter writes tools coaxial with their holders, which is every milling
   // assembly.
-  const locator = derivedGuid(tool.guid, 'locator')
-  rows.addOnce('TlLocator', tool.guid, {
+  const locator = derivedGuid(guid, 'locator')
+  rows.addOnce('TlLocator', guid, {
     ID: locator,
     IsMetric: 0,
     r00: 1,
@@ -449,8 +461,8 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
     t1: 0,
     t2: 0,
   })
-  rows.addOnce('TlConnection', tool.guid, {
-    ID: derivedGuid(tool.guid, 'connection'),
+  rows.addOnce('TlConnection', guid, {
+    ID: derivedGuid(guid, 'connection'),
     Type: '',
     Size: '',
     LocatorID: locator,
@@ -478,7 +490,7 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
     )
   }
 
-  rows.addOnce('TlTool', tool.guid, {
+  rows.addOnce('TlTool', guid, {
     ID: id,
     OpToolInfo: legacyToolRecord({
       toolNumber: number,
@@ -495,17 +507,17 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
       retractRate: 0,
       spindleSpeed: Math.round(request.cuttingData?.spindleSpeed ?? 0),
       fluteCount: NOF ?? 0,
-      name: tool.label ?? tool.catalogNumber ?? tool.guid,
+      name: tool.name,
     }),
     ToolNumber: number,
     ToolStation: 0,
     IsCustom: 0,
     CustomDisplayType: 0,
-    TlAccessoryCollectionID: derivedGuid(tool.guid, 'accessories'),
+    TlAccessoryCollectionID: derivedGuid(guid, 'accessories'),
   })
 
   const shank = SFDM ?? DC
-  rows.addOnce('TlToolMill', tool.guid, {
+  rows.addOnce('TlToolMill', guid, {
     ID: id,
     MCToolType: mcToolType,
     DiameterOffsetNum: number,
@@ -530,17 +542,17 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
     RequiredPilotDiameter: 0,
     IsVariablePitch: 0,
     IsScalable: 0,
-    MfgToolCode: tool.catalogNumber ?? '',
+    MfgToolCode: tool.productId ?? '',
     Chuck: '',
     ToolFileName: '',
     TlGradeID: guidBytes(MASTERCAM_DEFAULT_GRADE()),
-    TlOpParamsID: writeOpParams(rows, tool.guid, request.cuttingData ?? {}, tool.unit, holemaking),
+    TlOpParamsID: writeOpParams(rows, guid, request.cuttingData ?? {}, unit, holemaking),
     IsAcceleratedFinishing: 0,
   })
 
   switch (subtype) {
     case 'endmill':
-      rows.addOnce('TlToolEndmill', tool.guid, {
+      rows.addOnce('TlToolEndmill', guid, {
         ID: id,
         TipDiameter: 0,
         TaperAngle: taperAngle,
@@ -550,7 +562,7 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
       })
       break
     case 'drill':
-      rows.addOnce('TlToolDrill', tool.guid, {
+      rows.addOnce('TlToolDrill', guid, {
         ID: id,
         TipAngle: pointAngle,
         ShoulderAngle: 0,
@@ -558,7 +570,7 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
       })
       break
     case 'reamer':
-      rows.addOnce('TlToolReamer', tool.guid, {
+      rows.addOnce('TlToolReamer', guid, {
         ID: id,
         TipAngle: REAMER_LEAD_ANGLE,
         ChamferLength: 0,
@@ -568,7 +580,7 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
       if (thread === null) {
         note('dropped', 'ThreadPitch', 'the catalog states no thread pitch')
       }
-      rows.addOnce('TlToolThreading', tool.guid, {
+      rows.addOnce('TlToolThreading', guid, {
         ID: id,
         TipDiameter: 0,
         TipAngle: 0,
@@ -595,5 +607,5 @@ export const mastercamTool = (request: MastercamToolRequest, rows: RowSet): Tool
     })
   }
 
-  return { written: { guid: tool.guid, overallLength: inches(OAL) }, notes }
+  return { written: { guid: guid, overallLength: inches(OAL) }, notes }
 }

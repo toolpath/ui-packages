@@ -1,122 +1,210 @@
 /**
- * The half of a tool an exporter needs and the domain deliberately does not
- * carry: identity and commerce.
+ * A tool as a CAM format sees it: its type in the format's words, and its
+ * geometry as ISO 13399 codes.
  *
- * `tool.ts` is explicit about why {@link Tool} stops where it does — a guid, a
- * brand, a catalog number and a product link are not arithmetic, and nothing
- * that draws a tool, fits it to a feature or works out its stickout reads one.
- * It is equally explicit that a catalog's record **extends** the domain shape
- * rather than being projected onto it, so that a record simply *is* a `Tool`
- * with no adapter in between.
+ * The record (`model.ts`) names its fields and its kinds; the formats this
+ * package writes speak Autodesk's type names and ISO codes, and Mastercam's
+ * table is keyed by the same type names. So this is the one table between the
+ * two vocabularies, at the edge where they meet, and nothing past it in the
+ * exporters reads a kind or a named field for geometry.
  *
- * An exporter is the consumer that needs the other half. A Fusion tool library
- * will not load a tool without a guid, and a library with no vendor or catalog
- * number in it is a library a machinist cannot buy from. So the fields are
- * named here, under `export/`, rather than pushed up into the domain root
- * where `tool.ts` has already argued they do not belong.
- *
- * ## Every name is `@toolpath/tool-scraper`'s
- *
- * `guid`, `vendor`, `description`, `catalogNumber`, `unit`, `substrate`,
- * `coolantThrough` are `ToolRecord`'s own field names, spelled identically, so
- * **a scraper record satisfies this structurally with no adapter** — the claim
- * `contracts.test.ts` already pins for `Tool`, extended to the whole export
- * input. Renaming even one of them here would put a translation table between
- * the scraper and the exporter, and a translation table is where a
- * `materialNumber` becomes a `catalogNumber` in one direction and nobody
- * notices.
- *
- * Two things a `ToolRecord` does not carry and a caller must add: `form`,
- * because a record carries the coarse `kind` and the finer name is derived
- * where a dataset is built (see `forms.ts`), and `productLink`, which the tool
- * half of the scraper does not scrape.
- *
- * One thing it spells differently, and the difference is real: see
- * {@link CatalogTool.threadMethod}. `tests/export-fusion.test.ts` assigns a
- * record-shaped literal to this type, so the rest of the claim is measured
- * rather than asserted, and a name that drifts stops compiling.
+ * A record with no `guid` cannot be exported: Fusion rejects an entry without
+ * one, and one minted at export time would make every re-export look like a
+ * new tool. A record with no `unitSystem` is written in millimetres, the unit
+ * it is stored in.
  */
 
-import type { ThreadMethod, Tool } from '../tool.js'
+import type { Geometry } from '../geometry.js'
+import type { ToolKind } from '../kinds.js'
+import { trimToGauge } from '../holder.js'
+import type { Catalog, Cone, CuttingTool, Holder } from '../model.js'
+import { cuttingDiameter } from '../diameter.js'
+import { optional } from '../optional.js'
+import {
+  EPSILON,
+  sameDiameter,
+  shankOf,
+  stackHeight,
+  statedOverallLength,
+  statedShank,
+} from '../stack.js'
+import { dimensionsOf } from '../tool.js'
 import type { UnitSystem } from '../units.js'
+import type { FusionType } from './fusion/schema.js'
+import { isGuid } from './mastercam/guid.js'
+
+/** A tool type a format can write: Autodesk's own names, which Mastercam's table is keyed by. */
+export type CamType = Exclude<FusionType, 'holder'>
+
+/** Each kind's type; a tap's hand is its thread's, below. */
+export const CAM_TYPES: Readonly<Record<ToolKind, CamType>> = {
+  FlatEndmill: 'flat end mill',
+  RadiusEndmill: 'bull nose end mill',
+  BallEndmill: 'ball end mill',
+  FaceEndmill: 'face mill',
+  ChamferEndmill: 'chamfer mill',
+  Countersink: 'counter sink',
+  CornerRoundingMill: 'radius mill',
+  DrillBit: 'drill',
+  ThreadMill: 'thread mill',
+  CuttingTap: 'tap right hand',
+  FormingTap: 'tap right hand',
+  KeyseatCutter: 'slot mill',
+  DovetailCutter: 'dovetail mill',
+  TaperedEndmill: 'tapered mill',
+  LollipopMill: 'lollipop mill',
+  CircleSegmentBarrel: 'circle segment barrel',
+  CircleSegmentLens: 'circle segment lens',
+  CircleSegmentOval: 'circle segment oval',
+  CircleSegmentTaper: 'circle segment taper',
+  BoringBar: 'boring bar',
+  Counterbore: 'counter bore',
+  CenterDrill: 'center drill',
+  Reamer: 'reamer',
+  SpotDrill: 'spot drill',
+}
+
+/** A tool's type in a CAM format's words: a left-hand tap is `tap left hand`. */
+export const camType = (tool: CuttingTool): CamType => {
+  const type = CAM_TYPES[tool.kind]
+  const left = tool.type === 'solid' && tool.thread?.handedness === 'left'
+  return type === 'tap right hand' && left ? 'tap left hand' : type
+}
+
+/** Kinds whose point is stated as its included angle, `SIG`. */
+const POINTED: ReadonlySet<ToolKind> = new Set<ToolKind>([
+  'DrillBit',
+  'SpotDrill',
+  'CenterDrill',
+  'Countersink',
+  'Reamer',
+])
 
 /**
- * A tool as a catalog holds it: the domain shape, plus who made it and what
- * it is called.
- *
- * Only `guid` and `unit` are required beyond {@link Tool}. Everything else is
- * a vendor's to state or not, and absent is nobody having said rather than an
- * empty string — the rule `ToolRecord.productLine` already keeps, for the same
- * reason: a consumer has to be able to tell "Harvey publishes no coating" from
- * "nobody looked".
+ * A flank's angle to the axis, `TA`: the stated one, else half the included
+ * angle for a chamfer mill or a tapered mill, whose cone is the flank; a face
+ * mill's is the complement of its lead.
  */
-export interface CatalogTool extends Omit<Tool, 'threadMethod'> {
-  /**
-   * How this tap makes its thread, in either spelling the tree uses.
-   *
-   * **The two halves of this claim do not quite meet, and this is where it
-   * shows.** {@link Tool} says a tap that nobody has classified carries no
-   * `threadMethod` at all; `@toolpath/tool-scraper`'s `ToolRecord` says it
-   * carries `null`, and enforces that every non-tap does — the question does
-   * not apply, which is a different fact from nobody having answered it. Both
-   * readings are defensible and they are not the same type, so a record is not
-   * in fact assignable to a `Tool` today, however much both packages say it is.
-   *
-   * An export input is the wrong place to settle that, so it takes either. What
-   * would settle it is one spelling in `tool.ts`, which is a breaking change to
-   * a published type and a decision of its own.
-   */
-  readonly threadMethod?: ThreadMethod | null
-
-  /**
-   * The tool's stable identifier, in RFC 4122 form.
-   *
-   * **Required, and the exporter mints none.** A Fusion library entry without
-   * one is rejected outright, and a guid invented at export time would make
-   * every re-export look to the CAM system like a new tool — so a catalog
-   * re-exported monthly would accumulate twelve copies of itself rather than
-   * updating one. `@toolpath/tool-scraper` already mints a stable v5 guid per
-   * brand that survives a re-scrape, which is the value that belongs here.
-   *
-   * Minting one here is also not available: a name-based UUID is SHA-1, which
-   * is `node:crypto`, which this package may not import.
-   */
-  readonly guid: string
-  /**
-   * Which measuring system the vendor published this family in.
-   *
-   * Not the unit its numbers are stored in — every length in this domain is
-   * millimetres, whatever the sheet said. This decides the unit the *exported*
-   * document states them in, which is a fact about the tool that a CAM system
-   * shows the machinist.
-   */
-  readonly unit: UnitSystem
-  /** The vendor's own free text about the part. */
-  readonly description?: string
-  readonly vendor?: string
-  /** The number a machinist orders by. */
-  readonly catalogNumber?: string
-  readonly productLink?: string
-  /**
-   * The cutting material, in the vendor's own word — `carbide`, `hss`,
-   * `diamond`.
-   *
-   * Raw and unmapped, because a target format's material vocabulary is that
-   * format's business: Fusion knows five materials and has no word for PCD, so
-   * the mapping and its loss belong in the exporter where the loss can be
-   * reported, not here where it would be silent.
-   */
-  readonly substrate?: string
-  /** Whether the tool has through-coolant. */
-  readonly coolantThrough?: boolean
-  /**
-   * Which way the flutes turn. Absent is nobody having said.
-   *
-   * Optional rather than defaulted, so that an exporter writing a format that
-   * demands it reports having supplied the answer instead of presenting a
-   * guess as the vendor's.
-   */
-  readonly hand?: 'right' | 'left'
-  /** The tool's number in a shop's carousel, where the shop has assigned one. */
-  readonly number?: number
+const taperOf = (tool: CuttingTool): number | undefined => {
+  if (tool.type === 'insert') {
+    const lead = tool.insert.leadAngleDeg
+    return lead === undefined ? undefined : 90 - lead
+  }
+  const halved = tool.kind === 'ChamferEndmill' || tool.kind === 'TaperedEndmill'
+  return (
+    tool.taperAngleDeg ??
+    (halved && tool.tipAngleDeg !== undefined ? tool.tipAngleDeg / 2 : undefined)
+  )
 }
+
+/**
+ * The shoulder a CAM format states, read off the shaft: the first run of
+ * straight layers at one diameter other than the shank's, narrower or wider —
+ * its top from the tip, and its diameter. Undefined where the shaft has none.
+ * A sliver a float's rounding leaves, such as a cone's remainder at the top of
+ * flutes that reach it, starts none.
+ */
+const shoulderOf = (
+  tool: CuttingTool,
+): { readonly length: number; readonly diameter: number } | undefined => {
+  const shank = shankOf(tool)
+  const shaft = tool.shaft ?? []
+  const straight = (layer: Cone | undefined, diameter: number): boolean =>
+    layer !== undefined &&
+    sameDiameter(layer.bottomDiameter, diameter) &&
+    sameDiameter(layer.topDiameter, diameter)
+  const start = shaft.findIndex(
+    (layer) =>
+      shank !== null &&
+      layer.thickness > EPSILON &&
+      straight(layer, layer.bottomDiameter) &&
+      !sameDiameter(layer.bottomDiameter, shank),
+  )
+  const first = shaft[start]
+  if (first === undefined) {
+    return undefined
+  }
+  let end = start + 1
+  while (straight(shaft[end], first.bottomDiameter)) {
+    end++
+  }
+  return {
+    length: dimensionsOf(tool).fluteLength + stackHeight(shaft.slice(0, end)),
+    diameter: first.bottomDiameter,
+  }
+}
+
+/**
+ * A tool's geometry as ISO 13399 codes, in millimetres: only what the record
+ * states or follows from it, under the code a format reads it from.
+ *
+ * A corner rounding mill's `DC` is the diameter below its round and `RE` the
+ * round, as Fusion states one; a face mill's `DCX` is the diameter its inserts
+ * cut; `SFDM` is the top of the shaft and `OAL` the flutes and the shaft,
+ * each only where it is stated ({@link statedShank}, {@link statedOverallLength}),
+ * so a format fills an assumed one as though unstated; a section between the flutes and the shank is `shoulder-length` from the tip
+ * and `shoulder-diameter`; a thread mill's teeth are `NT`, a single-point
+ * mill's range `TPN` to `TPX`, and its tip's size `thread-tip-width` or
+ * `thread-tip-radius`. Nothing the record does not state is supplied.
+ */
+export const isoGeometry = (tool: CuttingTool): Geometry => {
+  const { diameter, fluteLength, cornerRadius } = dimensionsOf(tool)
+  const shoulder = shoulderOf(tool)
+  const solid = tool.type === 'solid' ? tool : undefined
+  const rounding = solid?.roundingRadius
+  const thread = solid?.thread
+  const tip = thread?.tip
+  // A mill of several teeth is ground to its one pitch, `TP`; only a single
+  // point states a range.
+  const range = thread?.pitchMin !== undefined && !((thread.teeth ?? 1) > 1)
+  return {
+    DC: rounding === undefined ? diameter : diameter - 2 * rounding,
+    LCF: fluteLength,
+    ...optional('DCX', tool.type === 'insert' ? cuttingDiameter(tool) : undefined),
+    ...optional('OAL', statedOverallLength(tool) ?? undefined),
+    ...optional('SFDM', statedShank(tool) ?? undefined),
+    ...optional('RE', rounding ?? cornerRadius),
+    ...optional('NOF', tool.type === 'solid' ? tool.fluteCount : tool.body.pockets),
+    ...optional('SIG', POINTED.has(tool.kind) ? solid?.tipAngleDeg : undefined),
+    ...optional('TA', taperOf(tool)),
+    ...optional('tip-diameter', solid?.tipDiameter),
+    ...optional('tip-length', solid?.tipLength),
+    ...optional('upper-radius', tool.type === 'insert' ? tool.insert.upperRadius : undefined),
+    ...optional('TP', thread?.pitch),
+    ...optional('NT', thread?.teeth),
+    ...optional('TPN', range ? thread.pitchMin : undefined),
+    ...optional('TPX', range ? thread.pitch : undefined),
+    ...optional('thread-tip-width', tip?.form === 'flat' ? tip.width : undefined),
+    ...optional('thread-tip-radius', tip?.form === 'round' ? tip.radius : undefined),
+    ...optional(
+      'thread-profile-angle',
+      tool.kind === 'ThreadMill' ? thread?.profileDeg : undefined,
+    ),
+    ...optional('shoulder-length', shoulder?.length),
+    ...optional('shoulder-diameter', shoulder?.diameter),
+  }
+}
+
+/**
+ * The gauge length a format is told a holder has, mm: the one it states, else
+ * the height of the stack written below its gauge line. Every exporter writes
+ * it this way, so two formats never disagree about one holder.
+ */
+export const camGaugeLength = (holder: Holder): number =>
+  holder.gaugeLength ?? stackHeight(trimToGauge(holder).layers)
+
+/** What an exporter needs of a record before it can write one: its guid, and the unit to write in. */
+export interface CamIdentity {
+  readonly guid: string
+  readonly unit: UnitSystem
+}
+
+/**
+ * A record's guid and unit, or `null` where it states no guid, or one that is
+ * not a guid, and so cannot be written: every row a format writes is keyed by
+ * it, and a malformed one is refused as a missing one is, never thrown on.
+ */
+export const camIdentity = (record: Pick<Catalog, 'guid' | 'unitSystem'>): CamIdentity | null =>
+  record.guid === undefined || !isGuid(record.guid)
+    ? null
+    : { guid: record.guid, unit: record.unitSystem ?? 'millimeters' }

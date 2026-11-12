@@ -1,6 +1,6 @@
-import { hasNeck } from '@toolpath/tool-support'
+import { dimensionsOf, neckOf, statedOverallLength, statedShank } from '@toolpath/tool-support'
 
-import type { ViewerAssembly } from './types.js'
+import { drawnExtension, staged, type Drawable } from './types.js'
 
 /**
  * What a drawing of this tool dimensions, and where each dimension goes.
@@ -42,7 +42,7 @@ import type { ViewerAssembly } from './types.js'
 /** A length along the axis, drawn beside the stack. */
 export interface LengthDimension {
   readonly code: string
-  /** From the tip, in millimetres — always 0 for now, kept for a dimension that is not. */
+  /** From the tip, in millimetres: 0 but for an extension's protrusion, from its head face. */
   readonly from: number
   readonly to: number
   /**
@@ -89,7 +89,7 @@ export interface AngleDimension {
   readonly at: { readonly r: number; readonly z: number }
 }
 
-export interface ToolDimensions {
+export interface DrawingDimensions {
   readonly lengths: ReadonlyArray<LengthDimension>
   readonly widths: ReadonlyArray<WidthDimension>
   readonly angles: ReadonlyArray<AngleDimension>
@@ -99,9 +99,6 @@ export interface ToolDimensions {
 
 /** Two lengths this close together are one measurement under two names. */
 const SAME = 1e-6
-
-/** Nothing to draw a dimension from. */
-const EMPTY: ToolDimensions = { lengths: [], widths: [], angles: [], cornerRadius: null }
 
 /**
  * One line per span, whatever the span is called.
@@ -141,38 +138,44 @@ const oneLinePerSpan = (
  * What replaces it is the number the holder brings — how far the tool stands
  * out of it.
  */
-export const dimensionsFor = (assembly: ViewerAssembly): ToolDimensions => {
-  const { tool, holder, stickout } = assembly
-  const { DC, LCF, OAL, SFDM, RE } = tool.geometry
-  if (DC === undefined || LCF === undefined) {
-    return EMPTY
-  }
+export const dimensionsFor = (subject: Drawable): DrawingDimensions => {
+  const view = staged(subject)
+  const { tool, holder, stickout } = view
+  // A modular extension's head face, where the tool's own shank goes into it.
+  const headFace = drawnExtension(view)
+  const { diameter: DC, fluteLength: LCF, cornerRadius: RE } = dimensionsOf(tool)
+  // Only what is stated: a shank or an end a reader assumed is not dimensioned.
+  const OAL = statedOverallLength(tool)
+  const SFDM = statedShank(tool)
 
-  const shoulderLength = tool.geometry['shoulder-length']
-  const shoulderDiameter = tool.geometry['shoulder-diameter']
-  const necked = hasNeck(tool) && shoulderLength !== undefined && shoulderDiameter !== undefined
+  // A relief is dimensioned only where it is a neck, narrower than the shank:
+  // a shoulder wider than it is drawn as shank, and is not a section of its own.
+  const neck = neckOf(tool)
+  const shoulder = neck === undefined ? null : { ...neck, top: LCF + neck.length }
 
   const widths: Array<WidthDimension> = [{ code: 'DC', radius: DC / 2, at: 0 }]
-  if (necked) {
+  if (shoulder !== null) {
     widths.push({
       code: 'shoulder-diameter',
-      radius: shoulderDiameter / 2,
+      radius: shoulder.diameter / 2,
       // At the top of the relief, where the shank steps down to it: measured
       // in the middle it sat among the flute length and the corner radius,
       // which is the busiest inch of the drawing (Paul, 2026-09-01).
-      at: shoulderLength,
+      at: shoulder.top,
     })
   }
-  if (SFDM !== undefined) {
+  if (SFDM !== null) {
     // On the shank, and above the holder nose where there is one: a width
     // measured inside the holder is measured across a face nobody can see.
-    const shankFrom = necked ? shoulderLength : LCF
+    const shankFrom = shoulder?.top ?? LCF
     // Below the seated collet as well. It stands proud of the nose and is
     // drawn as solid at its series diameter, so arrows struck under it measure
     // across a face the collet is in front of.
     const seated = holder?.colletProtrusion ?? null
+    // And below an extension's head face, where the shank goes into it.
     const shankTo =
-      stickout !== null && seated !== null ? stickout - seated : (stickout ?? OAL ?? shankFrom)
+      headFace ??
+      (stickout !== null && seated !== null ? stickout - seated : (stickout ?? OAL ?? shankFrom))
     widths.push({
       code: 'SFDM',
       radius: SFDM / 2,
@@ -182,46 +185,31 @@ export const dimensionsFor = (assembly: ViewerAssembly): ToolDimensions => {
 
   /** Every length this tool states, before they are put in lanes. */
   const spans: Array<Omit<LengthDimension, 'lane'>> = [{ code: 'LCF', from: 0, to: LCF }]
-  if (necked) {
-    spans.push({ code: 'shoulder-length', from: 0, to: shoulderLength })
+  if (shoulder !== null) {
+    spans.push({ code: 'shoulder-length', from: 0, to: shoulder.top })
   }
-  const below = tool.geometry.LBH !== undefined && tool.geometry.LBH > 0 ? tool.geometry.LBH : null
-  /**
-   * Whether the below-holder length is a length below the holder *as drawn*.
-   *
-   * It is the tool's own number and the stickout is the shop's, and where the
-   * shop stands the tool out less than the rule assumed, the top of `LBH` is
-   * inside the holder. A line to a face buried in the holder is the mistake
-   * the overall length is dropped for, and it reads worse here: the line runs
-   * visibly past the nose and into the holder body, so the drawing looks like
-   * it drew the assembly wrong (Paul, 2026-09-02).
-   *
-   * The drawing does not correct it — the assembly it is given is the assembly
-   * it draws, and a stickout is nobody's number but the caller's. It declines
-   * to dimension it.
-   */
-  const buried = below !== null && holder !== null && stickout !== null && below > stickout + SAME
-  if (below !== null && !buried) {
-    // What the shop's clamping rule leaves below the holder: the reach the
-    // tool has, which is the number half the rules are about (Paul,
-    // 2026-09-01).
-    spans.push({ code: 'LBH', from: 0, to: below })
-  }
-  if (holder === null) {
-    if (OAL !== undefined) {
-      spans.push({ code: 'OAL', from: 0, to: OAL })
-    }
-  } else if (stickout !== null) {
+  if (stickout !== null) {
+    // How far the assembly stands the tool out — the reach it has, which is
+    // the number half the rules are about (Paul, 2026-09-01).
     spans.push({ code: 'stickout', from: 0, to: stickout })
-    /**
-     * **No gauge length.** It is the spindle face to the holder nose, and
-     * neither drawing reaches the spindle face — both stop a little past the
-     * flange. A dimension to a face that is not on the drawing is the same
-     * mistake as one to the end of a shank buried in the holder; the number
-     * is in the holder's own details, where it can be read without a line
-     * pointing at nothing.
-     */
   }
+  if (headFace !== null && stickout !== null) {
+    // How far the extension stands out of the holder, beside the stickout:
+    // from its head face, which is not the tip.
+    spans.push({ code: 'extension-protrusion', from: headFace, to: stickout })
+  }
+  if (holder === null && OAL !== null) {
+    // With a holder, the overall length is left off: most of the shank is
+    // inside it, and a line to a face nobody can see reads as a mistake.
+    spans.push({ code: 'OAL', from: 0, to: OAL })
+  }
+  /**
+   * **No gauge length.** It is the spindle face to the holder nose, and the
+   * drawing does not reach the spindle face. A dimension to a face that is not
+   * on the drawing is the same mistake as one to the end of a shank buried in
+   * the holder; the number is in the holder's own details, where it can be
+   * read without a line pointing at nothing.
+   */
 
   const lengths = oneLinePerSpan(spans)
     .sort((a, b) => a.to - a.from - (b.to - b.from))
@@ -231,9 +219,9 @@ export const dimensionsFor = (assembly: ViewerAssembly): ToolDimensions => {
    * The point angle, on the tools that have a point: `at` is halfway up the
    * cone's own flank, which is where the angle is.
    */
-  const SIG = tool.geometry.SIG
+  const SIG = tool.type === 'solid' ? tool.tipAngleDeg : undefined
   const pointed =
-    tool.form === 'drill' || tool.form === 'spot drill' || tool.form === 'center drill'
+    tool.kind === 'DrillBit' || tool.kind === 'SpotDrill' || tool.kind === 'CenterDrill'
   const angles: Array<AngleDimension> =
     pointed && SIG !== undefined && SIG > 0
       ? [
@@ -266,7 +254,7 @@ export const dimensionsFor = (assembly: ViewerAssembly): ToolDimensions => {
  * The lanes are renumbered because a lane is a place, not a name: leaving the
  * gap where a dropped line ran would draw the ladder starting one rung out.
  */
-export const dimensionsWithin = (model: ToolDimensions, height: number): ToolDimensions => {
+export const dimensionsWithin = (model: DrawingDimensions, height: number): DrawingDimensions => {
   const within = (z: number) => z <= height + SAME
   return {
     ...model,
@@ -312,7 +300,7 @@ export interface LaneLayout {
  * consumer's own table, and the drawing lights the line the reader is pointing
  * at (Paul, 2026-09-02).
  */
-export const laneLayout = (model: ToolDimensions, sides: 'one' | 'both' = 'one'): LaneLayout => {
+export const laneLayout = (model: DrawingDimensions, sides: 'one' | 'both' = 'one'): LaneLayout => {
   const lanes: Array<DimensionLane> = model.lengths.map((each) => ({
     code: each.code,
     side: sides === 'both' && each.lane % 2 === 1 ? 'plus' : 'minus',

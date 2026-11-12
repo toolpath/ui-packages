@@ -10,7 +10,8 @@
  *
  * **ISO 13399 calls it `LSCN`** — clamping length minimum, stated against the
  * shank diameter `DMM`, which is what a multiple of "D" means here: the holder
- * grips the shank, not the cut. Manufacturers publish it per tool, and the five
+ * grips the shank, not the cut; the record carries it as `shankClampMin`.
+ * Manufacturers publish it per tool, and the five
  * Seco end mills checked want between 4 and 6 diameters clamped against the 3×D
  * rule of thumb — a difference that is most of a tool's reach. So the rule
  * reads the vendor's own number first and falls back to a multiple of the
@@ -27,11 +28,13 @@
  * clamping rule allowed.
  */
 
-import type { Geometry } from './geometry.js'
+import type { CuttingTool } from './model.js'
+import { statedOverallLength, statedShank, unclampableLength } from './stack.js'
+import { dimensionsOf } from './tool.js'
 
 /** What a shop holds: the vendor's number where there is one, else a multiple of the diameter. */
 export interface ClampingRule {
-  /** Read the manufacturer's `LSCN` where the tool publishes one. On by default. */
+  /** Read the manufacturer's `LSCN` (`shankClampMin`) where the tool publishes one. On by default. */
   readonly vendorSpec: boolean
   /** Diameters to clamp where it does not — the rule of thumb is 3. Zero for none. */
   readonly perDiameter: number
@@ -51,28 +54,30 @@ const round = (value: number) => Math.round(value * 100) / 100
  *
  * `LSCN` is stated against `DMM`, and the shank is what the holder grips — a
  * keyseat cutter 22 mm across on a ⌀12 shank is clamped on 12. The cut stands
- * in only where a vendor states no shank.
+ * in only where a vendor states no shank, or a reader assumed it.
  */
-export const heldDiameter = (geometry: Geometry): number | undefined => geometry.SFDM ?? geometry.DC
+export const heldDiameter = (tool: CuttingTool): number =>
+  statedShank(tool) ?? dimensionsOf(tool).diameter
 
 /**
  * Where the shank starts, measured from the tip: past the flutes, and past the
- * reduced section under them where a tool has one. A chuck closes on neither.
+ * neck or shoulder below the shank run ({@link unclampableLength}). A chuck closes on
+ * neither; a relief as wide as the shank is plain shank.
  */
-export const headLength = (geometry: Geometry): number =>
-  Math.max(geometry['shoulder-length'] ?? 0, geometry.LCF ?? 0)
+export const headLength = (tool: CuttingTool): number =>
+  dimensionsOf(tool).fluteLength + unclampableLength(tool)
 
 /** What this rule asks to keep in the holder, or null where it says nothing. */
 export const clampWanted = (
-  geometry: Geometry,
+  tool: CuttingTool,
   rule: ClampingRule = DEFAULT_CLAMPING,
 ): number | null => {
-  const stated = geometry.LSCN
+  const stated = dimensionsOf(tool).shankClampMin
   if (rule.vendorSpec && stated !== undefined && stated > 0) {
     return round(stated)
   }
-  const shank = heldDiameter(geometry)
-  if (rule.perDiameter <= 0 || shank === undefined || shank <= 0) {
+  const shank = heldDiameter(tool)
+  if (rule.perDiameter <= 0 || shank <= 0) {
     return null
   }
   return round(shank * rule.perDiameter)
@@ -80,14 +85,14 @@ export const clampWanted = (
 
 /** How much shank the rule asked for and the tool has not got, or null where it fits. */
 export const clampShortfall = (
-  geometry: Geometry,
+  tool: CuttingTool,
   rule: ClampingRule = DEFAULT_CLAMPING,
 ): number | null => {
-  const wanted = clampWanted(geometry, rule)
-  const { OAL } = geometry
-  if (wanted === null || OAL === undefined) {
+  const wanted = clampWanted(tool, rule)
+  const OAL = statedOverallLength(tool)
+  if (wanted === null || OAL === null) {
     return null
   }
-  const shank = Math.max(0, OAL - headLength(geometry))
+  const shank = Math.max(0, OAL - headLength(tool))
   return wanted <= shank ? null : round(wanted - shank)
 }

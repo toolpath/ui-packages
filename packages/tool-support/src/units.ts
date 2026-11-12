@@ -26,7 +26,7 @@
 export type UnitSystem = 'millimeters' | 'inches'
 
 /** Every {@link UnitSystem}, for a control that offers them or a message that lists them. */
-export const UNIT_SYSTEMS: readonly UnitSystem[] = ['millimeters', 'inches']
+export const UNIT_SYSTEMS = ['millimeters', 'inches'] as const satisfies ReadonlyArray<UnitSystem>
 
 /** Exact by definition: the inch has been 25.4 mm since 1959. */
 export const MM_PER_INCH = 25.4

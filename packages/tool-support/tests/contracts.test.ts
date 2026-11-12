@@ -1,60 +1,53 @@
 /**
  * The contracts, checked the two ways a type can be wrong at a package
- * boundary: the guard that discriminates the holder union, and the structural
- * assignability that is the whole reason none of this is a class.
- *
- * A class would lose that assignability. Today a catalog's own record simply
- * _is_ a {@link Tool} — an adapter is kept explicit by choice rather than by
- * necessity — and `instanceof` breaks across duplicate installs, which this
- * tree has already been bitten by once.
+ * boundary: what the record's schemas accept and refuse, and the two ways a
+ * holder's shape is made — so a published holder and a measured one are read
+ * as the one cone stack everything downstream sweeps, draws and exports.
  */
 
 import { describe, expect, it } from 'vitest'
 
 import {
-  PROFILES_VERSION,
+  ColletSchema,
+  HolderSchema,
   PROVENANCE,
-  isHolderProfile,
-  type Assembly,
+  RotatingToolAssemblySchema,
+  ToolSchema,
+  measuredHolder,
+  parametricHolder,
+  trimToGauge,
   type Collet,
   type FeatureDemand,
-  type Holder,
-  type HolderProfile,
+  type HolderDimensions,
+  type MeasuredProfile,
   type ProfileDatum,
   type ProfilePoint,
   type Provenance,
-  type ProvenanceMap,
   type ReachCurve,
+  type RotatingToolAssembly,
   type Tool,
 } from '../src/index.js'
+import { shaft, solid } from './tools.js'
 
-const tool: Tool = {
-  form: 'flat end mill',
-  label: 'TDMX0600',
-  geometry: { DC: 6, LCF: 13, OAL: 57, SFDM: 6, LBH: 19 },
-  provenance: { DC: 'vendor-stated', LBH: 'derived' },
-}
+const tool: Tool = solid({
+  name: 'TDMX0600',
+  shaft: shaft({ shank: 6, overallLength: 57 }),
+  provenance: { diameter: 'vendor-stated', shaft: 'derived' },
+})
 
-const tap: Tool = {
-  form: 'tap right hand',
-  label: 'BU37Z700.5003',
-  threadMethod: 'forming',
-  geometry: { DC: 2.845, TP: 0.635, LCF: 6, OAL: 56, SFDM: 3.581 },
-}
-
-const holder: Holder = {
+/** A collet chuck as its vendor publishes it. */
+const published: HolderDimensions = {
   noseDiameter: 27,
   noseLength: 12,
   bodyDiameter: 42,
   bodyLength: 20,
   projection: 60,
   flangeDiameter: 46,
-  gaugeLength: 60,
-  colletSeries: 'ER16',
-  colletProtrusion: 2.5,
+  gaugeLength: 80,
 }
 
-const profile: HolderProfile = {
+/** `[z, r]`, z from the gage line toward the nose. */
+const profile: MeasuredProfile = {
   points: [
     [-30, 8],
     [0, 23],
@@ -62,115 +55,162 @@ const profile: HolderProfile = {
     [60, 13.5],
   ],
   datum: 'gage-line',
-  colletSeries: 'ER16',
-  colletProtrusion: 2.5,
 }
 
-const collet: Collet = {
-  series: 'ER16',
-  clampMin: 5.5,
-  clampMax: 6,
-  clampLength: 27.5,
-}
+const collet: Collet = { series: 'ER16', clampMin: 5.5, clampMax: 6, clampLength: 27.5 }
 
-describe('the holder union', () => {
-  it('tells a measured silhouette from a published holder', () => {
-    // On the presence of `points` rather than a `kind` tag: a tag would have to
-    // be added to the parametric side as well, and every existing adapter would
-    // stop compiling to gain nothing this does not already give.
-    expect(isHolderProfile(profile)).toBe(true)
-    expect(isHolderProfile(holder)).toBe(false)
+describe('a published holder', () => {
+  it('is cylinders nose first, the last diameter carried up to the flange', () => {
+    // Nose 12, body 20, the body's ⌀42 carried to the flange face at 60, then
+    // the flange to the gauge line at 80.
+    expect(parametricHolder(published).layers).toEqual([
+      { thickness: 12, bottomDiameter: 27, topDiameter: 27 },
+      { thickness: 20, bottomDiameter: 42, topDiameter: 42 },
+      { thickness: 28, bottomDiameter: 42, topDiameter: 42 },
+      { thickness: 20, bottomDiameter: 46, topDiameter: 46 },
+    ])
+    expect(parametricHolder(published).gaugeLength).toBe(80)
   })
 
-  it('narrows to the silhouette, so a caller reads points without a cast', () => {
-    const either: Holder | HolderProfile = profile
-    expect(isHolderProfile(either) ? either.points.length : null).toBe(4)
+  it('draws no flange whose height nobody stated', () => {
+    const holder = parametricHolder({ ...published, gaugeLength: null })
+    expect(holder.layers.map((layer) => layer.bottomDiameter)).toEqual([27, 42, 42])
+    expect(holder.gaugeLength).toBeNull()
   })
 
-  it('narrows the other way to the vendor’s own numbers', () => {
-    const either: Holder | HolderProfile = holder
-    expect(isHolderProfile(either) ? null : either.flangeDiameter).toBe(46)
+  it('carries the nose where the body is not stated in full', () => {
+    const holder = parametricHolder({ ...published, bodyLength: null })
+    expect(holder.layers[1]).toEqual({ thickness: 48, bottomDiameter: 27, topDiameter: 27 })
   })
 
-  it('keeps the series and the protrusion on both forms', () => {
-    // The two facts a stack needs whichever form it has: which collet goes in,
-    // and how far the seated one stands proud of the nose. A drawing that read
-    // them off only the parametric side would draw a pressed-in collet flush.
-    for (const either of [holder, profile]) {
-      expect(either.colletSeries).toBe('ER16')
-      expect(either.colletProtrusion).toBe(2.5)
+  it('carries no layer of no height', () => {
+    const unstated = parametricHolder({ ...published, noseLength: null, gaugeLength: null })
+    expect(unstated.layers.every((layer) => layer.thickness > 0)).toBe(true)
+    expect(unstated.layers[0]).toEqual({ thickness: 20, bottomDiameter: 42, topDiameter: 42 })
+  })
+
+  it('stands a nose of no stated length up to the flange face, else the gauge line', () => {
+    // An older dataset states the nose diameter but not its length. Dropping
+    // the nose left a stack with no shape, which cleared every feature.
+    const older = { ...published, noseLength: null, bodyDiameter: null, bodyLength: null }
+    expect(parametricHolder(older).layers).toEqual([
+      { thickness: 60, bottomDiameter: 27, topDiameter: 27 },
+      { thickness: 20, bottomDiameter: 46, topDiameter: 46 },
+    ])
+    expect(parametricHolder({ ...older, projection: null, flangeDiameter: null }).layers).toEqual([
+      { thickness: 80, bottomDiameter: 27, topDiameter: 27 },
+    ])
+  })
+
+  it('has no shape where the vendor states no nose', () => {
+    expect(parametricHolder({ ...published, noseDiameter: null }).layers).toEqual([])
+  })
+
+  it('keeps the series and the protrusion beside the shape, whichever form it came from', () => {
+    // The two facts a stack needs: which collet goes in, and how far the seated
+    // one stands proud of the nose. A drawing that read them off only one form
+    // would draw a pressed-in collet flush.
+    const facts = { colletSeries: 'ER16', colletProtrusion: 2.5, clamping: 'collet' } as const
+    for (const holder of [parametricHolder(published, facts), measuredHolder(profile, facts)]) {
+      expect(holder.colletSeries).toBe('ER16')
+      expect(holder.colletProtrusion).toBe(2.5)
+      expect(HolderSchema.safeParse(holder).success).toBe(true)
     }
+  })
+})
+
+describe('a measured holder', () => {
+  it("is stacked from the nose whole, its gauge length the nose's z", () => {
+    // Nose last in the profile, first in the stack; the taper above the spindle
+    // face is kept, as layers past the gauge length, for a drawing to shade.
+    const holder = measuredHolder(profile)
+    expect(holder.gaugeLength).toBe(60)
+    expect(holder.layers).toEqual([
+      { thickness: 12, bottomDiameter: 27, topDiameter: 42 },
+      { thickness: 48, bottomDiameter: 42, topDiameter: 46 },
+      { thickness: 30, bottomDiameter: 46, topDiameter: 16 },
+    ])
+  })
+
+  it('is cut at its spindle face by what reads it as mounted', () => {
+    expect(trimToGauge(measuredHolder(profile)).layers).toEqual([
+      { thickness: 12, bottomDiameter: 27, topDiameter: 42 },
+      { thickness: 48, bottomDiameter: 42, topDiameter: 46 },
+    ])
+    // A face between two vertices cuts the layer that crosses it at the diameter
+    // it has there: two thirds along from r = 20 to r = 24.
+    const crossing: MeasuredProfile = {
+      points: [
+        [-40, 11],
+        [-10, 20],
+        [2, 24],
+        [2, 16],
+        [30, 16],
+        [30, 8],
+        [50, 8],
+      ],
+      datum: 'gage-line',
+    }
+    const cut = trimToGauge(measuredHolder(crossing)).layers.at(-1)!
+    expect(cut.thickness).toBeCloseTo(2, 9)
+    expect(cut.topDiameter / 2).toBeCloseTo(23.333333333333332, 9)
+    // No gauge length, or a stack that ends at or below it: as it is.
+    const nosed = measuredHolder({ ...profile, datum: 'nose' })
+    expect(trimToGauge(nosed)).toBe(nosed)
+    expect(trimToGauge(parametricHolder(published)).layers).toEqual(
+      parametricHolder(published).layers,
+    )
+  })
+
+  it('is kept whole, and states no gauge length, from a nose datum', () => {
+    const holder = measuredHolder({ ...profile, datum: 'nose' })
+    expect(holder.gaugeLength).toBeNull()
+    expect(holder.layers.reduce((total, layer) => total + layer.thickness, 0)).toBe(90)
+  })
+
+  it('has no shape from a profile of fewer than two vertices', () => {
+    expect(measuredHolder({ points: [[0, 8]], datum: 'nose' }).layers).toEqual([])
   })
 })
 
 describe('an assembly', () => {
-  it('takes either holder form, or none', () => {
-    const stacks: readonly Assembly[] = [
-      { tool, holder, collet, stickout: 19 },
-      { tool, holder: profile, collet, stickout: 19 },
-      // Null is "nobody has decided", not zero: the tool stands alone and
-      // nothing is checked against a part.
-      { tool, holder: null, collet: null, stickout: null },
+  it('takes a holder, or none, and always a stickout', () => {
+    const stacks: readonly RotatingToolAssembly[] = [
+      { tool, holder: parametricHolder(published), collet, stickout: 19 },
+      { tool, holder: null, collet: null, stickout: 19 },
     ]
-
-    expect(stacks.map((stack) => stack.holder === null)).toEqual([false, false, true])
-    expect(stacks.map((stack) => isHolderProfile(stack.holder ?? holder))).toEqual([
-      false,
-      true,
-      false,
-    ])
+    for (const stack of stacks) {
+      expect(RotatingToolAssemblySchema.safeParse(stack).success).toBe(true)
+    }
+    // A stickout nobody decided is not a stack: a tool on its own is a tool.
+    expect(
+      RotatingToolAssemblySchema.safeParse({ tool, holder: null, collet: null, stickout: null })
+        .success,
+    ).toBe(false)
   })
 })
 
-describe('a catalog record is a Tool by structure', () => {
-  it('assigns a narrower geometry with no adapter', () => {
-    // A record states `Record<string, number>` — every value present. `Tool`
-    // admits `undefined` so the narrower shape satisfies it, which is what
-    // keeps the adapter a choice rather than a requirement.
-    const record: {
-      readonly guid: string
-      readonly form: string
-      readonly geometry: Readonly<Record<string, number>>
-      readonly provenance: ProvenanceMap
-    } = {
-      guid: '2f0c…',
-      form: 'drill',
-      geometry: { DC: 6.8, OAL: 91, SIG: 140 },
-      provenance: { DC: 'vendor-stated' },
-    }
-
-    const asTool: Tool = record
-    expect(asTool.geometry.DC).toBe(6.8)
-    expect(asTool.geometry.WOC).toBeUndefined()
-  })
-
-  it('carries how a tap makes its thread, where anybody has said', () => {
-    // Optional, and absent is nobody having said rather than a claim of
-    // cutting — the rule `Clamping` keeps on a holder. An end mill carries none
-    // because the question does not apply to it, and the type does not force a
-    // caller to write that down.
-    expect(tap.threadMethod).toBe('forming')
-    expect(tool.threadMethod).toBeUndefined()
-  })
-
+describe('the tool record', () => {
   it('carries provenance a shop can trace, and nothing implied', () => {
     // A key with no entry is nobody having said, not a claim of vendor-stated.
-    const stated: ProvenanceMap = tool.provenance ?? {}
-    expect(stated.LBH).toBe('derived')
-    expect(stated.OAL).toBeUndefined()
+    expect(tool.provenance?.['shaft']).toBe('derived')
+    expect(tool.provenance?.['fluteLength']).toBeUndefined()
 
     const every: readonly Provenance[] = PROVENANCE
     expect(every).toEqual(['vendor-stated', 'derived', 'assumed'])
+    expect(ToolSchema.safeParse({ ...tool, provenance: { diameter: 'guessed' } }).success).toBe(
+      false,
+    )
+  })
+
+  it('says how a tap makes its thread by its kind', () => {
+    const tap = solid({ kind: 'FormingTap', thread: { pitch: 0.635, handedness: 'right' } })
+    expect(ToolSchema.safeParse(tap).success).toBe(true)
+    expect(tap.kind).toBe('FormingTap')
   })
 })
 
 describe('the measured profile', () => {
-  it('states one version for the whole tree', () => {
-    // Two of these stood before, one imported under an alias specifically so it
-    // could be compared against the other.
-    expect(PROFILES_VERSION).toBe(1)
-  })
-
   it('is a polyline and not a function of z', () => {
     // Two vertices share a z where the solid steps. A shape that assumed one r
     // per z would round every step into a taper.
@@ -188,9 +228,6 @@ describe('the measured profile', () => {
     // one.
     const data: readonly ProfileDatum[] = ['gage-line', 'nose']
     expect(data).toContain('nose')
-
-    const straightShank: HolderProfile = { ...profile, datum: 'nose' }
-    expect(straightShank.datum).toBe('nose')
   })
 })
 
@@ -218,8 +255,8 @@ describe('a collet', () => {
     // REGO-FIX's powRgrip line publishes none, and the absence is load bearing:
     // without it there is no honest maximum stickout, so the answer has to be
     // "nobody has said".
-    const powRgrip: Collet = { ...collet, series: 'PG10', clampLength: null }
-    expect(powRgrip.clampLength).toBeNull()
+    const { clampLength: _grip, ...powRgrip } = { ...collet, series: 'PG10' }
+    expect(ColletSchema.safeParse(powRgrip).success).toBe(true)
     expect(collet.clampLength).toBe(27.5)
   })
 })

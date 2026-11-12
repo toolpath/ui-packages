@@ -9,7 +9,7 @@ import {
   laneRoom,
   type LaneRoom,
 } from '../model/dimensions.js'
-import type { ViewerAssembly } from '../model/types.js'
+import { staged, type Drawable } from '../model/types.js'
 import { SHEETS, sectionFill, type Theme } from './sheet.js'
 import { joins, sectionPoints, silhouettePath } from './silhouette.js'
 import { DimensionLines } from './dimension-lines.js'
@@ -32,14 +32,15 @@ import { DrawingProvider } from './drawing-context.js'
  * for a consumer that wants to say so; the drawing itself does not caption it.
  */
 export interface ToolDrawingProps {
-  readonly assembly: ViewerAssembly
+  /** A tool drawn alone, or a tool set up in its holder at its stickout. */
+  readonly assembly: Drawable
   /**
    * The sheet to draw on. A package cannot reach the application's theme hook,
    * so the application passes its own; dark is the default because the sheet
    * that needed stating was the dark one.
    */
   readonly theme?: Theme
-  /** The name over the drawing. Falls back to the tool's own label. */
+  /** The name over the drawing. Falls back to the tool's own name. */
   readonly caption?: string
   /**
    * Draw the dimensions: every stated length and width, on the tool.
@@ -216,30 +217,26 @@ export const ToolDrawing = ({
     }
   }, [])
 
-  const { tool } = assembly
-  const name = caption ?? tool.label ?? tool.form
+  const { tool } = staged(assembly)
+  const name = caption ?? tool.name
   const outline = assemblyOutline(assembly)
 
   /**
-   * **An undrawable form is said in words, not drawn plausibly.**
+   * **An undrawable tool is said in words, not drawn plausibly.**
    *
    * The whole of the honesty rule is that a shape nobody stated is not
    * invented, and a silent cylinder is how an invented shape ships: it
-   * renders, it looks right, and it is wrong. So the two ways a drawing can
-   * fail are told apart and both name what was being drawn — a reader who is
-   * shown nothing is owed the reason.
+   * renders, it looks right, and it is wrong. A reader who is shown nothing is
+   * owed the reason.
    */
   if (outline === null) {
-    const missing = tool.geometry.DC === undefined || tool.geometry.LCF === undefined
     return (
       <p
-        data-undrawable={tool.form}
+        data-undrawable={tool.kind}
         className={className}
         style={{ background: sheet.ground, color: sheet.dimension, padding: '1rem', margin: 0 }}
       >
-        {missing
-          ? `${name} states no cutting diameter or flute length, so there is nothing to draw.`
-          : `${name} is a ${tool.form}, and this drawing has no shape for that form — so it is not drawn, rather than drawn wrong.`}
+        {`${name}'s point angle describes no cone, so it is not drawn, rather than drawn wrong.`}
       </p>
     )
   }

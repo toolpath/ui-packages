@@ -21,7 +21,7 @@
 
 export { mastercamLibrary, type LibraryRequest } from './library.js'
 
-export { mastercamHolder, type CatalogHolder, type HolderResult } from './holder.js'
+export { mastercamHolder, type HolderResult } from './holder.js'
 
 export {
   mastercamTool,

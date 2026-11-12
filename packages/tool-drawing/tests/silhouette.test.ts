@@ -3,6 +3,7 @@ import { assemblyOutline } from '../src/geometry/index.js'
 import { isConnection, sectionFill, SHEETS } from '../src/render/sheet.js'
 import { joins, sectionPoints, silhouettePath } from '../src/render/silhouette.js'
 import type { OutlineSegment } from '../src/geometry/index.js'
+import { cylinder, tool } from './fixtures.js'
 
 /** A frame that does nothing, so a path can be read as the millimetres it came from. */
 const identity = { toX: (r: number) => r, toY: (_r: number, z: number) => z }
@@ -40,21 +41,7 @@ describe('the silhouette, in one stroke', () => {
  */
 describe('the joins between sections', () => {
   it('calls a same-radius meeting a chord and a stepped one an edge', () => {
-    const necked = assemblyOutline({
-      tool: {
-        form: 'flat end mill',
-        geometry: {
-          DC: 6,
-          LCF: 13,
-          OAL: 57,
-          SFDM: 10,
-          'shoulder-diameter': 5.6,
-          'shoulder-length': 32,
-        },
-      },
-      holder: null,
-      stickout: null,
-    })!
+    const necked = assemblyOutline(tool({ shaft: [cylinder(5.6, 19), cylinder(10, 25)] }))!
 
     const found = joins(necked.segments)
     expect(found.map((each) => [each.part, each.stepped])).toEqual([
@@ -96,14 +83,14 @@ describe('the joins between sections', () => {
    * the edge at the top of the disc went missing.
    */
   it('finds the edge at the top of a slot mill’s disc', () => {
-    const keyseat = assemblyOutline({
-      tool: {
-        form: 'slot mill',
-        geometry: { DC: 6, LCF: 1.6, SFDM: 6, OAL: 38, RE: 0.5 },
-      },
-      holder: null,
-      stickout: null,
-    })!
+    const keyseat = assemblyOutline(
+      tool({
+        kind: 'KeyseatCutter',
+        fluteLength: 1.6,
+        shaft: [cylinder(6, 36.4)],
+        cornerRadius: 0.5,
+      }),
+    )!
 
     expect(keyseat.segments.map((each) => each.part)).toEqual(['tip', 'flutes', 'flutes', 'shank'])
     const found = joins(keyseat.segments)

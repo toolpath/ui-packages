@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/tool-support",
-  "version": "0.6.1",
+  "version": "1.0.0",
   "description": "The cutting-tool domain: what a tool, holder, collet and assembly are",
   "license": "MIT",
   "engines": {
@@ -43,6 +43,11 @@
       "import": "./dist/export/mastercam/index.js",
       "default": "./dist/export/mastercam/index.js"
     },
+    "./import/fusion": {
+      "types": "./dist/import/fusion/index.d.ts",
+      "import": "./dist/import/fusion/index.js",
+      "default": "./dist/import/fusion/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -60,6 +65,9 @@
     "schema:mastercam:adopt": "node scripts/adopt-mastercam-schema.mjs",
     "lint": "eslint . --max-warnings=0",
     "test:ci": "pnpm run test"
+  },
+  "dependencies": {
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@toolpath/dev-config": "workspace:^",

@@ -1,5 +1,153 @@
 # @toolpath/tool-support
 
+## 1.0.0
+
+### Major Changes
+
+- 652f050: 1.0.0 replaces the ISO-coded tool model with the shared tool record, stated as Zod schemas. A
+  breaking release; to migrate from 0.6:
+
+  - **The record.** `Tool` is now a solid tool with named fields (`kind`, `diameter`, `fluteLength`,
+    `shaft`, `cornerRadius`, `tipAngleDeg`, `thread`, …) instead of `form` and an ISO `geometry` map; `InsertTool` is a face mill's body and inserts, and
+    `CuttingTool` either. `Holder` is a cone stack (`layers`, nose first) and `gaugeLength`, with the
+    holding facts (`clamping`, `colletSeries`, `boreDiameter`, `taper`, `colletProtrusion`) optional
+    on it; `Collet` gains `squareSize`, and `clampLength` is absent rather than `null` where
+    unpublished. `RotatingToolAssembly` replaces `Assembly`, and its `stickout` is required.
+    `ToolLibrary` is a catalog's tools, holders and collets, and optionally its `extensions`. An
+    `Extension` is a modular extension a cutting head screws onto (`systemSize`, `shankForm`,
+    `layers`), and an assembly's optional `extension` and
+    `extensionProtrusion` (its head face to the holder face) state one. Every type has its schema beside it
+    (`ToolSchema`, `HolderSchema`, …). An insert tool's `body.diameter` is its nominal diameter;
+    `cuttingDiameter` gives the diameter it cuts at.
+  - **Catalog fields.** Catalog fields (`guid`, `vendor`, `productId`, `productLink`, `description`,
+    `unitSystem`), a tool's `hand`, `coolantThrough`, `substrate` and `shankClampMin` (ISO `LSCN`),
+    and `provenance` keyed by field name live on the record, so `CatalogTool`, `CatalogHolder` and
+    `StickoutTool` are gone: the record is the catalog tool.
+  - **Kinds.** `TOOL_KINDS` replaces `TOOL_FORMS`, `ToolForm`, `MILLING_FORMS`, `TAP_FORMS`,
+    `isToolForm` and `isTapForm`: the kernel's head kinds (`KERNEL_TOOL_KINDS`, `isKernelKind`) and
+    ten it does not plan with. `SpotDrill` is a kernel kind (the kernel's `DrillBit` with
+    `is_spot_drill`, read from `KernelToolSummary.isSpotDrill`, which tp-kernel's summary does not
+    carry yet). A tap is `CuttingTap` or `FormingTap`, its
+    hand `thread.handedness`. `DRILLING_FORMS` is `DRILLING_KINDS`. `isTapKind` and `isInsertKind`
+    classify a kind. Every enum is closed.
+  - **Clamping.** `CLAMPINGS` is `bore`, `collet`, `shrink-fit`, `hydraulic`, `side-lock` and
+    `milling-chuck`: `shrink` is renamed `shrink-fit`. `holderTakesTool` holds a side lock or milling
+    chuck to its bore like the others, refuses a shank form (`shankForm`) its clamping does not grip
+    (a side lock a Weldon flat or Whistle Notch, a milling or hydraulic chuck plain or Weldon, a
+    shrink fit plain), and takes a shank through a `sleeve` collet in a bore clamping bored to the
+    sleeve's `outerDiameter`, by the sleeve's form rule: any form but a Whistle Notch. With an
+    `extension`, `holderTakesTool` and `canHold` hold a head by its extension's shank
+    (`clampedShank`). `maxStickout`, `stickoutLimits` and `defaultStickout` take a bore holder in the
+    collet's place and read its `clampLength`; `StickoutLimit`'s `collet` is renamed `grip`, and
+    `NOT_MODELLED`'s `bore holder grip` is `bore holder grip without a stated clamp length`. A holder
+    stating no `clamping` takes no tool and lists no bore. A collet whose `kind` is `tap` takes only
+    a tap, as one stating `squareSize` does.
+  - **Holders.** `parametricHolder` builds a holder's stack from a vendor's table — nose, body, the
+    last diameter carried to the flange face, and the flange up to the gauge line where that is stated
+    — and `measuredHolder` from a measured `[z, r]` profile, kept whole: its taper above the spindle
+    face stays as layers past `gaugeLength`, and `trimToGauge` cuts a stack at its gauge line for what
+    reads the holder as mounted. A nose with no stated length and no body stands up to the flange
+    face, else the gauge line, so an older dataset still sweeps its nose. Neither builder emits a
+    layer of no height. `HolderProfile`,
+    `isHolderProfile`, `PROFILES_VERSION` and `belowGageLine` are gone.
+  - **New optional fields.** Optional fields carry what a CAM library states and nothing derives: a
+    tool's `taperAngleDeg` (Fusion `TA`: a dovetail's lean, a tapered mill's taper, a centre drill's
+    countersink) and `tipLength` (`tip-length`), and an insert's `upperRadius` (`upper-radius`). A
+    tool's `materialGroups` (`ISO_MATERIAL_GROUPS`), `shankForm` (`SHANK_FORMS`) and `drillDepth`;
+    `thread.teeth`, `thread.pitchMin`, `thread.tip` and `thread.partialThreads`; an insert's
+    `canSideMill`; a holder's `clampLength`, `boreDepth`, `faceContact` and `coolantThrough`; a
+    collet's `kind` (`COLLET_KINDS`) and `outerDiameter`; and `productLine` and `orderNumber` in the
+    catalog fields.
+  - **One stack per body.** A tool states what stands above its flutes as `shaft`, a cone stack tip
+    end first (as a holder's and an extension's `layers` are), on a solid and an insert tool alike.
+    Its two readings carry the only provenance keys that are not fields: `shank` (the top layer's top
+    diameter, what a holder clamps) and `overallLength` (the flutes and the stack's height), `assumed`
+    where the stack carries a reader's guess there. The scalars that described the same geometry are removed, each read
+    off the stack instead (`stack.ts`):
+    - `overallLength` and `body.overallLength`: `overallLengthOf(tool)`, or `statedOverallLength(tool)`,
+      null where `provenance.overallLength` is `assumed`.
+    - `shankDiameter` and `body.arborDiameter`: `shankOf(tool)`, the top layer's top diameter
+      (`shankOf` no longer answers `'reduced'`/`'full'`, and `Shank` is gone), or `statedShank(tool)`,
+      null where `provenance.shank` is `assumed`. Holding, clamping, stickout and the exporters read
+      the stated ones.
+    - `neck` and `sizedNeck`: `neckOf(tool)` (narrower than the shank, clamping's) or
+      `reachNeckOf(tool)` (narrower than the cut, the kernel's reach; a reduced shank's old
+      `'reduced'`); `hasNeck` is `neckOf !== undefined`. A section is now a layer of the stack.
+    - An extension's `length` and `shankDiameter`: `extensionLength` and `extensionShank`. An
+      extension with empty `layers` states no shank, and is not held.
+    - `RotatingToolAssembly.shaft`: the tool's own `shaft`; `shaftSilhouette` is gone, and
+      `clearance` sweeps `tool.shaft` cut at the stickout.
+      The shank run is the stack's topmost layers that are straight at the shank's diameter;
+      `unclampableLength` is everything below it, a neck or a wider shoulder, and `minStickout` and
+      `headLength` are the flutes plus it. A tapered top layer is no shank run, so its whole shaft is
+      unclampable. `shaftParts` labels each layer `neck` (below the run and narrower than the shank)
+      or `shank`. `stackHeight` and `sliceAt` read any stack; `EPSILON`, `sameDiameter` and
+      `narrowerThan` are the comparisons they use.
+  - **Functions.** `dimensionsOf` reads a solid or insert tool's diameter, flutes and corner alike,
+    and the stack readings, the clamping, stickout, holding, fit and clearance functions take a
+    `CuttingTool`.
+    `toolFromSummary`/`assemblyFromSummary` read a tp-kernel `ToolSummary`, `cuttingDiameter` a face
+    mill's grown diameter, and `conesToProfile`/`profileToCones` turn a stack into an outline and
+    back.
+  - **Fusion import.** `@toolpath/tool-support/import/fusion` reads a Fusion tool library
+    (`readFusionEntry`, `readFusionLibrary`) as the kernel's importer does, including the catalog
+    fields the entry states (guid, product link, unit, hand, coolant, material), a keyseat's and a
+    dovetail's corner radius, a dovetail's lean, a corner rounding mill's tip length, and a face
+    mill's `shaft` and upper radius. A tool's `shaft` is the kernel's stack above the flutes, carried
+    on to `OAL`; an `OAL` stated below `LB` reads as `LB`. A shoulder stated by its length alone is
+    shank at `SFDM` (else `DC`), and so is one whose `shoulder-diameter` is within 1 µm of it. A
+    keyseat's or dovetail's `undercutReach` is measured against the stack below the stickout, as the
+    kernel's is. A `spot drill` reads as a
+    `SpotDrill` with its `tipDiameter`, and is written back as one; a thread mill's `NT`, `TPN` and
+    tip and a tap's `partialThreadCount` are read and written back in place of the `NT: 1` and
+    `thread-tip-type: point` conventions, which fill only where the record states none. A
+    `SpotDrill` stating no `tipDiameter` is written with `tip-diameter: 0`, a point, and a note. A tap's
+    `hand` agrees with its thread's. An entry's holder reads as a `bore` of its tool's shank
+    (`clampedShank`), `clamping` and `boreDiameter` marked `derived`, so it takes that shank and no
+    other; where the tool states nothing above its flutes it states neither. An entry stating no
+    `SFDM` (or a zero one) reads with `provenance.shank` `assumed`, its stack filled at `DC`:
+    `clampedShank` answers null for it, so no holder takes it and its holder states no bore, and no
+    exporter writes its `SFDM`. One stating no positive `OAL` reads with `provenance.overallLength`
+    `assumed`, its stack ending at `LB`: no stickout is capped by it and no exporter writes its `OAL`.
+    The two are independent. `toolFromSummary` gives a kernel tool a `shaft` of its one diameter from
+    the flutes to the stickout, both readings `assumed`, since the kernel states neither a shank nor
+    an end.
+  - **Dependencies.** `zod` is now the package's one runtime dependency.
+
+  Behaviour changes to check after migrating:
+
+  - **Clearance** sweeps a holder's layers each at its widest, the first as `nose` and the rest as
+    `body`; it no longer reports a `flange`, and sweeps a flange only where the gauge length stands
+    above the flange face. With no holder only the tool is swept. An assembly's `extension` is swept
+    as `extension` from its head face to the holder face where it states `layers` and an
+    `extensionProtrusion` greater than zero and less than the stickout (`extensionSilhouette`), and
+    not otherwise. It counts toward `requiredStickout`, since it moves with the holder: the shop
+    meets it with a longer head or a longer extension. With an extension, `requiredStickout` is never
+    less than `extensionProtrusion` plus the flute length, since the head face cannot sit below the
+    flutes. The tool above its flutes is swept from its `shaft` alone, cut at the holder face, each
+    layer at its widest, labelled by `shaftParts` as the drawing labels it.
+  - **Stickout**: `stickoutRange`, `stickoutLimits`, `setupStickout`, `minStickout` and
+    `defaultStickout` always answer, since a tool always states its flute length; a tool with no
+    `unitSystem` is stepped in millimetres.
+  - **Exporters** (`./export/fusion`, `./export/mastercam`) take a `CuttingTool` and a `Holder`, map
+    kinds and named fields onto each format at one table (`CAM_TYPES`, `isoGeometry`, which derives
+    `TA`, `DCX` and the rest a type requires from what the record states), skip a record with no guid,
+    or one that is not a guid, with a note, and write in millimetres where no `unitSystem` is stated.
+    A holder is written as its stack below the gauge line, and both formats state its gauge length the
+    same way (`camGaugeLength`): the stated one, else the height of the stack written; Fusion's
+    `assemblyGaugeLength` is that plus the stickout. The `holder.gaugeLength` notes are gone. A Fusion
+    tool's `description` is the catalog's own, else its name where it has one, and is left out where
+    it has neither. The tool number comes from the request rather than the tool, a Mastercam set-up's
+    `stickout` is required, and ISO codes the record does not name no longer pass through. The Fusion
+    exporter writes the shaft as segments (`shaft.segments`); the shoulder and shank scalars are set
+    so they add nothing on re-read, so `readFusionEntry` gives back the same `shaft`, stickout and
+    holder: `shoulder-length` is the flutes and the cutting cone's rest the reader adds back, and the
+    segments run to `LB`, less a top layer of shank `SFDM` and `OAL` restate. A shaft that is not one
+    plain shank above `LB` is cut there, with a note. `shoulder-length` is always `LCF`, plus the
+    cone's rest at the `LB` written, which is stripped from the stack by height; a neck is carried in
+    the segments. ISO and Mastercam exports no longer state a shoulder stated by its length alone
+    (Mastercam's `ShoulderLength` falls back to `LCF`), nor one for a relief as wide as the shank.
+
 ## 0.6.1
 
 ### Patch Changes

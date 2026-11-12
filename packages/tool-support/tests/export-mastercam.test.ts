@@ -22,10 +22,20 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { mastercamLibrary } from '../src/export/mastercam/index.js'
 import { MC_TOOL_TYPE_COERCED } from '../src/export/mastercam/schema.js'
 import { guidText } from '../src/export/mastercam/guid.js'
-import type { CatalogTool } from '../src/export/catalog.js'
-import type { CatalogHolder } from '../src/export/mastercam/holder.js'
-import type { HolderProfile } from '../src/profile.js'
+import { CAM_TYPES, isoGeometry } from '../src/export/catalog.js'
+import { fusionHolder } from '../src/export/fusion/index.js'
+import {
+  ToolSchema,
+  measuredHolder,
+  parametricHolder,
+  type Holder,
+  type InsertTool,
+  type Tool,
+  type ToolKind,
+} from '../src/index.js'
+import { readFusionEntry } from '../src/import/fusion/index.js'
 import { MM_PER_INCH } from '../src/units.js'
+import { shaft, solid } from './tools.js'
 
 const scratch = mkdtempSync(join(tmpdir(), 'toolpath-mastercam-'))
 afterAll(() => rmSync(scratch, { recursive: true, force: true }))
@@ -43,48 +53,70 @@ const open = (bytes: Uint8Array): DatabaseSync => {
 const TOOL_GUID = '11111111-2222-4333-8444-555555555555'
 const HOLDER_GUID = '66666666-7777-4888-8999-aaaaaaaaaaaa'
 
-const endmill: CatalogTool = {
-  form: 'flat end mill',
-  label: '3/8 3FL Rough EM',
+const endmill: Tool = solid({
+  name: '3/8 3FL Rough EM',
   guid: TOOL_GUID,
-  unit: 'inches',
+  unitSystem: 'inches',
   vendor: 'Helical Solutions',
-  catalogNumber: '95506432',
+  productId: '95506432',
   substrate: 'carbide',
   coolantThrough: true,
-  number: 101,
-  geometry: {
-    DC: 9.525,
-    OAL: 88.9,
-    LCF: 34.925,
-    SFDM: 9.525,
-    NOF: 3,
-    'shoulder-length': 41.275,
-  },
-}
+  diameter: 9.525,
+  fluteLength: 34.925,
+  fluteCount: 3,
+  // A 5/16 in neck 1/4 in past the flutes, on a 3/8 in shank.
+  shaft: shaft({
+    shank: 9.525,
+    overallLength: 88.9,
+    fluteLength: 34.925,
+    neck: { diameter: 7.9375, length: 6.35 },
+  }),
+})
 
 /** A stepped holder measured from its gage line, `z` ascending toward the nose. */
-const holderProfile: HolderProfile = {
-  points: [
-    [0, 22.225],
-    [50.8, 22.225],
-    [50.8, 14],
-    [88.9, 14],
-    [88.9, 9],
-    [101.6, 9],
-  ],
-  datum: 'gage-line',
-  colletSeries: 'ER16',
-  colletProtrusion: null,
-}
+const holder: Holder = measuredHolder(
+  {
+    points: [
+      [0, 22.225],
+      [50.8, 22.225],
+      [50.8, 14],
+      [88.9, 14],
+      [88.9, 9],
+      [101.6, 9],
+    ],
+    datum: 'gage-line',
+  },
+  {
+    guid: HOLDER_GUID,
+    name: 'CAT40 ER16 4in',
+    vendor: 'Haas',
+    productId: '04-0007',
+    colletSeries: 'ER16',
+  },
+)
 
-const holder: CatalogHolder = {
-  guid: HOLDER_GUID,
-  holder: holderProfile,
-  label: 'CAT40 ER16 4in',
-  vendor: 'Haas',
-  catalogNumber: '04-0007',
-}
+/** A solid fixture as the insert tool a face mill is: its body, with the solid tool's figures. */
+const asInsert = (tool: Tool): InsertTool => ({
+  type: 'insert',
+  kind: 'FaceEndmill',
+  name: tool.name,
+  ...(tool.guid === undefined ? {} : { guid: tool.guid }),
+  body: {
+    diameter: tool.diameter,
+    fluteLength: tool.fluteLength,
+    ...(tool.fluteCount === undefined ? {} : { pockets: tool.fluteCount }),
+  },
+  ...(tool.shaft === undefined ? {} : { shaft: tool.shaft }),
+  insert: tool.cornerRadius === undefined ? {} : { cornerRadius: tool.cornerRadius },
+})
+
+/** `endmill` as another kind, under another guid. */
+const as = (kind: ToolKind, guid: string, fields: Partial<Tool> = {}): Tool => ({
+  ...endmill,
+  kind,
+  guid,
+  ...fields,
+})
 
 describe('a library Mastercam’s schema would recognise', () => {
   const { document, notes } = mastercamLibrary({
@@ -92,6 +124,7 @@ describe('a library Mastercam’s schema would recognise', () => {
     tools: [
       {
         tool: endmill,
+        number: 101,
         assemblies: [{ holderGuid: HOLDER_GUID, stickout: 42.8625 }],
         cuttingData: { spindleSpeed: 15_000, feedRate: 225, plungeRate: 25, retractRate: 50 },
       },
@@ -219,13 +252,9 @@ describe('a library Mastercam’s schema would recognise', () => {
 describe('what does not travel', () => {
   const guidFor = (seed: string): string => `${seed}-2222-4333-8444-555555555555`
 
-  it('skips a form Mastercam has no code for, and says which', () => {
+  it('skips a kind Mastercam has no code for, and says which', () => {
     const { notes } = mastercamLibrary({
-      tools: [
-        {
-          tool: { ...endmill, guid: guidFor('aaaaaaaa'), form: 'lollipop mill' },
-        },
-      ],
+      tools: [{ tool: as('LollipopMill', guidFor('aaaaaaaa')) }],
     })
     expect(notes).toEqual([
       {
@@ -243,11 +272,12 @@ describe('what does not travel', () => {
     // a flat-bottomed cutter" — which reads as nonsense and named the form
     // twice.
     for (const [form, entry] of Object.entries(MC_TOOL_TYPE_COERCED)) {
-      const { notes } = mastercamLibrary({
-        tools: [
-          { tool: { ...endmill, guid: guidFor('99999999'), form: form as CatalogTool['form'] } },
-        ],
-      })
+      const kind = (Object.keys(CAM_TYPES) as ToolKind[]).find((each) => CAM_TYPES[each] === form)
+      expect(kind, form).toBeDefined()
+      const tool = as(kind!, guidFor('99999999'))
+      // A face mill is an insert tool: its body, with the solid tool's figures.
+      const written = kind === 'FaceEndmill' ? asInsert(tool) : tool
+      const { notes } = mastercamLibrary({ tools: [{ tool: written }] })
       const coercion = notes.find((note) => note.field === 'MCToolType')
       expect(coercion, form).toBeDefined()
       const message = coercion?.message ?? ''
@@ -261,7 +291,7 @@ describe('what does not travel', () => {
 
   it('coerces a form whose silhouette a confirmed code draws', () => {
     const { document, notes } = mastercamLibrary({
-      tools: [{ tool: { ...endmill, guid: guidFor('bbbbbbbb'), form: 'slot mill' } }],
+      tools: [{ tool: as('KeyseatCutter', guidFor('bbbbbbbb')) }],
     })
     expect(notes).toHaveLength(1)
     expect(notes[0]?.kind).toBe('coerced')
@@ -270,20 +300,87 @@ describe('what does not travel', () => {
     expect(db.prepare('select MCToolType from TlToolMill').get()).toEqual({ MCToolType: 10 })
   })
 
-  it('skips a tool with no diameter rather than writing a tool with no solid', () => {
-    const { notes } = mastercamLibrary({
-      tools: [
-        {
-          tool: {
-            ...endmill,
-            guid: guidFor('cccccccc'),
-            geometry: { OAL: 88.9, NOF: 3 },
-          },
-        },
-      ],
-    })
+  it('skips a tool with no overall length rather than writing a tool with no solid', () => {
+    const { shaft: _dropped, ...open } = as('FlatEndmill', guidFor('cccccccc'))
+    const { notes } = mastercamLibrary({ tools: [{ tool: open }] })
     expect(notes[0]?.kind).toBe('skipped')
-    expect(notes[0]?.message).toContain('cutting diameter')
+    expect(notes[0]?.message).toContain('overall length')
+    // One with no diameter never reaches it: the record refuses it.
+    const { diameter: _diameter, ...narrow } = endmill
+    expect(ToolSchema.safeParse(narrow).success).toBe(false)
+  })
+
+  it('writes a Fusion tool’s stated overall length, and skips one whose end was assumed', () => {
+    const entry = (geometry: Record<string, number>) =>
+      readFusionEntry({
+        type: 'flat end mill',
+        guid: guidFor('dddddddd'),
+        unit: 'millimeters',
+        geometry: { DC: 6, LCF: 12, LB: 30, ...geometry },
+      })!.tool
+    // No SFDM: the shank is assumed, the length stated.
+    expect(isoGeometry(entry({ OAL: 60 }))).toMatchObject({ OAL: 60 })
+    expect(isoGeometry(entry({ OAL: 60 }))).not.toHaveProperty('SFDM')
+    expect(isoGeometry(entry({ SFDM: 6 }))).toMatchObject({ SFDM: 6 })
+    expect(isoGeometry(entry({ SFDM: 6 }))).not.toHaveProperty('OAL')
+    const noShank = mastercamLibrary({ tools: [{ tool: entry({ OAL: 60 }) }] })
+    expect(noShank.notes.filter((note) => note.kind === 'skipped')).toEqual([])
+    const mill = open(noShank.document).prepare('select * from TlToolMill').get() as Record<
+      string,
+      number
+    >
+    expect(mill['OverallLength']).toBeCloseTo(60 / MM_PER_INCH, 10)
+    // No OAL: the stack ends at LB, which is not the end of the tool.
+    const noEnd = mastercamLibrary({ tools: [{ tool: entry({ SFDM: 6 }) }] })
+    expect(noEnd.notes[0]?.kind).toBe('skipped')
+    expect(noEnd.notes[0]?.message).toContain('overall length')
+  })
+
+  it('skips a tool with no guid rather than minting one', () => {
+    const { guid: _dropped, ...anonymous } = endmill
+    const { notes } = mastercamLibrary({ tools: [{ tool: anonymous }] })
+    expect(notes).toHaveLength(1)
+    expect(notes[0]?.kind).toBe('skipped')
+    expect(notes[0]?.field).toBe('guid')
+  })
+
+  it('skips a tool or a holder whose guid is not one, rather than throwing', () => {
+    const { notes } = mastercamLibrary({
+      tools: [{ tool: { ...endmill, guid: 'TDMX-0600' } }],
+      holders: [{ ...holder, guid: '{not-a-guid}' }],
+    })
+    expect(notes.map((note) => [note.kind, note.field])).toEqual([
+      ['skipped', 'guid'],
+      ['skipped', 'guid'],
+    ])
+  })
+
+  it('states a holder’s gauge length as the Fusion exporter does', () => {
+    // A ⌀20 nose 10 long whose vendor states a 60 mm gauge length: the stated
+    // figure, in both formats, rather than the 10 mm of stack each draws.
+    const nose = parametricHolder(
+      {
+        noseDiameter: 20,
+        noseLength: 10,
+        bodyDiameter: null,
+        bodyLength: null,
+        projection: null,
+        flangeDiameter: null,
+        gaugeLength: 60,
+      },
+      { guid: HOLDER_GUID },
+    )
+    const db = open(mastercamLibrary({ holders: [nose] }).document)
+    const row = db.prepare('select GaugeLength g from TlAssemblyItem').get() as { g: number }
+    expect(row.g).toBeCloseTo(60 / MM_PER_INCH, 12)
+    expect(fusionHolder(nose).holder?.gaugeLength).toBe(60)
+
+    // With none stated, both state the height of the stack they wrote.
+    const unstated = { ...nose, gaugeLength: null }
+    const again = open(mastercamLibrary({ holders: [unstated] }).document)
+    const height = again.prepare('select GaugeLength g from TlAssemblyItem').get() as { g: number }
+    expect(height.g).toBeCloseTo(10 / MM_PER_INCH, 12)
+    expect(fusionHolder(unstated).holder?.gaugeLength).toBe(10)
   })
 
   it('leaves nothing behind when it skips a tool', () => {
@@ -294,12 +391,14 @@ describe('what does not travel', () => {
     const { document, notes } = mastercamLibrary({
       tools: [
         {
-          tool: {
-            ...endmill,
+          tool: solid({
+            kind: 'CornerRoundingMill',
             guid: guidFor('0e0e0e0e'),
-            form: 'radius mill',
-            geometry: { DC: 3, OAL: 63.5, LCF: 5, SFDM: 3, NOF: 3 },
-          },
+            diameter: 3,
+            fluteLength: 5,
+            shaft: shaft({ shank: 3, overallLength: 63.5, fluteLength: 5 }),
+            fluteCount: 3,
+          }),
         },
       ],
     })
@@ -314,7 +413,7 @@ describe('what does not travel', () => {
     const { document, notes } = mastercamLibrary({
       tools: [
         {
-          tool: { ...endmill, guid: guidFor('dddddddd'), form: 'drill', substrate: 'hss' },
+          tool: as('DrillBit', guidFor('dddddddd'), { substrate: 'hss' }),
         },
       ],
     })
@@ -323,19 +422,17 @@ describe('what does not travel', () => {
     expect(db.prepare('select TipAngle from TlToolDrill').get()).toEqual({ TipAngle: 118 })
   })
 
-  it('reads an inch tap’s TP as threads per inch, not as a length', () => {
-    // The hazard `geometry.ts` records: converting a reciprocal as a length
-    // gives a number that looks like a pitch and is wrong by its own square.
+  it('writes an inch tap’s pitch as the inch pitch its threads per inch make', () => {
+    // A 32 threads-per-inch tap, stated as the millimetre pitch the record
+    // always carries. Converting the reciprocal as a length would give a number
+    // that looks like a pitch and is wrong by its own square.
     const { document } = mastercamLibrary({
       tools: [
         {
-          tool: {
-            ...endmill,
-            guid: guidFor('eeeeeeee'),
-            form: 'tap right hand',
-            unit: 'inches',
-            geometry: { ...endmill.geometry, TP: 32 },
-          },
+          tool: as('CuttingTap', guidFor('eeeeeeee'), {
+            unitSystem: 'inches',
+            thread: { pitch: MM_PER_INCH / 32 },
+          }),
         },
       ],
     })
@@ -349,13 +446,10 @@ describe('what does not travel', () => {
     const { document } = mastercamLibrary({
       tools: [
         {
-          tool: {
-            ...endmill,
-            guid: guidFor('ffffffff'),
-            form: 'tap right hand',
-            unit: 'millimeters',
-            geometry: { ...endmill.geometry, TP: 0.8 },
-          },
+          tool: as('CuttingTap', guidFor('ffffffff'), {
+            unitSystem: 'millimeters',
+            thread: { pitch: 0.8 },
+          }),
         },
       ],
     })
@@ -368,7 +462,7 @@ describe('what does not travel', () => {
     const { document, notes } = mastercamLibrary({
       tools: [
         {
-          tool: { ...endmill, guid: guidFor('12345678') },
+          tool: as('FlatEndmill', guidFor('12345678')),
           assemblies: [{ holderGuid: HOLDER_GUID, stickout: 40 }],
         },
       ],
@@ -386,11 +480,7 @@ describe('rows several tools share', () => {
     const { document } = mastercamLibrary({
       holders: [holder],
       tools: Array.from({ length: 6 }, (_, at) => ({
-        tool: {
-          ...endmill,
-          guid: `0000000${at}-2222-4333-8444-555555555555`,
-          vendor: 'Helical Solutions',
-        },
+        tool: as('FlatEndmill', `0000000${at}-2222-4333-8444-555555555555`),
       })),
     })
     const db = open(document)
@@ -418,7 +508,7 @@ describe('the tool type and its radius columns agree', () => {
     21: 0, // Engrave Tool    — none
   }
 
-  const exported = (tool: CatalogTool) => {
+  const exported = (tool: Tool | InsertTool) => {
     const { document, notes } = mastercamLibrary({ tools: [{ tool }] })
     const db = open(document)
     const row = db
@@ -434,12 +524,9 @@ describe('the tool type and its radius columns agree', () => {
     // The pairing a real catalog actually hits: a corner-radius end mill whose
     // vendor called it flat. Writing type 10 beside a corner radius is a row
     // Mastercam never produces.
-    const { row, notes } = exported({
-      ...endmill,
-      guid: '0a0a0a0a-1111-4222-8333-444444444444',
-      form: 'flat end mill',
-      geometry: { ...endmill.geometry, RE: 3.175 },
-    })
+    const { row, notes } = exported(
+      as('FlatEndmill', '0a0a0a0a-1111-4222-8333-444444444444', { cornerRadius: 3.175 }),
+    )
     expect(row.t).toBe(19)
     expect(row.r).toBe(2)
     expect(row.c).toBeCloseTo(3.175 / MM_PER_INCH, 10)
@@ -449,24 +536,28 @@ describe('the tool type and its radius columns agree', () => {
   it('gives a ball nose the radius its own type promises', () => {
     // Half the diameter, by definition. A stated radius of nothing would
     // otherwise write a full radius of zero.
-    const { row } = exported({
-      ...endmill,
-      guid: '0b0b0b0b-1111-4222-8333-444444444444',
-      form: 'ball end mill',
-      geometry: { DC: 6.35, OAL: 76.2, LCF: 19.05, SFDM: 6.35, NOF: 2 },
-    })
+    const { row } = exported(
+      solid({
+        kind: 'BallEndmill',
+        guid: '0b0b0b0b-1111-4222-8333-444444444444',
+        diameter: 6.35,
+        fluteLength: 19.05,
+        shaft: shaft({ shank: 6.35, overallLength: 76.2, fluteLength: 19.05 }),
+        fluteCount: 2,
+      }),
+    )
     expect(row.t).toBe(11)
     expect(row.r).toBe(3)
     expect(row.c).toBeCloseTo(6.35 / 2 / MM_PER_INCH, 10)
   })
 
   it('drops a radius from a type that cannot hold one', () => {
-    const { row, notes } = exported({
-      ...endmill,
-      guid: '0c0c0c0c-1111-4222-8333-444444444444',
-      form: 'chamfer mill',
-      geometry: { ...endmill.geometry, SIG: 90, RE: 1 },
-    })
+    const { row, notes } = exported(
+      as('ChamferEndmill', '0c0c0c0c-1111-4222-8333-444444444444', {
+        tipAngleDeg: 90,
+        cornerRadius: 1,
+      }),
+    )
     expect(row.t).toBe(12)
     expect(row.r).toBe(0)
     expect(row.c).toBe(0)
@@ -474,30 +565,31 @@ describe('the tool type and its radius columns agree', () => {
   })
 
   it.each([
-    ['flat end mill', undefined],
-    ['flat end mill', 3.175],
-    ['ball end mill', undefined],
-    ['ball end mill', 3.175],
-    ['bull nose end mill', 0.508],
-    ['bull nose end mill', undefined],
-    ['radius mill', 1.5748],
-    ['chamfer mill', undefined],
-    ['chamfer mill', 1],
-    ['slot mill', undefined],
-    ['slot mill', 3.175],
-    ['face mill', 3.175],
-    ['tapered mill', undefined],
-  ] as const)('pairs %s with a radius of %s the way Mastercam does', (form, cornerRadius) => {
-    const { row } = exported({
-      ...endmill,
-      guid: '0d0d0d0d-1111-4222-8333-444444444444',
-      form,
-      geometry: {
-        ...endmill.geometry,
-        SIG: 90,
-        ...(cornerRadius === undefined ? {} : { RE: cornerRadius }),
-      },
+    ['FlatEndmill', undefined],
+    ['FlatEndmill', 3.175],
+    ['BallEndmill', undefined],
+    ['BallEndmill', 3.175],
+    ['RadiusEndmill', 0.508],
+    ['RadiusEndmill', undefined],
+    ['CornerRoundingMill', 1.5748],
+    ['ChamferEndmill', undefined],
+    ['ChamferEndmill', 1],
+    ['KeyseatCutter', undefined],
+    ['KeyseatCutter', 3.175],
+    ['FaceEndmill', 3.175],
+    ['TaperedEndmill', undefined],
+  ] as const)('pairs %s with a radius of %s the way Mastercam does', (kind, radius) => {
+    const tool = as(kind, '0d0d0d0d-1111-4222-8333-444444444444', {
+      tipAngleDeg: 90,
+      // A corner rounding mill's radius is the round it cuts, its diameter the
+      // cut below the round grown by it on each side.
+      ...(radius === undefined
+        ? {}
+        : kind === 'CornerRoundingMill'
+          ? { roundingRadius: radius, diameter: endmill.diameter + 2 * radius }
+          : { cornerRadius: radius }),
     })
+    const { row } = exported(kind === 'FaceEndmill' ? asInsert(tool) : tool)
     expect(PAIRS[row.t], `MCToolType ${row.t}`).toBeDefined()
     expect(row.r, `MCToolType ${row.t}`).toBe(PAIRS[row.t])
     // A radius type of none and a radius are not written together.
@@ -508,17 +600,14 @@ describe('the tool type and its radius columns agree', () => {
 
 describe('one tool set up in several holders', () => {
   const SECOND_HOLDER = '77777777-8888-4999-8aaa-bbbbbbbbbbbb'
-  const longHolder: CatalogHolder = {
-    ...holder,
-    guid: SECOND_HOLDER,
-    label: 'CAT40 ER16 6in',
-  }
+  const longHolder: Holder = { ...holder, guid: SECOND_HOLDER, name: 'CAT40 ER16 6in' }
 
   const built = mastercamLibrary({
     holders: [holder, longHolder],
     tools: [
       {
         tool: endmill,
+        number: 101,
         assemblies: [
           { holderGuid: HOLDER_GUID, stickout: 42.8625, number: 101 },
           { holderGuid: SECOND_HOLDER, stickout: 63.5, number: 107 },
@@ -574,6 +663,7 @@ describe('one tool set up in several holders', () => {
       tools: [
         {
           tool: endmill,
+          number: 101,
           assemblies: [
             { holderGuid: HOLDER_GUID, stickout: 42.8625, number: 101 },
             { holderGuid: SECOND_HOLDER, stickout: 63.5, number: 101 },
@@ -588,8 +678,16 @@ describe('one tool set up in several holders', () => {
     const { document } = mastercamLibrary({
       holders: [holder, holder],
       tools: [
-        { tool: endmill, assemblies: [{ holderGuid: HOLDER_GUID, stickout: 42.8625 }] },
-        { tool: endmill, assemblies: [{ holderGuid: HOLDER_GUID, stickout: 42.8625 }] },
+        {
+          tool: endmill,
+          number: 101,
+          assemblies: [{ holderGuid: HOLDER_GUID, stickout: 42.8625 }],
+        },
+        {
+          tool: endmill,
+          number: 101,
+          assemblies: [{ holderGuid: HOLDER_GUID, stickout: 42.8625 }],
+        },
       ],
     })
     const db = open(document)
@@ -604,6 +702,7 @@ describe('one tool set up in several holders', () => {
       tools: [
         {
           tool: endmill,
+          number: 101,
           assemblies: [
             { holderGuid: HOLDER_GUID, stickout: 30, guid: '99999999-1111-4222-8333-444444444444' },
             { holderGuid: HOLDER_GUID, stickout: 50, guid: '99999999-2222-4333-8444-555555555555' },
@@ -621,7 +720,13 @@ describe('exporting twice', () => {
   it('produces the same bytes, so a re-export updates rather than accumulates', () => {
     const request = {
       holders: [holder],
-      tools: [{ tool: endmill, assemblies: [{ holderGuid: HOLDER_GUID, stickout: 42.8625 }] }],
+      tools: [
+        {
+          tool: endmill,
+          number: 101,
+          assemblies: [{ holderGuid: HOLDER_GUID, stickout: 42.8625 }],
+        },
+      ],
     }
     const first = mastercamLibrary(request).document
     const second = mastercamLibrary(request).document

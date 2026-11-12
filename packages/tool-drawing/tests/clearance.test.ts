@@ -12,34 +12,7 @@ import {
   zigzag,
   NO_MARGINS,
 } from '../src/clearance/index.js'
-import type { ViewerAssembly } from '../src/index.js'
-
-/**
- * Proportions from the committed sample dataset — a BT30 ER16 holder and a
- * ⌀3 end mill — because it is the only dataset with toolholding in it and an
- * invented assembly has proportions no real holder has.
- */
-const assembly: ViewerAssembly = {
-  tool: {
-    form: 'flat end mill',
-    label: 'TDMX0300',
-    geometry: { DC: 3, LCF: 8, OAL: 50, RE: 0, NOF: 4, SFDM: 6, LBH: 11 },
-    provenance: { LBH: 'derived' },
-  },
-  holder: {
-    gaugeLength: 60,
-    colletSeries: 'ER16',
-    noseDiameter: 34,
-    noseLength: 8,
-    bodyDiameter: 42,
-    bodyLength: 3,
-    projection: 11.6,
-    flangeDiameter: 46,
-    colletProtrusion: 2,
-    provenance: {},
-  },
-  stickout: 25,
-}
+import { bt30 as assembly } from './fixtures.js'
 
 const curve = { horizontalOffset: [0, 2, 8, 15], verticalOffset: [12, 12, 30, 30] }
 

@@ -24,5 +24,11 @@ export type Provenance = (typeof PROVENANCE)[number]
  * A key with no entry is not a claim of `vendor-stated`: it is nobody having
  * said. Defaulting an absent provenance to the vendor's is how a derived number
  * ends up presented as published.
+ *
+ * A tool's keys are its field names, and two more, the only keys that are not
+ * fields: the two readings of its `shaft` stack. `shank` is the top layer's top
+ * diameter, the shank a holder clamps; `overallLength` is the flutes and the
+ * stack's height, the end of the tool. `assumed` on either means the stack
+ * carries a reader's guess there (`statedShank`, `statedOverallLength`).
  */
 export type ProvenanceMap = Readonly<Record<string, Provenance>>

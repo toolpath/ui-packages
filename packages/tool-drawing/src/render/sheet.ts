@@ -70,8 +70,8 @@ export const isConnection = (segment: OutlineSegment): boolean =>
  * holder's own parts stay solid, because they are behind the tool rather than
  * part of it.
  *
- * **Every line is solid**: flutes pale yellow, shank one light grey whatever
- * its provenance, the holder grey up to the spindle connection, which is
+ * **Every line is solid**: flutes pale yellow, shank, neck and a modular
+ * extension one light grey whatever their provenance, the holder grey up to the spindle connection, which is
  * darker. What was derived or assumed is on the element as `data-provenance`,
  * for a consumer that wants to say so; the drawing itself does not caption it.
  */
@@ -79,7 +79,7 @@ export const sectionFill = (segment: OutlineSegment, sheet: Sheet): string => {
   if (segment.part === 'flutes' || segment.part === 'tip') {
     return sheet.flutes
   }
-  if (segment.part === 'shank' || segment.part === 'neck') {
+  if (segment.part === 'shank' || segment.part === 'neck' || segment.part === 'extension') {
     return sheet.body
   }
   return isConnection(segment) ? sheet.connection : sheet.holder

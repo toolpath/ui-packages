@@ -1,5 +1,12 @@
 # @toolpath/quoting
 
+## 0.4.3
+
+### Patch Changes
+
+- Updated dependencies [652f050]
+  - @toolpath/tool-support@1.0.0
+
 ## 0.4.2
 
 ### Patch Changes

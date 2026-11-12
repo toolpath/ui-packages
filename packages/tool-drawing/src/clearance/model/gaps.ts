@@ -20,6 +20,7 @@ import { GAP_TOLERANCE, heightAt, wallFaceAt, type Margins, type ReachCurve } fr
 const SWEPT: ReadonlySet<OutlinePart> = new Set<OutlinePart>([
   'neck',
   'shank',
+  'extension',
   'collet',
   'nose',
   'body',

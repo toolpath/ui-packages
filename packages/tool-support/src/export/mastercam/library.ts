@@ -31,7 +31,8 @@
 import { convertLength } from '../../units.js'
 import type { ExportNote, ExportResult } from '../report.js'
 import { derivedGuid, guidBytes, guidText, EMPTY_GUID, isGuid } from './guid.js'
-import { mastercamHolder, type CatalogHolder } from './holder.js'
+import type { Holder } from '../../model.js'
+import { mastercamHolder } from './holder.js'
 import { rowSet, type RowSet } from './rows.js'
 import {
   MASTERCAM_SCHEMA_VERSION,
@@ -45,7 +46,7 @@ import { mastercamTool, type MastercamSetup, type MastercamToolRequest } from '.
 export interface LibraryRequest {
   readonly tools?: readonly MastercamToolRequest[]
   /** Holders shipped as entries in their own right, beyond any a tool names. */
-  readonly holders?: readonly CatalogHolder[]
+  readonly holders?: readonly Holder[]
 }
 
 /** A seed row with its guid columns turned into the bytes the format stores. */
@@ -100,7 +101,7 @@ export const mastercamLibrary = (request: LibraryRequest): ExportResult<Uint8Arr
   for (const holder of request.holders ?? []) {
     const result = mastercamHolder(holder, rows)
     notes.push(...result.notes)
-    if (result.written !== null) holdersWritten.add(holder.guid)
+    if (result.written !== null) holdersWritten.add(result.written.guid)
   }
 
   for (const entry of request.tools ?? []) {
@@ -109,7 +110,7 @@ export const mastercamLibrary = (request: LibraryRequest): ExportResult<Uint8Arr
     if (written.written === null) continue
 
     for (const setup of entry.assemblies ?? []) {
-      writeAssembly(entry, setup, written.written.overallLength, holdersWritten, rows, notes)
+      writeAssembly(entry, setup, written.written, holdersWritten, rows, notes)
     }
   }
 
@@ -129,16 +130,16 @@ export const mastercamLibrary = (request: LibraryRequest): ExportResult<Uint8Arr
 const writeAssembly = (
   entry: MastercamToolRequest,
   setup: MastercamSetup,
-  overallLength: number,
+  written: { readonly guid: string; readonly overallLength: number },
   holdersWritten: ReadonlySet<string>,
   rows: RowSet,
   notes: ExportNote[],
 ): void => {
   const { holderGuid, stickout } = setup
-  if (stickout === null) return
+  const { guid, overallLength } = written
   if (!holdersWritten.has(holderGuid)) {
     notes.push({
-      subject: entry.tool.guid,
+      subject: guid,
       kind: 'dropped',
       field: 'TlAssembly',
       message:
@@ -154,18 +155,18 @@ const writeAssembly = (
   // of one tool in one holder.
   const assembly =
     setup.guid === undefined
-      ? derivedGuid(entry.tool.guid, `assembly:${setup.holderGuid}`)
+      ? derivedGuid(guid, `assembly:${setup.holderGuid}`)
       : guidBytes(setup.guid)
-  const number = setup.number ?? entry.tool.number ?? 0
+  const number = setup.number ?? entry.number ?? 0
   // Keyed like the tool's own rows: a set-up stated twice is one assembly, not
   // two rows under one guid.
   const key = guidText(assembly)
   rows.addOnce('TlAssembly', key, {
     ID: assembly,
-    Name: entry.tool.label ?? entry.tool.catalogNumber ?? entry.tool.guid,
+    Name: entry.tool.name,
     Description: '',
     MainHolder: guidBytes(holderGuid),
-    MainTool: guidBytes(entry.tool.guid),
+    MainTool: guidBytes(guid),
     ToolNumber: number,
     MachineGroup: 0,
     RelationshipHierarchyXML: '',
@@ -173,8 +174,8 @@ const writeAssembly = (
     LengthOffsetNum: number,
     MaxRamp: 0,
     IsMetric: 0,
-    TlGraphicsFileCollectionID: derivedGuid(entry.tool.guid, 'assembly-graphics'),
-    TlAccessoryCollectionID: derivedGuid(entry.tool.guid, 'assembly-accessories'),
+    TlGraphicsFileCollectionID: derivedGuid(guid, 'assembly-graphics'),
+    TlAccessoryCollectionID: derivedGuid(guid, 'assembly-accessories'),
     ExternalId: '',
   })
   // The root's CScalar is how much of the tool the holder swallows; the
@@ -191,7 +192,7 @@ const writeAssembly = (
   })
   rows.addOnce('TlAssemblyComponent', `${key}#tool`, {
     TlAssemblyID: assembly,
-    TlAssemblyItemID: guidBytes(entry.tool.guid),
+    TlAssemblyItemID: guidBytes(guid),
     ParentID: guidBytes(holderGuid),
     MTransformID: EMPTY_GUID,
     UTransformID: EMPTY_GUID,

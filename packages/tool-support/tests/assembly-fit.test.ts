@@ -6,8 +6,8 @@
  * often enough to matter.
  *
  * The rule that runs through every case: what the datasheet did not state is not
- * checked and not claimed. An absent stickout, an absent reach and an absent
- * curve each mean "nobody has said", never "zero".
+ * checked and not claimed. An absent reach and an absent curve each mean "nobody
+ * has said", never "zero".
  */
 
 import { describe, expect, it } from 'vitest'
@@ -16,31 +16,32 @@ import {
   NOT_MODELLED,
   assemblyAgainst,
   type AssemblyFit,
+  parametricHolder,
   type FeatureDemand,
-  type Holder,
   type ReachCurve,
-  type SweptAssembly,
+  type RotatingToolAssembly,
 } from '../src/index.js'
+import { shaft, solid } from './tools.js'
 
-const holder: Holder = {
-  clamping: 'collet',
-  colletSeries: 'ER16',
-  colletProtrusion: 2,
-  noseDiameter: 27,
-  noseLength: 12,
-  bodyDiameter: 42,
-  bodyLength: 20,
-  projection: 60,
-  flangeDiameter: 46,
-  gaugeLength: null,
-}
+const holder = parametricHolder(
+  {
+    noseDiameter: 27,
+    noseLength: 12,
+    bodyDiameter: 42,
+    bodyLength: 20,
+    projection: 60,
+    flangeDiameter: 46,
+    gaugeLength: null,
+  },
+  { clamping: 'collet', colletSeries: 'ER16', colletProtrusion: 2 },
+)
 
-const tool = { form: 'flat end mill', geometry: { DC: 6, LCF: 13, OAL: 57, SFDM: 6 } }
+const tool = solid({ shaft: shaft({ shank: 6, overallLength: 57 }) })
 
 /** A 12 mm wall standing 2 mm out from the cut, rising to 30 mm past 8 mm out. */
 const curve: ReachCurve = { horizontalOffset: [2, 8], verticalOffset: [12, 30] }
 
-const held = (stickout: number | null): SweptAssembly => ({
+const held = (stickout: number): RotatingToolAssembly => ({
   tool,
   holder,
   collet: null,
@@ -76,12 +77,6 @@ describe('whether the stickout reaches', () => {
 
   it('passes a stack stood out far enough', () => {
     expect(assemblyAgainst(held(30), deep)).toEqual([])
-  })
-
-  it('does not check a stickout nobody set', () => {
-    // REGO-FIX's powRgrip collets publish no grip length, so those assemblies
-    // carry no stickout. Unchecked, rather than guessed and refused.
-    expect(assemblyAgainst(held(null), deep)).toEqual([])
   })
 
   it('does not check a reach the datasheet did not state', () => {
@@ -132,7 +127,7 @@ describe('what a pass is not a claim about', () => {
     expect([...NOT_MODELLED]).toEqual([
       'holder collision without a reach curve',
       'deflection',
-      'bore holder grip',
+      'bore holder grip without a stated clamp length',
       'reach without a published collet grip',
     ])
   })

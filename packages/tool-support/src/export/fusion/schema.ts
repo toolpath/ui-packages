@@ -330,7 +330,7 @@ const TYPES = {
 >
 
 /**
- * The types this package can write — `forms.ts`'s vocabulary, plus the holder.
+ * The types this package can write — every kind's (`export/catalog.ts`), plus the holder.
  *
  * A union of literals rather than `string`, so a caller naming a type this
  * package cannot write is a compile error where they wrote it.
