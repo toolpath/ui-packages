@@ -1,5 +1,36 @@
 # @toolpath/api
 
+## 0.23.1
+
+### Patch Changes
+
+- 2e57169: Regenerate the TypeScript SDK for Engine API 1.46.1.
+
+  ### Engine API 1.46.1
+
+  tp-kernel 0.35.0. On a spoilboard thicker than the fixture clearance, the first setup now separates
+  the part from the initial stock with its last pass. No field or shape changes: the description of
+  `spoilboardHeight` changes to say how.
+
+  **Plans** (`POST /v1/parts/{id}/plans`, `POST /v1/parts/{id}/toolpaths`,
+  `POST /v1/plans/{id}/toolpaths`; no change of shape):
+
+  - Experimental: on a vacuum table with a `spoilboardHeight` over the 0.254 mm fixture clearance,
+    the first setup's roughs and its finish of the outline stop their axial stock to leave above the
+    stock's bottom, a skin that holds the part to the rest of the stock. The setup's last action, a
+    second `FinishWall` of the outline, cuts through the skin into the spoilboard. The outline's
+    passes used to cut through and free the part wherever they fell in the setup. With no axial stock
+    to leave there is no skin, and that setup leaves the outline uncut, in its `unmachined`.
+  - One floor pass takes the floors of pockets and open pockets together, filleted or not, and one
+    wall pass takes a pocket and the bosses standing in it. Plans can have fewer actions, and
+    toolpaths and estimated times move.
+
+  **Tool libraries** (experimental):
+
+  - A job whose Fusion tool library was uploaded as a `.tools` zip, rather than the `tools.json`
+    inside it, fails on its first attempt with an `error` beginning `tool_library_unreadable:`. It
+    was retried, then failed with an `io` error.
+
 ## 0.23.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/api",
-  "version": "0.23.0",
+  "version": "0.23.1",
   "description": "TypeScript bindings and upload helper for the Toolpath Engine API",
   "license": "MIT",
   "engines": {
@@ -56,7 +56,7 @@
     "vitest": "4.1.10"
   },
   "toolpath": {
-    "openApiSha256": "59714c3206542aa9e874ffd1eb8d4af4fefb0479d5c17ade0e03a3a15b1686cd",
-    "openApiVersion": "1.46.0"
+    "openApiSha256": "93c1bbe36831b12d9ee49f84f94bec6e4d1449e9238f47d3c46c3953735d80ab",
+    "openApiVersion": "1.46.1"
   }
 }
