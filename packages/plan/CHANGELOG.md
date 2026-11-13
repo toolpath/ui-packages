@@ -1,5 +1,19 @@
 # @toolpath/plan
 
+## 1.1.0
+
+### Minor Changes
+
+- ab17c8f: Breaking: a group or feature dropped into a group now goes inside it, beside what it holds, instead
+  of being wrapped in a new group. A group may hold features and groups both, so the
+  `featuresAndGroups` invalid kind is removed. `newId` and `nameGroup` are removed from
+  `MoveGroupOptions`, `MoveFeatureOptions` and `AssignIntoOptions`, and `newId` from the `moveGroup`,
+  `moveFeature` and `assignInto` actions and from `assignEdit` into a group.
+- faa7db3: `resultsView` and `planDetails`' `results` add `tree` (`ResultsGroupView`): the plan nested as the
+  saved groups are, each group with the setup it is machined in (`idx`, null where Toolpath left it
+  out) and the rows that setup machines in it, then each setup no group faces. With no saved
+  constraints, `tree` is the setups.
+
 ## 1.0.0
 
 ### Major Changes

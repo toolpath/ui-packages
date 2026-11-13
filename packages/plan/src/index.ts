@@ -142,5 +142,10 @@ export {
   type TrimmedByTag,
   trimmedOrigin,
 } from './results/plan-view'
-export { type ResultsFeatureRow, type ResultsSetupView, type UnmachinedMark } from './results/view'
+export {
+  type ResultsFeatureRow,
+  type ResultsGroupView,
+  type ResultsSetupView,
+  type UnmachinedMark,
+} from './results/view'
 export * from './draft/compare'

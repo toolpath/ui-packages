@@ -295,12 +295,12 @@ const liftedToTop = (
 }
 
 /**
- * No edit leaves a group holding a single group: the group an edit leaves that way — one taken
- * out of a pair, say — gives way to the group in it, which comes up into its place. That group
- * keeps its name, its assignments and its groups. It is cut as it was: where it followed, from the
- * way its place was cut — a setup's direction, and its hold while a tilt is left in it to reach, or
- * a tilt — and where it was a tilt of its own, from that tilt; a tilt come up to the top is a setup
- * facing it, indexed only to reach the tilts inside it, as a tilt moved to the top is (FLD23).
+ * A group left holding a single group by a group taken out of it — one of a pair, say — gives way
+ * to the group in it, which comes up into its place. That group keeps its name, its assignments
+ * and its groups. It is cut as it was: where it followed, from the way its place was cut — a
+ * setup's direction, and its hold while a tilt is left in it to reach, or a tilt — and where it was
+ * a tilt of its own, from that tilt; a tilt come up to the top is a setup facing it, indexed only
+ * to reach the tilts inside it, as a tilt moved to the top is (FLD23).
  *
  * Only the group named: a draft saved holding one elsewhere is left as it is, rather than
  * restructured by an edit to something else. Its place's own count is unchanged, so nothing above
@@ -373,7 +373,7 @@ export interface AddGroupOptions {
  * A group inside another, at the end, following it in everything (FLD6) — or the draft unchanged
  * where it would sit deeper than a group may (FLD7). A group holding no groups yet is split first:
  * what it holds moves into a group of its own, named as it is, and the new group goes beside that —
- * so no group holds features and groups both, and none holds a single group.
+ * so the parent never holds a single group.
  */
 export const addGroup = (
   setups: ReadonlyArray<DraftSetup>,
@@ -507,7 +507,6 @@ export const copyDirection = ({ x, y, z }: PlanDirection): PlanDirection => ({ x
  * - `tooDeep`: a group more than `max` below its setup.
  * - `groupDirection`: a group's direction that is not three numbers.
  * - `notFeatureTags`: a group's features that are not feature tags.
- * - `featuresAndGroups`: a group holding features and groups both.
  * - `assignedTwice`: a feature assigned in more than one group.
  * - `directionTwice`: a direction that is a frame more than once.
  */
@@ -520,7 +519,6 @@ export type DraftInvalid =
   | { kind: 'tooDeep'; max: number }
   | { kind: 'groupDirection' }
   | { kind: 'notFeatureTags' }
-  | { kind: 'featuresAndGroups' }
   | { kind: 'assignedTwice' }
   | { kind: 'directionTwice' }
 
@@ -624,7 +622,7 @@ const parseGroup = (entry: unknown, depth: number, seen: Seen): DraftGroup | Inv
   if (direction !== undefined && !isDirection(direction)) {
     return invalid({ kind: 'groupDirection' })
   }
-  const own = claimFeatures(features, groups, seen)
+  const own = claimFeatures(features, seen)
   if (isInvalid(own)) {
     return own
   }
@@ -650,18 +648,15 @@ const parseGroup = (entry: unknown, depth: number, seen: Seen): DraftGroup | Inv
 const FEATURE_TAG = /^[0-9a-f]{1,16}$/
 
 /**
- * A group's assigned features, each once — or why not: not feature tags, beside groups, or
- * assigned in another group already. Marks them taken in `seen`.
+ * A group's assigned features, each once — or why not: not feature tags, or assigned in another
+ * group already. Marks them taken in `seen`.
  */
-const claimFeatures = (features: unknown, groups: unknown, seen: Seen): Array<string> | Invalid => {
+const claimFeatures = (features: unknown, seen: Seen): Array<string> | Invalid => {
   const assigned = features ?? []
   if (!isTagList(assigned)) {
     return invalid({ kind: 'notFeatureTags' })
   }
   const own = [...new Set(assigned)]
-  if (own.length > 0 && Array.isArray(groups) && groups.length > 0) {
-    return invalid({ kind: 'featuresAndGroups' })
-  }
   if (own.some((tag) => seen.tags.has(tag))) {
     return invalid({ kind: 'assignedTwice' })
   }
@@ -721,11 +716,10 @@ export interface PlannedSetup {
  * its order, named as New group names them; a setup Toolpath turned to further directions is held
  * to reach them (`indexedFor`), each a tilt group inside it — beside a group following the setup
  * where there is only the one, or where the setup's own features need a group, so none holds a
- * single group and none holds features and groups both. With `assignments`, every feature is
- * assigned into the group facing the orientation it was planned from — once, in the first that
- * lists it; a row no orientation lists goes with the setup's first direction; a feature nothing
- * machines stays open. Directions a setup made already faces are passed over, and so is anything
- * past `MAX_SETUPS`.
+ * single group. With `assignments`, every feature is assigned into the group facing the orientation
+ * it was planned from — once, in the first that lists it; a row no orientation lists goes with the
+ * setup's first direction; a feature nothing machines stays open. Directions a setup made already
+ * faces are passed over, and so is anything past `MAX_SETUPS`.
  */
 const statedFrom = (
   planned: ReadonlyArray<PlannedSetup>,
@@ -1059,49 +1053,36 @@ export interface AssignIntoOptions {
   /** The group the feature is assigned in. */
   groupId: string
   tag: string
-  /** The id for the group the assignment goes in, where the group named holds groups. */
-  newId?: string
-  nameGroup?: NameGroup
 }
 
 /**
  * Assign a feature in a group — taking it from wherever else it was assigned — or let it go if it
- * is assigned there already. The caller has checked the group faces the feature's way. A group
- * holds features or groups, never both: into one holding groups, the assignment goes in a group
- * added inside it, following it, which holds just the feature.
+ * is assigned there already. The caller has checked the group faces the feature's way.
  */
 export const assignInto = (
   setups: ReadonlyArray<DraftSetup>,
-  { groupId, tag, newId = `${groupId}:${tag}`, nameGroup = nextGroupName }: AssignIntoOptions,
+  { groupId, tag }: AssignIntoOptions,
 ): Assigned => {
   const was = assignedIn(setups, tag)
   const unassigned = was ? unassignFeature(setups, was, tag) : [...setups]
   if (was === groupId) {
     return { setups: unassigned, setupId: groupId, added: false, unassigned: true }
   }
-  const holdsGroups = (findPlaced(setups, groupId)?.group.groups.length ?? 0) > 0
-  const name = nameGroup(namesIn(setups))
   return {
-    setups: updateGroup(unassigned, groupId, (group) =>
-      holdsGroups
-        ? {
-            ...group,
-            groups: [...group.groups, { id: newId, name, features: [tag], groups: [] }],
-          }
-        : { ...group, features: [...group.features, tag] },
-    ),
-    setupId: holdsGroups ? newId : groupId,
+    setups: updateGroup(unassigned, groupId, (group) => ({
+      ...group,
+      features: [...group.features, tag],
+    })),
+    setupId: groupId,
     added: false,
     unassigned: false,
   }
 }
 
 /**
- * The group an assignment from this direction goes in: the frame facing that way — a setup or an
- * orientation — or, where that holds groups, the first group in it cut from its way that
- * holds none (a group holds features or groups, never both). Where the frame holds groups and
- * none of them is cut from its way, the frame: `assignInto` adds a group in it for the assignment.
- * Null where no frame faces it and assigning adds a setup.
+ * The group an assignment from this direction goes in: the first group cut from it that holds no
+ * groups — the frame facing that way, a setup or an orientation, or a group in it — else the frame
+ * itself. Null where no frame faces it and assigning adds a setup.
  */
 export const assignTargetOf = (
   setups: ReadonlyArray<DraftSetup>,
@@ -1125,7 +1106,7 @@ export interface AssignFromOptions {
   /** The direction the feature is machined from. */
   direction: PlanDirection
   tag: string
-  /** The id for the setup added, or the group `assignInto` adds. */
+  /** The id for the setup added, where no group faces the direction. */
   newId: string
   nameGroup?: NameGroup
 }
@@ -1133,7 +1114,7 @@ export interface AssignFromOptions {
 /**
  * Machine a feature from this direction: assign it in the group facing that way — a setup or an
  * orientation — or let it go if it is assigned there already. With no group facing that way,
- * a setup is added for it, last; `newId` is that setup's, or the group's `assignInto` adds.
+ * a setup is added for it, last, with the id `newId`.
  * Toolpath may refuse an assignment — a profile outside the first setup, for now — and says so once
  * Toolpath plans again.
  */
@@ -1148,7 +1129,7 @@ export const assignFrom = (
     const inFrame =
       was !== null && placedGroups(setups).some((p) => p.group.id === was && p.frameId === frame.id)
     const target = inFrame ? was : assignTargetOf(setups, direction)!
-    return assignInto(setups, { groupId: target, tag, newId, nameGroup })
+    return assignInto(setups, { groupId: target, tag })
   }
   const next = addSetup(setups, direction, newId, nameGroup)
   if (next.length === setups.length) {
@@ -1359,9 +1340,6 @@ export interface MoveGroupOptions {
   id: string
   /** Where it lands. */
   to: Landing
-  /** The id for a parent made to hold both, where it is dropped on a group holding work. */
-  newId?: string
-  nameGroup?: NameGroup
 }
 
 /**
@@ -1369,6 +1347,7 @@ export interface MoveGroupOptions {
  * - Reordered where it is, nothing about it changes.
  * - To the top, an orientation becomes a setup facing its tilt — indexed, if it holds tilts of
  *   its own. A group that follows can't: its direction is a setup already.
+ * - Into a group, it goes in beside what that group holds, which stays as it is.
  * - Into a group cut from the same way, it follows it, dropping a setup's hold or its own tilt.
  * - Into a group cut from another way, it becomes an orientation keeping its direction, and the
  *   setup it lands in is indexed to turn the part to it: 3+1, or 3+2 where one axis won't reach.
@@ -1376,28 +1355,22 @@ export interface MoveGroupOptions {
  */
 export const moveGroup = (
   setups: ReadonlyArray<DraftSetup>,
-  { id, to, newId = `${id}:parent`, nameGroup = nextGroupName }: MoveGroupOptions,
+  { id, to }: MoveGroupOptions,
 ): Edited => {
   // The group it leaves, if that is left holding one group, gives way to it — once this one has
   // landed, so the place it lands is still where it was aimed.
   const left = findPlaced(setups, id)?.parent?.id ?? null
-  const moved = placeGroup(setups, id, to, newId, nameGroup)
+  const moved = placeGroup(setups, id, to)
   return Array.isArray(moved) && left ? liftLoneGroup(moved, left) : moved
 }
 
 /** A group moved where it lands, the group it leaves as it was (`moveGroup`), or why not. */
-const placeGroup = (
-  setups: ReadonlyArray<DraftSetup>,
-  id: string,
-  to: Landing,
-  newId: string,
-  nameGroup: NameGroup,
-): Edited => {
+const placeGroup = (setups: ReadonlyArray<DraftSetup>, id: string, to: Landing): Edited => {
   const moved = findPlaced(setups, id)
   if (!moved) {
     return { refused: GONE }
   }
-  const move: GroupMove = { setups, moved, to, newId, nameGroup }
+  const move: GroupMove = { setups, moved, to }
   if (to.parentId === parentIdOf(moved)) {
     // FLD22: a reorder changes nothing about the group or where it is.
     return withLanded(move, moved.group)
@@ -1412,17 +1385,11 @@ const placeGroup = (
   return placeInside(move, target)
 }
 
-/**
- * A group on its way: the draft, the group where it sits, where it lands, and the id for a
- * parent.
- */
+/** A group on its way: the draft, the group where it sits, and where it lands. */
 interface GroupMove {
   setups: ReadonlyArray<DraftSetup>
   moved: PlacedGroup
   to: Landing
-  /** The id for a parent made to hold both, where it is dropped on a group holding work. */
-  newId: string
-  nameGroup: NameGroup
 }
 
 /** The id of the group a group sits in, or null for a setup. */
@@ -1482,9 +1449,8 @@ const indexedForTiltsIn = (setups: Array<DraftSetup>, setupId: string): Array<Dr
 }
 
 /**
- * A group moved inside another, never into itself or deeper than six. Onto one holding no groups,
- * both are kept side by side (`wrapBoth`). Into a group cut from the same way, it follows it
- * (FLD25); from another way, it is a tilt (`placeAsTilt`).
+ * A group moved inside another, never into itself or deeper than six. Into a group cut from the
+ * same way, it follows it (FLD25); from another way, it is a tilt (`placeAsTilt`).
  */
 const placeInside = (move: GroupMove, target: PlacedGroup): Edited => {
   const { moved } = move
@@ -1493,11 +1459,6 @@ const placeInside = (move: GroupMove, target: PlacedGroup): Edited => {
   }
   if (target.depth + heightOf(moved.group) > MAX_DEPTH) {
     return { refused: TOO_DEEP }
-  }
-  // Into a group holding no groups — work, or nothing yet, which would then hold just this one —
-  // both are kept, side by side in a parent made for them.
-  if (target.group.groups.length === 0) {
-    return wrapBoth(move, target)
   }
   if (sameDirection(moved.direction, target.direction)) {
     return withLanded(move, following(moved.group))
@@ -1535,80 +1496,6 @@ const indexedToReach = (setups: Array<DraftSetup>, setupId: string): Array<Draft
   )
 }
 
-/**
- * A group dropped on one holding work: both are kept, side by side in a new parent that takes the
- * target's place — no group holds features and groups both. Cut from the same way, the parent
- * groups them; from another, the dropped one is a tilt, and the setup is indexed to reach it: 3+1,
- * or 3+2 where one axis won't (an explicit 3+2 stays). A parent at the top is the setup.
- */
-const wrapBoth = (move: GroupMove, target: PlacedGroup): Edited => {
-  const { setups, moved, newId } = move
-  if (tooDeepWrapped(moved, target)) {
-    return { refused: TOO_DEEP }
-  }
-  const base = takenOut(setups, moved)
-  const sameWay = sameDirection(moved.direction, target.direction)
-  const taken = sameWay ? undefined : frameFacing(base, moved.direction)
-  if (taken) {
-    return alreadyCut(taken)
-  }
-  const placed = inPlaceOf(base, target, parentOfBoth(move, target))
-  if (sameWay) {
-    return placed
-  }
-  return indexedToReach(placed, target.depth === 0 ? newId : target.setup.id)
-}
-
-/**
- * Whether a parent added above the target leaves anything in either deeper than a group may sit.
- */
-const tooDeepWrapped = (moved: PlacedGroup, target: PlacedGroup): boolean =>
-  target.depth + 1 + heightOf(moved.group) > MAX_DEPTH ||
-  target.depth + 1 + heightOf(target.group) - 1 > MAX_DEPTH
-
-/**
- * The parent made to hold the target and the dropped group, named past every group there is, the
- * one being moved included. A tilt wrapped keeps its tilt on the parent: the parent now faces it.
- */
-const parentOfBoth = (
-  { setups, moved, newId, nameGroup }: GroupMove,
-  target: PlacedGroup,
-): DraftGroup => ({
-  id: newId,
-  name: nameGroup(namesIn(setups)),
-  features: [],
-  groups: [following(target.group), besideTarget(moved, target)],
-  ...(target.orientation ? { direction: target.direction } : {}),
-})
-
-/**
- * The dropped group beside the target: following it, or a tilt where it is cut from another way.
- */
-const besideTarget = (moved: PlacedGroup, target: PlacedGroup): DraftGroup =>
-  sameDirection(moved.direction, target.direction)
-    ? following(moved.group)
-    : { ...following(moved.group), direction: moved.direction }
-
-/** The draft with `parent` in the target's place; at the top, a setup as the target was held. */
-const inPlaceOf = (
-  setups: Array<DraftSetup>,
-  target: PlacedGroup,
-  parent: DraftGroup,
-): Array<DraftSetup> => {
-  if (target.depth !== 0) {
-    return replaceChild(setups, target.parent!.id, target.group.id, parent)
-  }
-  return setups.map((each) =>
-    each.id === target.group.id
-      ? {
-          ...parent,
-          direction: target.setup.direction,
-          ...(target.setup.process ? { process: target.setup.process } : {}),
-        }
-      : each,
-  )
-}
-
 /** What `moveFeature` moves: a feature's row, and the group it is dropped on. */
 export interface MoveFeatureOptions {
   tag: string
@@ -1616,21 +1503,17 @@ export interface MoveFeatureOptions {
   direction: PlanDirection
   /** The group the row is dropped on. */
   groupId: string
-  /** The id for a group made to hold the row, where it is dropped on a parent. */
-  newId?: string
-  nameGroup?: NameGroup
 }
 
 /**
  * Move a feature's row into a group — assigning it there, taking it from wherever else it was
  * assigned — where the group is cut from the feature's own direction; or say why not. Onto a
- * parent, it goes to the first group in it cut from that direction that holds no groups; with
- * none, onto a parent cut from that direction itself, into a group added in it, as `assignInto`
- * adds.
+ * group cut from another way that holds groups, it goes to the first group in it cut from the
+ * feature's direction that holds none.
  */
 export const moveFeature = (
   setups: ReadonlyArray<DraftSetup>,
-  { tag, direction, groupId, newId, nameGroup = nextGroupName }: MoveFeatureOptions,
+  { tag, direction, groupId }: MoveFeatureOptions,
 ): Edited => {
   const dropped = findPlaced(setups, groupId)
   if (!dropped) {
@@ -1646,29 +1529,27 @@ export const moveFeature = (
   if (target.group.features.includes(tag)) {
     return [...setups]
   }
-  const result = assignInto(setups, { groupId: target.group.id, tag, newId, nameGroup })
+  const result = assignInto(setups, { groupId: target.group.id, tag })
   return 'setups' in result ? result.setups : { refused: result.refused }
 }
 
 /**
- * Where a row dropped on a group goes: that group, where it holds no groups; else the first
- * group in it cut from the feature's direction that holds none; else, cut from that direction
- * itself, the group dropped on.
+ * Where a row dropped on a group goes: that group, where it is cut from the feature's direction
+ * or holds no groups; else the first group in it cut from that direction that holds none.
  */
 const rowTarget = (
   setups: ReadonlyArray<DraftSetup>,
   dropped: PlacedGroup,
   featureDirection: PlanDirection,
 ): PlacedGroup | undefined => {
-  if (dropped.group.groups.length === 0) {
+  if (dropped.group.groups.length === 0 || sameDirection(dropped.direction, featureDirection)) {
     return dropped
   }
   const inside = new Set(idsIn(dropped.group))
-  const leaf = placedGroups(setups).find(
+  return placedGroups(setups).find(
     (each) =>
       inside.has(each.group.id) &&
       each.group.groups.length === 0 &&
       sameDirection(each.direction, featureDirection),
   )
-  return leaf ?? (sameDirection(dropped.direction, featureDirection) ? dropped : undefined)
 }

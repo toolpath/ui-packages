@@ -166,13 +166,10 @@ describe('parseDraftSetups', () => {
     })
   })
 
-  it('refuses a group holding features and groups both', () => {
+  it('reads a group holding features and groups both', () => {
     const child = { id: 'c', name: 'Work', features: ['2a'], groups: [] }
-    expect(parseDraftSetups([{ ...valid, groups: [child] }])).toEqual({
-      invalid: { kind: 'featuresAndGroups' },
-    })
-    expect(parseDraftSetups([{ ...valid, features: [], groups: [child] }])).toMatchObject([
-      { features: [], groups: [{ id: 'c', features: ['2a'] }] },
+    expect(parseDraftSetups([{ ...valid, groups: [child] }])).toEqual([
+      { ...valid, features: ['1f'], groups: [child] },
     ])
   })
 
@@ -418,7 +415,7 @@ describe('moving groups', () => {
   })
 })
 
-describe('no group holds features and groups both', () => {
+describe('dropping into a group', () => {
   const two: Array<DraftSetup> = [
     { id: 'top', name: 'Top', direction: up, features: ['a'], groups: [] },
     { id: 'side', name: 'Side', direction: side, features: ['s'], groups: [] },
@@ -430,25 +427,21 @@ describe('no group holds features and groups both', () => {
     return result
   }
 
-  it('keeps both groups when one is dropped on another, under a new multi-axis parent', () => {
-    const next = edited(
-      moveGroup(two, { id: 'side', to: { parentId: 'top', index: 0 }, newId: 'p' }),
-    )
+  it('makes a group from another way a tilt inside it, and indexes its setup (FLD26)', () => {
+    const next = edited(moveGroup(two, { id: 'side', to: { parentId: 'top', index: 0 } }))
     expect(next.map((s) => [s.id, s.name, s.direction, s.process, s.features])).toEqual([
-      ['p', 'Group 1', up, '3+1', []],
+      ['top', 'Top', up, '3+1', ['a']],
     ])
-    expect(next[0]!.groups.map((f) => [f.id, f.direction, f.features])).toEqual([
-      ['top', undefined, ['a']],
-      ['side', side, ['s']],
+    expect(next[0]!.groups).toEqual([
+      { id: 'side', name: 'Side', direction: side, features: ['s'], groups: [] },
     ])
-    // Toolpath is told the same two directions, each with its assignments.
     expect(framesOf(next).map((f) => [f.direction, f.features])).toEqual([
       [up, ['a']],
       [side, ['s']],
     ])
   })
 
-  it('groups two groups cut from the same way under a parent that is not indexed', () => {
+  it('puts a group from the same way inside it, leaving its id, name and features', () => {
     const tree: Array<DraftSetup> = [
       {
         id: 'top',
@@ -458,12 +451,19 @@ describe('no group holds features and groups both', () => {
         groups: [
           { id: 'x', name: 'X', features: ['a'], groups: [] },
           { id: 'y', name: 'Y', features: ['b'], groups: [] },
+          { id: 'z', name: 'Z', features: [], groups: [] },
         ],
       },
     ]
-    const next = edited(moveGroup(tree, { id: 'y', to: { parentId: 'x', index: 0 }, newId: 'p' }))
+    const next = edited(moveGroup(tree, { id: 'y', to: { parentId: 'x', index: 0 } }))
     expect(next[0]!.process).toBeUndefined()
-    expect(findPlaced(next, 'p')?.group.groups.map((f) => f.id)).toEqual(['x', 'y'])
+    expect(next[0]!.groups.map((f) => f.id)).toEqual(['x', 'z'])
+    expect(findPlaced(next, 'x')?.group).toEqual({
+      id: 'x',
+      name: 'X',
+      features: ['a'],
+      groups: [{ id: 'y', name: 'Y', features: ['b'], groups: [] }],
+    })
   })
 
   it('splits a group holding work when a group is added to it', () => {
@@ -475,15 +475,20 @@ describe('no group holds features and groups both', () => {
     ])
   })
 
-  it('assigns, and drops rows, into the first group cut from the direction that holds none', () => {
+  it('assigns from a direction into the first group cut from it that holds none', () => {
     const split = addGroup(two, { parentId: 'top', id: 'new', workId: 'work' })
     const assigned = assignFrom(split, { direction: up, tag: 'b', newId: 'id' })
     expect('setups' in assigned && findPlaced(assigned.setups, 'work')?.group.features).toEqual([
       'a',
       'b',
     ])
+  })
+
+  it('drops a row on a group holding groups into its own features', () => {
+    const split = addGroup(two, { parentId: 'top', id: 'new', workId: 'work' })
     const dropped = edited(moveFeature(split, { tag: 'c', direction: up, groupId: 'top' }))
-    expect(findPlaced(dropped, 'work')?.group.features).toEqual(['a', 'c'])
+    expect(dropped[0]!.features).toEqual(['c'])
+    expect(dropped[0]!.groups).toEqual(split[0]!.groups)
   })
 
   it('names the group an assignment from a direction goes in, as assignFrom puts it there', () => {
@@ -522,43 +527,29 @@ describe('no group holds features and groups both', () => {
       },
     ]
 
-    it('names the frame, and an assignment goes in a group added in it, following it', () => {
+    it('names the frame, and an assignment goes in its own features', () => {
       expect(assignTargetOf(tilts, up)).toBe('top')
       const assigned = assignFrom(tilts, { direction: up, tag: 'b', newId: 'f' })
       if (!('setups' in assigned)) {
         throw new Error(assigned.refused.kind)
       }
-      expect(assigned).toMatchObject({ setupId: 'f', added: false, unassigned: false })
-      const top = assigned.setups[0]!
-      expect(top.features).toEqual([])
-      expect(top.groups.at(-1)).toEqual({
-        id: 'f',
-        name: 'Group 1',
-        features: ['b'],
-        groups: [],
-      })
+      expect(assigned).toMatchObject({ setupId: 'top', added: false, unassigned: false })
+      expect(assigned.setups[0]!.features).toEqual(['b'])
+      expect(assigned.setups[0]!.groups).toEqual(tilts[0]!.groups)
       expect(parseDraftSetups(assigned.setups)).toEqual(assigned.setups)
       expect(framesOf(assigned.setups)[0]).toMatchObject({ id: 'top', features: ['b'] })
-      // The next assign from that way goes in the group now cut from it.
-      expect(assignTargetOf(assigned.setups, up)).toBe('f')
       const again = assignFrom(assigned.setups, { direction: up, tag: 'c', newId: 'g' })
-      expect('setups' in again && findPlaced(again.setups, 'f')?.group.features).toEqual(['b', 'c'])
+      expect('setups' in again && again.setups[0]!.features).toEqual(['b', 'c'])
     })
 
-    it('makes the same group for a row dropped on the frame', () => {
-      const dropped = moveFeature(tilts, { tag: 'c', direction: up, groupId: 'top', newId: 'g' })
+    it('drops a row on the frame into its own features, and a tilt’s way into the tilt', () => {
+      const dropped = moveFeature(tilts, { tag: 'c', direction: up, groupId: 'top' })
       if (!Array.isArray(dropped)) {
         throw new Error(dropped.refused.kind)
       }
-      expect(dropped[0]!.features).toEqual([])
-      expect(findPlaced(dropped, 'g')?.group).toEqual({
-        id: 'g',
-        name: 'Group 1',
-        features: ['c'],
-        groups: [],
-      })
-      // A tilt's own way still goes in the tilt.
-      const tilted = moveFeature(tilts, { tag: 'd', direction: side, groupId: 'top', newId: 'h' })
+      expect(dropped[0]!.features).toEqual(['c'])
+      expect(dropped[0]!.groups).toEqual(tilts[0]!.groups)
+      const tilted = moveFeature(tilts, { tag: 'd', direction: side, groupId: 'top' })
       expect(Array.isArray(tilted) && findPlaced(tilted, 't1')?.group.features).toEqual(['d'])
     })
   })
@@ -583,10 +574,20 @@ describe('no group holds a single group', () => {
     }
     return result
   }
-  // Side dropped on Top: both in a new 3+1 setup, Side a tilt of it.
-  const paired = edited(
-    moveGroup(two, { id: 'side', to: { parentId: 'top', index: 0 }, newId: 'p' }),
-  )
+  // Top and Side side by side in a 3+1 setup, Side a tilt of it.
+  const paired: Array<DraftSetup> = [
+    {
+      id: 'p',
+      name: 'Group 1',
+      direction: up,
+      process: '3+1',
+      features: [],
+      groups: [
+        { id: 'top', name: 'Top', features: ['a'], groups: [] },
+        { id: 'side', name: 'Side', direction: side, features: ['s'], groups: [] },
+      ],
+    },
+  ]
 
   it('lets a group taken out of a pair come up into the pair’s place, as it was', () => {
     const next = edited(moveGroup(paired, { id: 'side', to: { parentId: null, index: 1 } }))
@@ -662,30 +663,6 @@ describe('no group holds a single group', () => {
     ]
     const next = removeGroup(saved, 'side')
     expect(next.map((s) => [s.id, s.name, s.process])).toEqual([['s', 'Saved', '3+1']])
-  })
-
-  it('pairs a group dropped into an empty one with it, so the empty one keeps its name', () => {
-    const tree: Array<DraftSetup> = [
-      {
-        id: 's',
-        name: 'S',
-        direction: up,
-        features: [],
-        groups: [
-          { id: 'w', name: 'W', features: ['a'], groups: [] },
-          { id: 'e', name: 'E', features: [], groups: [] },
-          { id: 'm', name: 'M', features: ['b'], groups: [] },
-        ],
-      },
-    ]
-    const next = edited(
-      moveGroup(tree, { id: 'm', to: { parentId: 'e', index: 0 }, newId: 'pair' }),
-    )
-    expect(next[0]!.groups.map((f) => f.id)).toEqual(['w', 'pair'])
-    expect(findPlaced(next, 'pair')?.group.groups.map((f) => [f.id, f.name])).toEqual([
-      ['e', 'E'],
-      ['m', 'M'],
-    ])
   })
 
   it('splits an empty group in two when a group is added to it, never holding just the one', () => {
@@ -832,17 +809,6 @@ describe('assigning features', () => {
   it('unassigns from a named setup only', () => {
     expect(unassignFeature(setups, 'top', 'a')[0]!.features).toEqual([])
     expect(unassignFeature(setups, 'bottom', 'a')[0]!.features).toEqual(['a'])
-  })
-})
-
-describe('a parent made on a drop', () => {
-  it('is named past every group, the one moved included', () => {
-    const numbered: Array<DraftSetup> = [
-      { id: 'a', name: 'Group 1', direction: up, features: ['a'], groups: [] },
-      { id: 'b', name: 'Group 2', direction: side, features: ['b'], groups: [] },
-    ]
-    const next = moveGroup(numbered, { id: 'b', to: { parentId: 'a', index: 0 }, newId: 'p' })
-    expect(Array.isArray(next) && next[0]!.name).toBe('Group 3')
   })
 })
 

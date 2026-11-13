@@ -3,11 +3,9 @@ import { applyDraftAction } from '../../src/draft/actions'
 import {
   addGroup,
   addSetup,
-  assignInto,
   type DraftSetup,
   findPlaced,
   groupsFromPlan,
-  moveGroup,
   type NameGroup,
   nextGroupName,
   parseDraftSetups,
@@ -65,26 +63,6 @@ describe('nameGroup', () => {
 
   it('names the setup addSetup adds', () => {
     expect(addSetup(tree, side, 'new', nameFolder).at(-1)?.name).toBe('Folder 1')
-  })
-
-  it('names the group an assignment into a parent adds', () => {
-    const result = assignInto(tree, {
-      groupId: 'top',
-      tag: 'c',
-      newId: 'new',
-      nameGroup: nameFolder,
-    })
-    expect('setups' in result && nameOf(result.setups, 'new')).toBe('Folder 1')
-  })
-
-  it('names the parent a group dropped on another is wrapped in', () => {
-    const moved = moveGroup(tree, {
-      id: 'y',
-      to: { parentId: 'x', index: 0 },
-      newId: 'p',
-      nameGroup: nameFolder,
-    })
-    expect(Array.isArray(moved) && nameOf(moved, 'p')).toBe('Folder 1')
   })
 
   it('names the groups stated from Toolpath’s plan', () => {

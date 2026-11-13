@@ -1,6 +1,14 @@
 import type { EnginePlan, EnginePlanSetup } from './plan'
 import { framesOf, sameDirection, type Constraints, type Frame } from '../draft/constraints'
-import { planView, type PlanFeatureRow, type PlanPart, type PlannedSetupView } from './plan-view'
+import { allGroups, draftView, listsTag } from '../details/view'
+import { tagKey } from '../faces/coverage'
+import {
+  planView,
+  type PlanFeatureRow,
+  type PlanPart,
+  type PlannedSetupView,
+  type PlanSetupView,
+} from './plan-view'
 
 /*
   Toolpath's plan as the Results view lays it out: its setups in machining order, each named by the
@@ -29,13 +37,34 @@ export interface ResultsSetupView extends PlannedSetupView {
   fromGroup: string | null
 }
 
+/**
+ * A group of the constraints the plan is of, as the Results tree lists it — where `draftView` puts
+ * it, with its name and the groups inside it — or a setup no group faces, after them. A group's
+ * one orientation lists its rows.
+ */
+export interface ResultsGroupView extends PlanSetupView {
+  /** The setup it is machined in, `plan.setups[idx]`; null where Toolpath left its way out. */
+  idx: number | null
+  /**
+   * What that setup machines in it: the features pinned in it, and in a frame the rest of the
+   * setup's from its way — those Toolpath placed itself.
+   */
+  rows: Array<ResultsFeatureRow>
+  groups: Array<ResultsGroupView>
+}
+
 export interface ResultsView {
   setups: Array<ResultsSetupView>
+  /**
+   * The groups as the constraints nest them, then each setup no group faces, as `Setup N`; with no
+   * constraints, the setups.
+   */
+  tree: Array<ResultsGroupView>
   /** Constraint frames no setup was planned from: nothing to machine from there, so left out. */
   leftOut: Array<{ groupId: string; name: string }>
 }
 
-const EMPTY: ResultsView = { setups: [], leftOut: [] }
+const EMPTY: ResultsView = { setups: [], tree: [], leftOut: [] }
 
 /**
  * Toolpath's plan laid out for the Results view. A setup takes the name of the first constraint
@@ -64,8 +93,14 @@ export const resultsView = ({
     facing: framesFacing(view, frames),
   }))
   const matched = new Set(planned.flatMap(({ facing }) => facing.map((frame) => frame.id)))
+  const setups = planned.map((each) => resultsSetup(each, plan.setups[each.idx]!, frames))
   return {
-    setups: planned.map((each) => resultsSetup(each, plan.setups[each.idx]!, frames)),
+    setups,
+    tree: resultsTree(
+      draftView({ setups: constraints?.setups ?? [] }, part, plan),
+      setups,
+      planned.map(({ view }) => view.name),
+    ),
     leftOut: frames
       .filter((frame) => !matched.has(frame.id))
       .map((frame) => ({ groupId: frame.id, name: frameName(frame, frames) })),
@@ -109,6 +144,60 @@ const resultsSetup = (
     rows: setupRows(view, setup),
     fromGroup: frame?.id ?? null,
   }
+}
+
+/**
+ * The groups with what Toolpath machines in each, then the setups no group faces, named as
+ * `planView` names them. A group is machined in the first setup cut from its way: a 3+2 setup
+ * Toolpath came back with holds each of its frames, and the groups following them.
+ */
+const resultsTree = (
+  groups: ReadonlyArray<PlanSetupView>,
+  setups: ReadonlyArray<ResultsSetupView>,
+  /** Each setup's name as `planView` gives it, by its place in the plan. */
+  plannedNames: ReadonlyArray<string>,
+): Array<ResultsGroupView> => {
+  const every = allGroups(groups)
+  const wayOf = (group: PlanSetupView) => group.orientations[0]!.direction
+  const machinedIn = (group: PlanSetupView) =>
+    setups.find((setup) =>
+      setup.orientations.some((orientation) => sameDirection(orientation.direction, wayOf(group))),
+    )
+  /**
+   * A setup's row's group: the one it is pinned in, else the frame facing the way the setup lists
+   * it from, else the setup's first frame.
+   */
+  const homeOf = (setup: ResultsSetupView, tag: string): string => {
+    const key = tagKey(tag)
+    const machinedHere = every.filter((group) => machinedIn(group) === setup)
+    const frames = machinedHere.filter((group) => group.isFrame)
+    const listedFrom = setup.orientations.find((orientation) =>
+      orientation.features.some((row) => tagKey(row.tag) === key),
+    )
+    const frame = listedFrom
+      ? frames.find((group) => sameDirection(wayOf(group), listedFrom.direction))
+      : undefined
+    // Never empty: a group's frame faces its way, so is machined in its setup too.
+    return (machinedHere.find((group) => listsTag(group, tag)) ?? frame ?? frames[0]!).id
+  }
+  const view = (group: PlanSetupView): ResultsGroupView => {
+    const setup = machinedIn(group)
+    const rows = setup ? setup.rows.filter((row) => homeOf(setup, row.tag) === group.id) : []
+    return {
+      ...group,
+      orientations: [{ ...group.orientations[0]!, features: rows }],
+      idx: setup?.idx ?? null,
+      rows,
+      groups: group.groups.map(view),
+    }
+  }
+  const faced = new Set(every.map(machinedIn))
+  return [
+    ...groups.map(view),
+    ...setups
+      .filter((setup) => !faced.has(setup))
+      .map((setup) => ({ ...setup, name: plannedNames[setup.idx]!, groups: [] })),
+  ]
 }
 
 /** A setup's rows: each feature it lists once, then what it was meant to machine and lists not. */

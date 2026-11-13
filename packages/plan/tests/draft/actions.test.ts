@@ -114,14 +114,13 @@ const samplesOf = (
       return [{ kind, groups: 'part' in target ? from.setups.map((setup) => setup.id) : [group] }]
     case 'moveGroup':
       return [
-        { kind, id: group, to: { parentId: null, index: from.setups.length - 1 }, newId: 'new' },
+        { kind, id: group, to: { parentId: null, index: from.setups.length - 1 } },
         ...from.setups
           .flatMap((setup) => [setup, ...setup.groups])
           .map((each): DraftAction => ({
             kind,
             id: group,
             to: { parentId: each.id, index: 0 },
-            newId: 'new',
           })),
       ]
     case 'moveWithin':
@@ -145,7 +144,6 @@ const samplesOf = (
           tag: feature.feature,
           direction: feature.direction,
           groupId: facing(feature.direction),
-          newId: 'new',
         },
       ]
     case 'assignFrom':
@@ -157,7 +155,6 @@ const samplesOf = (
           tag: feature.feature,
           direction: feature.direction,
           groupId: 'holes',
-          newId: 'new',
         },
       ]
     case 'unassign':
@@ -188,10 +185,10 @@ describe('applyDraftAction', () => {
 
   it('answers a refusal of the function it names as it is', () => {
     const to = { parentId: null, index: 0 }
-    expect(apply({ kind: 'moveGroup', id: 'holes', to, newId: 'n' })).toEqual(
-      moveGroup(setups, { id: 'holes', to, newId: 'n' }),
+    expect(apply({ kind: 'moveGroup', id: 'holes', to })).toEqual(
+      moveGroup(setups, { id: 'holes', to }),
     )
-    expect(apply({ kind: 'moveGroup', id: 'holes', to, newId: 'n' })).toEqual({
+    expect(apply({ kind: 'moveGroup', id: 'holes', to })).toEqual({
       refused: { kind: 'directionIsSetup', setup: { id: 'top', name: 'Top' } },
     })
   })
@@ -220,24 +217,12 @@ describe('applyDraftAction', () => {
     expect(apply({ kind: 'addGroup', parentId: 'top', id: 'n', workId: 'n' })).toEqual(taken)
     expect(apply({ kind: 'addSetup', direction: side, id: 'bottom' })).toEqual(taken)
     expect(apply({ kind: 'assignFrom', tag: 's', direction: side, newId: 'top' })).toEqual(taken)
-    const into = {
-      kind: 'assignInto',
-      tag: 'x',
-      direction: up,
-      groupId: 'top',
-      newId: 'holes',
-    } as const
-    expect(apply(into)).toEqual(taken)
   })
 
-  it('assigns into a parent twice, unassigned between, without two groups sharing an id', () => {
-    const into = { kind: 'assignInto', tag: 'x', direction: up, groupId: 'top' } as const
-    const once = made(apply({ ...into, newId: 'a' }))
-    const unassigned = made(apply({ kind: 'unassign', tag: 'x' }, once))
-    expect(apply({ ...into, newId: 'a' }, unassigned)).toHaveProperty('refused')
-    expect(
-      made(apply({ ...into, newId: 'b' }, unassigned)).setups[0]?.groups.map((f) => f.id),
-    ).toEqual(['pockets', 'holes', 'a', 'b'])
+  it('assigns into a group holding groups in its own features, its groups as they were', () => {
+    const into = made(apply({ kind: 'assignInto', tag: 'n', direction: up, groupId: 'top' }))
+    expect(into.setups[0]?.features).toEqual(['n'])
+    expect(into.setups[0]?.groups).toEqual(setups[0]!.groups)
   })
 
   it('refuses a group past the deepest a group may sit', () => {
@@ -296,10 +281,7 @@ describe('applyDraftAction', () => {
 
   it('assigns as the demo assigns: covered assignments let go, faces unmarked', () => {
     const done = { ...draft, done: [5], doneKernel: 'k1' }
-    const result = apply(
-      { kind: 'assignInto', tag: 'x', direction: up, groupId: 'holes', newId: 'n' },
-      done,
-    )
+    const result = apply({ kind: 'assignInto', tag: 'x', direction: up, groupId: 'holes' }, done)
     const expected = assignEdit(done, 'x', { groupId: 'holes' }, rules)
     if ('refused' in expected) {
       throw new Error('expected an assignment')
@@ -314,9 +296,9 @@ describe('applyDraftAction', () => {
   })
 
   it('refuses an assignment into a group cut from another direction', () => {
-    expect(
-      apply({ kind: 'assignInto', tag: 's', direction: side, groupId: 'holes', newId: 'n' }),
-    ).toEqual({ refused: { kind: 'otherWay' } })
+    expect(apply({ kind: 'assignInto', tag: 's', direction: side, groupId: 'holes' })).toEqual({
+      refused: { kind: 'otherWay' },
+    })
   })
 
   it('assigns from a direction no group faces into a new setup', () => {
@@ -326,7 +308,7 @@ describe('applyDraftAction', () => {
   })
 
   it('drops a row as the tree does: moved, then assigned as any assignment is', () => {
-    const moved = moveFeature(setups, { tag: 'x', direction: up, groupId: 'holes', newId: 'n' })
+    const moved = moveFeature(setups, { tag: 'x', direction: up, groupId: 'holes' })
     if (!Array.isArray(moved)) {
       throw new Error('expected a move')
     }
@@ -335,7 +317,6 @@ describe('applyDraftAction', () => {
       tag: 'x',
       direction: up,
       groupId: 'holes',
-      newId: 'n',
     })
     expect(made(result)).toEqual({ ...draft, ...withAssignment(draft, 'x', moved, rules).intent })
     expect(assignedIn(made(result).setups, 'x')).toBe('holes')
@@ -344,7 +325,7 @@ describe('applyDraftAction', () => {
   it('assigns a row dropped where it is assigned already as the tree does: faces unmarked', () => {
     const covering = { ...draft, done: [1], doneKernel: 'k1' }
     const result = apply(
-      { kind: 'moveFeature', tag: 'p', direction: up, groupId: 'pockets', newId: 'n' },
+      { kind: 'moveFeature', tag: 'p', direction: up, groupId: 'pockets' },
       covering,
     )
     expect(made(result)).toEqual({
@@ -421,7 +402,6 @@ describe('the app’s clicks, as actions', () => {
         tag,
         direction: up,
         groupId,
-        newId: 'n',
       } as const
       expect(made(apply(action, done))).toEqual({
         ...done,
@@ -433,7 +413,6 @@ describe('the app’s clicks, as actions', () => {
       tag: 'h',
       direction: up,
       groupId: 'holes',
-      newId: 'n',
     })
     expect(assignedIn(made(again).setups, 'h')).toBeNull()
   })
@@ -443,10 +422,7 @@ describe('the app’s clicks, as actions', () => {
     const tilted = made(
       apply({ kind: 'setOrientation', groupId: 'holes', direction: side }, turned),
     )
-    const result = apply(
-      { kind: 'assignInto', tag: 'h', direction: up, groupId: 'holes', newId: 'n' },
-      tilted,
-    )
+    const result = apply({ kind: 'assignInto', tag: 'h', direction: up, groupId: 'holes' }, tilted)
     expect(made(result)).toEqual({ ...tilted, ...appAssign(tilted, 'h', { groupId: 'holes' }) })
     expect(assignedIn(made(result).setups, 'h')).toBeNull()
   })
@@ -507,9 +483,7 @@ describe('the app’s clicks, as actions', () => {
   }
 
   it('means another reading of an assignment click, its click standing or undone', () => {
-    const clicked = made(
-      apply({ kind: 'assignInto', tag: 'x', direction: up, groupId: 'holes', newId: 'n' }),
-    )
+    const clicked = made(apply({ kind: 'assignInto', tag: 'x', direction: up, groupId: 'holes' }))
     const pick = {
       kind: 'chooseAssignReading',
       tag: 'x',
@@ -537,9 +511,7 @@ describe('the app’s clicks, as actions', () => {
   })
 
   it('means another reading of a click that took a feature out', () => {
-    const out = made(
-      apply({ kind: 'assignInto', tag: 'h', direction: up, groupId: 'holes', newId: 'n' }),
-    )
+    const out = made(apply({ kind: 'assignInto', tag: 'h', direction: up, groupId: 'holes' }))
     for (const reading of ['x', 'h']) {
       const pick = {
         kind: 'chooseAssignReading',
@@ -558,9 +530,7 @@ describe('the app’s clicks, as actions', () => {
   })
 
   it('means another reading beside a feature a left click left in its group', () => {
-    const assignedH = made(
-      apply({ kind: 'assignInto', tag: 'x', direction: up, groupId: 'holes', newId: 'n' }),
-    )
+    const assignedH = made(apply({ kind: 'assignInto', tag: 'x', direction: up, groupId: 'holes' }))
     for (const reading of ['x', 'h']) {
       const pick = {
         kind: 'chooseAssignReading',
@@ -687,9 +657,7 @@ describe('the app’s clicks, as actions', () => {
     )
     expect(made(apply({ kind: 'remove', groups: ['top', 'bottom'] })).setups).toEqual([])
     // A group's ✕ on its assignments (`takeOutFrom`): each unassigned from that group.
-    const two = made(
-      apply({ kind: 'assignInto', tag: 's', direction: up, groupId: 'holes', newId: 'n' }),
-    )
+    const two = made(apply({ kind: 'assignInto', tag: 's', direction: up, groupId: 'holes' }))
     const out = ['h', 's'].map((tag) => ({ tag, setupId: 'holes' }))
     expect(made(apply({ kind: 'remove', groups: [], features: out }, two)).setups).toEqual(
       ['h', 's'].reduce((all, tag) => unassignFeature(all, 'holes', tag), [...two.setups]),
@@ -763,31 +731,24 @@ describe('actionsFor', () => {
     ])
   })
 
-  it('offers no row drop where every drop lands it back where it is', () => {
-    // Up is faced only by Top, a parent whose first group cut that way is Pockets: p's own.
+  it('offers a row drop on a parent facing its way, and none where only its own group does', () => {
+    // Up is faced by Top, a parent, and Pockets in it: p's own. Dropped on Top, p goes in Top.
     const one: Array<DraftSetup> = [
       {
         id: 'top',
         name: 'Top',
         direction: up,
         features: [],
-        groups: [
-          { id: 'pockets', name: 'Pockets', features: ['p'], groups: [] },
-          { id: 'other', name: 'Other', features: [], groups: [] },
-        ],
+        groups: [{ id: 'pockets', name: 'Pockets', features: ['p'], groups: [] }],
       },
     ]
-    const assignedFirst = { ...draft, setups: one }
-    expect(actionsFor(assignedFirst, { feature: 'p', direction: up }, rules)).toEqual([
+    expect(actionsFor({ ...draft, setups: one }, { feature: 'p', direction: up }, rules)).toEqual([
       'assignInto',
       'moveFeature',
       'unassign',
     ])
-    const onlyParent = { ...draft, setups: [{ ...one[0]!, groups: [one[0]!.groups[0]!] }] }
-    expect(actionsFor(onlyParent, { feature: 'p', direction: up }, rules)).toEqual([
-      'assignInto',
-      'unassign',
-    ])
+    const alone = { ...draft, setups: [{ ...one[0]!, features: ['p'], groups: [] }] }
+    expect(actionsFor(alone, { feature: 'p', direction: up }, rules)).toEqual(['unassign'])
   })
 
   it('offers faces mark done or unmark, as they stand', () => {
@@ -846,10 +807,10 @@ describe('features Toolpath plans no pass for', () => {
 
   it('refuses every way of assigning one anew', () => {
     const assignments: Array<DraftAction> = [
-      { kind: 'assignInto', tag: 's', direction: up, groupId: 'holes', newId: 'n' },
+      { kind: 'assignInto', tag: 's', direction: up, groupId: 'holes' },
       { kind: 'assignFrom', tag: 's', direction: up, newId: 'n' },
       { kind: 'assignFrom', tag: 's', direction: side, newId: 'n' },
-      { kind: 'moveFeature', tag: 's', direction: up, groupId: 'holes', newId: 'n' },
+      { kind: 'moveFeature', tag: 's', direction: up, groupId: 'holes' },
     ]
     for (const assignment of assignments) {
       expect(applyStrict(assignment)).toEqual({ refused: NO_TOOL })
@@ -858,9 +819,7 @@ describe('features Toolpath plans no pass for', () => {
   })
 
   it('refuses a pick among a click’s readings that assignments one', () => {
-    const clicked = made(
-      apply({ kind: 'assignInto', tag: 'x', direction: up, groupId: 'holes', newId: 'n' }),
-    )
+    const clicked = made(apply({ kind: 'assignInto', tag: 'x', direction: up, groupId: 'holes' }))
     const pick = {
       kind: 'chooseAssignReading',
       tag: 'x',
@@ -873,12 +832,12 @@ describe('features Toolpath plans no pass for', () => {
 
   it('lets one assigned already be taken out, let go or moved', () => {
     const takenOut = made(
-      applyStrict({ kind: 'assignInto', tag: 'p', direction: up, groupId: 'pockets', newId: 'n' }),
+      applyStrict({ kind: 'assignInto', tag: 'p', direction: up, groupId: 'pockets' }),
     )
     expect(assignedIn(takenOut.setups, 'p')).toBeNull()
     expect(assignedIn(made(applyStrict({ kind: 'unassign', tag: 'p' })).setups, 'p')).toBeNull()
     const moved = made(
-      applyStrict({ kind: 'moveFeature', tag: 'p', direction: up, groupId: 'holes', newId: 'n' }),
+      applyStrict({ kind: 'moveFeature', tag: 'p', direction: up, groupId: 'holes' }),
     )
     expect(assignedIn(moved.setups, 'p')).toBe('holes')
   })
@@ -889,7 +848,6 @@ describe('features Toolpath plans no pass for', () => {
       tag: 'x',
       direction: up,
       groupId: 'holes',
-      newId: 'n',
     }
     expect(applyStrict(assignment)).toEqual(apply(assignment))
   })

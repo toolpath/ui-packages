@@ -4,12 +4,13 @@ import { planFromResults, type DraftSetup } from '../../src/draft/constraints'
 import { classifyFaces, planFeaturesOf } from '../../src/faces/coverage'
 import { rowsOf } from '../../src/details/view'
 import { planView, type PlanPart } from '../../src/results/plan-view'
-import { resultsView, setupOf } from '../../src/results/view'
+import { resultsView, setupOf, type ResultsGroupView } from '../../src/results/view'
 import { trimmedFeature } from '../trimmed-feature'
 
 const up = { x: 0, y: 0, z: 1 }
 const side = { x: 1, y: 0, z: 0 }
 const down = { x: 0, y: 0, z: -1 }
+const back = { x: 0, y: 1, z: 0 }
 
 const part: PlanPart = {
   directionIndex: (direction) => [up, side, down].findIndex((d) => d === direction),
@@ -58,6 +59,7 @@ describe('resultsView', () => {
   it('is empty with no plan', () => {
     expect(resultsView({ plan: null, constraints: null, part })).toEqual({
       setups: [],
+      tree: [],
       leftOut: [],
     })
   })
@@ -118,6 +120,10 @@ describe('resultsView', () => {
       ['Setup 2', null],
     ])
     expect(leftOut).toEqual([])
+    expect(shape(resultsView({ plan: plan(), constraints: null, part }).tree)).toEqual([
+      ['Setup 1', 0, ['a', 'b', 'c', 'd'], []],
+      ['Setup 2', 1, ['e'], []],
+    ])
   })
 
   it('matches a frame against every orientation of a 3+2 setup: its tilt is not left out', () => {
@@ -185,6 +191,145 @@ describe('resultsView', () => {
     const [only] = resultsView({ plan: stated, constraints: null, part }).setups
     expect(only!.orientations.map((o) => o.direction)).toEqual([up, side])
     expect(only!.process).toBe('3+2')
+  })
+})
+
+/** A tree as its names, setups, rows and groups inside. */
+type Shape = [string, number | null, Array<string>, Array<Shape>]
+const shape = (groups: ReadonlyArray<ResultsGroupView>): Array<Shape> =>
+  groups.map((group) => [
+    group.name,
+    group.idx,
+    group.rows.map((row) => row.tag),
+    shape(group.groups),
+  ])
+
+/** A plan of one setup per direction, each cutting its tags with one tool. */
+const cutting = (...setups: Array<[typeof up, Array<string>]>): EnginePlan =>
+  plan({
+    setups: setups.map(([direction, tags], idx) => ({
+      idx,
+      direction,
+      unmachined: [],
+      actions: [{ idx: 0, toolName: 'End mill', featureTags: tags }],
+    })),
+  })
+
+describe('resultsView tree', () => {
+  it('nests the setups as the saved groups do: a following group and a nested tilt keep their place', () => {
+    // Top (+Z, 3+1) { Pockets (follows: a, b), Side A (tilt +X) { Side B (tilt +Y: c) } }
+    const constraints = {
+      setups: [
+        setup({
+          id: 'top',
+          name: 'Top',
+          process: '3+1',
+          groups: [
+            { id: 'pockets', name: 'Pockets', features: ['a', 'b'], groups: [] },
+            {
+              id: 'sideA',
+              name: 'Side A',
+              direction: side,
+              features: [],
+              groups: [
+                { id: 'sideB', name: 'Side B', direction: back, features: ['c'], groups: [] },
+              ],
+            },
+          ],
+        }),
+      ],
+    }
+    // Toolpath plans d from +Z itself, leaves Side A out, and adds a setup from -Z.
+    const { tree, leftOut } = resultsView({
+      plan: cutting([up, ['a', 'b', 'd']], [back, ['c']], [down, ['e']]),
+      constraints,
+      part,
+    })
+    expect(shape(tree)).toEqual([
+      [
+        'Top',
+        0,
+        ['d'],
+        [
+          ['Pockets', 0, ['a', 'b'], []],
+          ['Side A', null, [], [['Side B', 1, ['c'], []]]],
+        ],
+      ],
+      ['Setup 3', 2, ['e'], []],
+    ])
+    expect(leftOut).toEqual([{ groupId: 'sideA', name: 'Top › Side A' }])
+    // A group's rows are its orientation's features, as the constraints tree reads them.
+    expect(tree[0]!.groups[0]!.orientations[0]!.features.map((row) => row.tag)).toEqual(['a', 'b'])
+  })
+
+  it('splits a 3+2 setup Toolpath came back with among its frames, by the way each row is cut', () => {
+    const constraints = {
+      setups: [
+        setup({
+          id: 'top',
+          name: 'Top',
+          process: '3+1',
+          groups: [
+            { id: 'pockets', name: 'Pockets', features: ['a'], groups: [] },
+            { id: 'tilt', name: 'Tilt', direction: side, features: ['b'], groups: [] },
+          ],
+        }),
+      ],
+    }
+    const stated = plan({
+      setups: [{ idx: 0, direction: up, unmachined: ['u'], actions: [] }],
+      setupPlan: {
+        setups: [
+          {
+            orientations: [
+              { direction: up, features: ['a', 'd'] },
+              { direction: side, features: ['b', 'e'] },
+            ],
+          },
+        ],
+      },
+    })
+    // d and e Toolpath placed itself, each under the frame facing its way; u, cut by nothing, under
+    // the first.
+    expect(shape(resultsView({ plan: stated, constraints, part }).tree)).toEqual([
+      [
+        'Top',
+        0,
+        ['d', 'u'],
+        [
+          ['Pockets', 0, ['a'], []],
+          ['Tilt', 0, ['b', 'e'], []],
+        ],
+      ],
+    ])
+  })
+
+  it('lists a group’s own features beside the groups inside it', () => {
+    const constraints = {
+      setups: [
+        setup({
+          id: 'top',
+          name: 'Top',
+          features: ['a'],
+          groups: [{ id: 'pockets', name: 'Pockets', features: ['b'], groups: [] }],
+        }),
+      ],
+    }
+    const { tree } = resultsView({ plan: cutting([up, ['a', 'b', 'c']]), constraints, part })
+    expect(shape(tree)).toEqual([['Top', 0, ['a', 'c'], [['Pockets', 0, ['b'], []]]]])
+  })
+
+  it('appends a second setup from a group’s way as Toolpath’s own', () => {
+    const constraints = { setups: [setup({ id: 'top', name: 'Top' })] }
+    const { tree } = resultsView({
+      plan: cutting([up, ['a']], [up, ['b']]),
+      constraints,
+      part,
+    })
+    expect(shape(tree)).toEqual([
+      ['Top', 0, ['a'], []],
+      ['Setup 2', 1, ['b'], []],
+    ])
   })
 })
 

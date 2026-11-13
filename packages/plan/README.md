@@ -68,8 +68,8 @@ edit cannot be made: `setSetupProcess`, `setOrientation`, `moveGroup`, `moveFeat
 
 `addGroup`, `moveGroup`, `moveFeature`, `assignInto` and `assignFrom` take the draft's setups and
 one object of named fields, the same fields as their actions:
-`moveFeature(setups, { tag, direction, groupId, newId?, nameGroup? })`. A field marked `?` may be
-left out; each function's `*Options` type (`MoveFeatureOptions`, …) says what it falls back to.
+`assignFrom(setups, { direction, tag, newId, nameGroup? })`. A field marked `?` may be left out;
+each function's `*Options` type (`AssignFromOptions`, …) says what it falls back to.
 
 `classifyFaces` (in `/parts`) reads what the draft and the plan leave of each face: assigned,
 at shape in stock, done, open, machined or not machined (`COVERAGE_KINDS`). A viewer paints faces
@@ -336,9 +336,10 @@ an input changes. Each part is worked out only when it is read, and only once.
 - **`details.constraints`**: the tree (`setups`, `groups`), each face assigned, done or open
   (`coverage`), the faces done, the counts, and the checks before Apply.
 - **`details.results`**: Toolpath's setups, named by the groups they are from while the plan is of
-  `saved`; each face at shape in stock, machined, done or not machined; the Not machined list; the
-  counts; whether
-  the constraints changed since; and the checklist before the part moves on (`confirm`, `allClear`).
+  `saved`, and `tree`, the same setups nested as `saved`'s groups are, each group with what its
+  setup machines in it, then each setup Toolpath added; each face at shape in stock, machined, done
+  or not machined; the Not machined list; the counts; whether the constraints changed since; and the
+  checklist before the part moves on (`confirm`, `allClear`).
 - **Checks** (`PlanCheck` before Apply, `ConfirmCheck` before the part moves on) are a `kind` and
   its facts, with a `severity`: `blocking` stops the plan being sent, `warning` and `info` are worth
   a look, and `ok` says a check passed. A confirm check that points somewhere has a `show`. Your app

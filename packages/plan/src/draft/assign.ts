@@ -84,16 +84,13 @@ export interface AssignEdit {
 export const assignEdit = (
   plan: Constraints,
   tag: string,
-  /**
-   * `newId` is for the group an assignment into a parent makes, or the setup an assignment from a
-   * direction adds.
-   */
-  at: { groupId: string; newId?: string } | { direction: PlanDirection; newId: string },
+  /** `newId` is for the setup an assignment from a direction adds. */
+  at: { groupId: string } | { direction: PlanDirection; newId: string },
   context: AssignContext,
 ): AssignEdit | Refused => {
   const result =
     'groupId' in at
-      ? assignInto(plan.setups, { ...at, tag, nameGroup: context.nameGroup })
+      ? assignInto(plan.setups, { ...at, tag })
       : assignFrom(plan.setups, { ...at, tag, nameGroup: context.nameGroup })
   if ('refused' in result) {
     return result

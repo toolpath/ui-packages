@@ -43,7 +43,13 @@ import {
   type ShownFace,
 } from './view'
 import type { PlanPart, PlanSetupView } from '../results/plan-view'
-import { machines, resultsView, setupOf, type ResultsSetupView } from '../results/view'
+import {
+  machines,
+  resultsView,
+  setupOf,
+  type ResultsGroupView,
+  type ResultsSetupView,
+} from '../results/view'
 
 /*
   The plan's details in one call: what an app shows of the person's constraints and of Toolpath's
@@ -124,6 +130,8 @@ export interface PlanDetailsConstraints {
 /** Toolpath's plan, as the Results view shows it. */
 export interface PlanDetailsResults {
   setups: ReadonlyArray<ResultsSetupView>
+  /** The setups as the saved groups nest them: what the Results tree lists (`resultsView`). */
+  tree: ReadonlyArray<ResultsGroupView>
   /** Groups no setup was planned from. */
   leftOut: ReadonlyArray<{ groupId: string; name: string }>
   /** Every feature the plan's actions cut, by tag (lower case); none before the plan is read. */
@@ -335,6 +343,9 @@ const resultsOf = (
   return {
     get setups() {
       return view().setups
+    },
+    get tree() {
+      return view().tree
     },
     get leftOut() {
       return view().leftOut

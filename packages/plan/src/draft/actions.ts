@@ -74,11 +74,8 @@ export type DraftAction =
    * plans the part as it would. Groups gone already are passed over.
    */
   | { kind: 'remove'; groups: ReadonlyArray<string>; features?: ReadonlyArray<AssignedFeature> }
-  /**
-   * A group dropped somewhere in the tree (`moveGroup`). `newId` is for the parent made to hold
-   * both, where it is dropped on a group holding work.
-   */
-  | { kind: 'moveGroup'; id: string; to: Landing; newId: string }
+  /** A group dropped somewhere in the tree (`moveGroup`). */
+  | { kind: 'moveGroup'; id: string; to: Landing }
   /** A group moved `by` whole places up (negative) or down among the groups beside it. */
   | { kind: 'moveWithin'; id: string; by: number }
   /** A setup facing a direction no setup or orientation faces yet, last. */
@@ -89,22 +86,20 @@ export type DraftAction =
   | { kind: 'setOrientation'; groupId: string; direction: PlanDirection | null }
   /**
    * A click on the part in an open group (`toggleAssignment`), or an assignment into a group named
-   * (`assignEdit`): the feature assigned there — or, assigned there already, taken out. `newId` is
-   * for the group an assignment goes in, where the group named holds groups.
+   * (`assignEdit`): the feature assigned there — or, assigned there already, taken out.
    */
-  | { kind: 'assignInto'; tag: string; direction: PlanDirection; groupId: string; newId: string }
+  | { kind: 'assignInto'; tag: string; direction: PlanDirection; groupId: string }
   /**
    * Machine a feature from its direction (`assignEdit`): assigned in the group facing that way, or
    * in a new setup facing it — or, assigned in that direction's groups already, let go. `newId` is
-   * that setup's, or the group's an assignment into a parent makes.
+   * that setup's.
    */
   | { kind: 'assignFrom'; tag: string; direction: PlanDirection; newId: string }
   /**
    * A feature's row dropped on a group (`moveFeature`): assigned there, or in the first group in
-   * it cut from its direction, as any assignment is (`withAssignment`). `newId` is for a group
-   * made to hold it, where it is dropped on a parent.
+   * it cut from its direction, as any assignment is (`withAssignment`).
    */
-  | { kind: 'moveFeature'; tag: string; direction: PlanDirection; groupId: string; newId: string }
+  | { kind: 'moveFeature'; tag: string; direction: PlanDirection; groupId: string }
   /**
    * A pick among the features a click in a group read (`chooseReading`): `reading` meant instead
    * of `tag`, which a left click assigned (`target: 'assign'`) or left in the group (`'add'`), or
@@ -392,20 +387,15 @@ const applyRemove = <T extends Constraints>(
   return withSetups(draft, removeGroups(unassigned, groups))
 }
 
-/** `moveGroup`: a group dropped in the tree — unless it is gone, or the new id taken. */
+/** `moveGroup`: a group dropped in the tree — unless it is gone. */
 const applyMoveGroup = <T extends Constraints>(
-  { draft, rules }: Editing<T>,
+  { draft }: Editing<T>,
   action: ActionOf<'moveGroup'>,
 ): Outcome<T> => {
   if (!holds(draft, action.id)) {
     return { refused: GONE }
   }
-  if (anyTaken(draft, action.newId)) {
-    return { refused: TAKEN }
-  }
-  const { id, to, newId } = action
-  const moved = moveGroup(draft.setups, { id, to, newId, nameGroup: rules.nameGroup })
-  return withEdited(draft, moved)
+  return withEdited(draft, moveGroup(draft.setups, { id: action.id, to: action.to }))
 }
 
 /** `moveWithin`: a group moved a whole number of places among the groups beside it. */
@@ -475,9 +465,6 @@ const applyAssignInto = <T extends Constraints>(
   if (!target) {
     return { refused: GONE }
   }
-  if (anyTaken(editing.draft, action.newId)) {
-    return { refused: TAKEN }
-  }
   // Assigned there already, it is taken out, whichever way the group now faces.
   if (assignedIn(setups, action.tag) === action.groupId) {
     return assigned(editing, { groupId: action.groupId }, action.tag)
@@ -485,7 +472,7 @@ const applyAssignInto = <T extends Constraints>(
   if (!sameDirection(target.direction, action.direction)) {
     return { refused: OTHER_WAY }
   }
-  return assigned(editing, { groupId: action.groupId, newId: action.newId }, action.tag)
+  return assigned(editing, { groupId: action.groupId }, action.tag)
 }
 
 /** `assignFrom`: a feature assigned from its direction, in a setup added where none faces it. */
@@ -504,17 +491,8 @@ const applyMoveFeature = <T extends Constraints>(
   { draft, rules }: Editing<T>,
   action: ActionOf<'moveFeature'>,
 ): Outcome<T> => {
-  if (anyTaken(draft, action.newId)) {
-    return { refused: TAKEN }
-  }
-  const { tag, direction, groupId, newId } = action
-  const moved = moveFeature(draft.setups, {
-    tag,
-    direction,
-    groupId,
-    newId,
-    nameGroup: rules.nameGroup,
-  })
+  const { tag, direction, groupId } = action
+  const moved = moveFeature(draft.setups, { tag, direction, groupId })
   if (!Array.isArray(moved)) {
     return { refused: moved.refused }
   }
@@ -769,9 +747,6 @@ const canMoveAway = (
   )
 }
 
-/** An id no draft holds, for trying a move that makes a group. */
-const PROBE_ID = '\u0000probe'
-
 /** What can be done to one direction's reading of a feature. */
 const featureActions = (
   setups: ReadonlyArray<DraftSetup>,
@@ -785,7 +760,9 @@ const featureActions = (
   return [
     ...when(facingIds.length > 0, 'assignInto'),
     ...when(canAssignFromItsWay(setups, home, direction), 'assignFrom'),
-    ...when(canMoveFeature(setups, tag, direction, facingIds), 'moveFeature'),
+    // A row dropped on a group facing its way is assigned there: somewhere new, as its own group
+    // is left out.
+    ...when(facingIds.length > 0, 'moveFeature'),
     ...when(home !== null, 'unassign'),
   ]
 }
@@ -807,23 +784,6 @@ const canAssignFromItsWay = (
     home !== null &&
     placedGroups(setups).some((each) => each.group.id === home && each.frameId === frame.id)
   return !inFrame
-}
-
-/**
- * Whether dropping the row on a group facing its way would move it somewhere new: a parent sends
- * it to the first group in it cut from its way. `facingIds` are those groups, its own left out.
- */
-const canMoveFeature = (
-  setups: ReadonlyArray<DraftSetup>,
-  tag: string,
-  direction: PlanDirection,
-  facingIds: ReadonlyArray<string>,
-): boolean => {
-  const home = assignedIn(setups, tag)
-  return facingIds.some((groupId) => {
-    const moved = moveFeature(setups, { tag, direction, groupId, newId: PROBE_ID })
-    return Array.isArray(moved) && assignedIn(moved, tag) !== home
-  })
 }
 
 /** What can be done to faces picked: mark done any open, unmark any done. */

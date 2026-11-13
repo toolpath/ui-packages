@@ -419,16 +419,11 @@ describe('draftView', () => {
         ])
       return listed(draftView({ setups }, part))
     }
-    const nested = moveGroup(two, {
-      id: 's-down',
-      to: { parentId: 's-up', index: 0 },
-      newId: 'parent',
-    })
+    const nested = moveGroup(two, { id: 's-down', to: { parentId: 's-up', index: 0 } })
     if (!Array.isArray(nested)) {
       throw new Error(nested.refused.kind)
     }
     expect(rows(nested)).toEqual([
-      ['Group 1', []],
       ['Top', ['a']],
       ['Bottom', ['c']],
     ])
