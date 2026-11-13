@@ -57,4 +57,8 @@ describe('Apply', () => {
       field: 'stock',
     })
   })
+
+  it('takes a body of the part’s file with no first folder: it is sent as it lies', () => {
+    expect(applyRefusal(facts({ stock: { mode: 'body', bodyIndex: 2 } }))).toBeNull()
+  })
 })

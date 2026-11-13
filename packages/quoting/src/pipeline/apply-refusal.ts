@@ -1,6 +1,6 @@
 import type { PlanDirection } from '@toolpath/plan'
 
-import { stockRequest, type StockOption } from '../inputs/stock'
+import { stockRequest, type SentStock } from '../inputs/stock'
 import type { PartStage } from '../model/part-stage'
 
 /** Why Apply can't save the plan (`applyRefusal`). */
@@ -23,8 +23,8 @@ export interface ApplyFacts {
   savedVersion: number
   /** The version the save edits, as sent; anything but a number reads as 0. */
   version: unknown
-  /** The stock as it will stand. */
-  stock: StockOption | null
+  /** The stock as it will stand: a body of the part's file is sent as it is. */
+  stock: SentStock | null
   /** The direction of the first setup saved; null with none. */
   first: PlanDirection | null
 }
@@ -44,7 +44,8 @@ export const applyRefusal = (facts: ApplyFacts): ApplyRefusal | null => {
   if (facts.savedVersion !== (typeof facts.version === 'number' ? facts.version : 0)) {
     return 'stale'
   }
-  const sendable = facts.stock && stockRequest(facts.stock, facts.first)
+  const sendable =
+    facts.stock && facts.stock.mode !== 'body' && stockRequest(facts.stock, facts.first)
   return typeof sendable === 'string'
     ? { refused: 'unsendable_stock', message: sendable, field: 'stock' }
     : null

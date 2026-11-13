@@ -42,29 +42,44 @@ export type StockOption = AutomaticStock | FixedStock
 
 /**
  * Stock taken where it lies: another body of the part's own file (Engine API 1.35, `BodyStock`),
- * never sized or squared up. Not a policy the stock editor makes: an app keeps it beside the
- * policy, which it leaves as it was, to come back to once the body is cleared (`effectiveStock`).
+ * never sized or squared up. One of the part's stock modes, as a policy is: a part is cut from a
+ * body or from its policy, never both.
  */
 export interface BodyStock {
   mode: 'body'
   /** The body's index among the part's file's bodies: not the part's own. */
   bodyIndex: number
+  /**
+   * Which of the file's distinct shapes the body is, kept as it is chosen: an index holds for one
+   * kernel build only, a shape across them, and the material is priced as a block the size of the
+   * assembly's part of that shape. Null for a body of no shape. Never sent to Toolpath.
+   */
+  shapeIndex: number | null
 }
 
-/** The stock a plan is asked for: the part's policy, or the body of its file it is cut from. */
+/** The stock a part keeps: its policy, or the body of its file it is cut from. */
 export type PlanStock = StockOption | BodyStock
 
+/** A stock body as Toolpath is sent it, and a fingerprint reads it: by its index alone. */
+export type SentBodyStock = Omit<BodyStock, 'shapeIndex'>
+
+/** The stock a plan is asked for (`effectiveStock`). */
+export type SentStock = StockOption | SentBodyStock
+
 /**
- * The stock a part is planned from: the body of its file it is cut from where it has one, else its
- * policy. The one rule a request, a fingerprint and an echo read.
+ * The stock a part is planned from: its stock as kept, a body by its index alone. The one rule a
+ * request, a fingerprint and an echo read.
  */
-export const effectiveStock = ({
-  policy,
-  bodyIndex,
-}: {
-  policy: StockOption | null
-  bodyIndex: number | null
-}): PlanStock | null => (bodyIndex === null ? policy : { mode: 'body', bodyIndex })
+export const effectiveStock = (stock: PlanStock | null): SentStock | null =>
+  stock?.mode === 'body' ? { mode: 'body', bodyIndex: stock.bodyIndex } : stock
+
+/** The body of its file a stock cuts the part from (`BodyStock`); null for a policy, or none. */
+export const bodyStockOf = (stock: PlanStock | null | undefined): BodyStock | null =>
+  stock?.mode === 'body' ? stock : null
+
+/** The index of the body of its file a stock cuts the part from; null for a policy, or none. */
+export const stockBodyIndexOf = (stock: SentStock | null | undefined): number | null =>
+  stock?.mode === 'body' ? stock.bodyIndex : null
 
 export const STOCK_LABELS = {
   automaticFlatBar: 'Flat Bar',
@@ -235,10 +250,10 @@ const fixedCylinderSizeProblem = (value: Record<string, unknown>): string | null
   return null
 }
 
-/** Stable comparison of policy values, independent of JSON property order. */
+/** Stable comparison of stocks, independent of JSON property order. */
 export const sameStock = (
-  a: StockOption | null | undefined,
-  b: StockOption | null | undefined,
+  a: PlanStock | null | undefined,
+  b: PlanStock | null | undefined,
 ): boolean => sameJson(a ?? null, b ?? null)
 
 /**
@@ -248,7 +263,7 @@ export const sameStock = (
  * no policy has nothing edited.
  */
 export const stockEdited = (
-  policy: PlanStock | null,
+  policy: SentStock | null,
   baseline: Record<string, unknown> | null,
 ): boolean => (policy ? !echoesStock(policy, baseline?.stock) : false)
 
@@ -385,7 +400,7 @@ export const placedAlong = (envelope: unknown): PlanDirection | null => {
  * placement to read, into the frame of any one of the part's axes. A body is echoed by the same
  * body alone.
  */
-export const echoesStock = (policy: PlanStock, envelope: unknown): boolean => {
+export const echoesStock = (policy: SentStock, envelope: unknown): boolean => {
   const input = record(envelope) ? envelope.input : undefined
   if (policy.mode === 'body' || (record(input) && input.mode === 'body')) {
     return (

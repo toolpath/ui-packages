@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  bodyStockOf,
   BOX_ENVELOPE,
   defaultStock,
   echoesStock,
@@ -10,6 +11,7 @@ import {
   parseStock,
   placedAlong,
   sameStock,
+  stockBodyIndexOf,
   stockEdited,
   stockRequest,
   TILTED_FIRST_FOLDER,
@@ -232,20 +234,43 @@ describe('a calculation echoing the stock it was sent', () => {
 describe('a body of the part’s file as its stock', () => {
   const auto = defaultStock()
   const body = { mode: 'body' as const, bodyIndex: 2 }
+  const kept = { ...body, shapeIndex: 1 }
   const envelope = (input: unknown, materialFree: Array<number> = []) => ({
     input,
     resolved: { shape: 'body', bodyIndex: 2, materialFreeRegions: materialFree },
   })
 
-  it('stands for the part’s policy while it has one, which is kept to come back to', () => {
-    expect(effectiveStock({ policy: auto, bodyIndex: 2 })).toEqual(body)
-    expect(effectiveStock({ policy: null, bodyIndex: 0 })).toEqual({ mode: 'body', bodyIndex: 0 })
-    expect(effectiveStock({ policy: auto, bodyIndex: null })).toBe(auto)
-    expect(effectiveStock({ policy: null, bodyIndex: null })).toBeNull()
+  it('is planned from by its index alone: its shape is the app’s, never sent', () => {
+    expect(effectiveStock(kept)).toEqual(body)
+    expect(effectiveStock({ ...kept, shapeIndex: null })).toEqual(body)
+    expect(effectiveStock(auto)).toBe(auto)
+    expect(effectiveStock(null)).toBeNull()
+  })
+
+  it('is its body, and a policy none', () => {
+    expect(bodyStockOf(kept)).toBe(kept)
+    expect(bodyStockOf(auto)).toBeNull()
+    expect(bodyStockOf(null)).toBeNull()
+    expect(bodyStockOf(undefined)).toBeNull()
+  })
+
+  it('names its body, and a policy none', () => {
+    expect(stockBodyIndexOf(kept)).toBe(2)
+    expect(stockBodyIndexOf(body)).toBe(2)
+    expect(stockBodyIndexOf(auto)).toBeNull()
+    expect(stockBodyIndexOf(null)).toBeNull()
+    expect(stockBodyIndexOf(undefined)).toBeNull()
+  })
+
+  it('is the same stock only as the same body, of the same shape', () => {
+    expect(sameStock(kept, { shapeIndex: 1, bodyIndex: 2, mode: 'body' })).toBe(true)
+    expect(sameStock(kept, { ...kept, bodyIndex: 3 })).toBe(false)
+    expect(sameStock(kept, auto)).toBe(false)
   })
 
   it('is echoed by the same body alone', () => {
     expect(echoesStock(body, envelope(body))).toBe(true)
+    expect(echoesStock(kept, envelope(body))).toBe(true)
     expect(echoesStock(body, envelope({ mode: 'body', bodyIndex: 3 }))).toBe(false)
     expect(echoesStock(body, envelope(auto))).toBe(false)
     // A policy is not echoed by a body it was not sent.

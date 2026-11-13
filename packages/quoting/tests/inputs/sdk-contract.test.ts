@@ -5,10 +5,10 @@
 
 import type { BodyStock as ApiBodyStock } from '@toolpath/api'
 import { describe, expectTypeOf, it } from 'vitest'
-import type { BodyStock } from '../../src/inputs/stock'
+import type { SentBodyStock } from '../../src/inputs/stock'
 
 describe('the stock types and the Toolpath API', () => {
-  it('names a body of the part’s file as stock as the API does, both ways', () => {
-    expectTypeOf<BodyStock>().toEqualTypeOf<ApiBodyStock>()
+  it('sends a body of the part’s file as stock as the API names it, both ways', () => {
+    expectTypeOf<SentBodyStock>().toEqualTypeOf<ApiBodyStock>()
   })
 })

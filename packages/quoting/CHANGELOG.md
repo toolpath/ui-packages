@@ -1,5 +1,28 @@
 # @toolpath/quoting
 
+## 2.0.0
+
+### Major Changes
+
+- a04d352: A body of the part's own file is one mode of its stock, in place of a policy, never kept beside
+  one. In `@toolpath/quoting/inputs` and `/pipeline`:
+
+  - **Breaking:** `BodyStock` carries the shape the body is (`shapeIndex`, a number or null), kept
+    with it by the app and never sent; `SentBodyStock` (`{ mode: 'body', bodyIndex }`) is the body as
+    Toolpath takes it, and `SentStock` is it or a policy. `PlanStock` is still a policy or a
+    `BodyStock`.
+  - **Breaking:** `effectiveStock(stock)` takes the part's one stock (`PlanStock | null`) in place
+    of `{ policy, bodyIndex }`, and answers the `SentStock` it is planned from: a body by its index
+    alone, so a body fingerprints as it did.
+  - **Breaking:** `FingerprintPart.machiningStock` is a `PlanStock`, and `stockBodyIndex` is gone
+    from it; `stockOf` and `stockSent` read the stock alone and answer a `SentStock`, as
+    `PlanInputs.stock` and `notQueued` take one. `ApplyFacts.stock` takes a `SentStock`: a body
+    needs no first folder.
+  - `echoesStock` and `stockEdited` take a `SentStock`, `sameStock` any `PlanStock`; every stock they
+    took before reads as it did.
+  - New: `bodyStockOf(stock)` and `stockBodyIndexOf(stock)` name the body a stock cuts the part
+    from, or null for a policy or none.
+
 ## 1.0.1
 
 ### Patch Changes

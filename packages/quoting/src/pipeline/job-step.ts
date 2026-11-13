@@ -1,4 +1,4 @@
-import type { PlanStock } from '../inputs/stock'
+import type { SentStock } from '../inputs/stock'
 import type { SendHolding } from '../model/part-state'
 import type { WaitingPipeline } from './run-decision'
 
@@ -186,7 +186,7 @@ export const inspectedStep = ({ bodies, shapes }: InspectedFacts): InspectedStep
 }
 
 /** Why an analysis read with no plan queued fails its plan: a stock it could not send says why. */
-export const notQueued = (stock: PlanStock | string | null): string =>
+export const notQueued = (stock: SentStock | string | null): string =>
   typeof stock === 'string' ? stock : PLAN_NOT_QUEUED
 
 /** How reading a finished plan's machining times went. */

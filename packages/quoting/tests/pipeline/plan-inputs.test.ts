@@ -4,6 +4,7 @@ import {
   draftDone,
   fingerprintText,
   planInputsOf,
+  stockOf,
   stockSent,
   type DraftRow,
   type FingerprintPart,
@@ -243,15 +244,26 @@ describe('a part’s inputs', () => {
     expect(stockSent(automatic.part, automatic.draft)).toEqual(automatic.part.machiningStock)
   })
 
-  it('are planned from a body of the file in place of the policy, which stays to come back to', () => {
+  it('are planned from a body of the file, by its index alone, as its stock', () => {
     const box = SAMPLES[4]!
-    const cut = { ...box.part, stockBodyIndex: 3 }
-    // Sent as it is: no first folder is needed for a body.
+    const cut = {
+      ...box.part,
+      machiningStock: { mode: 'body' as const, bodyIndex: 3, shapeIndex: 1 },
+    }
+    // Sent by its index: no first folder is needed for a body, and its shape is never sent.
     expect(stockSent(cut, box.draft)).toEqual({ mode: 'body', bodyIndex: 3 })
+    expect(stockOf(cut)).toEqual({ mode: 'body', bodyIndex: 3 })
     expect(planInputsOf(cut, box.draft).stock).toEqual({ mode: 'body', bodyIndex: 3 })
     expect(fingerprintOf(cut, box.draft)).not.toBe(fingerprintOf(box.part, box.draft))
-    expect(fingerprintOf({ ...box.part, stockBodyIndex: null }, box.draft)).toBe(
-      fingerprintOf(box.part, box.draft),
+    // Fingerprinted as a body was before its shape was kept with it.
+    expect(fingerprintText(planInputsOf(cut, box.draft))).toContain(
+      '"stock":{"bodyIndex":3,"mode":"body"}',
     )
+    expect(
+      fingerprintOf(
+        { ...cut, machiningStock: { ...cut.machiningStock, shapeIndex: null } },
+        box.draft,
+      ),
+    ).toBe(fingerprintOf(cut, box.draft))
   })
 })

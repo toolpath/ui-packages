@@ -191,12 +191,13 @@ A part is planned from its constraints and from these inputs:
   `stockPlacement` says where a stock sits on the model, and `fixedBoxCheck` says whether a fixed
   box can be sent and how far the part stands outside it.
 - **A body of the part's file as stock.** A part made from a multi-body file can be cut from
-  another body of that file, taken where it lies (`BodyStock`, `{ mode: 'body', bodyIndex }`,
-  Engine API 1.35). It is not a policy the stock editor makes: keep it beside the part's policy,
-  which stays as it was, to come back to once the body is cleared. `effectiveStock({ policy,
-  bodyIndex })` is the `PlanStock` the part is planned from: the body where it has one, else the
-  policy. Send it, fingerprint it and compare it from that one rule. `echoesStock` and
-  `stockEdited` take a `PlanStock`: a body is echoed only by the same body.
+  another body of that file, taken where it lies (`BodyStock`, `{ mode: 'body', bodyIndex,
+  shapeIndex }`, Engine API 1.35). It is one of the part's stock modes, in place of a policy: a
+  `PlanStock` is a policy or a body, never both. `shapeIndex` is the app's, which of the file's
+  shapes the body is; `effectiveStock(stock)` is the `SentStock` the part is planned from, a body by
+  its index alone (`SentBodyStock`, as Toolpath takes it). Send it, fingerprint it and compare it
+  from that one rule; `stockBodyIndexOf` names the body. `echoesStock` and `stockEdited` take a
+  `SentStock`: a body is echoed only by the same body.
   `STOCK_BODY_REFUSALS` words Toolpath's refusals of a stock body by their code
   (`stock_body_requires_file`, `unknown_body`, `own_body`), and `planFailureWords(error,
   bodyIndex)` words a part that stands outside its stock body (`part_outside_initial_stock:`) as
@@ -239,8 +240,8 @@ writes to its database and calls Toolpath.
 
 - **What the part is planned from.** `planInputsOf(part, draft)` gives its `PlanInputs`: the
   constraints Toolpath is told, the faces ignored, the stock, material, machine and tool crib. The
-  stock is `stockOf(part)`: the body of its file it is cut from (`stockBodyIndex`), else its policy
-  (`effectiveStock`). `stockSent` is that stock as Toolpath is sent it.
+  stock is `stockOf(part)`: its `machiningStock`, a body of its file or its policy, as
+  `effectiveStock` sends it. `stockSent` is that stock as Toolpath is sent it.
   `fingerprintText(inputs)` is one text for them, every key in order, with no names: hash it
   (SHA-256) to get the part's fingerprint. Every run, plan and estimate is stamped with one, and
   `partArtifactsOf` compares them.

@@ -1,6 +1,6 @@
 import { statementOf, withGroups, type DraftSetup, type Statement } from '@toolpath/plan'
 
-import { effectiveStock, stockRequest, type PlanStock, type StockOption } from '../inputs/stock'
+import { effectiveStock, stockRequest, type PlanStock, type SentStock } from '../inputs/stock'
 import type { ToolCrib } from '../inputs/tool-crib'
 
 /*
@@ -26,8 +26,8 @@ export interface PlanInputs {
   statement: Statement | null
   /** The faces ignored, with the kernel that numbered them; null for none. */
   done: DoneRegions | null
-  /** The stock it is planned from (`effectiveStock`): a body of its file, else its policy. */
-  stock: PlanStock | null
+  /** The stock it is planned from (`effectiveStock`): a body of its file, or its policy. */
+  stock: SentStock | null
   materialId: string | null
   machineProfileId: string | null
   toolCrib: ToolCrib
@@ -43,9 +43,8 @@ export interface DraftRow {
 
 /** A part's columns that are its plan's inputs; absent reads as none. */
 export interface FingerprintPart {
-  machiningStock?: StockOption | null
-  /** The body of the part's file it is cut from, in place of its stock policy; absent for none. */
-  stockBodyIndex?: number | null
+  /** Its stock: a policy, or the body of its file it is cut from. */
+  machiningStock?: PlanStock | null
   materialId?: string | null
   machineProfileId?: string | null
   toolCrib?: ToolCrib | null
@@ -117,11 +116,9 @@ export const fingerprintText = (inputs: PlanInputs): string =>
     }),
   )
 
-/** The stock the part is planned from (`effectiveStock`): its stock body, else its policy. */
-export const stockOf = (
-  part: Pick<FingerprintPart, 'machiningStock' | 'stockBodyIndex'>,
-): PlanStock | null =>
-  effectiveStock({ policy: part.machiningStock ?? null, bodyIndex: part.stockBodyIndex ?? null })
+/** The stock the part is planned from (`effectiveStock`): its stock body, or its policy. */
+export const stockOf = (part: Pick<FingerprintPart, 'machiningStock'>): SentStock | null =>
+  effectiveStock(part.machiningStock ?? null)
 
 /**
  * The part's stock as Toolpath is sent it with its draft (`stockRequest`): a body of its file as it
@@ -129,9 +126,9 @@ export const stockOf = (
  * be; null for no stock.
  */
 export const stockSent = (
-  part: Pick<FingerprintPart, 'machiningStock' | 'stockBodyIndex'>,
+  part: Pick<FingerprintPart, 'machiningStock'>,
   draft: Pick<DraftRow, 'setups'> | null,
-): PlanStock | string | null => {
+): SentStock | string | null => {
   const stock = stockOf(part)
   if (stock === null || stock.mode === 'body') {
     return stock
