@@ -16,6 +16,13 @@ import {
   PlanSetupToJSON,
   PlanSetupToJSONTyped,
 } from './PlanSetup.js'
+import type { PlanToolLibrary } from './PlanToolLibrary.js'
+import {
+  PlanToolLibraryFromJSON,
+  PlanToolLibraryFromJSONTyped,
+  PlanToolLibraryToJSON,
+  PlanToolLibraryToJSONTyped,
+} from './PlanToolLibrary.js'
 import type { PlanResponseSetupPlan } from './PlanResponseSetupPlan.js'
 import {
   PlanResponseSetupPlanFromJSON,
@@ -102,11 +109,27 @@ export interface PlanResponse {
    */
   stock: PlanResponseStock
   /**
-   * How the plan’s job held the part, which a recalculation that names none holds it by. `thinAir` for plans made before Engine API 1.24.0.
+   * How the plan’s job held the part, which a recalculation that names none holds it by. `thinAir` for plans made before Engine API 1.24.0. `vacuumTable` is experimental.
    * @type {PlanResponseWorkholdingEnum}
    * @memberof PlanResponse
    */
   workholding: PlanResponseWorkholdingEnum
+  /**
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
+   * The height of the spoilboard the plan’s vacuum table carried, in mm, 0 for none, which a recalculation held on a vacuum table that names none keeps. Null under any other workholding.
+   * @type {number}
+   * @memberof PlanResponse
+   */
+  spoilboardHeight: number | null
+  /**
+   * Per Fusion tool library the plan’s crib named, in the crib’s order, what its job read of it: which entries became which tools, and which did not. Empty for a crib of implicit libraries alone.
+   *
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   * @type {Array<PlanToolLibrary>}
+   * @memberof PlanResponse
+   */
+  toolLibraries: Array<PlanToolLibrary>
   /**
    * Fidelity of this plan: `planned` (setups and action-specs only) or `toolpathed` (toolpaths also calculated — fetch them at /plans/{planId}/toolpaths). A plan is readable at `planned` as soon as a calculation has planned the part, while `jobId` names the job cutting it. A `toolpathed` plan keeps its last result while it is recalculated. After a failed calculation the plan stays as its last successful run left it, or `planned` under the failed job.
    * @type {PlanResponseLevelEnum}
@@ -168,6 +191,7 @@ export type PlanResponseMaterialEnum =
 export const PlanResponseWorkholdingEnum = {
   ThinAir: 'thinAir',
   SyntheticVise: 'syntheticVise',
+  VacuumTable: 'vacuumTable',
 } as const
 export type PlanResponseWorkholdingEnum =
   (typeof PlanResponseWorkholdingEnum)[keyof typeof PlanResponseWorkholdingEnum]
@@ -193,6 +217,8 @@ export function instanceOfPlanResponse(value: object): value is PlanResponse {
   if (!('material' in value) || value['material'] === undefined) return false
   if (!('stock' in value) || value['stock'] === undefined) return false
   if (!('workholding' in value) || value['workholding'] === undefined) return false
+  if (!('spoilboardHeight' in value) || value['spoilboardHeight'] === undefined) return false
+  if (!('toolLibraries' in value) || value['toolLibraries'] === undefined) return false
   if (!('level' in value) || value['level'] === undefined) return false
   if (!('issues' in value) || value['issues'] === undefined) return false
   if (!('setups' in value) || value['setups'] === undefined) return false
@@ -219,6 +245,8 @@ export function PlanResponseFromJSONTyped(json: any, ignoreDiscriminator: boolea
     material: json['material'],
     stock: PlanResponseStockFromJSON(json['stock']),
     workholding: json['workholding'],
+    spoilboardHeight: json['spoilboardHeight'],
+    toolLibraries: (json['toolLibraries'] as Array<any>).map(PlanToolLibraryFromJSON),
     level: json['level'],
     issues: (json['issues'] as Array<any>).map(PlanIssueFromJSON),
     setups: (json['setups'] as Array<any>).map(PlanSetupFromJSON),
@@ -252,6 +280,8 @@ export function PlanResponseToJSONTyped(
     material: value['material'],
     stock: PlanResponseStockToJSON(value['stock']),
     workholding: value['workholding'],
+    spoilboardHeight: value['spoilboardHeight'],
+    toolLibraries: (value['toolLibraries'] as Array<any>).map(PlanToolLibraryToJSON),
     level: value['level'],
     issues: (value['issues'] as Array<any>).map(PlanIssueToJSON),
     setups: (value['setups'] as Array<any>).map(PlanSetupToJSON),

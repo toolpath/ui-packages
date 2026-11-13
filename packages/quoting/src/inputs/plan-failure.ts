@@ -97,12 +97,13 @@ const PERMANENT_CODES: ReadonlyArray<string> = [
   'unknown_body',
   'stock_body_requires_file',
   'part_outside_initial_stock',
+  'unholdable_initial_stock',
 ]
 
 /**
  * Whether a failed plan failed for good: its part's body or its stock body lost to the file, a part
- * that doesn't fit its stock, or a stock body Toolpath refused or can't use — its own, one the file
- * has no such body for, or any for a part not made from a file. Sending the same inputs again can
+ * that doesn't fit its stock, stock its fixture can't hold, or a stock body Toolpath refused or
+ * can't use — its own, one the file has no such body for, or any for a part not made from a file. Sending the same inputs again can
  * only fail again, so offer no Try again: the words say what to change, and changing the stock asks
  * for a run of its own. Takes the error as the part keeps it (`planFailureWords`) or as Toolpath
  * gave it, as one kept before it was worded is.

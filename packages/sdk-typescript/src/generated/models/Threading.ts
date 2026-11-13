@@ -39,10 +39,20 @@ export interface Threading {
   /**
    * The process used to cut the thread. An external thread is milled: a tap cuts only a
    * hole's.
+   *
+   * Absent, the process is left open, and each measurement of the feature resolves it. A
+   * stud's thread is milled. A hole's is cut by a cutting tap where it is a right-hand
+   * thread of the standard catalog no wider than 2.5 in, and milled otherwise. A through
+   * hole's is milled too where there is less room below the hole than the shortest tap runs
+   * out in past its far end, a lead of two threads and three threads more, unless the
+   * thread is tapered, which only a tap cuts. So a through hole may be tapped from one end
+   * and milled from the other, or tapped in one fixture and milled in another. Neither the
+   * job's tools nor its tap options are read. Never by a forming tap, whose hole is drilled
+   * wider: state `FormTap` to have one. A modeled thread's process is absent.
    * @type {ThreadProcess}
    * @memberof Threading
    */
-  process: ThreadProcess
+  process?: ThreadProcess
 }
 
 /**
@@ -50,7 +60,6 @@ export interface Threading {
  */
 export function instanceOfThreading(value: object): value is Threading {
   if (!('spec' in value) || value['spec'] === undefined) return false
-  if (!('process' in value) || value['process'] === undefined) return false
   return true
 }
 
@@ -64,7 +73,7 @@ export function ThreadingFromJSONTyped(json: any, ignoreDiscriminator: boolean):
   }
   return {
     spec: ThreadSpecFromJSON(json['spec']),
-    process: ThreadProcessFromJSON(json['process']),
+    process: json['process'] == null ? undefined : ThreadProcessFromJSON(json['process']),
   }
 }
 

@@ -48,6 +48,14 @@ export interface StockCylinder {
    * @memberof StockCylinder
    */
   length: number
+  /**
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
+   * A tube’s bore, through along `axis`, mm; absent for solid bar. Only a `placedCylinder` with an `innerDiameter` is a tube.
+   * @type {number}
+   * @memberof StockCylinder
+   */
+  innerDiameter?: number
 }
 
 /**
@@ -87,6 +95,7 @@ export function StockCylinderFromJSONTyped(json: any, ignoreDiscriminator: boole
     axis: Vec3FromJSON(json['axis']),
     diameter: json['diameter'],
     length: json['length'],
+    innerDiameter: json['innerDiameter'] == null ? undefined : json['innerDiameter'],
   }
 }
 
@@ -108,5 +117,6 @@ export function StockCylinderToJSONTyped(
     axis: Vec3ToJSON(value['axis']),
     diameter: value['diameter'],
     length: value['length'],
+    innerDiameter: value['innerDiameter'],
   }
 }

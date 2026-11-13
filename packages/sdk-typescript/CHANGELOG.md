@@ -1,5 +1,81 @@
 # @toolpath/api
 
+## 0.23.0
+
+### Minor Changes
+
+- f705be7: Regenerate the TypeScript SDK for Engine API 1.46.0.
+
+  ### Engine API 1.46.0
+
+  tp-kernel 0.34.0. A part can be planned on a vacuum table, initial stock can be given where it
+  stands, as the block, round stock or tube a CAM setup states, and a shop's own Fusion tool library
+  can be planned with, at its own feeds and speeds.
+
+  This release makes one breaking change to stable surface without a major: a hole's or a stud's
+  `threading.process` may be absent, where it was always stated.
+
+  **Plans** (`POST /v1/parts/{id}/plans`, `POST /v1/parts/{id}/toolpaths`,
+  `POST /v1/plans/{id}/toolpaths`):
+
+  - Experimental: `workholding: 'vacuumTable'` holds the part down on a vacuum table. The first setup lays the
+    initial stock on it, every later setup the part as cut. Nothing of it stands beside or above the
+    part, so a setup reaches what it would in thin air but for what runs down to the table: a through
+    hole or the outline with no stock left under the part is given no tool. Leave stock under the part
+    (`oversizeZBottom`, `gripStock`) for the first setup to cut those, or lay a spoilboard under every
+    setup (`spoilboardHeight`). A setup with next to no flat face
+    on the table is not held there, and the plan takes a setup more instead.
+  - `workholding` on a plan or a queued job may now read `vacuumTable`.
+  - Experimental: `spoilboardHeight` puts a spoilboard of that height, in mm, between the vacuum table and what lies
+    on it, which a tool may cut into: so a through hole or the outline of plate bought to thickness is
+    cut through into it. Only with `vacuumTable` (`spoilboard_without_vacuum_table`, 400, elsewhere). A
+    plan and a queued job echo it, 0 for none on a vacuum table and null otherwise, and a recalculation
+    on the plan's vacuum table keeps it unless it names another, which, like another workholding, drops
+    the plan's stated setups and done regions.
+  - A held job whose initial stock its fixture can hold in none of the directions that may start the
+    plan, with no first setup stated, fails with an `error` beginning `unholdable_initial_stock:`,
+    where it began `invalid_argument: setup planning:`. A stated first setup is planned all the same.
+    A job whose stock is held in some such direction, but where none of them has a first setup to
+    plan, still fails with `invalid_argument: setup planning: no fixture on the initial stock holds a
+first setup`.
+  - A recalculation on a vacuum table that changes the stock drops the plan's stated setups and done
+    regions, as one in a vise does.
+  - Experimental: `stock: { mode: 'placedBox', frame, lower, upper }` is a block given by two corners
+    in a frame in the part's coordinates; `stock: { mode: 'placedCylinder', origin, axis, diameter,
+length, innerDiameter? }` is round stock, or with `innerDiameter` a tube, given in the part's
+    coordinates. Each takes the fields a plan reports as its resolved `box` or `cylinder` stock, with
+    `mode` in place of `shape`, so a plan's stock can be sent back. Placed stock is taken where it lies, never sized or squared
+    up; the job fails where the part stands outside it, a tube's bore included. Its sides must fit
+    within 2032 × 1270 × 762 mm in some order.
+  - A resolved `cylinder` may carry `innerDiameter`, the bore of a placed tube.
+
+  **Features** (`GET /v1/parts/{id}/features`):
+
+  - A hole's or a stud's `threading.process` may be absent: a modeled thread's process is left open,
+    and each plan's measurement of its feature resolves it. A stud's thread is milled. A hole's is cut
+    by a cutting tap where it is a standard right-hand thread no wider than 2.5 in, and milled
+    otherwise; a through hole's is milled too where there is too little room below it for a tap to
+    run out, unless it is tapered, so it may be milled on a vacuum table where a vise would have it
+    tapped. Read an absent process as undecided, not as either.
+
+  **Tool libraries**, experimental:
+
+  - `POST /v1/tool-libraries` creates a Fusion tool library and answers a short-lived URL to upload
+    it to: the JSON Fusion writes for a library. It expires 15 days after it is created, as a part
+    does.
+  - A tool crib takes `{ kind: 'fusion', toolLibraryId, presets? }` beside its implicit libraries. The
+    plan reads the library's milling tools under `presets`, per purpose (`slot`, `adaptiveRough`,
+    `wallFinish`, …) the preset names to try in order, and prices every purpose the presets leave for
+    the job's material. Without `presets` it reads the names the vendors' Fusion libraries give the
+    material. The machine's `maxRpm` holds none of its tools: a preset runs as stated, and what the
+    presets leave is priced under the default 15000 rev/min. A library uploaded again after a job read it is refused
+    (`tool_library_source_changed`), as is one not uploaded (`tool_library_not_uploaded`), not the
+    caller's (`tool_library_not_found`), or past retention (`tool_library_expired`, 410), before
+    anything is pinned or metered.
+  - A plan's `toolLibraries` says, per Fusion library, which entries became which tools (the key its
+    actions and CAM export name a tool by), and which entries did not, by `kind` (`UnsupportedType`,
+    `Invalid`, `DuplicateTool`), and why.
+
 ## 0.22.2
 
 ### Patch Changes

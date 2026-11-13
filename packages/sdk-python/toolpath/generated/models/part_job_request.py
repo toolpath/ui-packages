@@ -15,10 +15,13 @@ if TYPE_CHECKING:
     from ..models.body_stock import BodyStock
     from ..models.fixed_box_stock import FixedBoxStock
     from ..models.fixed_cylinder_stock import FixedCylinderStock
+    from ..models.fusion_tool_library import FusionToolLibrary
+    from ..models.implicit_tool_library import ImplicitToolLibrary
     from ..models.part_job_request_done_regions_type_0 import PartJobRequestDoneRegionsType0
     from ..models.part_job_request_machine import PartJobRequestMachine
     from ..models.part_job_request_setup_plan_type_0 import PartJobRequestSetupPlanType0
-    from ..models.part_job_request_tool_crib_item_type_0 import PartJobRequestToolCribItemType0
+    from ..models.placed_box_stock import PlacedBoxStock
+    from ..models.placed_cylinder_stock import PlacedCylinderStock
     from ..models.plan_spec import PlanSpec
 
 
@@ -31,34 +34,37 @@ class PartJobRequest:
     Attributes:
         material (PartJobRequestMaterial | Unset): The material to synthesize tools and machining times for. Omit for
             aluminium, the default. Example: LowCarbonSteel.
-        tool_crib (list[PartJobRequestToolCribItemType0] | Unset): Where tools come from: a tool crib of one to sixteen
-            tool libraries, in priority order — each pass of the plan uses the first library with a tool for it. Each
-            library has a `kind`; today the only kind is `implicit`, a library whose tools are synthesized from settings
-            (explicit libraries of catalog tools will follow). An implicit library has an optional `name` (a label) and
-            enables tool families (faceMill, flatEndmill, bullNose, ballEndmill, drill, chamfer, keyseat, tap,
-            cornerRounding), and each family has its own settings for inch-sized tools and for metric ones — a face mill
-            diameter, diameter ranges and a maximum length-over-diameter, in millimetres; any setting left out takes its
-            default. A family left out is not made, and planning falls back where it can: without drills, holes are milled;
-            without a face mill, facing uses a flat endmill; without chamfer mills, bevels are followed by a bullnose, then
-            a ball. Endmill `minDiameter` is a hard minimum. Inch drills are the fractional, number and letter series, and
-            metric drills the metric series; a library enabling both makes the nearest stocked size of either, one drill per
-            hole, unless its two blocks state different `maxLengthOverDiameter`, when each system's drills are made
-            separately. A drill block that states no `maxDiameter` stocks its whole series, to 4 1/4" and 57 mm. Corner-
-            rounding diameters are the whole cutter. `tap` is every tool that cuts a thread — cutting and forming taps, and
-            thread mills — each made only for a threaded hole or stud of the process its thread names, a tap at a standard
-            thread size. A stud’s thread is milled, so with `tap` off every stud is planned without its thread. A thread
-            with no tool for it is planned without its thread, which is reported owed. Omit for one implicit library with
-            every family inch-sized at its defaults, corner rounders off, and drills in both systems with `maxDiameter`
-            stated at 50.8 (2") and 50 — a part's units are not known before it is uploaded, so a hole takes the nearest
-            stocked drill of either. Example: [{'kind': 'implicit', 'name': 'Inch endmills, drills in both', 'flatEndmill':
-            {'enabled': True, 'inch': {'enabled': True, 'minDiameter': 3.175, 'maxDiameter': 19.05}}, 'drill': {'enabled':
-            True, 'inch': {'enabled': True, 'maxDiameter': 50.8}, 'metric': {'enabled': True, 'maxDiameter': 50}}}].
+        tool_crib (list[FusionToolLibrary | ImplicitToolLibrary] | Unset): Where tools come from: a tool crib of one to
+            sixteen tool libraries, in priority order — each pass of the plan uses the first library with a tool for it.
+            Each library has a `kind`: `implicit`, a library whose tools are synthesized from settings, or `fusion`
+            (experimental), a shop’s own Fusion tool library uploaded with **Upload a tool library**, named by
+            `toolLibraryId` and read under its `presets` map; the plan reports what each of its entries became
+            (`toolLibraries`). An implicit library has an optional `name` (a label) and enables tool families (faceMill,
+            flatEndmill, bullNose, ballEndmill, drill, chamfer, keyseat, tap, cornerRounding), and each family has its own
+            settings for inch-sized tools and for metric ones — a face mill diameter, diameter ranges and a maximum length-
+            over-diameter, in millimetres; any setting left out takes its default. A family left out is not made, and
+            planning falls back where it can: without drills, holes are milled; without a face mill, facing uses a flat
+            endmill; without chamfer mills, bevels are followed by a bullnose, then a ball. Endmill `minDiameter` is a hard
+            minimum. Inch drills are the fractional, number and letter series, and metric drills the metric series; a
+            library enabling both makes the nearest stocked size of either, one drill per hole, unless its two blocks state
+            different `maxLengthOverDiameter`, when each system's drills are made separately. A drill block that states no
+            `maxDiameter` stocks its whole series, to 4 1/4" and 57 mm. Corner-rounding diameters are the whole cutter.
+            `tap` is every tool that cuts a thread — cutting and forming taps, and thread mills — each made only for a
+            threaded hole or stud of the process its thread names, a tap at a standard thread size. A stud’s thread is
+            milled, so with `tap` off every stud is planned without its thread. A thread with no tool for it is planned
+            without its thread, which is reported owed. Omit for one implicit library with every family inch-sized at its
+            defaults, corner rounders off, and drills in both systems with `maxDiameter` stated at 50.8 (2") and 50 — a
+            part's units are not known before it is uploaded, so a hole takes the nearest stocked drill of either. Example:
+            [{'kind': 'implicit', 'name': 'Inch endmills, drills in both', 'flatEndmill': {'enabled': True, 'inch':
+            {'enabled': True, 'minDiameter': 3.175, 'maxDiameter': 19.05}}, 'drill': {'enabled': True, 'inch': {'enabled':
+            True, 'maxDiameter': 50.8}, 'metric': {'enabled': True, 'maxDiameter': 50}}}].
         machine (PartJobRequestMachine | Unset): The machine the part is quoted on: `name`, `maxRpm` (the spindle's top
             speed, rev/min) and `toolChangeSeconds`. Recorded with the plan and echoed back, and carried over by a
             recalculation. `maxRpm` is applied: every synthesized tool is held under it, so machining times move for a
-            machine that states one; without it a default ceiling of 15000 rev/min applies. Tool changes are never included
-            in machining times; `toolChangeSeconds` is for the caller to price them. Omit for none. Example: {'name': 'Haas
-            VF-2', 'maxRpm': 8100, 'toolChangeSeconds': 4.2}.
+            machine that states one; without it a default ceiling of 15000 rev/min applies. A Fusion tool library’s tools
+            are not held under it: they run as their presets state, and what those leave is priced under the default
+            ceiling. Tool changes are never included in machining times; `toolChangeSeconds` is for the caller to price
+            them. Omit for none. Example: {'name': 'Haas VF-2', 'maxRpm': 8100, 'toolChangeSeconds': 4.2}.
         setup_plan (None | PartJobRequestSetupPlanType0 | Unset): The setup plan to extend: setups in machining order,
             each stated as one `orientations` entry — a setup machines from one direction — naming the features
             (`featureTag`, hex) to machine from its `direction`. A direction must be one of the part’s `candidateDirections`
@@ -105,12 +111,13 @@ class PartJobRequest:
             '9c1e5a07d3b2f418', 'skippedRegions': [12, 13], 'setups': [{'direction': {'x': 0, 'y': 0, 'z': 1}, 'features':
             [{'regions': [4, 5, 6]}, {'regions': [9], 'featureType': 'through_hole'}]}, {'direction': {'x': 0, 'y': 0, 'z':
             -1}, 'exclusiveRegions': [20]}]}.
-        stock (AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock | Unset):
-            Initial stock settings. Omit stock to use automatic Flat Bar on a new plan or keep the saved input on a
-            recalculation. The initial stock to cut from, all lengths mm, told apart by `mode`: automatic Flat Bar or Round
-            Stock sized around the part, a fixed block or cylinder placed against it, or another body of the part’s own
-            file. Omit it on a new plan for automatic Flat Bar at the default figures; omit it when recalculating a plan to
-            reuse that plan’s own. Example: {'mode': 'automaticFlatBar', 'oversizeX': 1}.
+        stock (AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock |
+            PlacedBoxStock | PlacedCylinderStock | Unset): Initial stock settings. Omit stock to use automatic Flat Bar on a
+            new plan or keep the saved input on a recalculation. The initial stock to cut from, all lengths mm, told apart
+            by `mode`: automatic Flat Bar or Round Stock sized around the part, a fixed block or cylinder placed against it,
+            a block or round stock given where it stands, or another body of the part’s own file. Omit it on a new plan for
+            automatic Flat Bar at the default figures; omit it when recalculating a plan to reuse that plan’s own. Example:
+            {'mode': 'automaticFlatBar', 'oversizeX': 1}.
         fallback_tools (bool | Unset): Plan what the tool crib cannot. A pass no tool of the crib can play — a hole
             deeper than its drills reach, a pocket past its endmills’ `maxLengthOverDiameter`, a head no library lists — is
             given a tool from a last, fallback tier with the reach limits lifted, so the part has a time for it. The crib
@@ -121,34 +128,67 @@ class PartJobRequest:
             nothing: the optimistic answer, since a fixture only ever takes reach away. `syntheticVise` holds it in a vise
             sized to whatever it closes on, its jaws along each setup’s y, so a jaw blocks the reach it would. The first
             setup grips the initial stock, every later setup the part as cut; the jaws reach 5.35 mm up whatever they close
-            on, at most half its height. The planner chooses the first setup among the directions the stock can be gripped
-            in. Fixed stock is gripped only in the directions the part fits it squared up in; where it fits in none — or not
-            in the direction a `setupPlan` or `planSpec` states its first setup in — the job fails, its `error` beginning
-            `part_outside_initial_stock:` and naming each direction. A job no first setup can start otherwise fails, its
-            `error` beginning `invalid_argument: setup planning: no fixture on the initial stock holds a first setup`; a
-            `setupPlan` or `planSpec` whose first setup cannot start fails as `refused_user_plan:` or `refused_plan_spec:`.
-            Faces a jaw leaves out of reach are reported as the plan’s `issues`. Omit on **Calculate a plan’s toolpaths** to
-            keep the plan’s. Example: syntheticVise.
+            on, at most half its height. `vacuumTable` (experimental) holds it down on a vacuum table: the first setup lays
+            the initial stock on it, every later setup the part as cut. Nothing of it stands beside or above the part, so a
+            setup reaches what it would in thin air but for a feature whose bottom lies within 0.254 mm of the table, such
+            as a through hole or the outline with no stock left under the part, which is given no tool; the first setup
+            reaches those with stock left under the part (`oversizeZBottom`, `gripStock`), and every setup over a spoilboard
+            (`spoilboardHeight`). A setup with next to no flat face lying on the table cannot be held, and the plan takes a
+            setup more rather than machine there. Held either way, the planner chooses the first setup among the directions
+            the stock can be gripped in. Fixed stock is gripped only in the directions the part fits it squared up in; where
+            it fits in none — or not in the direction a `setupPlan` or `planSpec` states its first setup in — the job fails,
+            its `error` beginning `part_outside_initial_stock:` and naming each direction. With no first setup stated, a job
+            whose initial stock the fixture can hold in none of those directions — round stock lying on a vacuum table, say
+            — fails, its `error` beginning `unholdable_initial_stock:`; a stated first setup is planned all the same. A job
+            the fixture holds in some such direction, but none of which has a first setup to plan, fails, its `error`
+            beginning `invalid_argument: setup planning: no fixture on the initial stock holds a first setup`. A `setupPlan`
+            or `planSpec` whose first setup cannot start fails as `refused_user_plan:` or `refused_plan_spec:`. Faces a jaw
+            leaves out of reach are reported as the plan’s `issues`. Omit on **Calculate a plan’s toolpaths** to keep the
+            plan’s. Example: syntheticVise.
+        spoilboard_height (float | Unset): **Experimental.** Available now and still gaining functionality. It may
+            change in breaking ways in a minor API release; each such change is listed in the release notes, so check them
+            before upgrading.
+
+            The height of the vacuum table’s spoilboard, in mm: a sacrificial sheet between the vacuum table and what lies
+            on it, which a tool may cut into. The vacuum table lies this far below the initial stock in the first setup and
+            below the part in every later one, so a feature running down to the part’s bottom — a through hole, the outline
+            — is cut through into it, as plate bought to thickness needs; one thinner than the 0.254 mm fixture clearance
+            gives such a feature no tool, as none does. Cutting the outline through cuts the part free in that setup:
+            nothing yet leaves a skin under it or saves that pass for last. Only with `workholding: vacuumTable`; anywhere
+            else it is refused (`spoilboard_without_vacuum_table`). Omit for none (0), or on **Calculate a plan’s
+            toolpaths** to keep the plan’s while its workholding stays a vacuum table. Example: 6.35.
     """
 
     material: PartJobRequestMaterial | Unset = UNSET
-    tool_crib: list[PartJobRequestToolCribItemType0] | Unset = UNSET
+    tool_crib: list[FusionToolLibrary | ImplicitToolLibrary] | Unset = UNSET
     machine: PartJobRequestMachine | Unset = UNSET
     setup_plan: None | PartJobRequestSetupPlanType0 | Unset = UNSET
     done_regions: None | PartJobRequestDoneRegionsType0 | Unset = UNSET
     plan_spec: None | PlanSpec | Unset = UNSET
-    stock: AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock | Unset = UNSET
+    stock: (
+        AutomaticFlatBarStock
+        | AutomaticRoundStock
+        | BodyStock
+        | FixedBoxStock
+        | FixedCylinderStock
+        | PlacedBoxStock
+        | PlacedCylinderStock
+        | Unset
+    ) = UNSET
     fallback_tools: bool | Unset = UNSET
     workholding: PartJobRequestWorkholding | Unset = UNSET
+    spoilboard_height: float | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.automatic_flat_bar_stock import AutomaticFlatBarStock
         from ..models.automatic_round_stock import AutomaticRoundStock
         from ..models.fixed_box_stock import FixedBoxStock
         from ..models.fixed_cylinder_stock import FixedCylinderStock
+        from ..models.implicit_tool_library import ImplicitToolLibrary
         from ..models.part_job_request_done_regions_type_0 import PartJobRequestDoneRegionsType0
         from ..models.part_job_request_setup_plan_type_0 import PartJobRequestSetupPlanType0
-        from ..models.part_job_request_tool_crib_item_type_0 import PartJobRequestToolCribItemType0
+        from ..models.placed_box_stock import PlacedBoxStock
+        from ..models.placed_cylinder_stock import PlacedCylinderStock
         from ..models.plan_spec import PlanSpec
 
         material: str | Unset = UNSET
@@ -160,7 +200,9 @@ class PartJobRequest:
             tool_crib = []
             for tool_crib_item_data in self.tool_crib:
                 tool_crib_item: dict[str, Any]
-                if isinstance(tool_crib_item_data, PartJobRequestToolCribItemType0):
+                if isinstance(tool_crib_item_data, ImplicitToolLibrary):
+                    tool_crib_item = tool_crib_item_data.to_dict()
+                else:
                     tool_crib_item = tool_crib_item_data.to_dict()
 
                 tool_crib.append(tool_crib_item)
@@ -204,6 +246,10 @@ class PartJobRequest:
             stock = self.stock.to_dict()
         elif isinstance(self.stock, FixedCylinderStock):
             stock = self.stock.to_dict()
+        elif isinstance(self.stock, PlacedBoxStock):
+            stock = self.stock.to_dict()
+        elif isinstance(self.stock, PlacedCylinderStock):
+            stock = self.stock.to_dict()
         else:
             stock = self.stock.to_dict()
 
@@ -212,6 +258,8 @@ class PartJobRequest:
         workholding: str | Unset = UNSET
         if not isinstance(self.workholding, Unset):
             workholding = self.workholding.value
+
+        spoilboard_height = self.spoilboard_height
 
         field_dict: dict[str, Any] = {}
 
@@ -234,6 +282,8 @@ class PartJobRequest:
             field_dict["fallbackTools"] = fallback_tools
         if workholding is not UNSET:
             field_dict["workholding"] = workholding
+        if spoilboard_height is not UNSET:
+            field_dict["spoilboardHeight"] = spoilboard_height
 
         return field_dict
 
@@ -244,10 +294,13 @@ class PartJobRequest:
         from ..models.body_stock import BodyStock
         from ..models.fixed_box_stock import FixedBoxStock
         from ..models.fixed_cylinder_stock import FixedCylinderStock
+        from ..models.fusion_tool_library import FusionToolLibrary
+        from ..models.implicit_tool_library import ImplicitToolLibrary
         from ..models.part_job_request_done_regions_type_0 import PartJobRequestDoneRegionsType0
         from ..models.part_job_request_machine import PartJobRequestMachine
         from ..models.part_job_request_setup_plan_type_0 import PartJobRequestSetupPlanType0
-        from ..models.part_job_request_tool_crib_item_type_0 import PartJobRequestToolCribItemType0
+        from ..models.placed_box_stock import PlacedBoxStock
+        from ..models.placed_cylinder_stock import PlacedCylinderStock
         from ..models.plan_spec import PlanSpec
 
         d = dict(src_dict)
@@ -259,17 +312,25 @@ class PartJobRequest:
             material = PartJobRequestMaterial(_material)
 
         _tool_crib = d.pop("toolCrib", UNSET)
-        tool_crib: list[PartJobRequestToolCribItemType0] | Unset = UNSET
+        tool_crib: list[FusionToolLibrary | ImplicitToolLibrary] | Unset = UNSET
         if _tool_crib is not UNSET:
             tool_crib = []
             for tool_crib_item_data in _tool_crib:
 
-                def _parse_tool_crib_item(data: object) -> PartJobRequestToolCribItemType0:
+                def _parse_tool_crib_item(data: object) -> FusionToolLibrary | ImplicitToolLibrary:
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
+                        tool_crib_item_type_0 = ImplicitToolLibrary.from_dict(data)
+
+                        return tool_crib_item_type_0
+                    except (TypeError, ValueError, AttributeError, KeyError):
+                        pass
                     if not isinstance(data, dict):
                         raise TypeError()
-                    tool_crib_item_type_0 = PartJobRequestToolCribItemType0.from_dict(data)
+                    tool_crib_item_type_1 = FusionToolLibrary.from_dict(data)
 
-                    return tool_crib_item_type_0
+                    return tool_crib_item_type_1
 
                 tool_crib_item = _parse_tool_crib_item(tool_crib_item_data)
 
@@ -335,7 +396,16 @@ class PartJobRequest:
 
         def _parse_stock(
             data: object,
-        ) -> AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock | Unset:
+        ) -> (
+            AutomaticFlatBarStock
+            | AutomaticRoundStock
+            | BodyStock
+            | FixedBoxStock
+            | FixedCylinderStock
+            | PlacedBoxStock
+            | PlacedCylinderStock
+            | Unset
+        ):
             if isinstance(data, Unset):
                 return data
             try:
@@ -370,11 +440,27 @@ class PartJobRequest:
                 return stock_type_3
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                stock_type_4 = PlacedBoxStock.from_dict(data)
+
+                return stock_type_4
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                stock_type_5 = PlacedCylinderStock.from_dict(data)
+
+                return stock_type_5
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            stock_type_4 = BodyStock.from_dict(data)
+            stock_type_6 = BodyStock.from_dict(data)
 
-            return stock_type_4
+            return stock_type_6
 
         stock = _parse_stock(d.pop("stock", UNSET))
 
@@ -387,6 +473,8 @@ class PartJobRequest:
         else:
             workholding = PartJobRequestWorkholding(_workholding)
 
+        spoilboard_height = d.pop("spoilboardHeight", UNSET)
+
         part_job_request = cls(
             material=material,
             tool_crib=tool_crib,
@@ -397,6 +485,7 @@ class PartJobRequest:
             stock=stock,
             fallback_tools=fallback_tools,
             workholding=workholding,
+            spoilboard_height=spoilboard_height,
         )
 
         return part_job_request

@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from ..models.plan_response_stock import PlanResponseStock
     from ..models.plan_setup import PlanSetup
     from ..models.plan_spec import PlanSpec
+    from ..models.plan_tool_library import PlanToolLibrary
     from ..models.trimmed_feature import TrimmedFeature
 
 
@@ -38,7 +39,19 @@ class PlanResponse:
             so every machining time here — are the kernel’s for it. `Aluminum` on plans made before it was recorded.
         stock (PlanResponseStock): The saved stock input and the initial geometry the kernel resolved from it.
         workholding (PlanResponseWorkholding): How the plan’s job held the part, which a recalculation that names none
-            holds it by. `thinAir` for plans made before Engine API 1.24.0.
+            holds it by. `thinAir` for plans made before Engine API 1.24.0. `vacuumTable` is experimental.
+        spoilboard_height (float | None): **Experimental.** Available now and still gaining functionality. It may change
+            in breaking ways in a minor API release; each such change is listed in the release notes, so check them before
+            upgrading.
+
+            The height of the spoilboard the plan’s vacuum table carried, in mm, 0 for none, which a recalculation held on a
+            vacuum table that names none keeps. Null under any other workholding.
+        tool_libraries (list[PlanToolLibrary]): Per Fusion tool library the plan’s crib named, in the crib’s order, what
+            its job read of it: which entries became which tools, and which did not. Empty for a crib of implicit libraries
+            alone.
+
+            **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API
+            release; each such change is listed in the release notes, so check them before upgrading.
         level (PlanResponseLevel): Fidelity of this plan: `planned` (setups and action-specs only) or `toolpathed`
             (toolpaths also calculated — fetch them at /plans/{planId}/toolpaths). A plan is readable at `planned` as soon
             as a calculation has planned the part, while `jobId` names the job cutting it. A `toolpathed` plan keeps its
@@ -81,6 +94,8 @@ class PlanResponse:
     material: PlanResponseMaterial
     stock: PlanResponseStock
     workholding: PlanResponseWorkholding
+    spoilboard_height: float | None
+    tool_libraries: list[PlanToolLibrary]
     level: PlanResponseLevel
     issues: list[PlanIssue]
     setups: list[PlanSetup]
@@ -108,6 +123,14 @@ class PlanResponse:
         stock = self.stock.to_dict()
 
         workholding = self.workholding.value
+
+        spoilboard_height: float | None
+        spoilboard_height = self.spoilboard_height
+
+        tool_libraries = []
+        for tool_libraries_item_data in self.tool_libraries:
+            tool_libraries_item = tool_libraries_item_data.to_dict()
+            tool_libraries.append(tool_libraries_item)
 
         level = self.level.value
 
@@ -160,6 +183,8 @@ class PlanResponse:
                 "material": material,
                 "stock": stock,
                 "workholding": workholding,
+                "spoilboardHeight": spoilboard_height,
+                "toolLibraries": tool_libraries,
                 "level": level,
                 "issues": issues,
                 "setups": setups,
@@ -180,6 +205,7 @@ class PlanResponse:
         from ..models.plan_response_stock import PlanResponseStock
         from ..models.plan_setup import PlanSetup
         from ..models.plan_spec import PlanSpec
+        from ..models.plan_tool_library import PlanToolLibrary
         from ..models.trimmed_feature import TrimmedFeature
 
         d = dict(src_dict)
@@ -196,6 +222,20 @@ class PlanResponse:
         stock = PlanResponseStock.from_dict(d.pop("stock"))
 
         workholding = PlanResponseWorkholding(d.pop("workholding"))
+
+        def _parse_spoilboard_height(data: object) -> float | None:
+            if data is None:
+                return data
+            return cast(float | None, data)
+
+        spoilboard_height = _parse_spoilboard_height(d.pop("spoilboardHeight"))
+
+        tool_libraries = []
+        _tool_libraries = d.pop("toolLibraries")
+        for tool_libraries_item_data in _tool_libraries:
+            tool_libraries_item = PlanToolLibrary.from_dict(tool_libraries_item_data)
+
+            tool_libraries.append(tool_libraries_item)
 
         level = PlanResponseLevel(d.pop("level"))
 
@@ -286,6 +326,8 @@ class PlanResponse:
             material=material,
             stock=stock,
             workholding=workholding,
+            spoilboard_height=spoilboard_height,
+            tool_libraries=tool_libraries,
             level=level,
             issues=issues,
             setups=setups,

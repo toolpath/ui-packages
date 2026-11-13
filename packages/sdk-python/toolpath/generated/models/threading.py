@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from attrs import define as _attrs_define
 
 from ..models.thread_process import ThreadProcess
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.thread_spec import ThreadSpec
@@ -26,25 +27,28 @@ class Threading:
             than nothing — `minMajorDiameter` above `minMinorDiameter` for an internal thread,
             `maxMajorDiameter` above `maxMinorDiameter` for an external one; the two angles keep the
             ranges their fields state.
-        process (ThreadProcess): How a thread is to be cut: the three ways there are.
+        process (ThreadProcess | Unset): How a thread is to be cut: the three ways there are.
     """
 
     spec: ThreadSpec
-    process: ThreadProcess
+    process: ThreadProcess | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         spec = self.spec.to_dict()
 
-        process = self.process.value
+        process: str | Unset = UNSET
+        if not isinstance(self.process, Unset):
+            process = self.process.value
 
         field_dict: dict[str, Any] = {}
 
         field_dict.update(
             {
                 "spec": spec,
-                "process": process,
             }
         )
+        if process is not UNSET:
+            field_dict["process"] = process
 
         return field_dict
 
@@ -55,7 +59,12 @@ class Threading:
         d = dict(src_dict)
         spec = ThreadSpec.from_dict(d.pop("spec"))
 
-        process = ThreadProcess(d.pop("process"))
+        _process = d.pop("process", UNSET)
+        process: ThreadProcess | Unset
+        if isinstance(_process, Unset):
+            process = UNSET
+        else:
+            process = ThreadProcess(_process)
 
         threading = cls(
             spec=spec,

@@ -43,6 +43,20 @@ import {
   FixedCylinderStockFromJSONTyped,
   FixedCylinderStockToJSON,
 } from './FixedCylinderStock.js'
+import type { PlacedBoxStock } from './PlacedBoxStock.js'
+import {
+  instanceOfPlacedBoxStock,
+  PlacedBoxStockFromJSON,
+  PlacedBoxStockFromJSONTyped,
+  PlacedBoxStockToJSON,
+} from './PlacedBoxStock.js'
+import type { PlacedCylinderStock } from './PlacedCylinderStock.js'
+import {
+  instanceOfPlacedCylinderStock,
+  PlacedCylinderStockFromJSON,
+  PlacedCylinderStockFromJSONTyped,
+  PlacedCylinderStockToJSON,
+} from './PlacedCylinderStock.js'
 
 /**
  * @type QueuePartJobResponseStockInput
@@ -55,6 +69,8 @@ export type QueuePartJobResponseStockInput =
   | ({ mode: 'body' } & BodyStock)
   | ({ mode: 'fixedBox' } & FixedBoxStock)
   | ({ mode: 'fixedCylinder' } & FixedCylinderStock)
+  | ({ mode: 'placedBox' } & PlacedBoxStock)
+  | ({ mode: 'placedCylinder' } & PlacedCylinderStock)
 
 export function QueuePartJobResponseStockInputFromJSON(json: any): QueuePartJobResponseStockInput {
   return QueuePartJobResponseStockInputFromJSONTyped(json, false)
@@ -85,6 +101,14 @@ export function QueuePartJobResponseStockInputFromJSONTyped(
     case 'fixedCylinder':
       return Object.assign({}, FixedCylinderStockFromJSONTyped(json, true), {
         mode: 'fixedCylinder',
+      } as const)
+    case 'placedBox':
+      return Object.assign({}, PlacedBoxStockFromJSONTyped(json, true), {
+        mode: 'placedBox',
+      } as const)
+    case 'placedCylinder':
+      return Object.assign({}, PlacedCylinderStockFromJSONTyped(json, true), {
+        mode: 'placedCylinder',
       } as const)
     default:
       return json
@@ -117,6 +141,12 @@ export function QueuePartJobResponseStockInputToJSONTyped(
       return Object.assign({}, FixedBoxStockToJSON(value), { mode: 'fixedBox' } as const)
     case 'fixedCylinder':
       return Object.assign({}, FixedCylinderStockToJSON(value), { mode: 'fixedCylinder' } as const)
+    case 'placedBox':
+      return Object.assign({}, PlacedBoxStockToJSON(value), { mode: 'placedBox' } as const)
+    case 'placedCylinder':
+      return Object.assign({}, PlacedCylinderStockToJSON(value), {
+        mode: 'placedCylinder',
+      } as const)
     default:
       return value
   }

@@ -32,7 +32,7 @@ import {
 
 /**
  * @type PlanResponseStockResolved
- * The initial stock the kernel sized and placed, in mm, told apart by `shape`: a `box` — two corners in the first setup’s frame, squared up in the direction the job cuts first — a `cylinder` in part coordinates, or the `body` of the part’s file it was cut from. This is the material bought, which a quote is written against (a cylinder’s volume is π·(diameter/2)²·length); the part’s own bounding box is not a substitute. Null for a plan calculated before this field existed — re-run the part to get one — and for a part with no setup, which has nothing to square stock against.
+ * The initial stock the kernel sized and placed, in mm, told apart by `shape`: a `box` — two corners in the first setup’s frame, squared up in the direction the job cuts first, or in the frame a `placedBox` was given in — a `cylinder` in part coordinates, or the `body` of the part’s file it was cut from. Placed stock is reported as it was given. This is the material bought, which a quote is written against (a cylinder’s volume is π·(diameter/2)²·length, less its bore’s for a tube); the part’s own bounding box is not a substitute. Null for a plan calculated before this field existed — re-run the part to get one — and for a part with no setup, which has nothing to square stock against.
  * @export
  */
 export type PlanResponseStockResolved = StockBody | StockBox | StockCylinder

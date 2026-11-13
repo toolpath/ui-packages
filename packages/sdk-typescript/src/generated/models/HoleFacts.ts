@@ -67,7 +67,7 @@ export interface HoleFacts {
    */
   holeProcess: HoleProcess
   /**
-   * The thread this hole is to receive and how it is cut; absent for a plain hole.
+   * The thread this hole is to receive, taken from its modeled thread, and the process stated for it, if any; absent for a plain hole.
    * @type {Threading}
    * @memberof HoleFacts
    */

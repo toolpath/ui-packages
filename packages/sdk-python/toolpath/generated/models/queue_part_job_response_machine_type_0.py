@@ -12,8 +12,8 @@ T = TypeVar("T", bound="QueuePartJobResponseMachineType0")
 
 @_attrs_define
 class QueuePartJobResponseMachineType0:
-    """The machine the job was recorded against — the request’s, or null when it named none — and whose `maxRpm` its tools
-    are held under.
+    """The machine the job was recorded against — the request’s, or null when it named none — and whose `maxRpm` its
+    synthesized tools are held under.
 
         Attributes:
             name (str | Unset):

@@ -125,11 +125,19 @@ export interface QueuePartJobResponse {
    */
   fallbackTools: boolean
   /**
-   * How the job holds the part — the request’s, or `thinAir` when it named none.
+   * How the job holds the part — the request’s, or `thinAir` when it named none. `vacuumTable` is experimental.
    * @type {QueuePartJobResponseWorkholdingEnum}
    * @memberof QueuePartJobResponse
    */
   workholding: QueuePartJobResponseWorkholdingEnum
+  /**
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
+   * The height of the vacuum table’s spoilboard, in mm, 0 for none; null under any other workholding.
+   * @type {number}
+   * @memberof QueuePartJobResponse
+   */
+  spoilboardHeight: number | null
   /**
    * Initial state of the accepted processing job.
    * @type {QueuePartJobResponseStatusEnum}
@@ -155,6 +163,7 @@ export type QueuePartJobResponseMaterialEnum =
 export const QueuePartJobResponseWorkholdingEnum = {
   ThinAir: 'thinAir',
   SyntheticVise: 'syntheticVise',
+  VacuumTable: 'vacuumTable',
 } as const
 export type QueuePartJobResponseWorkholdingEnum =
   (typeof QueuePartJobResponseWorkholdingEnum)[keyof typeof QueuePartJobResponseWorkholdingEnum]
@@ -184,6 +193,7 @@ export function instanceOfQueuePartJobResponse(value: object): value is QueuePar
   if (!('stock' in value) || value['stock'] === undefined) return false
   if (!('fallbackTools' in value) || value['fallbackTools'] === undefined) return false
   if (!('workholding' in value) || value['workholding'] === undefined) return false
+  if (!('spoilboardHeight' in value) || value['spoilboardHeight'] === undefined) return false
   if (!('status' in value) || value['status'] === undefined) return false
   if (value['status'] !== 'queued') return false
 
@@ -214,6 +224,7 @@ export function QueuePartJobResponseFromJSONTyped(
     stock: QueuePartJobResponseStockFromJSON(json['stock']),
     fallbackTools: json['fallbackTools'],
     workholding: json['workholding'],
+    spoilboardHeight: json['spoilboardHeight'],
     status: json['status'],
   }
 }
@@ -243,6 +254,7 @@ export function QueuePartJobResponseToJSONTyped(
     stock: QueuePartJobResponseStockToJSON(value['stock']),
     fallbackTools: value['fallbackTools'],
     workholding: value['workholding'],
+    spoilboardHeight: value['spoilboardHeight'],
     status: value['status'],
   }
 }

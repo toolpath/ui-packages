@@ -21,8 +21,9 @@ class StockBox:
     """
     Attributes:
         shape (StockBoxShape): A block: tells it from a `cylinder`.
-        frame (StockBoxFrame): The setup frame the corners are measured in, in part coordinates. A point `(x, y, z)`
-            sits at `location + x·refDirection + y·(axis × refDirection) + z·axis` on the part.
+        frame (StockBoxFrame): The setup frame the corners are measured in, in part coordinates — or the frame a
+            `placedBox` was given in. A point `(x, y, z)` sits at `location + x·refDirection + y·(axis × refDirection) +
+            z·axis` on the part.
         lower (Vec3):
         upper (Vec3):
     """

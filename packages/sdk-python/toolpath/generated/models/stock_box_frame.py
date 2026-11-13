@@ -15,8 +15,8 @@ T = TypeVar("T", bound="StockBoxFrame")
 
 @_attrs_define
 class StockBoxFrame:
-    """The setup frame the corners are measured in, in part coordinates. A point `(x, y, z)` sits at `location +
-    x·refDirection + y·(axis × refDirection) + z·axis` on the part.
+    """The setup frame the corners are measured in, in part coordinates — or the frame a `placedBox` was given in. A point
+    `(x, y, z)` sits at `location + x·refDirection + y·(axis × refDirection) + z·axis` on the part.
 
         Attributes:
             location (Vec3):

@@ -65,7 +65,7 @@ export interface PartJobRequest {
    */
   material?: PartJobRequestMaterialEnum
   /**
-   * Where tools come from: a tool crib of one to sixteen tool libraries, in priority order — each pass of the plan uses the first library with a tool for it. Each library has a `kind`; today the only kind is `implicit`, a library whose tools are synthesized from settings (explicit libraries of catalog tools will follow). An implicit library has an optional `name` (a label) and enables tool families (faceMill, flatEndmill, bullNose, ballEndmill, drill, chamfer, keyseat, tap, cornerRounding), and each family has its own settings for inch-sized tools and for metric ones — a face mill diameter, diameter ranges and a maximum length-over-diameter, in millimetres; any setting left out takes its default. A family left out is not made, and planning falls back where it can: without drills, holes are milled; without a face mill, facing uses a flat endmill; without chamfer mills, bevels are followed by a bullnose, then a ball. Endmill `minDiameter` is a hard minimum. Inch drills are the fractional, number and letter series, and metric drills the metric series; a library enabling both makes the nearest stocked size of either, one drill per hole, unless its two blocks state different `maxLengthOverDiameter`, when each system's drills are made separately. A drill block that states no `maxDiameter` stocks its whole series, to 4 1/4" and 57 mm. Corner-rounding diameters are the whole cutter. `tap` is every tool that cuts a thread — cutting and forming taps, and thread mills — each made only for a threaded hole or stud of the process its thread names, a tap at a standard thread size. A stud’s thread is milled, so with `tap` off every stud is planned without its thread. A thread with no tool for it is planned without its thread, which is reported owed. Omit for one implicit library with every family inch-sized at its defaults, corner rounders off, and drills in both systems with `maxDiameter` stated at 50.8 (2") and 50 — a part's units are not known before it is uploaded, so a hole takes the nearest stocked drill of either.
+   * Where tools come from: a tool crib of one to sixteen tool libraries, in priority order — each pass of the plan uses the first library with a tool for it. Each library has a `kind`: `implicit`, a library whose tools are synthesized from settings, or `fusion` (experimental), a shop’s own Fusion tool library uploaded with **Upload a tool library**, named by `toolLibraryId` and read under its `presets` map; the plan reports what each of its entries became (`toolLibraries`). An implicit library has an optional `name` (a label) and enables tool families (faceMill, flatEndmill, bullNose, ballEndmill, drill, chamfer, keyseat, tap, cornerRounding), and each family has its own settings for inch-sized tools and for metric ones — a face mill diameter, diameter ranges and a maximum length-over-diameter, in millimetres; any setting left out takes its default. A family left out is not made, and planning falls back where it can: without drills, holes are milled; without a face mill, facing uses a flat endmill; without chamfer mills, bevels are followed by a bullnose, then a ball. Endmill `minDiameter` is a hard minimum. Inch drills are the fractional, number and letter series, and metric drills the metric series; a library enabling both makes the nearest stocked size of either, one drill per hole, unless its two blocks state different `maxLengthOverDiameter`, when each system's drills are made separately. A drill block that states no `maxDiameter` stocks its whole series, to 4 1/4" and 57 mm. Corner-rounding diameters are the whole cutter. `tap` is every tool that cuts a thread — cutting and forming taps, and thread mills — each made only for a threaded hole or stud of the process its thread names, a tap at a standard thread size. A stud’s thread is milled, so with `tap` off every stud is planned without its thread. A thread with no tool for it is planned without its thread, which is reported owed. Omit for one implicit library with every family inch-sized at its defaults, corner rounders off, and drills in both systems with `maxDiameter` stated at 50.8 (2") and 50 — a part's units are not known before it is uploaded, so a hole takes the nearest stocked drill of either.
    * @type {Array<QueuePartJobResponseToolCribInner>}
    * @memberof PartJobRequest
    */
@@ -107,11 +107,19 @@ export interface PartJobRequest {
    */
   fallbackTools?: boolean
   /**
-   * How the part is held. `thinAir`, the default, holds it by nothing: the optimistic answer, since a fixture only ever takes reach away. `syntheticVise` holds it in a vise sized to whatever it closes on, its jaws along each setup’s y, so a jaw blocks the reach it would. The first setup grips the initial stock, every later setup the part as cut; the jaws reach 5.35 mm up whatever they close on, at most half its height. The planner chooses the first setup among the directions the stock can be gripped in. Fixed stock is gripped only in the directions the part fits it squared up in; where it fits in none — or not in the direction a `setupPlan` or `planSpec` states its first setup in — the job fails, its `error` beginning `part_outside_initial_stock:` and naming each direction. A job no first setup can start otherwise fails, its `error` beginning `invalid_argument: setup planning: no fixture on the initial stock holds a first setup`; a `setupPlan` or `planSpec` whose first setup cannot start fails as `refused_user_plan:` or `refused_plan_spec:`. Faces a jaw leaves out of reach are reported as the plan’s `issues`. Omit on **Calculate a plan’s toolpaths** to keep the plan’s.
+   * How the part is held. `thinAir`, the default, holds it by nothing: the optimistic answer, since a fixture only ever takes reach away. `syntheticVise` holds it in a vise sized to whatever it closes on, its jaws along each setup’s y, so a jaw blocks the reach it would. The first setup grips the initial stock, every later setup the part as cut; the jaws reach 5.35 mm up whatever they close on, at most half its height. `vacuumTable` (experimental) holds it down on a vacuum table: the first setup lays the initial stock on it, every later setup the part as cut. Nothing of it stands beside or above the part, so a setup reaches what it would in thin air but for a feature whose bottom lies within 0.254 mm of the table, such as a through hole or the outline with no stock left under the part, which is given no tool; the first setup reaches those with stock left under the part (`oversizeZBottom`, `gripStock`), and every setup over a spoilboard (`spoilboardHeight`). A setup with next to no flat face lying on the table cannot be held, and the plan takes a setup more rather than machine there. Held either way, the planner chooses the first setup among the directions the stock can be gripped in. Fixed stock is gripped only in the directions the part fits it squared up in; where it fits in none — or not in the direction a `setupPlan` or `planSpec` states its first setup in — the job fails, its `error` beginning `part_outside_initial_stock:` and naming each direction. With no first setup stated, a job whose initial stock the fixture can hold in none of those directions — round stock lying on a vacuum table, say — fails, its `error` beginning `unholdable_initial_stock:`; a stated first setup is planned all the same. A job the fixture holds in some such direction, but none of which has a first setup to plan, fails, its `error` beginning `invalid_argument: setup planning: no fixture on the initial stock holds a first setup`. A `setupPlan` or `planSpec` whose first setup cannot start fails as `refused_user_plan:` or `refused_plan_spec:`. Faces a jaw leaves out of reach are reported as the plan’s `issues`. Omit on **Calculate a plan’s toolpaths** to keep the plan’s.
    * @type {PartJobRequestWorkholdingEnum}
    * @memberof PartJobRequest
    */
   workholding?: PartJobRequestWorkholdingEnum
+  /**
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
+   * The height of the vacuum table’s spoilboard, in mm: a sacrificial sheet between the vacuum table and what lies on it, which a tool may cut into. The vacuum table lies this far below the initial stock in the first setup and below the part in every later one, so a feature running down to the part’s bottom — a through hole, the outline — is cut through into it, as plate bought to thickness needs; one thinner than the 0.254 mm fixture clearance gives such a feature no tool, as none does. Cutting the outline through cuts the part free in that setup: nothing yet leaves a skin under it or saves that pass for last. Only with `workholding: vacuumTable`; anywhere else it is refused (`spoilboard_without_vacuum_table`). Omit for none (0), or on **Calculate a plan’s toolpaths** to keep the plan’s while its workholding stays a vacuum table.
+   * @type {number}
+   * @memberof PartJobRequest
+   */
+  spoilboardHeight?: number
 }
 
 /**
@@ -131,6 +139,7 @@ export type PartJobRequestMaterialEnum =
 export const PartJobRequestWorkholdingEnum = {
   ThinAir: 'thinAir',
   SyntheticVise: 'syntheticVise',
+  VacuumTable: 'vacuumTable',
 } as const
 export type PartJobRequestWorkholdingEnum =
   (typeof PartJobRequestWorkholdingEnum)[keyof typeof PartJobRequestWorkholdingEnum]
@@ -181,6 +190,7 @@ export function PartJobRequestFromJSONTyped(
     stock: json['stock'] == null ? undefined : PartJobRequestStockFromJSON(json['stock']),
     fallbackTools: json['fallbackTools'] == null ? undefined : json['fallbackTools'],
     workholding: json['workholding'] == null ? undefined : json['workholding'],
+    spoilboardHeight: json['spoilboardHeight'] == null ? undefined : json['spoilboardHeight'],
   }
 }
 
@@ -209,5 +219,6 @@ export function PartJobRequestToJSONTyped(
     stock: PartJobRequestStockToJSON(value['stock']),
     fallbackTools: value['fallbackTools'],
     workholding: value['workholding'],
+    spoilboardHeight: value['spoilboardHeight'],
   }
 }

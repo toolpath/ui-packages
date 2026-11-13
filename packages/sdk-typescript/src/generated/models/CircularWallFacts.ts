@@ -69,8 +69,7 @@ export interface CircularWallFacts {
    */
   standsOnAFloor: boolean
   /**
-   * The thread this stud is to receive and how it is cut — an external one, milled; absent
-   * for a plain wall.
+   * The thread this stud is to receive, taken from its modeled thread: an external one, milled; absent for a plain wall.
    * @type {Threading}
    * @memberof CircularWallFacts
    */

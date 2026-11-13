@@ -43,10 +43,24 @@ import {
   FixedCylinderStockFromJSONTyped,
   FixedCylinderStockToJSON,
 } from './FixedCylinderStock.js'
+import type { PlacedBoxStock } from './PlacedBoxStock.js'
+import {
+  instanceOfPlacedBoxStock,
+  PlacedBoxStockFromJSON,
+  PlacedBoxStockFromJSONTyped,
+  PlacedBoxStockToJSON,
+} from './PlacedBoxStock.js'
+import type { PlacedCylinderStock } from './PlacedCylinderStock.js'
+import {
+  instanceOfPlacedCylinderStock,
+  PlacedCylinderStockFromJSON,
+  PlacedCylinderStockFromJSONTyped,
+  PlacedCylinderStockToJSON,
+} from './PlacedCylinderStock.js'
 
 /**
  * @type PartJobRequestStock
- * Initial stock settings. Omit stock to use automatic Flat Bar on a new plan or keep the saved input on a recalculation. The initial stock to cut from, all lengths mm, told apart by `mode`: automatic Flat Bar or Round Stock sized around the part, a fixed block or cylinder placed against it, or another body of the part’s own file. Omit it on a new plan for automatic Flat Bar at the default figures; omit it when recalculating a plan to reuse that plan’s own.
+ * Initial stock settings. Omit stock to use automatic Flat Bar on a new plan or keep the saved input on a recalculation. The initial stock to cut from, all lengths mm, told apart by `mode`: automatic Flat Bar or Round Stock sized around the part, a fixed block or cylinder placed against it, a block or round stock given where it stands, or another body of the part’s own file. Omit it on a new plan for automatic Flat Bar at the default figures; omit it when recalculating a plan to reuse that plan’s own.
  * @export
  */
 export type PartJobRequestStock =
@@ -55,6 +69,8 @@ export type PartJobRequestStock =
   | ({ mode: 'body' } & BodyStock)
   | ({ mode: 'fixedBox' } & FixedBoxStock)
   | ({ mode: 'fixedCylinder' } & FixedCylinderStock)
+  | ({ mode: 'placedBox' } & PlacedBoxStock)
+  | ({ mode: 'placedCylinder' } & PlacedCylinderStock)
 
 export function PartJobRequestStockFromJSON(json: any): PartJobRequestStock {
   return PartJobRequestStockFromJSONTyped(json, false)
@@ -85,6 +101,14 @@ export function PartJobRequestStockFromJSONTyped(
     case 'fixedCylinder':
       return Object.assign({}, FixedCylinderStockFromJSONTyped(json, true), {
         mode: 'fixedCylinder',
+      } as const)
+    case 'placedBox':
+      return Object.assign({}, PlacedBoxStockFromJSONTyped(json, true), {
+        mode: 'placedBox',
+      } as const)
+    case 'placedCylinder':
+      return Object.assign({}, PlacedCylinderStockFromJSONTyped(json, true), {
+        mode: 'placedCylinder',
       } as const)
     default:
       return json
@@ -117,6 +141,12 @@ export function PartJobRequestStockToJSONTyped(
       return Object.assign({}, FixedBoxStockToJSON(value), { mode: 'fixedBox' } as const)
     case 'fixedCylinder':
       return Object.assign({}, FixedCylinderStockToJSON(value), { mode: 'fixedCylinder' } as const)
+    case 'placedBox':
+      return Object.assign({}, PlacedBoxStockToJSON(value), { mode: 'placedBox' } as const)
+    case 'placedCylinder':
+      return Object.assign({}, PlacedCylinderStockToJSON(value), {
+        mode: 'placedCylinder',
+      } as const)
     default:
       return value
   }

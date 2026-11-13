@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Toolpath Engine API",
-    "version": "1.45.1",
+    "version": "1.46.0",
     "description": "Public REST API for Toolpath engine operations.\n\n**Waiting for a job.** Every operation that queues work answers `202` with a `jobId`.\nWait for it with **Stream job updates** (`GET /v1/jobs/{id}/events`), a server-sent event\nstream that sends the job at once, sends it again on every change, and closes after\nsending `succeeded` or `failed`. Both are final. An attempt exceeding its configured\ndeadline (default 300 seconds) fails without retry. Exhausted queue deliveries are\nrecovered by the worker from its DLQ, usually within a few minutes after the last\ndelivery with healthy consumers; outages delay recovery. A job still queued after\n24 hours fails. Read the result as soon as the stream sends `succeeded`, and report the `error`\nas soon as it sends `failed`. Do not wait by calling **Get a job** or a result endpoint in\na loop: a stream is one request however long the job runs, while a loop spends one request\nof the key’s rate limit on every call. In a browser, read the stream with `fetch` and an\nSSE parser: `EventSource` cannot send the `Authorization` header.\n\n**Experimental.** Machining plans and toolpath calculation — creating, listing, and reading\nplans, calculating toolpaths, and reading toolpath results and machining time — and\nmulti-body CAD files, under the `Files` tag, are experimental: available now but still\ngaining functionality; planned additions include plan constraints and specifying material and\nstock, among others. You can build against them today, but they may change substantially in a\nminor release — reshaped, renamed, or removed — where the rest of the API keeps breaking\nchanges for a major version, apart from small ones with no material effect on clients. Every\nbreaking change is listed in the release notes, so check them before upgrading. Plan and\ntoolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental\noperation, field, and schema is marked `x-toolpath-experimental`.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis,\nfeature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access\ncan be edited on an existing key in the portal. Every operation states its area in its\n`x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in\n`x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs\nDFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key\nwith no access to the operation’s area is refused with 403 `product_mismatch`; one with read\naccess used for a write is refused with 403 `read_only_key`."
   },
   "tags": [
@@ -37,6 +37,10 @@
     {
       "name": "Tool holders",
       "description": "Upload and import tool holders, then read their collision envelopes."
+    },
+    {
+      "name": "Tool libraries",
+      "description": "Upload Fusion tool libraries for a tool crib to plan with. Experimental — see the description above."
     },
     {
       "name": "Jobs",
@@ -1901,533 +1905,19 @@
             "items": {
               "oneOf": [
                 {
-                  "type": "object",
-                  "properties": {
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "implicit"
-                      ]
-                    },
-                    "name": {
-                      "type": "string",
-                      "maxLength": 100
-                    },
-                    "faceMill": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "diameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "diameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "flatEndmill": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "bullNose": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "ballEndmill": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "drill": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "chamfer": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "keyseat": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "tap": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "cornerRounding": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": [
-                    "kind"
-                  ],
-                  "additionalProperties": false
+                  "$ref": "#/components/schemas/ImplicitToolLibrary"
+                },
+                {
+                  "$ref": "#/components/schemas/FusionToolLibrary"
                 }
-              ]
+              ],
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "implicit": "#/components/schemas/ImplicitToolLibrary",
+                  "fusion": "#/components/schemas/FusionToolLibrary"
+                }
+              }
             },
             "minItems": 1,
             "maxItems": 16,
@@ -2453,7 +1943,7 @@
               }
             },
             "additionalProperties": false,
-            "description": "The machine the job was recorded against — the request’s, or null when it named none — and whose `maxRpm` its tools are held under."
+            "description": "The machine the job was recorded against — the request’s, or null when it named none — and whose `maxRpm` its synthesized tools are held under."
           },
           "setupPlan": {
             "type": [
@@ -2583,6 +2073,12 @@
                     "$ref": "#/components/schemas/FixedCylinderStock"
                   },
                   {
+                    "$ref": "#/components/schemas/PlacedBoxStock"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PlacedCylinderStock"
+                  },
+                  {
                     "$ref": "#/components/schemas/BodyStock"
                   }
                 ],
@@ -2593,6 +2089,8 @@
                     "automaticRoundStock": "#/components/schemas/AutomaticRoundStock",
                     "fixedBox": "#/components/schemas/FixedBoxStock",
                     "fixedCylinder": "#/components/schemas/FixedCylinderStock",
+                    "placedBox": "#/components/schemas/PlacedBoxStock",
+                    "placedCylinder": "#/components/schemas/PlacedCylinderStock",
                     "body": "#/components/schemas/BodyStock"
                   }
                 },
@@ -2630,9 +2128,18 @@
             "type": "string",
             "enum": [
               "thinAir",
-              "syntheticVise"
+              "syntheticVise",
+              "vacuumTable"
             ],
-            "description": "How the job holds the part — the request’s, or `thinAir` when it named none."
+            "description": "How the job holds the part — the request’s, or `thinAir` when it named none. `vacuumTable` is experimental."
+          },
+          "spoilboardHeight": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nThe height of the vacuum table’s spoilboard, in mm, 0 for none; null under any other workholding.",
+            "x-toolpath-experimental": true
           },
           "status": {
             "type": "string",
@@ -2655,8 +2162,749 @@
           "stock",
           "fallbackTools",
           "workholding",
+          "spoilboardHeight",
           "status"
         ]
+      },
+      "ImplicitToolLibrary": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "implicit"
+            ],
+            "description": "Tools synthesized from settings."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "A label for the library."
+          },
+          "faceMill": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "inch": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "diameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              },
+              "metric": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "diameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false,
+            "description": "The one face mill: its diameter."
+          },
+          "flatEndmill": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "inch": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxLengthOverDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              },
+              "metric": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxLengthOverDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false,
+            "description": "Flat endmills."
+          },
+          "bullNose": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "inch": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxLengthOverDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              },
+              "metric": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxLengthOverDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false,
+            "description": "Bull-nose endmills."
+          },
+          "ballEndmill": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "inch": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxLengthOverDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              },
+              "metric": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxLengthOverDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false,
+            "description": "Ball endmills."
+          },
+          "drill": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "inch": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxLengthOverDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              },
+              "metric": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxLengthOverDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false,
+            "description": "Drills, clipped from the system’s drill series."
+          },
+          "chamfer": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "inch": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxLengthOverDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              },
+              "metric": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxLengthOverDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false,
+            "description": "Chamfer mills."
+          },
+          "keyseat": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "inch": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxLengthOverDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              },
+              "metric": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxLengthOverDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false,
+            "description": "Keyseat cutters, which cut T-slots."
+          },
+          "tap": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "inch": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              },
+              "metric": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false,
+            "description": "Every tool that cuts a thread: cutting and forming taps, and thread mills."
+          },
+          "cornerRounding": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "inch": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              },
+              "metric": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "minDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "maxDiameter": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false,
+            "description": "Corner rounders, by the whole cutter’s diameter."
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "additionalProperties": false,
+        "description": "A tool library whose tools are synthesized from settings, one family at a time."
+      },
+      "FusionToolLibrary": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fusion"
+            ],
+            "description": "A Fusion tool library of real tools."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "A label for the library."
+          },
+          "toolLibraryId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The library, as `POST /v1/tool-libraries` created it, uploaded."
+          },
+          "presets": {
+            "$ref": "#/components/schemas/PresetMap",
+            "description": "Per purpose, the presets its tools are read under; a purpose left out is priced for the job. Omit to read the names the vendors’ Fusion libraries give the job’s material; `{}` reads none."
+          }
+        },
+        "required": [
+          "kind",
+          "toolLibraryId"
+        ],
+        "additionalProperties": false,
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA shop’s own Fusion tool library, uploaded with **Upload a tool library** and named by `toolLibraryId`. Its milling tools run at the feeds and speeds of the presets `presets` names, and every purpose those leave is priced for the job’s material. The machine’s `maxRpm` holds none of them: a preset runs as stated, and what the presets leave is priced under the default ceiling of 15000 rev/min.",
+        "x-toolpath-experimental": true
+      },
+      "PresetMap": {
+        "type": "object",
+        "properties": {
+          "face": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for finishing a face, tried in order."
+          },
+          "wallFinish": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for finishing a wall, tried in order."
+          },
+          "floorFinish": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for finishing a floor, tried in order."
+          },
+          "surface": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for finishing a 3D surface, tried in order."
+          },
+          "holeFinish": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for finishing a hole’s wall, tried in order."
+          },
+          "holeRough": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for roughing a hole, tried in order."
+          },
+          "traditionalRough": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for roughing in constant-depth layers, tried in order."
+          },
+          "adaptiveRough": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for adaptive, high-speed roughing, tried in order."
+          },
+          "faceRough": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for roughing a face, tried in order."
+          },
+          "slot": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for slotting, the tool’s full width engaged, tried in order."
+          },
+          "drill": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for drilling, tried in order."
+          },
+          "chamfer": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for chamfering, tried in order."
+          },
+          "keyseat": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for cutting a keyseat or a T-slot, tried in order."
+          },
+          "dovetail": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for cutting a dovetail, tried in order."
+          },
+          "tap": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for tapping, tried in order."
+          },
+          "threadMill": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "maxItems": 8,
+            "description": "Preset names for thread milling, tried in order."
+          }
+        },
+        "additionalProperties": false,
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nPer purpose, the names of a Fusion tool library’s presets, in precedence order: for each purpose, the first of its names a tool states and can run prices that purpose for that tool, so a preset whose numbers describe no cut (a zero speed, say) passes to the next name. A purpose left out reads no preset, and is priced from the job’s material.",
+        "x-toolpath-experimental": true
       },
       "PlanSpec": {
         "type": "object",
@@ -3042,6 +3290,225 @@
         "additionalProperties": false,
         "description": "A cylinder of given size, standing along the first setup’s cutting direction and centered on the part’s smallest enclosing circle. Its box, diameter × diameter × length, must fit within 80 × 50 × 30 in (2032 × 1270 × 762 mm) in some order."
       },
+      "PlacedBoxStock": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "placedBox"
+            ],
+            "description": "A block given where it stands."
+          },
+          "frame": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "z": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y",
+                  "z"
+                ],
+                "additionalProperties": false,
+                "description": "The frame’s origin, in part coordinates, mm."
+              },
+              "axis": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "z": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y",
+                  "z"
+                ],
+                "additionalProperties": false,
+                "description": "Its z axis, unit length."
+              },
+              "refDirection": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "z": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y",
+                  "z"
+                ],
+                "additionalProperties": false,
+                "description": "Its x axis, unit length and square to `axis`."
+              }
+            },
+            "required": [
+              "location",
+              "axis",
+              "refDirection"
+            ],
+            "additionalProperties": false,
+            "description": "The frame the corners are measured in, in part coordinates. A point `(x, y, z)` sits at `location + x·refDirection + y·(axis × refDirection) + z·axis` on the part."
+          },
+          "lower": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "z"
+            ],
+            "additionalProperties": false,
+            "description": "The block’s lower corner, in `frame`, mm."
+          },
+          "upper": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "z"
+            ],
+            "additionalProperties": false,
+            "description": "The block’s upper corner, in `frame`, mm: above `lower` along each of its axes."
+          }
+        },
+        "required": [
+          "mode",
+          "frame",
+          "lower",
+          "upper"
+        ],
+        "additionalProperties": false,
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA block given where it stands in the part’s coordinates, taken where it lies — never sized or squared up. It takes the fields a plan reports as its resolved `box` stock, with `mode` in place of `shape`, so a plan’s stock can be sent back. The part must stand inside it, or the job fails. Its sides must fit within 2032 × 1270 × 762 mm (80 × 50 × 30 in) in some order.",
+        "x-toolpath-experimental": true
+      },
+      "PlacedCylinderStock": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "placedCylinder"
+            ],
+            "description": "Round stock, or a tube, given where it stands."
+          },
+          "origin": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "z"
+            ],
+            "additionalProperties": false,
+            "description": "The center of its base disc, in part coordinates, mm."
+          },
+          "axis": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "z"
+            ],
+            "additionalProperties": false,
+            "description": "Unit vector from the base along the bar, in part coordinates."
+          },
+          "diameter": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 2032,
+            "description": "Diameter, mm; positive."
+          },
+          "length": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 2032,
+            "description": "Length along `axis`, mm; positive."
+          },
+          "innerDiameter": {
+            "type": "number",
+            "minimum": 0,
+            "description": "A tube’s bore, through along `axis`, mm: below `diameter`. Omitted or 0 for solid bar."
+          }
+        },
+        "required": [
+          "mode",
+          "origin",
+          "axis",
+          "diameter",
+          "length"
+        ],
+        "additionalProperties": false,
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nRound stock, or with `innerDiameter` a tube, given where it stands in the part’s coordinates, taken where it lies — never sized or squared up — as a plan reports its resolved `cylinder` stock, with `mode` in place of `shape`, so a plan’s stock can be sent back. The part must stand inside it, its bore included, or the job fails. Its box, diameter × diameter × length, must fit within 2032 × 1270 × 762 mm (80 × 50 × 30 in) in some order.",
+        "x-toolpath-experimental": true
+      },
       "BodyStock": {
         "type": "object",
         "properties": {
@@ -3097,7 +3564,7 @@
               "axis",
               "refDirection"
             ],
-            "description": "The setup frame the corners are measured in, in part coordinates. A point `(x, y, z)` sits at `location + x·refDirection + y·(axis × refDirection) + z·axis` on the part."
+            "description": "The setup frame the corners are measured in, in part coordinates — or the frame a `placedBox` was given in. A point `(x, y, z)` sits at `location + x·refDirection + y·(axis × refDirection) + z·axis` on the part."
           },
           "lower": {
             "$ref": "#/components/schemas/Vec3",
@@ -3142,6 +3609,12 @@
             "type": "number",
             "exclusiveMinimum": 0,
             "description": "Cylinder length along its axis, mm."
+          },
+          "innerDiameter": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA tube’s bore, through along `axis`, mm; absent for solid bar. Only a `placedCylinder` with an `innerDiameter` is a tube.",
+            "x-toolpath-experimental": true
           }
         },
         "required": [
@@ -3202,537 +3675,23 @@
             "items": {
               "oneOf": [
                 {
-                  "type": "object",
-                  "properties": {
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "implicit"
-                      ]
-                    },
-                    "name": {
-                      "type": "string",
-                      "maxLength": 100
-                    },
-                    "faceMill": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "diameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "diameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "flatEndmill": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "bullNose": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "ballEndmill": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "drill": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "chamfer": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "keyseat": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxLengthOverDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "tap": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "cornerRounding": {
-                      "type": "object",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "inch": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "metric": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "minDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            },
-                            "maxDiameter": {
-                              "type": "number",
-                              "exclusiveMinimum": 0
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ],
-                          "additionalProperties": false
-                        }
-                      },
-                      "required": [
-                        "enabled"
-                      ],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": [
-                    "kind"
-                  ],
-                  "additionalProperties": false
+                  "$ref": "#/components/schemas/ImplicitToolLibrary"
+                },
+                {
+                  "$ref": "#/components/schemas/FusionToolLibrary"
                 }
-              ]
+              ],
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "implicit": "#/components/schemas/ImplicitToolLibrary",
+                  "fusion": "#/components/schemas/FusionToolLibrary"
+                }
+              }
             },
             "minItems": 1,
             "maxItems": 16,
-            "description": "Where tools come from: a tool crib of one to sixteen tool libraries, in priority order — each pass of the plan uses the first library with a tool for it. Each library has a `kind`; today the only kind is `implicit`, a library whose tools are synthesized from settings (explicit libraries of catalog tools will follow). An implicit library has an optional `name` (a label) and enables tool families (faceMill, flatEndmill, bullNose, ballEndmill, drill, chamfer, keyseat, tap, cornerRounding), and each family has its own settings for inch-sized tools and for metric ones — a face mill diameter, diameter ranges and a maximum length-over-diameter, in millimetres; any setting left out takes its default. A family left out is not made, and planning falls back where it can: without drills, holes are milled; without a face mill, facing uses a flat endmill; without chamfer mills, bevels are followed by a bullnose, then a ball. Endmill `minDiameter` is a hard minimum. Inch drills are the fractional, number and letter series, and metric drills the metric series; a library enabling both makes the nearest stocked size of either, one drill per hole, unless its two blocks state different `maxLengthOverDiameter`, when each system's drills are made separately. A drill block that states no `maxDiameter` stocks its whole series, to 4 1/4\" and 57 mm. Corner-rounding diameters are the whole cutter. `tap` is every tool that cuts a thread — cutting and forming taps, and thread mills — each made only for a threaded hole or stud of the process its thread names, a tap at a standard thread size. A stud’s thread is milled, so with `tap` off every stud is planned without its thread. A thread with no tool for it is planned without its thread, which is reported owed. Omit for one implicit library with every family inch-sized at its defaults, corner rounders off, and drills in both systems with `maxDiameter` stated at 50.8 (2\") and 50 — a part's units are not known before it is uploaded, so a hole takes the nearest stocked drill of either.",
+            "description": "Where tools come from: a tool crib of one to sixteen tool libraries, in priority order — each pass of the plan uses the first library with a tool for it. Each library has a `kind`: `implicit`, a library whose tools are synthesized from settings, or `fusion` (experimental), a shop’s own Fusion tool library uploaded with **Upload a tool library**, named by `toolLibraryId` and read under its `presets` map; the plan reports what each of its entries became (`toolLibraries`). An implicit library has an optional `name` (a label) and enables tool families (faceMill, flatEndmill, bullNose, ballEndmill, drill, chamfer, keyseat, tap, cornerRounding), and each family has its own settings for inch-sized tools and for metric ones — a face mill diameter, diameter ranges and a maximum length-over-diameter, in millimetres; any setting left out takes its default. A family left out is not made, and planning falls back where it can: without drills, holes are milled; without a face mill, facing uses a flat endmill; without chamfer mills, bevels are followed by a bullnose, then a ball. Endmill `minDiameter` is a hard minimum. Inch drills are the fractional, number and letter series, and metric drills the metric series; a library enabling both makes the nearest stocked size of either, one drill per hole, unless its two blocks state different `maxLengthOverDiameter`, when each system's drills are made separately. A drill block that states no `maxDiameter` stocks its whole series, to 4 1/4\" and 57 mm. Corner-rounding diameters are the whole cutter. `tap` is every tool that cuts a thread — cutting and forming taps, and thread mills — each made only for a threaded hole or stud of the process its thread names, a tap at a standard thread size. A stud’s thread is milled, so with `tap` off every stud is planned without its thread. A thread with no tool for it is planned without its thread, which is reported owed. Omit for one implicit library with every family inch-sized at its defaults, corner rounders off, and drills in both systems with `maxDiameter` stated at 50.8 (2\") and 50 — a part's units are not known before it is uploaded, so a hole takes the nearest stocked drill of either.",
             "example": [
               {
                 "kind": "implicit",
@@ -3776,7 +3735,7 @@
               }
             },
             "additionalProperties": false,
-            "description": "The machine the part is quoted on: `name`, `maxRpm` (the spindle's top speed, rev/min) and `toolChangeSeconds`. Recorded with the plan and echoed back, and carried over by a recalculation. `maxRpm` is applied: every synthesized tool is held under it, so machining times move for a machine that states one; without it a default ceiling of 15000 rev/min applies. Tool changes are never included in machining times; `toolChangeSeconds` is for the caller to price them. Omit for none.",
+            "description": "The machine the part is quoted on: `name`, `maxRpm` (the spindle's top speed, rev/min) and `toolChangeSeconds`. Recorded with the plan and echoed back, and carried over by a recalculation. `maxRpm` is applied: every synthesized tool is held under it, so machining times move for a machine that states one; without it a default ceiling of 15000 rev/min applies. A Fusion tool library’s tools are not held under it: they run as their presets state, and what those leave is priced under the default ceiling. Tool changes are never included in machining times; `toolChangeSeconds` is for the caller to price them. Omit for none.",
             "example": {
               "name": "Haas VF-2",
               "maxRpm": 8100,
@@ -3986,6 +3945,12 @@
                 "$ref": "#/components/schemas/FixedCylinderStock"
               },
               {
+                "$ref": "#/components/schemas/PlacedBoxStock"
+              },
+              {
+                "$ref": "#/components/schemas/PlacedCylinderStock"
+              },
+              {
                 "$ref": "#/components/schemas/BodyStock"
               }
             ],
@@ -3996,10 +3961,12 @@
                 "automaticRoundStock": "#/components/schemas/AutomaticRoundStock",
                 "fixedBox": "#/components/schemas/FixedBoxStock",
                 "fixedCylinder": "#/components/schemas/FixedCylinderStock",
+                "placedBox": "#/components/schemas/PlacedBoxStock",
+                "placedCylinder": "#/components/schemas/PlacedCylinderStock",
                 "body": "#/components/schemas/BodyStock"
               }
             },
-            "description": "Initial stock settings. Omit stock to use automatic Flat Bar on a new plan or keep the saved input on a recalculation. The initial stock to cut from, all lengths mm, told apart by `mode`: automatic Flat Bar or Round Stock sized around the part, a fixed block or cylinder placed against it, or another body of the part’s own file. Omit it on a new plan for automatic Flat Bar at the default figures; omit it when recalculating a plan to reuse that plan’s own.",
+            "description": "Initial stock settings. Omit stock to use automatic Flat Bar on a new plan or keep the saved input on a recalculation. The initial stock to cut from, all lengths mm, told apart by `mode`: automatic Flat Bar or Round Stock sized around the part, a fixed block or cylinder placed against it, a block or round stock given where it stands, or another body of the part’s own file. Omit it on a new plan for automatic Flat Bar at the default figures; omit it when recalculating a plan to reuse that plan’s own.",
             "example": {
               "mode": "automaticFlatBar",
               "oversizeX": 1
@@ -4014,10 +3981,19 @@
             "type": "string",
             "enum": [
               "thinAir",
-              "syntheticVise"
+              "syntheticVise",
+              "vacuumTable"
             ],
-            "description": "How the part is held. `thinAir`, the default, holds it by nothing: the optimistic answer, since a fixture only ever takes reach away. `syntheticVise` holds it in a vise sized to whatever it closes on, its jaws along each setup’s y, so a jaw blocks the reach it would. The first setup grips the initial stock, every later setup the part as cut; the jaws reach 5.35 mm up whatever they close on, at most half its height. The planner chooses the first setup among the directions the stock can be gripped in. Fixed stock is gripped only in the directions the part fits it squared up in; where it fits in none — or not in the direction a `setupPlan` or `planSpec` states its first setup in — the job fails, its `error` beginning `part_outside_initial_stock:` and naming each direction. A job no first setup can start otherwise fails, its `error` beginning `invalid_argument: setup planning: no fixture on the initial stock holds a first setup`; a `setupPlan` or `planSpec` whose first setup cannot start fails as `refused_user_plan:` or `refused_plan_spec:`. Faces a jaw leaves out of reach are reported as the plan’s `issues`. Omit on **Calculate a plan’s toolpaths** to keep the plan’s.",
+            "description": "How the part is held. `thinAir`, the default, holds it by nothing: the optimistic answer, since a fixture only ever takes reach away. `syntheticVise` holds it in a vise sized to whatever it closes on, its jaws along each setup’s y, so a jaw blocks the reach it would. The first setup grips the initial stock, every later setup the part as cut; the jaws reach 5.35 mm up whatever they close on, at most half its height. `vacuumTable` (experimental) holds it down on a vacuum table: the first setup lays the initial stock on it, every later setup the part as cut. Nothing of it stands beside or above the part, so a setup reaches what it would in thin air but for a feature whose bottom lies within 0.254 mm of the table, such as a through hole or the outline with no stock left under the part, which is given no tool; the first setup reaches those with stock left under the part (`oversizeZBottom`, `gripStock`), and every setup over a spoilboard (`spoilboardHeight`). A setup with next to no flat face lying on the table cannot be held, and the plan takes a setup more rather than machine there. Held either way, the planner chooses the first setup among the directions the stock can be gripped in. Fixed stock is gripped only in the directions the part fits it squared up in; where it fits in none — or not in the direction a `setupPlan` or `planSpec` states its first setup in — the job fails, its `error` beginning `part_outside_initial_stock:` and naming each direction. With no first setup stated, a job whose initial stock the fixture can hold in none of those directions — round stock lying on a vacuum table, say — fails, its `error` beginning `unholdable_initial_stock:`; a stated first setup is planned all the same. A job the fixture holds in some such direction, but none of which has a first setup to plan, fails, its `error` beginning `invalid_argument: setup planning: no fixture on the initial stock holds a first setup`. A `setupPlan` or `planSpec` whose first setup cannot start fails as `refused_user_plan:` or `refused_plan_spec:`. Faces a jaw leaves out of reach are reported as the plan’s `issues`. Omit on **Calculate a plan’s toolpaths** to keep the plan’s.",
             "example": "syntheticVise"
+          },
+          "spoilboardHeight": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 762,
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nThe height of the vacuum table’s spoilboard, in mm: a sacrificial sheet between the vacuum table and what lies on it, which a tool may cut into. The vacuum table lies this far below the initial stock in the first setup and below the part in every later one, so a feature running down to the part’s bottom — a through hole, the outline — is cut through into it, as plate bought to thickness needs; one thinner than the 0.254 mm fixture clearance gives such a feature no tool, as none does. Cutting the outline through cuts the part free in that setup: nothing yet leaves a skin under it or saves that pass for last. Only with `workholding: vacuumTable`; anywhere else it is refused (`spoilboard_without_vacuum_table`). Omit for none (0), or on **Calculate a plan’s toolpaths** to keep the plan’s while its workholding stays a vacuum table.",
+            "x-toolpath-experimental": true,
+            "example": 6.35
           }
         },
         "additionalProperties": false
@@ -4197,6 +4173,12 @@
                     "$ref": "#/components/schemas/FixedCylinderStock"
                   },
                   {
+                    "$ref": "#/components/schemas/PlacedBoxStock"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PlacedCylinderStock"
+                  },
+                  {
                     "$ref": "#/components/schemas/BodyStock"
                   }
                 ],
@@ -4207,6 +4189,8 @@
                     "automaticRoundStock": "#/components/schemas/AutomaticRoundStock",
                     "fixedBox": "#/components/schemas/FixedBoxStock",
                     "fixedCylinder": "#/components/schemas/FixedCylinderStock",
+                    "placedBox": "#/components/schemas/PlacedBoxStock",
+                    "placedCylinder": "#/components/schemas/PlacedCylinderStock",
                     "body": "#/components/schemas/BodyStock"
                   }
                 },
@@ -4227,7 +4211,7 @@
                     "type": "null"
                   }
                 ],
-                "description": "The initial stock the kernel sized and placed, in mm, told apart by `shape`: a `box` — two corners in the first setup’s frame, squared up in the direction the job cuts first — a `cylinder` in part coordinates, or the `body` of the part’s file it was cut from. This is the material bought, which a quote is written against (a cylinder’s volume is π·(diameter/2)²·length); the part’s own bounding box is not a substitute. Null for a plan calculated before this field existed — re-run the part to get one — and for a part with no setup, which has nothing to square stock against."
+                "description": "The initial stock the kernel sized and placed, in mm, told apart by `shape`: a `box` — two corners in the first setup’s frame, squared up in the direction the job cuts first, or in the frame a `placedBox` was given in — a `cylinder` in part coordinates, or the `body` of the part’s file it was cut from. Placed stock is reported as it was given. This is the material bought, which a quote is written against (a cylinder’s volume is π·(diameter/2)²·length, less its bore’s for a tube); the part’s own bounding box is not a substitute. Null for a plan calculated before this field existed — re-run the part to get one — and for a part with no setup, which has nothing to square stock against."
               }
             },
             "required": [
@@ -4240,9 +4224,26 @@
             "type": "string",
             "enum": [
               "thinAir",
-              "syntheticVise"
+              "syntheticVise",
+              "vacuumTable"
             ],
-            "description": "How the plan’s job held the part, which a recalculation that names none holds it by. `thinAir` for plans made before Engine API 1.24.0."
+            "description": "How the plan’s job held the part, which a recalculation that names none holds it by. `thinAir` for plans made before Engine API 1.24.0. `vacuumTable` is experimental."
+          },
+          "spoilboardHeight": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nThe height of the spoilboard the plan’s vacuum table carried, in mm, 0 for none, which a recalculation held on a vacuum table that names none keeps. Null under any other workholding.",
+            "x-toolpath-experimental": true
+          },
+          "toolLibraries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanToolLibrary"
+            },
+            "description": "Per Fusion tool library the plan’s crib named, in the crib’s order, what its job read of it: which entries became which tools, and which did not. Empty for a crib of implicit libraries alone.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+            "x-toolpath-experimental": true
           },
           "level": {
             "type": "string",
@@ -4395,6 +4396,8 @@
           "material",
           "stock",
           "workholding",
+          "spoilboardHeight",
+          "toolLibraries",
           "level",
           "issues",
           "setups",
@@ -4403,6 +4406,91 @@
           "doneRegions",
           "trimmedFeatures"
         ]
+      },
+      "PlanToolLibrary": {
+        "type": "object",
+        "properties": {
+          "toolLibraryId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The library, as the crib named it."
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanToolLibraryTool"
+            },
+            "description": "Each entry that became a tool, in the library’s order."
+          },
+          "refused": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanRefusedToolEntry"
+            },
+            "description": "Each entry that did not become a tool, in the library’s order."
+          }
+        },
+        "required": [
+          "toolLibraryId",
+          "tools",
+          "refused"
+        ],
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nWhat a plan’s job read of one Fusion tool library its crib named.",
+        "x-toolpath-experimental": true
+      },
+      "PlanToolLibraryTool": {
+        "type": "object",
+        "properties": {
+          "entry": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The entry’s index among the library’s entries (its `data` array)."
+          },
+          "key": {
+            "type": "string",
+            "description": "The key of the tool it became, priced for the job: what the plan’s actions and its CAM export name the tool by, so an action leads back to its library entry. Valid within this plan only: a key covers the tool’s feeds and speeds, so the same entry has another under another material, preset map or kernel version."
+          }
+        },
+        "required": [
+          "entry",
+          "key"
+        ],
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nAn entry of a Fusion tool library that became a tool.",
+        "x-toolpath-experimental": true
+      },
+      "PlanRefusedToolEntry": {
+        "type": "object",
+        "properties": {
+          "entry": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The entry’s index among the library’s entries."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Why it is no tool. `UnsupportedType`: a type the import does not read — a probe, a holder, a turning tool, a reamer — though nothing need be wrong with the entry. `Invalid`: a milling tool whose entry does not make one — no geometry, a unit the import does not know, a field it needs and does not state, or numbers no tool can have. `DuplicateTool`: the same tool as an earlier entry, which became the tool. Other values may be added."
+          },
+          "toolType": {
+            "type": "string",
+            "description": "For `UnsupportedType`, the library’s own name for its type."
+          },
+          "duplicateOf": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "For `DuplicateTool`, the earlier entry it repeats, by its index."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why it is no tool, as a sentence for a person: its wording may change."
+          }
+        },
+        "required": [
+          "entry",
+          "kind",
+          "reason"
+        ],
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nAn entry of a Fusion tool library that did not become a tool.",
+        "x-toolpath-experimental": true
       },
       "PlanIssue": {
         "type": "object",
@@ -4467,7 +4555,7 @@
             "items": {
               "type": "string"
             },
-            "description": "For `ToolsRefused`, why no tool was invented for those passes, each reason once: the tool crib’s reasons, or with `fallbackTools`, the reasons no fallback tool could be made, reach lifted. They are the kernel’s rejection codes, such as `ClearanceAtSharpCorner`, `DiameterTooSmall`, `FluteLengthTooLong`, `StickoutTooLong`, `LengthOverDiameterTooHigh`, `CannotSynthesizeDrill`, `ToolTypeExcluded` or `MeasurementFailed`, and for a `Thread` pass `ThreadNotOnGrid`, `ThreadTapered`, `ThreadEntryObstructed`, `ThreadLeadTooLong` or `TeethLengthTooLong`; other values may be added. Empty when the crib lists no tool head and `fallbackTools` is off; empty for any other cause."
+            "description": "For `ToolsRefused`, why no tool was invented for those passes, each reason once: the tool crib’s reasons, or with `fallbackTools`, the reasons no fallback tool could be made, reach lifted. They are the kernel’s rejection codes, such as `ClearanceAtSharpCorner`, `DiameterTooSmall`, `FluteLengthTooLong`, `StickoutTooLong`, `LengthOverDiameterTooHigh`, `CannotSynthesizeDrill`, `ToolTypeExcluded` or `MeasurementFailed`, and for a `Thread` pass `ThreadNotOnGrid`, `ThreadTapered`, `ThreadEntryObstructed`, `ThreadLeadTooLong` or `TeethLengthTooLong`; other values may be added. Empty when the crib lists no tool head and `fallbackTools` is off, and for a Fusion tool library’s tools, which the plan is given rather than invents: a crib of Fusion libraries alone, without `fallbackTools`, gives no reasons. Empty for any other cause."
           }
         },
         "required": [
@@ -4954,6 +5042,12 @@
                     "$ref": "#/components/schemas/FixedCylinderStock"
                   },
                   {
+                    "$ref": "#/components/schemas/PlacedBoxStock"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PlacedCylinderStock"
+                  },
+                  {
                     "$ref": "#/components/schemas/BodyStock"
                   }
                 ],
@@ -4964,6 +5058,8 @@
                     "automaticRoundStock": "#/components/schemas/AutomaticRoundStock",
                     "fixedBox": "#/components/schemas/FixedBoxStock",
                     "fixedCylinder": "#/components/schemas/FixedCylinderStock",
+                    "placedBox": "#/components/schemas/PlacedBoxStock",
+                    "placedCylinder": "#/components/schemas/PlacedCylinderStock",
                     "body": "#/components/schemas/BodyStock"
                   }
                 },
@@ -4984,7 +5080,7 @@
                     "type": "null"
                   }
                 ],
-                "description": "The initial stock the kernel sized and placed, in mm, told apart by `shape`: a `box` — two corners in the first setup’s frame, squared up in the direction the job cuts first — a `cylinder` in part coordinates, or the `body` of the part’s file it was cut from. This is the material bought, which a quote is written against (a cylinder’s volume is π·(diameter/2)²·length); the part’s own bounding box is not a substitute. Null for a plan calculated before this field existed — re-run the part to get one — and for a part with no setup, which has nothing to square stock against."
+                "description": "The initial stock the kernel sized and placed, in mm, told apart by `shape`: a `box` — two corners in the first setup’s frame, squared up in the direction the job cuts first, or in the frame a `placedBox` was given in — a `cylinder` in part coordinates, or the `body` of the part’s file it was cut from. Placed stock is reported as it was given. This is the material bought, which a quote is written against (a cylinder’s volume is π·(diameter/2)²·length, less its bore’s for a tube); the part’s own bounding box is not a substitute. Null for a plan calculated before this field existed — re-run the part to get one — and for a part with no setup, which has nothing to square stock against."
               }
             },
             "required": [
@@ -5157,6 +5253,37 @@
           "sourceBucket",
           "sourceS3Key"
         ]
+      },
+      "CreateToolLibraryResponse": {
+        "type": "object",
+        "properties": {
+          "toolLibraryId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of the newly created tool library: what a tool crib names it by."
+          },
+          "uploadUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Short-lived URL that accepts a direct upload of the library."
+          },
+          "sourceBucket": {
+            "type": "string",
+            "description": "Object-storage bucket receiving the library."
+          },
+          "sourceS3Key": {
+            "type": "string",
+            "description": "Object-storage key assigned to the library."
+          }
+        },
+        "required": [
+          "toolLibraryId",
+          "uploadUrl",
+          "sourceBucket",
+          "sourceS3Key"
+        ],
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA new tool library, and where to upload it.",
+        "x-toolpath-experimental": true
       },
       "UpdateHolderResponse": {
         "type": "object",
@@ -5986,7 +6113,7 @@
           },
           "threading": {
             "$ref": "#/components/schemas/Threading",
-            "description": "The thread this stud is to receive and how it is cut — an external one, milled; absent\nfor a plain wall."
+            "description": "The thread this stud is to receive, taken from its modeled thread: an external one, milled; absent for a plain wall."
           },
           "topCenter": {
             "$ref": "#/components/schemas/Vec3",
@@ -6300,7 +6427,7 @@
           },
           "threading": {
             "$ref": "#/components/schemas/Threading",
-            "description": "The thread this hole is to receive and how it is cut; absent for a plain hole."
+            "description": "The thread this hole is to receive, taken from its modeled thread, and the process stated for it, if any; absent for a plain hole."
           },
           "cd": {
             "$ref": "#/components/schemas/CdData",
@@ -6759,12 +6886,11 @@
           },
           "process": {
             "$ref": "#/components/schemas/ThreadProcess",
-            "description": "The process used to cut the thread. An external thread is milled: a tap cuts only a\nhole's."
+            "description": "The process used to cut the thread. An external thread is milled: a tap cuts only a\nhole's.\n\nAbsent, the process is left open, and each measurement of the feature resolves it. A\nstud's thread is milled. A hole's is cut by a cutting tap where it is a right-hand\nthread of the standard catalog no wider than 2.5 in, and milled otherwise. A through\nhole's is milled too where there is less room below the hole than the shortest tap runs\nout in past its far end, a lead of two threads and three threads more, unless the\nthread is tapered, which only a tap cuts. So a through hole may be tapped from one end\nand milled from the other, or tapped in one fixture and milled in another. Neither the\njob's tools nor its tap options are read. Never by a forming tap, whose hole is drilled\nwider: state `FormTap` to have one. A modeled thread's process is absent."
           }
         },
         "required": [
-          "spec",
-          "process"
+          "spec"
         ],
         "description": "A thread a hole or stud is to receive, and how it is to be cut."
       },
@@ -9153,7 +9279,7 @@
             }
           },
           "404": {
-            "description": "The part does not exist.",
+            "description": "The part does not exist, or the tool crib names a Fusion tool library the caller has none of (`tool_library_not_found`).",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9163,7 +9289,17 @@
             }
           },
           "409": {
-            "description": "The part source has not been uploaded, it changed after work began on the part (`part_source_changed`), or the Idempotency-Key was already used for a different operation.",
+            "description": "The part source has not been uploaded, it changed after work began on the part (`part_source_changed`), a Fusion tool library in the crib was not uploaded (`tool_library_not_uploaded`) or was uploaded again after a job read it (`tool_library_source_changed`), or the Idempotency-Key was already used for a different operation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "A Fusion tool library in the crib is past retention (`tool_library_expired`): upload it again and name the new one.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9420,7 +9556,7 @@
             }
           },
           "404": {
-            "description": "The part does not exist.",
+            "description": "The part does not exist, or the tool crib names a Fusion tool library the caller has none of (`tool_library_not_found`).",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9430,7 +9566,17 @@
             }
           },
           "409": {
-            "description": "The part source has not been uploaded, it changed after work began on the part (`part_source_changed`), or the Idempotency-Key was already used for a different operation.",
+            "description": "The part source has not been uploaded, it changed after work began on the part (`part_source_changed`), a Fusion tool library in the crib was not uploaded (`tool_library_not_uploaded`) or was uploaded again after a job read it (`tool_library_source_changed`), or the Idempotency-Key was already used for a different operation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "A Fusion tool library in the crib is past retention (`tool_library_expired`): upload it again and name the new one.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9558,7 +9704,7 @@
             }
           },
           "404": {
-            "description": "The plan does not exist.",
+            "description": "The plan does not exist, or the tool crib names a Fusion tool library the caller has none of (`tool_library_not_found`).",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9568,7 +9714,17 @@
             }
           },
           "409": {
-            "description": "The part source has not been uploaded, it changed after work began on the part (`part_source_changed`), or the Idempotency-Key was already used for a different operation.",
+            "description": "The part source has not been uploaded, it changed after work began on the part (`part_source_changed`), a Fusion tool library in the crib was not uploaded (`tool_library_not_uploaded`) or was uploaded again after a job read it (`tool_library_source_changed`), or the Idempotency-Key was already used for a different operation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "A Fusion tool library in the crib is past retention (`tool_library_expired`): upload it again and name the new one.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -10007,6 +10163,96 @@
           },
           "500": {
             "description": "The holder could not be created.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tool-libraries": {
+      "post": {
+        "operationId": "createToolLibrary",
+        "tags": [
+          "Tool libraries"
+        ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "Upload a tool library",
+        "description": "Creates a Fusion tool library and returns a short-lived URL for uploading it: the JSON Fusion writes for a library (`ToolLibrary.toJson()`, or `tools.json` inside an exported `.tools`). Upload the file to the URL, then name the library in a job’s tool crib as `{ kind: \"fusion\", toolLibraryId, presets? }`. Nothing reads the file until a job does: each plan reads it under its crib entry’s preset map and prices its tools for the job’s material, and an entry that is not a milling tool is listed among the plan’s refused entries rather than failing the job. A library is one upload: uploading again once a job has read it is not supported, and the next job is refused with `tool_library_source_changed`. Create a new library for a new upload. A library expires 15 days after it is created, as a part does.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "example": "shop-tools.json",
+              "description": "Name of the library file you are about to upload, kept as its name."
+            },
+            "required": false,
+            "description": "Name of the library file you are about to upload, kept as its name.",
+            "name": "filename",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The tool library was created and is ready for direct upload.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateToolLibraryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The tool library could not be created.",
             "content": {
               "application/problem+json": {
                 "schema": {

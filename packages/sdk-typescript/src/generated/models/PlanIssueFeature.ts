@@ -34,7 +34,7 @@ export interface PlanIssueFeature {
    */
   owed: Array<string>
   /**
-   * For `ToolsRefused`, why no tool was invented for those passes, each reason once: the tool crib’s reasons, or with `fallbackTools`, the reasons no fallback tool could be made, reach lifted. They are the kernel’s rejection codes, such as `ClearanceAtSharpCorner`, `DiameterTooSmall`, `FluteLengthTooLong`, `StickoutTooLong`, `LengthOverDiameterTooHigh`, `CannotSynthesizeDrill`, `ToolTypeExcluded` or `MeasurementFailed`, and for a `Thread` pass `ThreadNotOnGrid`, `ThreadTapered`, `ThreadEntryObstructed`, `ThreadLeadTooLong` or `TeethLengthTooLong`; other values may be added. Empty when the crib lists no tool head and `fallbackTools` is off; empty for any other cause.
+   * For `ToolsRefused`, why no tool was invented for those passes, each reason once: the tool crib’s reasons, or with `fallbackTools`, the reasons no fallback tool could be made, reach lifted. They are the kernel’s rejection codes, such as `ClearanceAtSharpCorner`, `DiameterTooSmall`, `FluteLengthTooLong`, `StickoutTooLong`, `LengthOverDiameterTooHigh`, `CannotSynthesizeDrill`, `ToolTypeExcluded` or `MeasurementFailed`, and for a `Thread` pass `ThreadNotOnGrid`, `ThreadTapered`, `ThreadEntryObstructed`, `ThreadLeadTooLong` or `TeethLengthTooLong`; other values may be added. Empty when the crib lists no tool head and `fallbackTools` is off, and for a Fusion tool library’s tools, which the plan is given rather than invents: a crib of Fusion libraries alone, without `fallbackTools`, gives no reasons. Empty for any other cause.
    * @type {Array<string>}
    * @memberof PlanIssueFeature
    */

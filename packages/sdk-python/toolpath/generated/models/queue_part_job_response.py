@@ -12,12 +12,13 @@ from ..models.queue_part_job_response_status import QueuePartJobResponseStatus
 from ..models.queue_part_job_response_workholding import QueuePartJobResponseWorkholding
 
 if TYPE_CHECKING:
+    from ..models.fusion_tool_library import FusionToolLibrary
+    from ..models.implicit_tool_library import ImplicitToolLibrary
     from ..models.plan_spec import PlanSpec
     from ..models.queue_part_job_response_done_regions_type_0 import QueuePartJobResponseDoneRegionsType0
     from ..models.queue_part_job_response_machine_type_0 import QueuePartJobResponseMachineType0
     from ..models.queue_part_job_response_setup_plan_type_0 import QueuePartJobResponseSetupPlanType0
     from ..models.queue_part_job_response_stock import QueuePartJobResponseStock
-    from ..models.queue_part_job_response_tool_crib_item_type_0 import QueuePartJobResponseToolCribItemType0
 
 
 T = TypeVar("T", bound="QueuePartJobResponse")
@@ -34,10 +35,10 @@ class QueuePartJobResponse:
         material (QueuePartJobResponseMaterial): The material the job was planned for — the request’s, or the default
             when it named none. Echoed so the choice is visible even when a non-JSON body dropped it. Example:
             LowCarbonSteel.
-        tool_crib (list[QueuePartJobResponseToolCribItemType0]): The tool crib the job was planned with — the request’s,
-            or the default when it named none — as validated.
+        tool_crib (list[FusionToolLibrary | ImplicitToolLibrary]): The tool crib the job was planned with — the
+            request’s, or the default when it named none — as validated.
         machine (None | QueuePartJobResponseMachineType0): The machine the job was recorded against — the request’s, or
-            null when it named none — and whose `maxRpm` its tools are held under.
+            null when it named none — and whose `maxRpm` its synthesized tools are held under.
         setup_plan (None | QueuePartJobResponseSetupPlanType0): The setup plan the job extends — the request’s, or null
             for the kernel’s own plan.
         done_regions (None | QueuePartJobResponseDoneRegionsType0): The regions the job treats as done — the request’s,
@@ -48,7 +49,12 @@ class QueuePartJobResponse:
         stock (QueuePartJobResponseStock): The queued stock input and its not-yet-calculated geometry.
         fallback_tools (bool): Whether the job plans what the crib cannot with fallback tools.
         workholding (QueuePartJobResponseWorkholding): How the job holds the part — the request’s, or `thinAir` when it
-            named none.
+            named none. `vacuumTable` is experimental.
+        spoilboard_height (float | None): **Experimental.** Available now and still gaining functionality. It may change
+            in breaking ways in a minor API release; each such change is listed in the release notes, so check them before
+            upgrading.
+
+            The height of the vacuum table’s spoilboard, in mm, 0 for none; null under any other workholding.
         status (QueuePartJobResponseStatus): Initial state of the accepted processing job.
     """
 
@@ -56,7 +62,7 @@ class QueuePartJobResponse:
     part_id: UUID
     plan_id: UUID
     material: QueuePartJobResponseMaterial
-    tool_crib: list[QueuePartJobResponseToolCribItemType0]
+    tool_crib: list[FusionToolLibrary | ImplicitToolLibrary]
     machine: None | QueuePartJobResponseMachineType0
     setup_plan: None | QueuePartJobResponseSetupPlanType0
     done_regions: None | QueuePartJobResponseDoneRegionsType0
@@ -64,15 +70,16 @@ class QueuePartJobResponse:
     stock: QueuePartJobResponseStock
     fallback_tools: bool
     workholding: QueuePartJobResponseWorkholding
+    spoilboard_height: float | None
     status: QueuePartJobResponseStatus
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.implicit_tool_library import ImplicitToolLibrary
         from ..models.plan_spec import PlanSpec
         from ..models.queue_part_job_response_done_regions_type_0 import QueuePartJobResponseDoneRegionsType0
         from ..models.queue_part_job_response_machine_type_0 import QueuePartJobResponseMachineType0
         from ..models.queue_part_job_response_setup_plan_type_0 import QueuePartJobResponseSetupPlanType0
-        from ..models.queue_part_job_response_tool_crib_item_type_0 import QueuePartJobResponseToolCribItemType0
 
         job_id = str(self.job_id)
 
@@ -85,7 +92,9 @@ class QueuePartJobResponse:
         tool_crib = []
         for tool_crib_item_data in self.tool_crib:
             tool_crib_item: dict[str, Any]
-            if isinstance(tool_crib_item_data, QueuePartJobResponseToolCribItemType0):
+            if isinstance(tool_crib_item_data, ImplicitToolLibrary):
+                tool_crib_item = tool_crib_item_data.to_dict()
+            else:
                 tool_crib_item = tool_crib_item_data.to_dict()
 
             tool_crib.append(tool_crib_item)
@@ -120,6 +129,9 @@ class QueuePartJobResponse:
 
         workholding = self.workholding.value
 
+        spoilboard_height: float | None
+        spoilboard_height = self.spoilboard_height
+
         status = self.status.value
 
         field_dict: dict[str, Any] = {}
@@ -138,6 +150,7 @@ class QueuePartJobResponse:
                 "stock": stock,
                 "fallbackTools": fallback_tools,
                 "workholding": workholding,
+                "spoilboardHeight": spoilboard_height,
                 "status": status,
             }
         )
@@ -146,12 +159,13 @@ class QueuePartJobResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.fusion_tool_library import FusionToolLibrary
+        from ..models.implicit_tool_library import ImplicitToolLibrary
         from ..models.plan_spec import PlanSpec
         from ..models.queue_part_job_response_done_regions_type_0 import QueuePartJobResponseDoneRegionsType0
         from ..models.queue_part_job_response_machine_type_0 import QueuePartJobResponseMachineType0
         from ..models.queue_part_job_response_setup_plan_type_0 import QueuePartJobResponseSetupPlanType0
         from ..models.queue_part_job_response_stock import QueuePartJobResponseStock
-        from ..models.queue_part_job_response_tool_crib_item_type_0 import QueuePartJobResponseToolCribItemType0
 
         d = dict(src_dict)
         job_id = UUID(d.pop("jobId"))
@@ -166,12 +180,20 @@ class QueuePartJobResponse:
         _tool_crib = d.pop("toolCrib")
         for tool_crib_item_data in _tool_crib:
 
-            def _parse_tool_crib_item(data: object) -> QueuePartJobResponseToolCribItemType0:
+            def _parse_tool_crib_item(data: object) -> FusionToolLibrary | ImplicitToolLibrary:
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    tool_crib_item_type_0 = ImplicitToolLibrary.from_dict(data)
+
+                    return tool_crib_item_type_0
+                except (TypeError, ValueError, AttributeError, KeyError):
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                tool_crib_item_type_0 = QueuePartJobResponseToolCribItemType0.from_dict(data)
+                tool_crib_item_type_1 = FusionToolLibrary.from_dict(data)
 
-                return tool_crib_item_type_0
+                return tool_crib_item_type_1
 
             tool_crib_item = _parse_tool_crib_item(tool_crib_item_data)
 
@@ -243,6 +265,13 @@ class QueuePartJobResponse:
 
         workholding = QueuePartJobResponseWorkholding(d.pop("workholding"))
 
+        def _parse_spoilboard_height(data: object) -> float | None:
+            if data is None:
+                return data
+            return cast(float | None, data)
+
+        spoilboard_height = _parse_spoilboard_height(d.pop("spoilboardHeight"))
+
         status = QueuePartJobResponseStatus(d.pop("status"))
 
         queue_part_job_response = cls(
@@ -258,6 +287,7 @@ class QueuePartJobResponse:
             stock=stock,
             fallback_tools=fallback_tools,
             workholding=workholding,
+            spoilboard_height=spoilboard_height,
             status=status,
         )
 

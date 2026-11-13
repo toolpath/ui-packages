@@ -25,6 +25,7 @@ from .create_file_parts_response_parts_item import CreateFilePartsResponsePartsI
 from .create_file_response import CreateFileResponse
 from .create_holder_response import CreateHolderResponse
 from .create_part_response import CreatePartResponse
+from .create_tool_library_response import CreateToolLibraryResponse
 from .demo_session_request import DemoSessionRequest
 from .demo_session_response import DemoSessionResponse
 from .direction_z_bounds import DirectionZBounds
@@ -52,6 +53,8 @@ from .fixed_box_stock_position import FixedBoxStockPosition
 from .fixed_cylinder_stock import FixedCylinderStock
 from .fixed_cylinder_stock_mode import FixedCylinderStockMode
 from .fixed_cylinder_stock_position import FixedCylinderStockPosition
+from .fusion_tool_library import FusionToolLibrary
+from .fusion_tool_library_kind import FusionToolLibraryKind
 from .health_response import HealthResponse
 from .health_response_db import HealthResponseDb
 from .health_response_status import HealthResponseStatus
@@ -69,6 +72,35 @@ from .hole_facts import HoleFacts
 from .hole_process import HoleProcess
 from .hole_step import HoleStep
 from .hole_thread import HoleThread
+from .implicit_tool_library import ImplicitToolLibrary
+from .implicit_tool_library_ball_endmill import ImplicitToolLibraryBallEndmill
+from .implicit_tool_library_ball_endmill_inch import ImplicitToolLibraryBallEndmillInch
+from .implicit_tool_library_ball_endmill_metric import ImplicitToolLibraryBallEndmillMetric
+from .implicit_tool_library_bull_nose import ImplicitToolLibraryBullNose
+from .implicit_tool_library_bull_nose_inch import ImplicitToolLibraryBullNoseInch
+from .implicit_tool_library_bull_nose_metric import ImplicitToolLibraryBullNoseMetric
+from .implicit_tool_library_chamfer import ImplicitToolLibraryChamfer
+from .implicit_tool_library_chamfer_inch import ImplicitToolLibraryChamferInch
+from .implicit_tool_library_chamfer_metric import ImplicitToolLibraryChamferMetric
+from .implicit_tool_library_corner_rounding import ImplicitToolLibraryCornerRounding
+from .implicit_tool_library_corner_rounding_inch import ImplicitToolLibraryCornerRoundingInch
+from .implicit_tool_library_corner_rounding_metric import ImplicitToolLibraryCornerRoundingMetric
+from .implicit_tool_library_drill import ImplicitToolLibraryDrill
+from .implicit_tool_library_drill_inch import ImplicitToolLibraryDrillInch
+from .implicit_tool_library_drill_metric import ImplicitToolLibraryDrillMetric
+from .implicit_tool_library_face_mill import ImplicitToolLibraryFaceMill
+from .implicit_tool_library_face_mill_inch import ImplicitToolLibraryFaceMillInch
+from .implicit_tool_library_face_mill_metric import ImplicitToolLibraryFaceMillMetric
+from .implicit_tool_library_flat_endmill import ImplicitToolLibraryFlatEndmill
+from .implicit_tool_library_flat_endmill_inch import ImplicitToolLibraryFlatEndmillInch
+from .implicit_tool_library_flat_endmill_metric import ImplicitToolLibraryFlatEndmillMetric
+from .implicit_tool_library_keyseat import ImplicitToolLibraryKeyseat
+from .implicit_tool_library_keyseat_inch import ImplicitToolLibraryKeyseatInch
+from .implicit_tool_library_keyseat_metric import ImplicitToolLibraryKeyseatMetric
+from .implicit_tool_library_kind import ImplicitToolLibraryKind
+from .implicit_tool_library_tap import ImplicitToolLibraryTap
+from .implicit_tool_library_tap_inch import ImplicitToolLibraryTapInch
+from .implicit_tool_library_tap_metric import ImplicitToolLibraryTapMetric
 from .job_detail import JobDetail
 from .job_detail_bodies_item import JobDetailBodiesItem
 from .job_detail_bodies_item_bounding_box import JobDetailBodiesItemBoundingBox
@@ -106,39 +138,6 @@ from .part_job_request_setup_plan_type_0_setups_item_orientations_item import (
 from .part_job_request_setup_plan_type_0_setups_item_orientations_item_direction import (
     PartJobRequestSetupPlanType0SetupsItemOrientationsItemDirection,
 )
-from .part_job_request_tool_crib_item_type_0 import PartJobRequestToolCribItemType0
-from .part_job_request_tool_crib_item_type_0_ball_endmill import PartJobRequestToolCribItemType0BallEndmill
-from .part_job_request_tool_crib_item_type_0_ball_endmill_inch import PartJobRequestToolCribItemType0BallEndmillInch
-from .part_job_request_tool_crib_item_type_0_ball_endmill_metric import PartJobRequestToolCribItemType0BallEndmillMetric
-from .part_job_request_tool_crib_item_type_0_bull_nose import PartJobRequestToolCribItemType0BullNose
-from .part_job_request_tool_crib_item_type_0_bull_nose_inch import PartJobRequestToolCribItemType0BullNoseInch
-from .part_job_request_tool_crib_item_type_0_bull_nose_metric import PartJobRequestToolCribItemType0BullNoseMetric
-from .part_job_request_tool_crib_item_type_0_chamfer import PartJobRequestToolCribItemType0Chamfer
-from .part_job_request_tool_crib_item_type_0_chamfer_inch import PartJobRequestToolCribItemType0ChamferInch
-from .part_job_request_tool_crib_item_type_0_chamfer_metric import PartJobRequestToolCribItemType0ChamferMetric
-from .part_job_request_tool_crib_item_type_0_corner_rounding import PartJobRequestToolCribItemType0CornerRounding
-from .part_job_request_tool_crib_item_type_0_corner_rounding_inch import (
-    PartJobRequestToolCribItemType0CornerRoundingInch,
-)
-from .part_job_request_tool_crib_item_type_0_corner_rounding_metric import (
-    PartJobRequestToolCribItemType0CornerRoundingMetric,
-)
-from .part_job_request_tool_crib_item_type_0_drill import PartJobRequestToolCribItemType0Drill
-from .part_job_request_tool_crib_item_type_0_drill_inch import PartJobRequestToolCribItemType0DrillInch
-from .part_job_request_tool_crib_item_type_0_drill_metric import PartJobRequestToolCribItemType0DrillMetric
-from .part_job_request_tool_crib_item_type_0_face_mill import PartJobRequestToolCribItemType0FaceMill
-from .part_job_request_tool_crib_item_type_0_face_mill_inch import PartJobRequestToolCribItemType0FaceMillInch
-from .part_job_request_tool_crib_item_type_0_face_mill_metric import PartJobRequestToolCribItemType0FaceMillMetric
-from .part_job_request_tool_crib_item_type_0_flat_endmill import PartJobRequestToolCribItemType0FlatEndmill
-from .part_job_request_tool_crib_item_type_0_flat_endmill_inch import PartJobRequestToolCribItemType0FlatEndmillInch
-from .part_job_request_tool_crib_item_type_0_flat_endmill_metric import PartJobRequestToolCribItemType0FlatEndmillMetric
-from .part_job_request_tool_crib_item_type_0_keyseat import PartJobRequestToolCribItemType0Keyseat
-from .part_job_request_tool_crib_item_type_0_keyseat_inch import PartJobRequestToolCribItemType0KeyseatInch
-from .part_job_request_tool_crib_item_type_0_keyseat_metric import PartJobRequestToolCribItemType0KeyseatMetric
-from .part_job_request_tool_crib_item_type_0_kind import PartJobRequestToolCribItemType0Kind
-from .part_job_request_tool_crib_item_type_0_tap import PartJobRequestToolCribItemType0Tap
-from .part_job_request_tool_crib_item_type_0_tap_inch import PartJobRequestToolCribItemType0TapInch
-from .part_job_request_tool_crib_item_type_0_tap_metric import PartJobRequestToolCribItemType0TapMetric
 from .part_job_request_workholding import PartJobRequestWorkholding
 from .part_mesh_job_response import PartMeshJobResponse
 from .part_mesh_job_response_status import PartMeshJobResponseStatus
@@ -151,6 +150,18 @@ from .pipeline_readiness_problem_job_status_type_1 import PipelineReadinessProbl
 from .pipeline_readiness_problem_job_status_type_2_type_1 import PipelineReadinessProblemJobStatusType2Type1
 from .pipeline_readiness_problem_job_status_type_3_type_1 import PipelineReadinessProblemJobStatusType3Type1
 from .pipeline_readiness_problem_required_step import PipelineReadinessProblemRequiredStep
+from .placed_box_stock import PlacedBoxStock
+from .placed_box_stock_frame import PlacedBoxStockFrame
+from .placed_box_stock_frame_axis import PlacedBoxStockFrameAxis
+from .placed_box_stock_frame_location import PlacedBoxStockFrameLocation
+from .placed_box_stock_frame_ref_direction import PlacedBoxStockFrameRefDirection
+from .placed_box_stock_lower import PlacedBoxStockLower
+from .placed_box_stock_mode import PlacedBoxStockMode
+from .placed_box_stock_upper import PlacedBoxStockUpper
+from .placed_cylinder_stock import PlacedCylinderStock
+from .placed_cylinder_stock_axis import PlacedCylinderStockAxis
+from .placed_cylinder_stock_mode import PlacedCylinderStockMode
+from .placed_cylinder_stock_origin import PlacedCylinderStockOrigin
 from .plan_action import PlanAction
 from .plan_action_intent import PlanActionIntent
 from .plan_action_tool_type_0 import PlanActionToolType0
@@ -160,6 +171,7 @@ from .plan_issue_kind import PlanIssueKind
 from .plan_issue_summary import PlanIssueSummary
 from .plan_issue_summary_kind import PlanIssueSummaryKind
 from .plan_list_response import PlanListResponse
+from .plan_refused_tool_entry import PlanRefusedToolEntry
 from .plan_response import PlanResponse
 from .plan_response_done_regions_type_0 import PlanResponseDoneRegionsType0
 from .plan_response_level import PlanResponseLevel
@@ -184,7 +196,10 @@ from .plan_spec_setups_item_features_item_feature_type import PlanSpecSetupsItem
 from .plan_summary import PlanSummary
 from .plan_summary_level import PlanSummaryLevel
 from .plan_summary_material import PlanSummaryMaterial
+from .plan_tool_library import PlanToolLibrary
+from .plan_tool_library_tool import PlanToolLibraryTool
 from .pocket_facts import PocketFacts
+from .preset_map import PresetMap
 from .problem_details import ProblemDetails
 from .profile_facts import ProfileFacts
 from .queue_part_job_response import QueuePartJobResponse
@@ -201,61 +216,6 @@ from .queue_part_job_response_setup_plan_type_0_setups_item_orientations_item_di
 )
 from .queue_part_job_response_status import QueuePartJobResponseStatus
 from .queue_part_job_response_stock import QueuePartJobResponseStock
-from .queue_part_job_response_tool_crib_item_type_0 import QueuePartJobResponseToolCribItemType0
-from .queue_part_job_response_tool_crib_item_type_0_ball_endmill import QueuePartJobResponseToolCribItemType0BallEndmill
-from .queue_part_job_response_tool_crib_item_type_0_ball_endmill_inch import (
-    QueuePartJobResponseToolCribItemType0BallEndmillInch,
-)
-from .queue_part_job_response_tool_crib_item_type_0_ball_endmill_metric import (
-    QueuePartJobResponseToolCribItemType0BallEndmillMetric,
-)
-from .queue_part_job_response_tool_crib_item_type_0_bull_nose import QueuePartJobResponseToolCribItemType0BullNose
-from .queue_part_job_response_tool_crib_item_type_0_bull_nose_inch import (
-    QueuePartJobResponseToolCribItemType0BullNoseInch,
-)
-from .queue_part_job_response_tool_crib_item_type_0_bull_nose_metric import (
-    QueuePartJobResponseToolCribItemType0BullNoseMetric,
-)
-from .queue_part_job_response_tool_crib_item_type_0_chamfer import QueuePartJobResponseToolCribItemType0Chamfer
-from .queue_part_job_response_tool_crib_item_type_0_chamfer_inch import QueuePartJobResponseToolCribItemType0ChamferInch
-from .queue_part_job_response_tool_crib_item_type_0_chamfer_metric import (
-    QueuePartJobResponseToolCribItemType0ChamferMetric,
-)
-from .queue_part_job_response_tool_crib_item_type_0_corner_rounding import (
-    QueuePartJobResponseToolCribItemType0CornerRounding,
-)
-from .queue_part_job_response_tool_crib_item_type_0_corner_rounding_inch import (
-    QueuePartJobResponseToolCribItemType0CornerRoundingInch,
-)
-from .queue_part_job_response_tool_crib_item_type_0_corner_rounding_metric import (
-    QueuePartJobResponseToolCribItemType0CornerRoundingMetric,
-)
-from .queue_part_job_response_tool_crib_item_type_0_drill import QueuePartJobResponseToolCribItemType0Drill
-from .queue_part_job_response_tool_crib_item_type_0_drill_inch import QueuePartJobResponseToolCribItemType0DrillInch
-from .queue_part_job_response_tool_crib_item_type_0_drill_metric import QueuePartJobResponseToolCribItemType0DrillMetric
-from .queue_part_job_response_tool_crib_item_type_0_face_mill import QueuePartJobResponseToolCribItemType0FaceMill
-from .queue_part_job_response_tool_crib_item_type_0_face_mill_inch import (
-    QueuePartJobResponseToolCribItemType0FaceMillInch,
-)
-from .queue_part_job_response_tool_crib_item_type_0_face_mill_metric import (
-    QueuePartJobResponseToolCribItemType0FaceMillMetric,
-)
-from .queue_part_job_response_tool_crib_item_type_0_flat_endmill import QueuePartJobResponseToolCribItemType0FlatEndmill
-from .queue_part_job_response_tool_crib_item_type_0_flat_endmill_inch import (
-    QueuePartJobResponseToolCribItemType0FlatEndmillInch,
-)
-from .queue_part_job_response_tool_crib_item_type_0_flat_endmill_metric import (
-    QueuePartJobResponseToolCribItemType0FlatEndmillMetric,
-)
-from .queue_part_job_response_tool_crib_item_type_0_keyseat import QueuePartJobResponseToolCribItemType0Keyseat
-from .queue_part_job_response_tool_crib_item_type_0_keyseat_inch import QueuePartJobResponseToolCribItemType0KeyseatInch
-from .queue_part_job_response_tool_crib_item_type_0_keyseat_metric import (
-    QueuePartJobResponseToolCribItemType0KeyseatMetric,
-)
-from .queue_part_job_response_tool_crib_item_type_0_kind import QueuePartJobResponseToolCribItemType0Kind
-from .queue_part_job_response_tool_crib_item_type_0_tap import QueuePartJobResponseToolCribItemType0Tap
-from .queue_part_job_response_tool_crib_item_type_0_tap_inch import QueuePartJobResponseToolCribItemType0TapInch
-from .queue_part_job_response_tool_crib_item_type_0_tap_metric import QueuePartJobResponseToolCribItemType0TapMetric
 from .queue_part_job_response_workholding import QueuePartJobResponseWorkholding
 from .reach_curve import ReachCurve
 from .region import Region
@@ -352,6 +312,7 @@ __all__ = (
     "CreateFileResponse",
     "CreateHolderResponse",
     "CreatePartResponse",
+    "CreateToolLibraryResponse",
     "DemoSessionRequest",
     "DemoSessionResponse",
     "DirectionZBounds",
@@ -379,6 +340,8 @@ __all__ = (
     "FixedCylinderStock",
     "FixedCylinderStockMode",
     "FixedCylinderStockPosition",
+    "FusionToolLibrary",
+    "FusionToolLibraryKind",
     "HealthResponse",
     "HealthResponseDb",
     "HealthResponseStatus",
@@ -396,6 +359,35 @@ __all__ = (
     "HoleProcess",
     "HoleStep",
     "HoleThread",
+    "ImplicitToolLibrary",
+    "ImplicitToolLibraryBallEndmill",
+    "ImplicitToolLibraryBallEndmillInch",
+    "ImplicitToolLibraryBallEndmillMetric",
+    "ImplicitToolLibraryBullNose",
+    "ImplicitToolLibraryBullNoseInch",
+    "ImplicitToolLibraryBullNoseMetric",
+    "ImplicitToolLibraryChamfer",
+    "ImplicitToolLibraryChamferInch",
+    "ImplicitToolLibraryChamferMetric",
+    "ImplicitToolLibraryCornerRounding",
+    "ImplicitToolLibraryCornerRoundingInch",
+    "ImplicitToolLibraryCornerRoundingMetric",
+    "ImplicitToolLibraryDrill",
+    "ImplicitToolLibraryDrillInch",
+    "ImplicitToolLibraryDrillMetric",
+    "ImplicitToolLibraryFaceMill",
+    "ImplicitToolLibraryFaceMillInch",
+    "ImplicitToolLibraryFaceMillMetric",
+    "ImplicitToolLibraryFlatEndmill",
+    "ImplicitToolLibraryFlatEndmillInch",
+    "ImplicitToolLibraryFlatEndmillMetric",
+    "ImplicitToolLibraryKeyseat",
+    "ImplicitToolLibraryKeyseatInch",
+    "ImplicitToolLibraryKeyseatMetric",
+    "ImplicitToolLibraryKind",
+    "ImplicitToolLibraryTap",
+    "ImplicitToolLibraryTapInch",
+    "ImplicitToolLibraryTapMetric",
     "JobDetail",
     "JobDetailBodiesItem",
     "JobDetailBodiesItemBoundingBox",
@@ -429,35 +421,6 @@ __all__ = (
     "PartJobRequestSetupPlanType0SetupsItem",
     "PartJobRequestSetupPlanType0SetupsItemOrientationsItem",
     "PartJobRequestSetupPlanType0SetupsItemOrientationsItemDirection",
-    "PartJobRequestToolCribItemType0",
-    "PartJobRequestToolCribItemType0BallEndmill",
-    "PartJobRequestToolCribItemType0BallEndmillInch",
-    "PartJobRequestToolCribItemType0BallEndmillMetric",
-    "PartJobRequestToolCribItemType0BullNose",
-    "PartJobRequestToolCribItemType0BullNoseInch",
-    "PartJobRequestToolCribItemType0BullNoseMetric",
-    "PartJobRequestToolCribItemType0Chamfer",
-    "PartJobRequestToolCribItemType0ChamferInch",
-    "PartJobRequestToolCribItemType0ChamferMetric",
-    "PartJobRequestToolCribItemType0CornerRounding",
-    "PartJobRequestToolCribItemType0CornerRoundingInch",
-    "PartJobRequestToolCribItemType0CornerRoundingMetric",
-    "PartJobRequestToolCribItemType0Drill",
-    "PartJobRequestToolCribItemType0DrillInch",
-    "PartJobRequestToolCribItemType0DrillMetric",
-    "PartJobRequestToolCribItemType0FaceMill",
-    "PartJobRequestToolCribItemType0FaceMillInch",
-    "PartJobRequestToolCribItemType0FaceMillMetric",
-    "PartJobRequestToolCribItemType0FlatEndmill",
-    "PartJobRequestToolCribItemType0FlatEndmillInch",
-    "PartJobRequestToolCribItemType0FlatEndmillMetric",
-    "PartJobRequestToolCribItemType0Keyseat",
-    "PartJobRequestToolCribItemType0KeyseatInch",
-    "PartJobRequestToolCribItemType0KeyseatMetric",
-    "PartJobRequestToolCribItemType0Kind",
-    "PartJobRequestToolCribItemType0Tap",
-    "PartJobRequestToolCribItemType0TapInch",
-    "PartJobRequestToolCribItemType0TapMetric",
     "PartJobRequestWorkholding",
     "PartMeshJobResponse",
     "PartMeshJobResponseStatus",
@@ -470,6 +433,18 @@ __all__ = (
     "PipelineReadinessProblemJobStatusType2Type1",
     "PipelineReadinessProblemJobStatusType3Type1",
     "PipelineReadinessProblemRequiredStep",
+    "PlacedBoxStock",
+    "PlacedBoxStockFrame",
+    "PlacedBoxStockFrameAxis",
+    "PlacedBoxStockFrameLocation",
+    "PlacedBoxStockFrameRefDirection",
+    "PlacedBoxStockLower",
+    "PlacedBoxStockMode",
+    "PlacedBoxStockUpper",
+    "PlacedCylinderStock",
+    "PlacedCylinderStockAxis",
+    "PlacedCylinderStockMode",
+    "PlacedCylinderStockOrigin",
     "PlanAction",
     "PlanActionIntent",
     "PlanActionToolType0",
@@ -479,6 +454,7 @@ __all__ = (
     "PlanIssueSummary",
     "PlanIssueSummaryKind",
     "PlanListResponse",
+    "PlanRefusedToolEntry",
     "PlanResponse",
     "PlanResponseDoneRegionsType0",
     "PlanResponseLevel",
@@ -499,7 +475,10 @@ __all__ = (
     "PlanSummary",
     "PlanSummaryLevel",
     "PlanSummaryMaterial",
+    "PlanToolLibrary",
+    "PlanToolLibraryTool",
     "PocketFacts",
+    "PresetMap",
     "ProblemDetails",
     "ProfileFacts",
     "QueuePartJobResponse",
@@ -512,35 +491,6 @@ __all__ = (
     "QueuePartJobResponseSetupPlanType0SetupsItemOrientationsItemDirection",
     "QueuePartJobResponseStatus",
     "QueuePartJobResponseStock",
-    "QueuePartJobResponseToolCribItemType0",
-    "QueuePartJobResponseToolCribItemType0BallEndmill",
-    "QueuePartJobResponseToolCribItemType0BallEndmillInch",
-    "QueuePartJobResponseToolCribItemType0BallEndmillMetric",
-    "QueuePartJobResponseToolCribItemType0BullNose",
-    "QueuePartJobResponseToolCribItemType0BullNoseInch",
-    "QueuePartJobResponseToolCribItemType0BullNoseMetric",
-    "QueuePartJobResponseToolCribItemType0Chamfer",
-    "QueuePartJobResponseToolCribItemType0ChamferInch",
-    "QueuePartJobResponseToolCribItemType0ChamferMetric",
-    "QueuePartJobResponseToolCribItemType0CornerRounding",
-    "QueuePartJobResponseToolCribItemType0CornerRoundingInch",
-    "QueuePartJobResponseToolCribItemType0CornerRoundingMetric",
-    "QueuePartJobResponseToolCribItemType0Drill",
-    "QueuePartJobResponseToolCribItemType0DrillInch",
-    "QueuePartJobResponseToolCribItemType0DrillMetric",
-    "QueuePartJobResponseToolCribItemType0FaceMill",
-    "QueuePartJobResponseToolCribItemType0FaceMillInch",
-    "QueuePartJobResponseToolCribItemType0FaceMillMetric",
-    "QueuePartJobResponseToolCribItemType0FlatEndmill",
-    "QueuePartJobResponseToolCribItemType0FlatEndmillInch",
-    "QueuePartJobResponseToolCribItemType0FlatEndmillMetric",
-    "QueuePartJobResponseToolCribItemType0Keyseat",
-    "QueuePartJobResponseToolCribItemType0KeyseatInch",
-    "QueuePartJobResponseToolCribItemType0KeyseatMetric",
-    "QueuePartJobResponseToolCribItemType0Kind",
-    "QueuePartJobResponseToolCribItemType0Tap",
-    "QueuePartJobResponseToolCribItemType0TapInch",
-    "QueuePartJobResponseToolCribItemType0TapMetric",
     "QueuePartJobResponseWorkholding",
     "ReachCurve",
     "Region",

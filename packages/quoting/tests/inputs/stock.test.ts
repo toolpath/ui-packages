@@ -326,6 +326,12 @@ describe('a body of the part’s file as its stock', () => {
     }
     expect(isPermanentPlanFailure('unknown_body: no body at index 9')).toBe(true)
     expect(isPermanentPlanFailure('stock_body_requires_file: not made from a file')).toBe(true)
+    // Stock its fixture holds in no direction that may start the plan: as permanent.
+    expect(
+      isPermanentPlanFailure(
+        'unholdable_initial_stock: the fixture cannot hold the initial stock in any direction',
+      ),
+    ).toBe(true)
   })
 
   it('takes a failure that another run can get past as not permanent', () => {

@@ -13,7 +13,7 @@ import type { Vec3 } from './Vec3.js'
 import { Vec3FromJSON, Vec3FromJSONTyped, Vec3ToJSON, Vec3ToJSONTyped } from './Vec3.js'
 
 /**
- * The setup frame the corners are measured in, in part coordinates. A point `(x, y, z)` sits at `location + x·refDirection + y·(axis × refDirection) + z·axis` on the part.
+ * The setup frame the corners are measured in, in part coordinates — or the frame a `placedBox` was given in. A point `(x, y, z)` sits at `location + x·refDirection + y·(axis × refDirection) + z·axis` on the part.
  * @export
  * @interface StockBoxFrame
  */

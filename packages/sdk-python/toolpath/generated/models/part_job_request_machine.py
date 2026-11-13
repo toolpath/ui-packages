@@ -15,8 +15,9 @@ class PartJobRequestMachine:
     """The machine the part is quoted on: `name`, `maxRpm` (the spindle's top speed, rev/min) and `toolChangeSeconds`.
     Recorded with the plan and echoed back, and carried over by a recalculation. `maxRpm` is applied: every synthesized
     tool is held under it, so machining times move for a machine that states one; without it a default ceiling of 15000
-    rev/min applies. Tool changes are never included in machining times; `toolChangeSeconds` is for the caller to price
-    them. Omit for none.
+    rev/min applies. A Fusion tool library’s tools are not held under it: they run as their presets state, and what
+    those leave is priced under the default ceiling. Tool changes are never included in machining times;
+    `toolChangeSeconds` is for the caller to price them. Omit for none.
 
         Example:
             {'name': 'Haas VF-2', 'maxRpm': 8100, 'toolChangeSeconds': 4.2}

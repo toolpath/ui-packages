@@ -30,7 +30,8 @@ class PlanIssueFeature:
             `StickoutTooLong`, `LengthOverDiameterTooHigh`, `CannotSynthesizeDrill`, `ToolTypeExcluded` or
             `MeasurementFailed`, and for a `Thread` pass `ThreadNotOnGrid`, `ThreadTapered`, `ThreadEntryObstructed`,
             `ThreadLeadTooLong` or `TeethLengthTooLong`; other values may be added. Empty when the crib lists no tool head
-            and `fallbackTools` is off; empty for any other cause.
+            and `fallbackTools` is off, and for a Fusion tool library’s tools, which the plan is given rather than invents:
+            a crib of Fusion libraries alone, without `fallbackTools`, gives no reasons. Empty for any other cause.
     """
 
     feature_tag: str

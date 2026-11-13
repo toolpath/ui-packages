@@ -12,6 +12,8 @@ if TYPE_CHECKING:
     from ..models.body_stock import BodyStock
     from ..models.fixed_box_stock import FixedBoxStock
     from ..models.fixed_cylinder_stock import FixedCylinderStock
+    from ..models.placed_box_stock import PlacedBoxStock
+    from ..models.placed_cylinder_stock import PlacedCylinderStock
     from ..models.stock_body import StockBody
     from ..models.stock_box import StockBox
     from ..models.stock_cylinder import StockCylinder
@@ -25,19 +27,28 @@ class PlanResponseStock:
     """The saved stock input and the initial geometry the kernel resolved from it.
 
     Attributes:
-        input_ (AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock): The stock
-            policy the job cuts from, all lengths mm, with omitted figures left omitted. The request’s stock policy, or the
-            saved input on a recalculation, or automatic Flat Bar on a new plan and a plan made before stock inputs were
-            recorded. A recalculation without stock reuses this.
+        input_ (AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock |
+            PlacedBoxStock | PlacedCylinderStock): The stock policy the job cuts from, all lengths mm, with omitted figures
+            left omitted. The request’s stock policy, or the saved input on a recalculation, or automatic Flat Bar on a new
+            plan and a plan made before stock inputs were recorded. A recalculation without stock reuses this.
         resolved (None | StockBody | StockBox | StockCylinder): The initial stock the kernel sized and placed, in mm,
             told apart by `shape`: a `box` — two corners in the first setup’s frame, squared up in the direction the job
-            cuts first — a `cylinder` in part coordinates, or the `body` of the part’s file it was cut from. This is the
-            material bought, which a quote is written against (a cylinder’s volume is π·(diameter/2)²·length); the part’s
+            cuts first, or in the frame a `placedBox` was given in — a `cylinder` in part coordinates, or the `body` of the
+            part’s file it was cut from. Placed stock is reported as it was given. This is the material bought, which a
+            quote is written against (a cylinder’s volume is π·(diameter/2)²·length, less its bore’s for a tube); the part’s
             own bounding box is not a substitute. Null for a plan calculated before this field existed — re-run the part to
             get one — and for a part with no setup, which has nothing to square stock against.
     """
 
-    input_: AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock
+    input_: (
+        AutomaticFlatBarStock
+        | AutomaticRoundStock
+        | BodyStock
+        | FixedBoxStock
+        | FixedCylinderStock
+        | PlacedBoxStock
+        | PlacedCylinderStock
+    )
     resolved: None | StockBody | StockBox | StockCylinder
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -46,6 +57,8 @@ class PlanResponseStock:
         from ..models.automatic_round_stock import AutomaticRoundStock
         from ..models.fixed_box_stock import FixedBoxStock
         from ..models.fixed_cylinder_stock import FixedCylinderStock
+        from ..models.placed_box_stock import PlacedBoxStock
+        from ..models.placed_cylinder_stock import PlacedCylinderStock
         from ..models.stock_body import StockBody
         from ..models.stock_box import StockBox
         from ..models.stock_cylinder import StockCylinder
@@ -58,6 +71,10 @@ class PlanResponseStock:
         elif isinstance(self.input_, FixedBoxStock):
             input_ = self.input_.to_dict()
         elif isinstance(self.input_, FixedCylinderStock):
+            input_ = self.input_.to_dict()
+        elif isinstance(self.input_, PlacedBoxStock):
+            input_ = self.input_.to_dict()
+        elif isinstance(self.input_, PlacedCylinderStock):
             input_ = self.input_.to_dict()
         else:
             input_ = self.input_.to_dict()
@@ -90,6 +107,8 @@ class PlanResponseStock:
         from ..models.body_stock import BodyStock
         from ..models.fixed_box_stock import FixedBoxStock
         from ..models.fixed_cylinder_stock import FixedCylinderStock
+        from ..models.placed_box_stock import PlacedBoxStock
+        from ..models.placed_cylinder_stock import PlacedCylinderStock
         from ..models.stock_body import StockBody
         from ..models.stock_box import StockBox
         from ..models.stock_cylinder import StockCylinder
@@ -98,7 +117,15 @@ class PlanResponseStock:
 
         def _parse_input_(
             data: object,
-        ) -> AutomaticFlatBarStock | AutomaticRoundStock | BodyStock | FixedBoxStock | FixedCylinderStock:
+        ) -> (
+            AutomaticFlatBarStock
+            | AutomaticRoundStock
+            | BodyStock
+            | FixedBoxStock
+            | FixedCylinderStock
+            | PlacedBoxStock
+            | PlacedCylinderStock
+        ):
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
@@ -131,11 +158,27 @@ class PlanResponseStock:
                 return input_type_3
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                input_type_4 = PlacedBoxStock.from_dict(data)
+
+                return input_type_4
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                input_type_5 = PlacedCylinderStock.from_dict(data)
+
+                return input_type_5
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            input_type_4 = BodyStock.from_dict(data)
+            input_type_6 = BodyStock.from_dict(data)
 
-            return input_type_4
+            return input_type_6
 
         input_ = _parse_input_(d.pop("input"))
 

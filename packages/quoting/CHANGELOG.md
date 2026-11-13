@@ -1,5 +1,13 @@
 # @toolpath/quoting
 
+## 1.0.1
+
+### Patch Changes
+
+- c792343: A plan that failed `unholdable_initial_stock` (Engine API 1.46.0: stock its fixture can hold in no
+  direction the plan may start in) is permanent: `isPermanentPlanFailure` holds and no Try again is
+  offered, since the same inputs fail again.
+
 ## 1.0.0
 
 ### Major Changes

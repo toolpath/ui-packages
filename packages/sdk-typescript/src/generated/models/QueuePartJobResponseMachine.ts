@@ -10,7 +10,7 @@
 
 import { mapValues } from '../runtime.js'
 /**
- * The machine the job was recorded against — the request’s, or null when it named none — and whose `maxRpm` its tools are held under.
+ * The machine the job was recorded against — the request’s, or null when it named none — and whose `maxRpm` its synthesized tools are held under.
  * @export
  * @interface QueuePartJobResponseMachine
  */

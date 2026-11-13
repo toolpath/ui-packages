@@ -8,123 +8,28 @@
  * Do not edit the class manually.
  */
 
-import { mapValues } from '../runtime.js'
-import type { QueuePartJobResponseToolCribInnerFaceMill } from './QueuePartJobResponseToolCribInnerFaceMill.js'
+import type { FusionToolLibrary } from './FusionToolLibrary.js'
 import {
-  QueuePartJobResponseToolCribInnerFaceMillFromJSON,
-  QueuePartJobResponseToolCribInnerFaceMillFromJSONTyped,
-  QueuePartJobResponseToolCribInnerFaceMillToJSON,
-  QueuePartJobResponseToolCribInnerFaceMillToJSONTyped,
-} from './QueuePartJobResponseToolCribInnerFaceMill.js'
-import type { QueuePartJobResponseToolCribInnerFlatEndmill } from './QueuePartJobResponseToolCribInnerFlatEndmill.js'
+  instanceOfFusionToolLibrary,
+  FusionToolLibraryFromJSON,
+  FusionToolLibraryFromJSONTyped,
+  FusionToolLibraryToJSON,
+} from './FusionToolLibrary.js'
+import type { ImplicitToolLibrary } from './ImplicitToolLibrary.js'
 import {
-  QueuePartJobResponseToolCribInnerFlatEndmillFromJSON,
-  QueuePartJobResponseToolCribInnerFlatEndmillFromJSONTyped,
-  QueuePartJobResponseToolCribInnerFlatEndmillToJSON,
-  QueuePartJobResponseToolCribInnerFlatEndmillToJSONTyped,
-} from './QueuePartJobResponseToolCribInnerFlatEndmill.js'
-import type { QueuePartJobResponseToolCribInnerTap } from './QueuePartJobResponseToolCribInnerTap.js'
-import {
-  QueuePartJobResponseToolCribInnerTapFromJSON,
-  QueuePartJobResponseToolCribInnerTapFromJSONTyped,
-  QueuePartJobResponseToolCribInnerTapToJSON,
-  QueuePartJobResponseToolCribInnerTapToJSONTyped,
-} from './QueuePartJobResponseToolCribInnerTap.js'
+  instanceOfImplicitToolLibrary,
+  ImplicitToolLibraryFromJSON,
+  ImplicitToolLibraryFromJSONTyped,
+  ImplicitToolLibraryToJSON,
+} from './ImplicitToolLibrary.js'
 
 /**
+ * @type QueuePartJobResponseToolCribInner
  *
  * @export
- * @interface QueuePartJobResponseToolCribInner
  */
-export interface QueuePartJobResponseToolCribInner {
-  /**
-   *
-   * @type {QueuePartJobResponseToolCribInnerKindEnum}
-   * @memberof QueuePartJobResponseToolCribInner
-   */
-  kind: QueuePartJobResponseToolCribInnerKindEnum
-  /**
-   *
-   * @type {string}
-   * @memberof QueuePartJobResponseToolCribInner
-   */
-  name?: string
-  /**
-   *
-   * @type {QueuePartJobResponseToolCribInnerFaceMill}
-   * @memberof QueuePartJobResponseToolCribInner
-   */
-  faceMill?: QueuePartJobResponseToolCribInnerFaceMill
-  /**
-   *
-   * @type {QueuePartJobResponseToolCribInnerFlatEndmill}
-   * @memberof QueuePartJobResponseToolCribInner
-   */
-  flatEndmill?: QueuePartJobResponseToolCribInnerFlatEndmill
-  /**
-   *
-   * @type {QueuePartJobResponseToolCribInnerFlatEndmill}
-   * @memberof QueuePartJobResponseToolCribInner
-   */
-  bullNose?: QueuePartJobResponseToolCribInnerFlatEndmill
-  /**
-   *
-   * @type {QueuePartJobResponseToolCribInnerFlatEndmill}
-   * @memberof QueuePartJobResponseToolCribInner
-   */
-  ballEndmill?: QueuePartJobResponseToolCribInnerFlatEndmill
-  /**
-   *
-   * @type {QueuePartJobResponseToolCribInnerFlatEndmill}
-   * @memberof QueuePartJobResponseToolCribInner
-   */
-  drill?: QueuePartJobResponseToolCribInnerFlatEndmill
-  /**
-   *
-   * @type {QueuePartJobResponseToolCribInnerFlatEndmill}
-   * @memberof QueuePartJobResponseToolCribInner
-   */
-  chamfer?: QueuePartJobResponseToolCribInnerFlatEndmill
-  /**
-   *
-   * @type {QueuePartJobResponseToolCribInnerFlatEndmill}
-   * @memberof QueuePartJobResponseToolCribInner
-   */
-  keyseat?: QueuePartJobResponseToolCribInnerFlatEndmill
-  /**
-   *
-   * @type {QueuePartJobResponseToolCribInnerTap}
-   * @memberof QueuePartJobResponseToolCribInner
-   */
-  tap?: QueuePartJobResponseToolCribInnerTap
-  /**
-   *
-   * @type {QueuePartJobResponseToolCribInnerTap}
-   * @memberof QueuePartJobResponseToolCribInner
-   */
-  cornerRounding?: QueuePartJobResponseToolCribInnerTap
-}
-
-/**
- * @export
- */
-export const QueuePartJobResponseToolCribInnerKindEnum = {
-  Implicit: 'implicit',
-} as const
-export type QueuePartJobResponseToolCribInnerKindEnum =
-  (typeof QueuePartJobResponseToolCribInnerKindEnum)[keyof typeof QueuePartJobResponseToolCribInnerKindEnum]
-
-/**
- * Check if a given object implements the QueuePartJobResponseToolCribInner interface.
- */
-export function instanceOfQueuePartJobResponseToolCribInner(
-  value: object,
-): value is QueuePartJobResponseToolCribInner {
-  if (!('kind' in value) || value['kind'] === undefined) return false
-  if (value['kind'] !== 'implicit') return false
-
-  return true
-}
+export type QueuePartJobResponseToolCribInner =
+  ({ kind: 'fusion' } & FusionToolLibrary) | ({ kind: 'implicit' } & ImplicitToolLibrary)
 
 export function QueuePartJobResponseToolCribInnerFromJSON(
   json: any,
@@ -139,49 +44,21 @@ export function QueuePartJobResponseToolCribInnerFromJSONTyped(
   if (json == null) {
     return json
   }
-  return {
-    kind: json['kind'],
-    name: json['name'] == null ? undefined : json['name'],
-    faceMill:
-      json['faceMill'] == null
-        ? undefined
-        : QueuePartJobResponseToolCribInnerFaceMillFromJSON(json['faceMill']),
-    flatEndmill:
-      json['flatEndmill'] == null
-        ? undefined
-        : QueuePartJobResponseToolCribInnerFlatEndmillFromJSON(json['flatEndmill']),
-    bullNose:
-      json['bullNose'] == null
-        ? undefined
-        : QueuePartJobResponseToolCribInnerFlatEndmillFromJSON(json['bullNose']),
-    ballEndmill:
-      json['ballEndmill'] == null
-        ? undefined
-        : QueuePartJobResponseToolCribInnerFlatEndmillFromJSON(json['ballEndmill']),
-    drill:
-      json['drill'] == null
-        ? undefined
-        : QueuePartJobResponseToolCribInnerFlatEndmillFromJSON(json['drill']),
-    chamfer:
-      json['chamfer'] == null
-        ? undefined
-        : QueuePartJobResponseToolCribInnerFlatEndmillFromJSON(json['chamfer']),
-    keyseat:
-      json['keyseat'] == null
-        ? undefined
-        : QueuePartJobResponseToolCribInnerFlatEndmillFromJSON(json['keyseat']),
-    tap:
-      json['tap'] == null ? undefined : QueuePartJobResponseToolCribInnerTapFromJSON(json['tap']),
-    cornerRounding:
-      json['cornerRounding'] == null
-        ? undefined
-        : QueuePartJobResponseToolCribInnerTapFromJSON(json['cornerRounding']),
+  switch (json['kind']) {
+    case 'fusion':
+      return Object.assign({}, FusionToolLibraryFromJSONTyped(json, true), {
+        kind: 'fusion',
+      } as const)
+    case 'implicit':
+      return Object.assign({}, ImplicitToolLibraryFromJSONTyped(json, true), {
+        kind: 'implicit',
+      } as const)
+    default:
+      return json
   }
 }
 
-export function QueuePartJobResponseToolCribInnerToJSON(
-  json: any,
-): QueuePartJobResponseToolCribInner {
+export function QueuePartJobResponseToolCribInnerToJSON(json: any): any {
   return QueuePartJobResponseToolCribInnerToJSONTyped(json, false)
 }
 
@@ -192,18 +69,12 @@ export function QueuePartJobResponseToolCribInnerToJSONTyped(
   if (value == null) {
     return value
   }
-
-  return {
-    kind: value['kind'],
-    name: value['name'],
-    faceMill: QueuePartJobResponseToolCribInnerFaceMillToJSON(value['faceMill']),
-    flatEndmill: QueuePartJobResponseToolCribInnerFlatEndmillToJSON(value['flatEndmill']),
-    bullNose: QueuePartJobResponseToolCribInnerFlatEndmillToJSON(value['bullNose']),
-    ballEndmill: QueuePartJobResponseToolCribInnerFlatEndmillToJSON(value['ballEndmill']),
-    drill: QueuePartJobResponseToolCribInnerFlatEndmillToJSON(value['drill']),
-    chamfer: QueuePartJobResponseToolCribInnerFlatEndmillToJSON(value['chamfer']),
-    keyseat: QueuePartJobResponseToolCribInnerFlatEndmillToJSON(value['keyseat']),
-    tap: QueuePartJobResponseToolCribInnerTapToJSON(value['tap']),
-    cornerRounding: QueuePartJobResponseToolCribInnerTapToJSON(value['cornerRounding']),
+  switch (value['kind']) {
+    case 'fusion':
+      return Object.assign({}, FusionToolLibraryToJSON(value), { kind: 'fusion' } as const)
+    case 'implicit':
+      return Object.assign({}, ImplicitToolLibraryToJSON(value), { kind: 'implicit' } as const)
+    default:
+      return value
   }
 }

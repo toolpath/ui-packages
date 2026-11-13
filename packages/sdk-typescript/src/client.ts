@@ -9,6 +9,7 @@ import {
   PlansApi,
   ServiceApi,
   ToolHoldersApi,
+  ToolLibrariesApi,
   ToolpathsApi,
 } from './generated/index.js'
 
@@ -29,6 +30,7 @@ export interface ToolpathClient {
   plans: PlansApi
   service: ServiceApi
   toolHolders: ToolHoldersApi
+  toolLibraries: ToolLibrariesApi
   toolpaths: ToolpathsApi
 }
 
@@ -52,6 +54,7 @@ export const createToolpathClient = ({
     plans: new PlansApi(configuration),
     service: new ServiceApi(configuration),
     toolHolders: new ToolHoldersApi(configuration),
+    toolLibraries: new ToolLibrariesApi(configuration),
     toolpaths: new ToolpathsApi(configuration),
   }
 }
