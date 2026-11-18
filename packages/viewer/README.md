@@ -310,6 +310,8 @@ export const FeatureInspector = ({
 different: `focus={{ opacity: 0.12 }}` makes regions outside `selection`
 translucent. Its default outside opacity is 0.15, and an empty selection leaves
 the part opaque. For multiselection, update your own tag array and avoid duplicates.
+`focus={{ opacity: 0, regions }}` keeps those regions solid instead of the
+selection's, so faces you paint yourself can be isolated without the selection colour.
 
 ## Components
 

@@ -61,6 +61,18 @@ describe('selection-driven focus', () => {
     expect(material.depthWrite).toBe(true)
   })
 
+  it('keeps the focus regions solid in place of the selection', async () => {
+    const { model, part } = await loadCube()
+    const top = faceOn(model, 1)
+    const bottom = faceOn(model, -1)
+
+    part.setFocus([top.tag], { opacity: 0, regions: [bottom.region] })
+
+    expect(part.regionOpacity(bottom.region)).toBe(1)
+    expect(part.regionOpacity(top.region)).toBe(0)
+    expect(focusStateKey({ regions: [bottom.region] }, [])).not.toBe(focusStateKey({}, []))
+  })
+
   it('clamps a caller-supplied X-ray opacity', async () => {
     const { model, part } = await loadCube()
     const top = faceOn(model, 1)

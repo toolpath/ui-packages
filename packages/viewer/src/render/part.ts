@@ -534,7 +534,7 @@ export function createPart(
     },
 
     setFocus(selection, focus) {
-      const regions = focus === undefined ? null : focusedRegions(model, selection)
+      const regions = focus === undefined ? null : focusedRegions(model, selection, focus)
       const outside = focusOpacity(focus)
       let changed = false
       let hasTransparency = false

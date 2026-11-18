@@ -1,5 +1,11 @@
 # @toolpath/viewer
 
+## 3.10.0
+
+### Minor Changes
+
+- 8cfdaa2: `FocusOptions` takes `regions`: the regions kept solid in place of the selection's, so an application can isolate faces it paints itself without the selection colour.
+
 ## 3.9.0
 
 ### Minor Changes
