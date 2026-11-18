@@ -21,6 +21,7 @@ import {
   isPermanentPlanFailure,
   PART_BODY_LOST,
   planFailureWords,
+  REGION_PLAN_REFUSALS,
   STOCK_BODY_LOST,
   STOCK_BODY_MISFIT,
   STOCK_BODY_REFUSALS,
@@ -366,6 +367,9 @@ describe('a body of the part’s file as its stock', () => {
       isPermanentPlanFailure('refused_user_plan: 1 refused: setup 0: FeatureTag(0) is excluded'),
     ).toBe(false)
     expect(isPermanentPlanFailure('geometry: the kernel ran out of memory')).toBe(false)
+    // Try again reads a part analyzed before `preparationId` again (`runDecision`).
+    expect(isPermanentPlanFailure(REGION_PLAN_REFUSALS.notAnalyzedByRegion)).toBe(false)
+    expect(isPermanentPlanFailure(REGION_PLAN_REFUSALS.staleCustom)).toBe(true)
   })
 
   /** The plan and the report prepared alike. */

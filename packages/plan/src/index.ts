@@ -55,8 +55,10 @@ export {
   addSetup,
   type Constraints,
   copyDirection,
+  parseDirections,
   type DraftGroup,
   type DraftSetup,
+  additionalDirectionsSent,
   type DraftInvalid,
   type Edited,
   groupsFromPlan,
@@ -109,7 +111,20 @@ export {
   withGroups,
   withDone,
   withoutDone,
+  type CustomFeature,
 } from './draft/constraints'
+export {
+  customByFrame,
+  customFeaturesOf,
+  customKey,
+  type DraftPlanSpec,
+  type FeatureRef,
+  type PlanSpecStatement,
+  planSpecOf,
+  type SpecFeature,
+  type SpecSource,
+  staleCustomOf,
+} from './draft/custom'
 export { type GroupRef, type Refusal, type Refused } from './draft/refusals'
 export { type Statement, statementOf } from './draft/statement'
 export * from './details/details'

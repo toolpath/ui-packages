@@ -1,4 +1,12 @@
-import { statementOf, withGroups, type DraftSetup, type Statement } from '@toolpath/plan'
+import {
+  additionalDirectionsSent,
+  customByFrame,
+  type PlanDirection,
+  statementOf,
+  withGroups,
+  type DraftSetup,
+  type Statement,
+} from '@toolpath/plan'
 
 import { effectiveStock, stockRequest, type PlanStock, type SentStock } from '../inputs/stock'
 import type { ToolCrib } from '../inputs/tool-crib'
@@ -26,6 +34,16 @@ export interface PlanInputs {
   statement: Statement | null
   /** The faces ignored, with the kernel that numbered them; null for none. */
   done: DoneRegions | null
+  /**
+   * Each frame's own features, region lists with the analysis that numbered them, where any group
+   * has one; null or absent for none. Only a plan spec carries them.
+   */
+  custom?: ReturnType<typeof customByFrame> | null
+  /**
+   * The directions Toolpath may add setups in, where a draft with a setup limits them
+   * (`additionalDirectionsSent`); null or absent for any. Only a plan spec carries them.
+   */
+  additionalDirections?: Array<PlanDirection> | null
   /** The stock it is planned from (`effectiveStock`): a body of its file, or its policy. */
   stock: SentStock | null
   materialId: string | null
@@ -39,6 +57,8 @@ export interface DraftRow {
   doneRegions: ReadonlyArray<number>
   doneKernelVersion: string | null
   kernelVersion: string | null
+  /** Null or absent: Toolpath may add setups in any direction. */
+  additionalDirections?: ReadonlyArray<PlanDirection> | null
 }
 
 /** A part's columns that are its plan's inputs; absent reads as none. */
@@ -54,6 +74,12 @@ export interface FingerprintPart {
 export const draftStatement = (row: Pick<DraftRow, 'setups'>): Statement | null =>
   statementOf(withGroups(row.setups))
 
+/** A stored draft's own features by frame, or null for none. */
+export const draftCustom = (row: Pick<DraftRow, 'setups'>): PlanInputs['custom'] => {
+  const custom = customByFrame(withGroups(row.setups))
+  return custom.length > 0 ? custom : null
+}
+
 /** The faces a stored draft has ignored, as Toolpath is told them, or null for none. */
 export const draftDone = (row: Omit<DraftRow, 'setups'>): DoneRegions | null =>
   row.doneRegions.length > 0
@@ -68,6 +94,8 @@ export const draftDone = (row: Omit<DraftRow, 'setups'>): DoneRegions | null =>
 export const planInputsOf = (part: FingerprintPart, draft: DraftRow | null): PlanInputs => ({
   statement: draft ? draftStatement(draft) : null,
   done: draft ? draftDone(draft) : null,
+  custom: draft ? draftCustom(draft) : null,
+  additionalDirections: draft ? additionalDirectionsSent(draft) : null,
   stock: stockOf(part),
   materialId: part.materialId ?? null,
   machineProfileId: part.machineProfileId ?? null,
@@ -105,6 +133,10 @@ export const fingerprintText = (inputs: PlanInputs): string =>
             features: [...features].sort(),
           })),
         ),
+      // Only where a draft has features of its own, so every other part's text is as it was.
+      ...(inputs.custom ? { custom: inputs.custom } : {}),
+      // Likewise only where Toolpath may not add setups everywhere.
+      ...(inputs.additionalDirections ? { additionalDirections: inputs.additionalDirections } : {}),
       done: inputs.done && {
         kernelVersion: inputs.done.kernelVersion,
         regions: [...inputs.done.regions].sort((a, b) => a - b),

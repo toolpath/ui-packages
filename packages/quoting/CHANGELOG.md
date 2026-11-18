@@ -1,5 +1,27 @@
 # @toolpath/quoting
 
+## 2.1.0
+
+### Minor Changes
+
+- 8c884f6: `PlanInputs.additionalDirections` (optional) holds the directions a draft lets Toolpath add setups
+  in, where it limits them, from `DraftRow.additionalDirections` (optional); `fingerprintText` hashes
+  it only where it is set, so every other part fingerprints as before.
+- 8c884f6: `planInputsOf` gives a draft's own features by frame as `custom` (`draftCustom`; null for none), a
+  new optional field of `PlanInputs`, and `fingerprintText` hashes them. A draft with none
+  fingerprints as before. `REGION_PLAN_REFUSALS` holds the sentences a plan stated by region is
+  refused with before it is sent; `isPermanentPlanFailure` knows them, all but `notAnalyzedByRegion`.
+  `runDecision` reads the last run's failure (`RunFacts.error`, optional) and reads the model again
+  (`reanalyze`) for a plan that failed `stale_regions:` or was refused `notAnalyzedByRegion`.
+
+### Patch Changes
+
+- Updated dependencies [8c884f6]
+- Updated dependencies [8c884f6]
+- Updated dependencies [8c884f6]
+- Updated dependencies [8c884f6]
+  - @toolpath/plan@1.2.0
+
 ## 2.0.0
 
 ### Major Changes

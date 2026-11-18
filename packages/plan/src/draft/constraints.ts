@@ -2,6 +2,20 @@ import { tagKey } from '../faces/coverage'
 import type { PlanDirection } from '../results/plan'
 import { groupRef, GONE, MAX_DEPTH, type Refused, TOO_DEEP } from './refusals'
 
+/**
+ * One of a group's own features: regions of the part, ascending, with the `preparationId` of the
+ * analysis that numbered them. A part whose report has none has no features of a group's own.
+ */
+export interface CustomFeature {
+  regions: Array<number>
+  preparationId: string
+  /**
+   * The type a plan read these regions as, for a feature it cut (`TrimmedFeature.featureType`): a
+   * type can say more than its regions do. Gone once its regions change.
+   */
+  featureType?: string
+}
+
 /*
   A part's plan as the person editing it has expressed it — their constraints, and nothing more.
   Two kinds of preference, each stated to Toolpath only once it has been expressed:
@@ -32,6 +46,11 @@ export interface DraftGroup {
    * Tags (hex), each of that direction's reading of its surface. Only ever what someone assigned.
    */
   features: Array<string>
+  /**
+   * The group's own features, each a list of the part's regions, beside the features it assigns by
+   * tag. Absent for none. Only a plan spec carries them to Toolpath.
+   */
+  custom?: Array<CustomFeature>
   groups: Array<DraftGroup>
   /** Set only on an orientation: the tilt it is cut from, inside an indexed setup. */
   direction?: PlanDirection
@@ -59,7 +78,23 @@ export interface Constraints {
    * numbering. Null with none marked.
    */
   doneKernel: string | null
+  /**
+   * The directions Toolpath may add setups in after the stated ones: null or absent for any of the
+   * part's, `[]` for none. Sent as the plan spec's `additionalDirections`, and only with a setup
+   * stated: `[]` with none would plan nothing (`additionalDirectionsSent`).
+   */
+  additionalDirections?: Array<PlanDirection> | null
 }
+
+/**
+ * The directions a draft lets Toolpath add setups in, as sent: null — any — unless it states a
+ * setup, since no setups and none added plans nothing.
+ */
+export const additionalDirectionsSent = (draft: {
+  setups: ReadonlyArray<unknown>
+  additionalDirections?: ReadonlyArray<PlanDirection> | null
+}): Array<PlanDirection> | null =>
+  draft.setups.length > 0 && draft.additionalDirections ? [...draft.additionalDirections] : null
 
 /** As many setups as the Engine takes in a stated plan, and the longest name worth keeping. */
 export const MAX_SETUPS = 64
@@ -67,6 +102,9 @@ export const MAX_NAME = 100
 // Defined in `refusals`, beside the refusal that names it.
 export { MAX_DEPTH }
 const MAX_FEATURES = 5000
+/** The Engine's plan spec bounds: region indices in one spec, and the largest one (a `u32`). */
+export const MAX_SPEC_REGIONS = 20_000
+const MAX_REGION_INDEX = 2 ** 32 - 1
 
 /** The refusal of a direction a frame faces already: Toolpath takes each direction once. */
 const alreadyCut = (frame: { id: string; name: string }): Refused => ({
@@ -239,6 +277,22 @@ export const removeGroups = (
   return parents.reduce((all, parentId) => liftLoneGroup(all, parentId), pruned)
 }
 
+/**
+ * The draft with `features` let go (`unassignFeature`), then `groups` taken out with everything in
+ * them (`removeGroups`): the tree's Remove, and what Auto plan takes back of Toolpath's plan.
+ */
+export const removeFromPlan = (
+  setups: ReadonlyArray<DraftSetup>,
+  { features, groups }: { features: ReadonlyArray<AssignedFeature>; groups: ReadonlyArray<string> },
+): Array<DraftSetup> =>
+  removeGroups(
+    features.reduce(
+      (all, assignment) => unassignFeature(all, assignment.setupId, assignment.tag),
+      [...setups],
+    ),
+    groups,
+  )
+
 /** A group as one that follows: without a direction or a hold. */
 const following = (group: DraftGroup): DraftGroup => {
   const { direction: _d, process: _p, ...rest } = group as DraftSetup
@@ -257,7 +311,7 @@ const tiltsBelow = (group: DraftGroup): Array<PlanDirection> =>
  * for one that holds anything else. See `liftLoneGroup`.
  */
 const liftedFrom = (here: DraftGroup, top: boolean): DraftGroup | null => {
-  if (here.groups.length !== 1 || here.features.length > 0) {
+  if (here.groups.length !== 1 || here.features.length > 0 || (here.custom?.length ?? 0) > 0) {
     return null
   }
   const [only] = here.groups as [DraftGroup]
@@ -391,7 +445,17 @@ export const addGroup = (
       ? {
           ...group,
           features: [],
-          groups: [{ id: workId, name: group.name, features: group.features, groups: [] }, added],
+          custom: undefined,
+          groups: [
+            {
+              id: workId,
+              name: group.name,
+              features: group.features,
+              ...(group.custom ? { custom: group.custom } : {}),
+              groups: [],
+            },
+            added,
+          ],
         }
       : { ...group, groups: [...group.groups, added] },
   )
@@ -495,6 +559,10 @@ export const isDirection = (value: unknown): value is PlanDirection => {
 
 export const copyDirection = ({ x, y, z }: PlanDirection): PlanDirection => ({ x, y, z })
 
+/** A list of directions as sent, each copied to its `x`, `y` and `z`; null for anything else. */
+export const parseDirections = (value: unknown): Array<PlanDirection> | null =>
+  Array.isArray(value) && value.every(isDirection) ? value.map(copyDirection) : null
+
 /**
  * Why a draft's setups as sent to be saved can't be read (`parseDraftSetups`), as a kind for the
  * app to word:
@@ -507,6 +575,8 @@ export const copyDirection = ({ x, y, z }: PlanDirection): PlanDirection => ({ x
  * - `tooDeep`: a group more than `max` below its setup.
  * - `groupDirection`: a group's direction that is not three numbers.
  * - `notFeatureTags`: a group's features that are not feature tags.
+ * - `notCustomFeatures`: a group's own features that are not lists of the part's regions, each with
+ *   the `preparationId` of the analysis that numbered them.
  * - `assignedTwice`: a feature assigned in more than one group.
  * - `directionTwice`: a direction that is a frame more than once.
  */
@@ -519,6 +589,7 @@ export type DraftInvalid =
   | { kind: 'tooDeep'; max: number }
   | { kind: 'groupDirection' }
   | { kind: 'notFeatureTags' }
+  | { kind: 'notCustomFeatures' }
   | { kind: 'assignedTwice' }
   | { kind: 'directionTwice' }
 
@@ -626,6 +697,10 @@ const parseGroup = (entry: unknown, depth: number, seen: Seen): DraftGroup | Inv
   if (isInvalid(own)) {
     return own
   }
+  const custom = parseCustom(stored.custom)
+  if (isInvalid(custom)) {
+    return custom
+  }
   seen.ids.add(id)
   const children = parseEach(Array.isArray(groups) ? groups : [], (child) =>
     parseGroup(child, depth + 1, seen),
@@ -637,12 +712,54 @@ const parseGroup = (entry: unknown, depth: number, seen: Seen): DraftGroup | Inv
     id,
     name: name.trim().slice(0, MAX_NAME) || seen.nameGroup(seen.names),
     features: own,
+    ...(custom.length > 0 ? { custom } : {}),
     groups: children,
     ...(direction ? { direction: copyDirection(direction) } : {}),
   }
   seen.names.push(group.name)
   return group
 }
+
+/** A preparationId as the Engine serves it, and a feature type as it spells one. */
+const PREPARATION_ID = /^(0|[1-9a-f][0-9a-f]{0,15})$/
+const FEATURE_TYPE = /^[a-z][a-z0-9_]{0,63}$/
+
+/**
+ * A group's own features as stored, at most as many as it may assign: each its region indices, no
+ * more than a whole plan spec may hold (the spec stated is bounded as a whole: `planSpecOf`), the
+ * analysis that numbered them and the type a plan read them as — or why not.
+ */
+const parseCustom = (value: unknown): Array<CustomFeature> | Invalid => {
+  const stored = value ?? []
+  if (!Array.isArray(stored) || stored.length > MAX_FEATURES) {
+    return invalid({ kind: 'notCustomFeatures' })
+  }
+  return parseEach(stored, (entry): CustomFeature | Invalid => {
+    const { regions, preparationId, featureType } = (entry ?? {}) as Record<string, unknown>
+    if (
+      !Array.isArray(regions) ||
+      regions.length === 0 ||
+      regions.length > MAX_SPEC_REGIONS ||
+      !regions.every(
+        (region) => Number.isInteger(region) && region >= 0 && region <= MAX_REGION_INDEX,
+      ) ||
+      typeof preparationId !== 'string' ||
+      !PREPARATION_ID.test(preparationId) ||
+      !matchesIfThere(featureType, FEATURE_TYPE)
+    ) {
+      return invalid({ kind: 'notCustomFeatures' })
+    }
+    return {
+      regions: [...new Set(regions as Array<number>)].sort((a, b) => a - b),
+      preparationId,
+      ...(featureType ? { featureType: featureType as string } : {}),
+    }
+  })
+}
+
+/** Whether a field is absent, or a string of this pattern. */
+const matchesIfThere = (value: unknown, pattern: RegExp): boolean =>
+  value === undefined || (typeof value === 'string' && pattern.test(value))
 
 /** An assigned feature's tag as stored: lower-case hex. */
 const FEATURE_TAG = /^[0-9a-f]{1,16}$/
@@ -1271,6 +1388,11 @@ export interface PlanRules {
   /** The kernel the part's faces are numbered by. */
   kernel: string | null
   /**
+   * The analysis the part's regions are numbered by, the report's `preparationId`: stamped on each
+   * feature a group makes of its own. Absent or null where the report has none.
+   */
+  preparationId?: string | null
+  /**
    * Whether Toolpath plans no pass for a feature whatever its tools, by tag in lower case: from its
    * datasheet, `@toolpath/dfm`'s `unplannableFeatureTags`. Toolpath takes an assignment of one and
    * plans nothing for it, so an assignment that adds one is refused and not offered. One assigned
@@ -1278,6 +1400,12 @@ export interface PlanRules {
    * feature can be assigned.
    */
   unplannable?: (tag: string) => boolean
+  /**
+   * The direction a feature is read from, by tag, as one of the part's candidate directions exactly
+   * as served: an adoption of one into a group cut from another way is refused, as any assignment
+   * is. Left out, or undefined for a tag, the adoption is not checked.
+   */
+  directionOf?: (tag: string) => PlanDirection | undefined
   /** How a new group is named, in the app's word: "Group N" by default (`nextGroupName`). */
   nameGroup?: NameGroup
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { REGION_PLAN_REFUSALS } from '../../src/inputs/plan-failure'
 import {
   baselineFacts,
   baselineFingerprint,
@@ -77,6 +78,22 @@ describe('the run the inputs need', () => {
 
   it('reads a model Toolpath could not read again, with its plan', () => {
     expect(runDecision(facts({ pipeline: 'analysis_failed' }))).toBe('reanalyze')
+  })
+
+  it('reads the model again for a plan refused as stated on another analysis of it', () => {
+    const error = 'stale_regions: the plan spec’s regions are those of preparation 1a'
+    expect(runDecision(facts({ pipeline: 'plan_failed', error }))).toBe('reanalyze')
+    // Saved again unchanged, it still waits for a person to ask.
+    expect(runDecision(facts({ pipeline: 'plan_failed', error, tryAgain: false }))).toBe('wait')
+    expect(runDecision(facts({ pipeline: 'plan_failed', error: 'refused_plan_spec: …' }))).toBe(
+      'start',
+    )
+  })
+
+  it('reads the model again for a plan not sent for an analysis that numbers no regions', () => {
+    const error = REGION_PLAN_REFUSALS.notAnalyzedByRegion
+    expect(runDecision(facts({ pipeline: 'plan_failed', error }))).toBe('reanalyze')
+    expect(runDecision(facts({ pipeline: 'plan_failed', error, tryAgain: false }))).toBe('wait')
   })
 
   it('sends again after a run of them that failed, when a person asks: failed is not pending', () => {

@@ -51,6 +51,11 @@ export interface ResultsGroupView extends PlanSetupView {
    */
   rows: Array<ResultsFeatureRow>
   groups: Array<ResultsGroupView>
+  /**
+   * A setup Toolpath added after the constraints' own: no group faces it, though some are stated.
+   * Absent for a group, and for every setup where none is stated.
+   */
+  added?: true
 }
 
 export interface ResultsView {
@@ -192,11 +197,22 @@ const resultsTree = (
     }
   }
   const faced = new Set(every.map(machinedIn))
+  // Toolpath's own only where no group faces any way it is cut from: a second setup from a stated
+  // way is the planner splitting that group's work, not a folder it added.
+  const stated = (setup: ResultsSetupView) =>
+    setup.orientations.some((orientation) =>
+      every.some((group) => sameDirection(wayOf(group), orientation.direction)),
+    )
   return [
     ...groups.map(view),
     ...setups
       .filter((setup) => !faced.has(setup))
-      .map((setup) => ({ ...setup, name: plannedNames[setup.idx]!, groups: [] })),
+      .map((setup) => ({
+        ...setup,
+        name: plannedNames[setup.idx]!,
+        groups: [],
+        ...(groups.length > 0 && !stated(setup) ? { added: true as const } : {}),
+      })),
   ]
 }
 

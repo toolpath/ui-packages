@@ -109,6 +109,7 @@ const CONSTRAINT_KEYS: Record<keyof Constraints, true> = {
   setups: true,
   done: true,
   doneKernel: true,
+  additionalDirections: true,
 }
 
 const isConstraint = (key: PropertyKey): boolean => Object.hasOwn(CONSTRAINT_KEYS, key)

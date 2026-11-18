@@ -480,6 +480,50 @@ describe('refusalClauses', () => {
     ])
   })
 
+  it('lists each statement of a plan spec Toolpath refused, with the setup and feature it names', () => {
+    const regions = Array.from({ length: 20 }, (_, i) => 100 + i).join(', ')
+    expect(
+      refusalClauses(
+        'refused_plan_spec: 7 statements of the plan spec refused: ' +
+          'setup 0: feature 1 holds region 3, which the plan skips; ' +
+          'setup 1: holds regions 7, 8 exclusively, which no feature of its direction holds; ' +
+          'setup 0: feature 0 holds region 8, which setup 1 holds exclusively; ' +
+          'setup 12: feature 30 reads as no feature; ' +
+          `the plan spec: names regions ${regions} and 2 more, which this part does not have; ` +
+          'additional direction 0: the part was not analyzed from direction [0, 1, 0], nor from any direction like it; ' +
+          'and 1 more',
+      ),
+    ).toEqual([
+      {
+        kind: 'clause',
+        text: 'setup 0: feature 1 holds region 3, which the plan skips',
+        setup: 0,
+        feature: 1,
+      },
+      {
+        kind: 'clause',
+        text: 'setup 1: holds regions 7, 8 exclusively, which no feature of its direction holds',
+        setup: 1,
+      },
+      {
+        kind: 'clause',
+        text: 'setup 0: feature 0 holds region 8, which setup 1 holds exclusively',
+        setup: 0,
+        feature: 0,
+      },
+      { kind: 'clause', text: 'setup 12: feature 30 reads as no feature', setup: 12, feature: 30 },
+      {
+        kind: 'clause',
+        text: `the plan spec: names regions ${regions} and 2 more, which this part does not have`,
+      },
+      {
+        kind: 'clause',
+        text: 'additional direction 0: the part was not analyzed from direction [0, 1, 0], nor from any direction like it',
+      },
+      { kind: 'clause', text: 'and 1 more' },
+    ])
+  })
+
   it('gives faces marked done on another analysis as kinds, with no words of its own', () => {
     expect(refusalClauses('stale_regions: 4, 6 were marked on kernel 0.9')).toEqual([
       { kind: 'staleRegions' },

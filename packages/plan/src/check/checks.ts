@@ -110,6 +110,41 @@ const analysisChecks = (group: GroupRef, analysis: DirectionAnalysis): Array<Pla
   ]
 }
 
+/**
+ * What `planChecks` blocks on, as edits can take it back: the assigned features it names — one that
+ * is not the part's (`unknownFeature`), or one cut from another way (`otherWay`) — and the groups
+ * facing a direction nothing can be planned from (`notAnalyzed`). A new blocking kind fails to
+ * compile here until it says how.
+ */
+export const blockedByChecks = (
+  draft: CheckedDraft,
+  context: CheckContext,
+): { tags: Array<string>; groups: Array<string> } => {
+  const tags: Array<string> = []
+  const groups: Array<string> = []
+  for (const check of planChecks(draft, context)) {
+    if (check.severity !== 'blocking') {
+      continue
+    }
+    switch (check.kind) {
+      case 'unknownFeature':
+        tags.push(check.tag)
+        break
+      case 'otherWay':
+        tags.push(check.feature.tag)
+        break
+      case 'notAnalyzed':
+        groups.push(check.group.id)
+        break
+      default: {
+        const unhandled: never = check
+        return unhandled
+      }
+    }
+  }
+  return { tags, groups }
+}
+
 /** Whether an assigned tag is not one of the part's features, once its model has been read. */
 const isUnknownFeature = (tag: string, context: CheckContext): boolean => {
   const feature = context.feature(tag)
@@ -201,12 +236,14 @@ export const describeClause = (
 
 /**
  * Where a check's Show goes: the Not machined list, a group and a feature in it, or one of
- * Toolpath's setups in the Results view.
+ * Toolpath's setups in the Results view — the first the check finds a feature in — with the
+ * features the check counts (`tags`), each once however many setups count it, for the page to
+ * light together.
  */
 export type ShowTarget =
   | { kind: 'notMachined' }
   | { kind: 'group'; setupId: string; tag?: string }
-  | { kind: 'setup'; idx: number }
+  | { kind: 'setup'; idx: number; tags: Array<string> }
 
 /**
  * One line of the confirm checklist, as a `kind` and its facts: the plan's own checks (as
@@ -312,14 +349,20 @@ const setupChecks = (setups: ReadonlyArray<ResultSetup>): Array<ConfirmCheck> =>
   const roughCount = countOf(setups, notFinishedOf)
   const checks: Array<ConfirmCheck> = []
   if (roughCount > 0) {
-    checks.push(notFinishedCheck(roughCount, firstWith(setups, notFinishedOf)))
+    checks.push(
+      notFinishedCheck(roughCount, firstWith(setups, notFinishedOf), tagsOf(setups, notFinishedOf)),
+    )
   }
   if (count > 0) {
     checks.push({
       kind: 'cannotCut',
       severity: 'warning',
       count,
-      show: { kind: 'setup', idx: firstWith(setups, cutByNoneOf).idx },
+      show: {
+        kind: 'setup',
+        idx: firstWith(setups, cutByNoneOf).idx,
+        tags: tagsOf(setups, cutByNoneOf),
+      },
     })
   } else if (roughCount === 0 && setups.length > 0) {
     // With no plan yet there is no setup to vouch for.
@@ -348,12 +391,30 @@ const firstWith = (
   left: (setup: ResultSetup) => Array<string>,
 ): ResultSetup => setups.find((setup) => left(setup).length > 0)!
 
+/** Every feature `left` finds, over every setup, each once as first spelled. */
+const tagsOf = (
+  setups: ReadonlyArray<ResultSetup>,
+  left: (setup: ResultSetup) => Array<string>,
+): Array<string> => {
+  const byKey = new Map<string, string>()
+  for (const tag of setups.flatMap(left)) {
+    if (!byKey.has(tag.toLowerCase())) {
+      byKey.set(tag.toLowerCase(), tag)
+    }
+  }
+  return [...byKey.values()]
+}
+
 /** Features a pass roughs but none finishes, with Show on the first setup holding one. */
-const notFinishedCheck = (count: number, first: ResultSetup): ConfirmCheck => ({
+const notFinishedCheck = (
+  count: number,
+  first: ResultSetup,
+  tags: Array<string>,
+): ConfirmCheck => ({
   kind: 'notFinished',
   severity: 'warning',
   count,
-  show: { kind: 'setup', idx: first.idx },
+  show: { kind: 'setup', idx: first.idx, tags },
 })
 
 /**

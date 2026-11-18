@@ -350,6 +350,32 @@ describe('planDetails: trimmed features', () => {
     expect(constraints.features[2]).toMatchObject({ fromFeatureTag: 'b', regionIdxs: [2] })
   })
 
+  it('says nothing of the plan in its results while they are not current, the constraints reading it still', () => {
+    const read = inputs({
+      draft: { ...assigning, kernelVersion: 'k1' },
+      saved: { ...assigning, changed: false },
+      plan: trimmedPlan,
+    })
+    const { constraints, results, find, faces } = planDetails({ ...read, resultsCurrent: false })
+    // The constraints keep the trimmed feature the plan named.
+    expect(constraints.features.map((feature) => feature.tag)).toEqual(['a', 'b', 't'])
+    // The results are as with no plan read: no setup, nothing machined, nothing found in one.
+    expect(results).toEqual(planDetails({ ...read, plan: null, planIsOfSaved: false }).results)
+    expect(results.setups).toEqual([])
+    expect(results.coverage?.faces.machined ?? []).toEqual([])
+    expect(find.resultSetup('a')).toBeNull()
+    expect(faces({ tab: 'results', openId: null })).toEqual(
+      planDetails({ ...read, plan: null, planIsOfSaved: false }).faces({
+        tab: 'results',
+        openId: null,
+      }),
+    )
+    // Current, as when not said.
+    expect(planDetails({ ...read, resultsCurrent: true }).results).toEqual(
+      planDetails(read).results,
+    )
+  })
+
   it('reads the faces a trimmed feature the plan cuts owns as machined, and one it does not as not', () => {
     const { results } = details()
     expect(regions(results.coverage?.faces.machined)).toEqual([1, 2])

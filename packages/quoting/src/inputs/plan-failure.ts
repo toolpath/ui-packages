@@ -27,6 +27,25 @@ export const STOCK_BODY_REFUSALS: Readonly<Record<string, string>> = {
 }
 
 /**
+ * Why Toolpath refuses to send a plan stated by region (`planSpec`), in words to show with what to
+ * do: the plan is recorded failed with them, and `refusalClauses` says them as they are. Each is
+ * for inputs made under another analysis of the part, or more regions than one plan spec holds, so
+ * only changing the inputs gets past it — except an analysis that numbers no regions
+ * (`notAnalyzedByRegion`), which Try again reads again (`runDecision`).
+ */
+export const REGION_PLAN_REFUSALS = {
+  staleIgnored:
+    'This part was analyzed again since its faces were ignored, so their numbers changed. Ignore them again.',
+  staleCustom:
+    'This part was analyzed again since a custom feature was made, so its regions changed. Re-create it.',
+  unstatedPins: 'Some pinned features are not on this part’s current analysis. Pin them again.',
+  notAnalyzedByRegion:
+    'This part was analyzed before plans could be stated by region. Try again to analyze it again.',
+  tooManyRegions:
+    'This plan states more faces than Toolpath takes in one plan. Ignore fewer faces, or make fewer or smaller custom features.',
+} as const
+
+/**
  * Why Toolpath could not plan a part whose own body its file no longer holds as it did when the
  * part was made, as a later kernel release reads it: the job failed `body_mismatch:` or
  * `body_not_found:` for the part (Engine API 1.32). Only making the part again gets past it.
@@ -86,6 +105,9 @@ const PERMANENT_FAILURES: ReadonlyArray<string> = [
   STOCK_BODY_UNUSABLE,
   STOCK_BODY_MISFIT,
   ...Object.values(STOCK_BODY_REFUSALS),
+  ...Object.values(REGION_PLAN_REFUSALS).filter(
+    (words) => words !== REGION_PLAN_REFUSALS.notAnalyzedByRegion,
+  ),
 ]
 
 /** Their codes, for an error kept as Toolpath gave it, before it was worded. */

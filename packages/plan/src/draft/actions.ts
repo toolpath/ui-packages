@@ -1,5 +1,6 @@
+import { blockedByChecks, type CheckContext } from '../check/checks'
 import { tagKey } from '../faces/coverage'
-import type { PlanDirection } from '../results/plan'
+import type { PlanDirection, TrimmedFeature } from '../results/plan'
 import { markDoneEdit, takeBackDone, unmarkDoneEdit, type DoneAs } from './done'
 import {
   chooseReading,
@@ -20,12 +21,13 @@ import {
   moveFeature,
   moveGroup,
   moveWithin,
+  parseDirections,
   assignedGroupByTag,
   assignedIn,
   assignmentsWhere,
   placedGroups,
   planFromResults,
-  removeGroups,
+  removeFromPlan,
   renameGroup,
   sameDirection,
   setSetupProcess,
@@ -40,6 +42,18 @@ import {
   type PlanRules,
   type SetupProcess,
 } from './constraints'
+import {
+  assignRegionsEdit,
+  editFeatureEdit,
+  openRegionsEdit,
+  keptToRegionRules,
+  withTrimmedAsOwn,
+  customFeaturesOf,
+  unassignCustomEdit,
+  adoptEdit,
+  ignoreRegionsEdit,
+  type FeatureRef,
+} from './custom'
 import { groupRef, GONE, MAX_DEPTH, type Refusal, type Refused, TOO_DEEP } from './refusals'
 
 /*
@@ -123,22 +137,82 @@ export type DraftAction =
   /**
    * Start from Toolpath's plan, on a plan with no groups: groups facing each of its setups
    * (`groupsFromPlan`), and with `assignments` every feature assigned where it was planned
-   * (`planFromResults`), trimmed ones too, its faces no longer done. New groups' ids are
-   * `idSeed`, `-` and a count: no `:`, which an app may use to join an id with other keys.
+   * (`planFromResults`), trimmed ones too, its faces no longer done. With `checks`, nothing the
+   * checklist would block is stated: such a feature is left open and such a group left out, for
+   * Toolpath to plan. New groups' ids are `idSeed`, `-` and a count: no `:`, which an app may use to
+   * join an id with other keys.
    */
   | {
       kind: 'fromPlan'
       planned: ReadonlyArray<PlannedSetup>
       assignments: boolean
       idSeed: string
+      /**
+       * Features the plan cut as stated by region: no features of the part's, so on a part with a
+       * `preparationId` each is assigned as one of its group's own, its regions and type as the plan
+       * cut them (`withTrimmedAsOwn`); on one without, by its tag.
+       */
+      trimmed?: ReadonlyArray<TrimmedCut>
+      /**
+       * What the checklist reads of the part (`planChecks`). Optional only so earlier callers keep
+       * compiling: left out, what the checklist would block is stated as planned.
+       */
+      checks?: CheckContext
     }
+  /**
+   * Pins of features the plan cut, a draft held from before, made their groups' own as `fromPlan`
+   * makes them; their faces no longer done. Changes nothing on a part with no `preparationId`.
+   */
+  | { kind: 'trimmedAsOwn'; trimmed: ReadonlyArray<TrimmedCut> }
   /** Let an assigned feature go: Toolpath decides again where it is machined. */
   | { kind: 'unassign'; tag: string }
   /** Mark done faces: region indices, in the kernel `PlanRules` names. */
   | { kind: 'markDone'; regions: ReadonlyArray<number> }
   | { kind: 'unmarkDone'; regions: ReadonlyArray<number> }
+  /**
+   * Regions assigned to a group as one feature of its own; `share` keeps
+   * them in other frames' features too (Keep Both), else they leave them (Take Over).
+   */
+  | { kind: 'assignRegions'; groupId: string; regions: ReadonlyArray<number>; share: boolean }
+  /**
+   * A feature's regions replaced, as one of the group's own; none lets it go. With `into`, another
+   * group of its frame, the edited feature moves there (D-18).
+   */
+  | {
+      kind: 'editFeature'
+      groupId: string
+      feature: FeatureRef
+      regions: ReadonlyArray<number>
+      into?: string
+    }
+  /** One of a group's own features let go. */
+  | { kind: 'unassignCustom'; groupId: string; index: number }
+  /** Regions open: in no feature, not done, for Toolpath to decide; with `groupId`, out of that group's only. */
+  | { kind: 'openRegions'; regions: ReadonlyArray<number>; groupId?: string }
+  /**
+   * Adopt's Confirm, one step: features read from the group's direction
+   * pinned there, others taken out of it; `share` keeps pinned regions in other frames' features
+   * too (Keep Both), else they leave them (Take Over).
+   */
+  | {
+      kind: 'adopt'
+      groupId: string
+      pin: ReadonlyArray<string>
+      takeOut: ReadonlyArray<FeatureRef>
+      share: boolean
+    }
+  /** The tray's Ignore Confirm, one step: regions ignored, others no longer. */
+  | { kind: 'ignoreRegions'; ignore: ReadonlyArray<number>; unignore: ReadonlyArray<number> }
+  /**
+   * Whether Toolpath may add setups after the stated ones: in any direction (`null`), or in none
+   * (`[]`).
+   */
+  | { kind: 'setAdditionalDirections'; directions: ReadonlyArray<PlanDirection> | null }
 
 export type DraftActionKind = DraftAction['kind']
+
+/** A feature a plan cut, as far as a draft states it. */
+type TrimmedCut = Pick<TrimmedFeature, 'featureTag' | 'featureType' | 'regionIdxs'>
 
 /** Every kind of action, in the order `actionsFor` lists them. */
 export const DRAFT_ACTION_KINDS: ReadonlyArray<DraftActionKind> = [
@@ -159,6 +233,14 @@ export const DRAFT_ACTION_KINDS: ReadonlyArray<DraftActionKind> = [
   'chooseAssignReading',
   'chooseDoneReading',
   'fromPlan',
+  'assignRegions',
+  'editFeature',
+  'unassignCustom',
+  'openRegions',
+  'adopt',
+  'ignoreRegions',
+  'trimmedAsOwn',
+  'setAdditionalDirections',
 ]
 
 /**
@@ -210,6 +292,7 @@ const ASSIGNING: ReadonlySet<DraftActionKind> = new Set([
   'assignFrom',
   'moveFeature',
   'chooseAssignReading',
+  'adopt',
 ])
 
 /** Whether `after` assigns a feature `before` does not that Toolpath plans no pass for. */
@@ -258,8 +341,19 @@ export const applyDraftAction = <T extends Constraints>(
   }
   const unmarked =
     action.kind === 'chooseDoneReading' ? [] : doneNoLonger(draft, result.draft, rules)
-  return { draft: result.draft, facts: { ...NO_FACTS, ...result.facts, unmarked } }
+  // Every edit, the region ones and main's alike, leaves the draft to the region rules.
+  const kept = keptToRegionRules(draft, result.draft, rules.regionsOf) as T
+  return { draft: withoutStaleLimit(kept), facts: { ...NO_FACTS, ...result.facts, unmarked } }
 }
+
+/**
+ * The draft with no limit on the directions Toolpath may add setups in once it states no setup:
+ * with none, Toolpath must add them, and a limit kept would come back with the next setup added.
+ */
+const withoutStaleLimit = <T extends Constraints>(draft: T): T =>
+  draft.setups.length === 0 && draft.additionalDirections
+    ? { ...draft, additionalDirections: null }
+    : draft
 
 /** The regions `before` marks done and `after` does not, ascending. */
 const doneNoLonger = (
@@ -313,6 +407,20 @@ const withSetups = <T extends Constraints>(draft: T, setups: Array<DraftSetup>):
 /** `withSetups` for an edit `constraints` may refuse. */
 const withEdited = <T extends Constraints>(draft: T, edited: Edited): Outcome<T> =>
   Array.isArray(edited) ? withSetups(draft, edited) : { refused: edited.refused }
+
+/** `withConstraints` for a region edit, which may refuse. */
+const withRegionEdit = <T extends Constraints>(
+  draft: T,
+  edited: Constraints | Refused,
+): Outcome<T> => ('refused' in edited ? edited : withConstraints(draft, edited))
+
+/** Whether untyped code's feature is a `FeatureRef`: a tag, or a place among a group's own. */
+const isFeatureRef = (value: unknown): value is FeatureRef =>
+  typeof value === 'object' &&
+  value !== null &&
+  ('tag' in value
+    ? typeof value.tag === 'string'
+    : 'custom' in value && Number.isInteger(value.custom))
 
 /** Whether the draft has a setup or group with this id. */
 const holds = (draft: Constraints, id: string): boolean =>
@@ -379,12 +487,13 @@ const applyRemove = <T extends Constraints>(
   if (!Array.isArray(action.groups)) {
     return { refused: NOT_AN_ACTION }
   }
-  const unassigned = (action.features ?? []).reduce(
-    (setups, assignment) => unassignFeature(setups, assignment.setupId, assignment.tag),
-    [...draft.setups],
+  return withSetups(
+    draft,
+    removeFromPlan(draft.setups, {
+      features: action.features ?? [],
+      groups: action.groups.filter((id) => holds(draft, id)),
+    }),
   )
-  const groups = action.groups.filter((id) => holds(draft, id))
-  return withSetups(draft, removeGroups(unassigned, groups))
 }
 
 /** `moveGroup`: a group dropped in the tree — unless it is gone. */
@@ -612,12 +721,42 @@ const applyFromPlan = <T extends Constraints>(
   }
   let count = 0
   const newId = () => `${action.idSeed}-${count++}`
+  const from = (action.assignments ? planFromResults : groupsFromPlan)(
+    action.planned,
+    newId,
+    rules.nameGroup,
+  )
   if (!action.assignments) {
-    return withSetups(draft, groupsFromPlan(action.planned, newId, rules.nameGroup))
+    return withSetups(draft, action.checks ? sendable(from, action.checks) : from)
   }
-  const stated = planFromResults(action.planned, newId, rules.nameGroup)
-  const tags = assignmentsWhere(stated, () => true).map((assignment) => assignment.tag)
-  return withConstraints(draft, unmarkAssigned({ ...draft, setups: stated }, tags, rules).intent)
+  // Checked as it will be stated: the plan's trimmed pins made their groups' own first.
+  const own = withTrimmedAsOwn(from, action.trimmed ?? [], rules.preparationId ?? null).setups
+  const setups = action.checks ? sendable(own, action.checks) : own
+  // Their faces are no longer done, where they are still stated.
+  const stillOwn = new Set(customFeaturesOf(setups).flatMap((feature) => feature.regions))
+  const stated = { ...draft, setups, done: draft.done.filter((region) => !stillOwn.has(region)) }
+  const tags = assignmentsWhere(stated.setups, () => true).map((assignment) => assignment.tag)
+  return withConstraints(draft, unmarkAssigned(stated, tags, rules).intent)
+}
+
+/** Toolpath's plan without what the checklist would block (`blockedByChecks`), for Toolpath to plan. */
+const sendable = (setups: Array<DraftSetup>, checks: CheckContext): Array<DraftSetup> => {
+  const blocked = blockedByChecks({ setups, kernelVersion: null }, checks)
+  const tags = new Set(blocked.tags.map(tagKey))
+  return removeFromPlan(setups, {
+    features: assignmentsWhere(setups, (tag) => tags.has(tagKey(tag))),
+    groups: blocked.groups,
+  })
+}
+
+/** The draft with the plan's trimmed pins made their groups' own, their faces no longer done. */
+const trimmedAsOwn = (
+  draft: Constraints,
+  trimmed: ReadonlyArray<TrimmedCut>,
+  rules: PlanRules,
+): Constraints => {
+  const { setups, regions } = withTrimmedAsOwn(draft.setups, trimmed, rules.preparationId ?? null)
+  return { ...draft, setups, done: draft.done.filter((region) => !regions.has(region)) }
 }
 
 /** How each kind of action is carried out. */
@@ -639,6 +778,96 @@ const CARRY_OUT: { readonly [K in DraftActionKind]: CarryOut<K> } = {
   chooseAssignReading: applyChooseAssignReading,
   chooseDoneReading: applyChooseDoneReading,
   fromPlan: applyFromPlan,
+  assignRegions: ({ draft, rules }, action) =>
+    Array.isArray(action.regions) && action.regions.length > 0
+      ? withRegionEdit(
+          draft,
+          assignRegionsEdit(
+            draft,
+            action.groupId,
+            action.regions,
+            action.share,
+            rules.regionsOf,
+            rules.preparationId ?? null,
+          ),
+        )
+      : { refused: NOT_AN_ACTION },
+  editFeature: ({ draft, rules }, action) =>
+    Array.isArray(action.regions) && isFeatureRef(action.feature)
+      ? withRegionEdit(
+          draft,
+          editFeatureEdit(
+            draft,
+            action.groupId,
+            action.feature,
+            action.regions,
+            rules.regionsOf,
+            rules.preparationId ?? null,
+            action.into,
+          ),
+        )
+      : { refused: NOT_AN_ACTION },
+  unassignCustom: ({ draft }, action) =>
+    withRegionEdit(draft, unassignCustomEdit(draft, action.groupId, action.index)),
+  openRegions: ({ draft, rules }, action) =>
+    Array.isArray(action.regions)
+      ? withConstraints(
+          draft,
+          openRegionsEdit(
+            draft,
+            action.regions,
+            rules.regionsOf,
+            rules.preparationId ?? null,
+            action.groupId,
+          ),
+        )
+      : { refused: NOT_AN_ACTION },
+  adopt: ({ draft, rules }, action) =>
+    Array.isArray(action.pin) &&
+    Array.isArray(action.takeOut) &&
+    action.pin.length + action.takeOut.length > 0 &&
+    action.pin.every((tag) => typeof tag === 'string') &&
+    action.takeOut.every(isFeatureRef)
+      ? withRegionEdit(
+          draft,
+          adoptEdit(
+            draft,
+            action.groupId,
+            action.pin,
+            action.takeOut,
+            action.share,
+            rules.regionsOf,
+            rules.preparationId ?? null,
+            rules.directionOf,
+          ),
+        )
+      : { refused: NOT_AN_ACTION },
+  ignoreRegions: ({ draft, rules }, action) =>
+    Array.isArray(action.ignore) &&
+    Array.isArray(action.unignore) &&
+    action.ignore.length + action.unignore.length > 0
+      ? withConstraints(
+          draft,
+          ignoreRegionsEdit(
+            draft,
+            action.ignore,
+            action.unignore,
+            rules.regionsOf,
+            rules.kernel,
+            rules.preparationId ?? null,
+          ),
+        )
+      : { refused: NOT_AN_ACTION },
+  trimmedAsOwn: ({ draft, rules }, action) =>
+    Array.isArray(action.trimmed)
+      ? withConstraints(draft, trimmedAsOwn(draft, action.trimmed, rules))
+      : { refused: NOT_AN_ACTION },
+  setAdditionalDirections: ({ draft }, action) => {
+    const directions = parseDirections(action.directions)
+    return action.directions === null || directions
+      ? withConstraints(draft, { ...draft, additionalDirections: directions })
+      : { refused: NOT_AN_ACTION }
+  },
 }
 
 /** One action carried out by its kind's function — or refused, its kind not on the list. */
@@ -707,10 +936,14 @@ const actionsOn = (
 const when = (yes: boolean, ...kinds: Array<DraftActionKind>): Array<DraftActionKind> =>
   yes ? kinds : []
 
-/** What can be done on the part: add a setup, while there is room; remove them all. */
+/**
+ * What can be done on the part: add a setup, while there is room; remove them all; say whether
+ * Toolpath may add setups.
+ */
 const partActions = (setups: ReadonlyArray<DraftSetup>): Array<DraftActionKind> => [
   ...when(setups.length < MAX_SETUPS, 'addSetup'),
-  ...when(setups.length > 0, 'remove'),
+  // Only a stated setup can stand alone: with none, Toolpath must add them.
+  ...when(setups.length > 0, 'remove', 'setAdditionalDirections'),
 ]
 
 /** What can be done to a setup or group; nothing for one the draft does not hold. */

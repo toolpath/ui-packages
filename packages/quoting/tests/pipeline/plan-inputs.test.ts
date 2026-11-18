@@ -191,6 +191,35 @@ const SAMPLES: Array<{
     },
     fingerprint: 'c40557097220ebc06e6ef84417af32b1a222ccce046cf9477782cda052b94b5f',
   },
+  {
+    // A following group's own features join its frame's, with the analysis each was made on.
+    name: 'features of a group’s own',
+    part: {},
+    draft: {
+      setups: [
+        {
+          id: 'top',
+          name: 'Top',
+          direction: { x: 0, y: 0, z: 1 },
+          features: ['h1'],
+          custom: [{ regions: [9, 4], preparationId: 'prep-1' }],
+          groups: [
+            {
+              id: 'holes',
+              name: 'Holes',
+              features: [],
+              custom: [{ regions: [12], preparationId: 'prep-1' }],
+              groups: [],
+            },
+          ],
+        },
+      ],
+      doneRegions: [],
+      doneKernelVersion: null,
+      kernelVersion: 'k1',
+    },
+    fingerprint: 'a3b292ae0edb048463c6123692ed73055c35861150df46d360882fd441371676',
+  },
 ]
 
 describe('the fingerprint text', () => {
@@ -202,6 +231,36 @@ describe('the fingerprint text', () => {
     const [, every, reordered] = SAMPLES
     expect(fingerprintOf(reordered!.part, reordered!.draft)).toBe(
       fingerprintOf(every!.part, every!.draft),
+    )
+  })
+
+  it('reads a group’s own feature made again on another analysis as other inputs', () => {
+    const own = SAMPLES.find((sample) => sample.name === 'features of a group’s own')!
+    const draft = own.draft!
+    const remade = {
+      ...draft,
+      setups: draft.setups.map((setup) => ({
+        ...setup,
+        custom: [{ regions: [4, 9], preparationId: 'prep-2' }],
+      })),
+    }
+    // Made again after a refusal for its analysis, it is sent again rather than left failed.
+    expect(fingerprintOf(own.part, remade)).not.toBe(own.fingerprint)
+  })
+
+  it('reads a draft that lets Toolpath add no setup as other inputs, only with a setup stated', () => {
+    const [, every] = SAMPLES
+    const draft = every!.draft!
+    expect(fingerprintOf(every!.part, { ...draft, additionalDirections: null })).toBe(
+      every!.fingerprint,
+    )
+    expect(fingerprintOf(every!.part, { ...draft, additionalDirections: [] })).not.toBe(
+      every!.fingerprint,
+    )
+    // With nothing stated, none added would plan nothing: Toolpath is let add any.
+    const bare = { ...draft, setups: [] }
+    expect(fingerprintOf(every!.part, { ...bare, additionalDirections: [] })).toBe(
+      fingerprintOf(every!.part, bare),
     )
   })
 
@@ -217,6 +276,8 @@ describe('a part’s inputs', () => {
   it('are none but its row’s, never edited', () => {
     expect(planInputsOf({}, null)).toEqual({
       statement: null,
+      custom: null,
+      additionalDirections: null,
       done: null,
       stock: null,
       materialId: null,

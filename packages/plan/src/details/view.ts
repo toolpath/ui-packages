@@ -444,26 +444,36 @@ export const draftView = (
  * - `unknownRegions`: faces marked done that the part's analysis does not have, marked on an
  *   older analysis.
  * - `clause`: one of the clauses Toolpath lists, as it wrote it (`describeClause` names its setup
- *   and features).
+ *   and features). A refused plan spec's clause may name a setup, and a feature in it: `setup` and
+ *   `feature` are their 0-based indexes in the spec as sent, which `planSpecOf`'s `sources` map
+ *   back to the draft.
  */
 export type RefusalClause =
   | { kind: 'staleRegions' }
   | { kind: 'unknownRegions' }
-  | { kind: 'clause'; text: string }
+  | { kind: 'clause'; text: string; setup?: number; feature?: number }
+
+/** Where a plan spec's clause is: its setup, and its feature there, as Toolpath opens the clause. */
+const SPEC_PLACE = /^setup (\d+):(?: feature (\d+)\b)?/
 
 /**
  * The statements Toolpath refused of a stated plan, one per clause, from the error its job failed
  * with — or null when the job failed for some other reason. Toolpath lists the first few and says
- * how many more; that tail is kept as a clause of its own.
+ * how many more; that tail is kept as a clause of its own. A plan spec's clauses about the whole
+ * spec, or a direction it adds, name no setup.
  */
 export const refusalClauses = (error: string | null): Array<RefusalClause> | null => {
-  if (error?.startsWith('stale_regions:')) {
+  if (error === null) {
+    return null
+  }
+  if (error.startsWith('stale_regions:')) {
     return [{ kind: 'staleRegions' }]
   }
-  if (error?.startsWith('unknown_regions:')) {
+  if (error.startsWith('unknown_regions:')) {
     return [{ kind: 'unknownRegions' }]
   }
-  if (!error?.startsWith('refused_user_plan:')) {
+  const spec = error.startsWith('refused_plan_spec:')
+  if (!spec && !error.startsWith('refused_user_plan:')) {
     return null
   }
   const listed = error.slice(error.indexOf('refused:') + 'refused:'.length)
@@ -471,5 +481,13 @@ export const refusalClauses = (error: string | null): Array<RefusalClause> | nul
     .split(';')
     .map((clause) => clause.trim())
     .filter(Boolean)
-    .map((text) => ({ kind: 'clause', text }))
+    .map((text): RefusalClause => {
+      const [, setup, feature] = (spec && SPEC_PLACE.exec(text)) || []
+      return {
+        kind: 'clause',
+        text,
+        ...(setup !== undefined ? { setup: Number(setup) } : {}),
+        ...(feature !== undefined ? { feature: Number(feature) } : {}),
+      }
+    })
 }

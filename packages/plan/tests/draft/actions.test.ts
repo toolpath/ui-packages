@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { planChecks, type CheckContext } from '../../src/check/checks'
 import {
   actionsFor,
   applyDraftAction,
@@ -166,7 +167,20 @@ const samplesOf = (
     case 'chooseAssignReading':
     case 'chooseDoneReading':
     case 'fromPlan':
+    // Region plans: offered by the page's region tools, not by actionsFor.
+    case 'assignRegions':
+    case 'editFeature':
+    case 'unassignCustom':
+    case 'openRegions':
+    case 'adopt':
+    case 'ignoreRegions':
+    case 'trimmedAsOwn':
       return []
+    case 'setAdditionalDirections':
+      return [
+        { kind, directions: [] },
+        { kind, directions: null },
+      ]
   }
 }
 
@@ -645,6 +659,194 @@ describe('the app’s clicks, as actions', () => {
     expect(assigned).toMatchObject({ facts: { unmarked: [] } })
   })
 
+  describe('a feature the plan cut by region', () => {
+    const cut = { featureTag: 't1', featureType: 'profile', regionIdxs: [8, 7] }
+    // As the app reads a trimmed tag: its regions as the plan cut them.
+    const cutRules: PlanRules = {
+      regionsOf: (tag) => (tag === 't1' ? [7, 8] : (regions[tag] ?? [])),
+      kernel: 'k1',
+      preparationId: 'p1',
+    }
+    const planned: Array<PlannedSetup> = [
+      { orientations: [{ direction: up, features: [{ tag: 't1' }] }], rows: [{ tag: 't1' }] },
+    ]
+    const empty: Draft = { ...draft, setups: [], done: [7, 9], doneKernel: 'k1' }
+    const fromPlan: DraftAction = {
+      kind: 'fromPlan',
+      planned,
+      assignments: true,
+      idSeed: 'a',
+      trimmed: [cut],
+    }
+
+    it('is assigned as its group’s own, its regions and type as cut, in the one edit', () => {
+      expect(made(applyDraftAction(empty, fromPlan, cutRules))).toMatchObject({
+        done: [9],
+        setups: [
+          {
+            features: [],
+            custom: [{ regions: [7, 8], preparationId: 'p1', featureType: 'profile' }],
+          },
+        ],
+      })
+    })
+
+    it('stays a pin on a part with no preparationId, which a setupPlan states', () => {
+      const noPrep = { ...cutRules, preparationId: null }
+      expect(made(applyDraftAction(empty, fromPlan, noPrep))).toMatchObject({
+        done: [9],
+        setups: [{ features: ['t1'] }],
+      })
+    })
+
+    describe('with the checklist’s checks, as the page sends it', () => {
+      // The app knows a trimmed tag through the plan's trimmed features; this one reads as cut from
+      // -Z. -Z and +Z are analyzed; +X was detected but not analyzed.
+      const checks: CheckContext = {
+        directions: { analyzed: [up, down], discovered: [up, down, side], pending: false },
+        feature: (tag) =>
+          tag === 't1' ? { type: 'profile', label: 'Profile', direction: down } : null,
+        kernelVersion: null,
+      }
+      const withGhost: Array<PlannedSetup> = [
+        {
+          orientations: [{ direction: up, features: [{ tag: 't1' }, { tag: 'ghost' }] }],
+          rows: [{ tag: 't1' }, { tag: 'ghost' }],
+        },
+      ]
+
+      it('checks the plan as stated: a trimmed cut is its group’s own, so only the unknown tag goes', () => {
+        const result = made(
+          applyDraftAction(empty, { ...fromPlan, planned: withGhost, checks }, cutRules),
+        )
+        expect(result).toMatchObject({
+          done: [9],
+          setups: [{ features: [], custom: [{ regions: [7, 8], featureType: 'profile' }] }],
+        })
+        expect(planChecks({ ...result, kernelVersion: null }, checks)).toEqual([])
+      })
+
+      it('keeps the faces of a trimmed cut done when its folder is left out', () => {
+        const sideOnly: Array<PlannedSetup> = [
+          { orientations: [{ direction: side, features: [{ tag: 't1' }] }], rows: [{ tag: 't1' }] },
+        ]
+        const result = made(
+          applyDraftAction(empty, { ...fromPlan, planned: sideOnly, checks }, cutRules),
+        )
+        expect(result).toMatchObject({ setups: [], done: [7, 9] })
+      })
+    })
+
+    it('held as a pin, is made its group’s own by `trimmedAsOwn`', () => {
+      const pinned = made(
+        applyDraftAction(
+          empty,
+          { kind: 'fromPlan', planned, assignments: true, idSeed: 'a' },
+          cutRules,
+        ),
+      )
+      expect(pinned.setups[0]!.features).toEqual(['t1'])
+      const own = made(applyDraftAction(pinned, { kind: 'trimmedAsOwn', trimmed: [cut] }, cutRules))
+      expect(own.setups[0]).toMatchObject({
+        features: [],
+        custom: [{ regions: [7, 8], preparationId: 'p1', featureType: 'profile' }],
+      })
+      const noPrep = { ...cutRules, preparationId: null }
+      expect(
+        made(applyDraftAction(pinned, { kind: 'trimmedAsOwn', trimmed: [cut] }, noPrep)),
+      ).toEqual(pinned)
+    })
+  })
+
+  describe('stating nothing the checklist would block', () => {
+    // The part has p (cut from +Z) and q (cut from -Z); +Z and -Z are analyzed, and +X was detected
+    // but not analyzed.
+    const known: Record<string, { type: string; label: string; direction: PlanDirection }> = {
+      p: { type: 'pocket', label: 'Pocket', direction: up },
+      q: { type: 'hole', label: 'Hole', direction: down },
+    }
+    const checks: CheckContext = {
+      directions: { analyzed: [up, down], discovered: [up, down, side], pending: false },
+      feature: (tag) => known[tag] ?? null,
+      kernelVersion: null,
+    }
+    const empty = { ...draft, setups: [], done: [4], doneKernel: 'k1' }
+    const blocking = (from: Constraints) =>
+      planChecks({ ...from, kernelVersion: null }, checks).filter(
+        (check) => check.severity === 'blocking',
+      )
+    const autoPlan = (planned: Array<PlannedSetup>, withChecks = true) =>
+      apply(
+        {
+          kind: 'fromPlan',
+          planned,
+          assignments: true,
+          idSeed: 'a',
+          ...(withChecks ? { checks } : {}),
+        },
+        empty,
+      )
+
+    it('leaves open a feature Toolpath’s plan names that the part does not have, its folder kept', () => {
+      // As on 701006286-…-019: the plan's own setup names two tags the part's report lacks, which
+      // nothing describes as trimmed.
+      const planned: Array<PlannedSetup> = [
+        {
+          orientations: [{ direction: up, features: [{ tag: 'p' }, { tag: 'g1' }, { tag: 'g2' }] }],
+          rows: [{ tag: 'p' }, { tag: 'g1' }, { tag: 'g2' }],
+        },
+      ]
+      // Without the checks, as before: pinned, and the checklist blocks.
+      const before = made(autoPlan(planned, false))
+      expect(before.setups[0]!.features).toEqual(['p', 'g1', 'g2'])
+      expect(blocking(before).map((check) => check.kind)).toEqual([
+        'unknownFeature',
+        'unknownFeature',
+      ])
+      const result = autoPlan(planned)
+      expect(made(result).setups).toMatchObject([{ direction: up, features: ['p'] }])
+      expect(blocking(made(result))).toEqual([])
+    })
+
+    it('leaves open a feature in a folder facing another way than it is cut, its faces still done', () => {
+      const planned: Array<PlannedSetup> = [
+        {
+          orientations: [{ direction: up, features: [{ tag: 'p' }, { tag: 'q' }] }],
+          rows: [{ tag: 'p' }, { tag: 'q' }],
+        },
+      ]
+      expect(blocking(made(autoPlan(planned, false))).map((check) => check.kind)).toEqual([
+        'otherWay',
+      ])
+      const result = autoPlan(planned)
+      expect(made(result)).toMatchObject({ setups: [{ features: ['p'] }], done: [4] })
+      expect(result).toMatchObject({ facts: { unmarked: [] } })
+      expect(blocking(made(result))).toEqual([])
+    })
+
+    it('leaves out a folder facing a direction not analyzed, and opens what it held', () => {
+      const planned: Array<PlannedSetup> = [
+        { orientations: [{ direction: up, features: [{ tag: 'p' }] }], rows: [{ tag: 'p' }] },
+        { orientations: [{ direction: side, features: [{ tag: 'q' }] }], rows: [{ tag: 'q' }] },
+      ]
+      expect(blocking(made(autoPlan(planned, false))).map((check) => check.kind)).toContain(
+        'notAnalyzed',
+      )
+      const result = autoPlan(planned)
+      expect(made(result).setups).toMatchObject([{ direction: up, features: ['p'] }])
+      expect(blocking(made(result))).toEqual([])
+      // Auto folders leave it out too.
+      const folders = made(
+        apply({ kind: 'fromPlan', planned, assignments: false, idSeed: 'a', checks }, empty),
+      )
+      expect(folders.setups).toMatchObject([{ direction: up, features: [] }])
+    })
+
+    it('changes nothing of a plan the checklist passes', () => {
+      expect(autoPlan(planned)).toEqual(autoPlan(planned, false))
+    })
+  })
+
   it('starts from Toolpath’s plan only on a plan with no groups', () => {
     expect(apply({ kind: 'fromPlan', planned, assignments: true, idSeed: 'a' })).toEqual({
       refused: { kind: 'notEmpty' },
@@ -759,7 +961,11 @@ describe('actionsFor', () => {
   })
 
   it('offers the part a setup, and Remove all while there are setups', () => {
-    expect(actionsFor(draft, { part: true }, rules)).toEqual(['remove', 'addSetup'])
+    expect(actionsFor(draft, { part: true }, rules)).toEqual([
+      'remove',
+      'addSetup',
+      'setAdditionalDirections',
+    ])
     expect(actionsFor({ ...draft, setups: [] }, { part: true }, rules)).toEqual(['addSetup'])
   })
 
@@ -793,6 +999,13 @@ describe('actionsFor', () => {
       'chooseAssignReading',
       'chooseDoneReading',
       'fromPlan',
+      'assignRegions',
+      'editFeature',
+      'unassignCustom',
+      'openRegions',
+      'adopt',
+      'ignoreRegions',
+      'trimmedAsOwn',
     ])
   })
 })

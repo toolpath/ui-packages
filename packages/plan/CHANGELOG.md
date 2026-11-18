@@ -1,5 +1,48 @@
 # @toolpath/plan
 
+## 1.2.0
+
+### Minor Changes
+
+- 8c884f6: A draft can say whether Toolpath may add setups after its own: `Constraints.additionalDirections`,
+  optional, null or absent for any of the part's directions, `[]` for none. The draft action
+  `setAdditionalDirections` sets it, offered on the part while it holds a setup, and refuses anything
+  but `null` or a list of directions (`notAnAction`), keeping each as its `x`, `y` and `z` alone
+  (`parseDirections`, exported). `additionalDirectionsSent` gives what a draft sends, null unless it
+  states a setup, and `planSpecOf` writes it as the spec's `additionalDirections`
+  (`PlanSpecStatement.additionalDirections`, optional). An action that leaves no setup clears it to
+  null. `resultsView` marks a setup as `added` where groups are stated and none faces a way it is cut
+  from.
+- 8c884f6: `fromPlan` takes an optional `checks`, the `CheckContext` the checklist reads. With it, Auto folders
+  and Auto plan state nothing `planChecks` would block: a feature the part does not have
+  (`unknownFeature`), or one in a group facing another way than it is cut (`otherWay`), is left open,
+  and a group facing a direction nothing can be planned from (`notAnalyzed`) is left out. Without it,
+  `fromPlan` works as before. `planDetails` exposes the context it checks with as
+  `constraints.checkContext`.
+- 8c884f6: Preserve optional feature causes, missing passes and tool rejection codes on plan issues (`PlanIssue.features`, `PlanIssueFeature`, `unattributedRegionCount`) so applications can explain why regions were not machined. `planDetails` takes `resultsCurrent`: false while the results' run is still being read, so the results read as with no plan while the constraints keep the plan in hand. A setup check's `show` carries `tags`, every feature the check counts, for a page to light together.
+- 8c884f6: Region plans. A draft group can hold features of its own, `custom` (`CustomFeature`: region indices
+  of the part, with the `preparationId` of the analysis that numbered them and, for a feature a plan
+  cut, its `featureType`), beside its assigned tags; `parseDraftSetups` keeps them and refuses
+  malformed ones, or ones with no `preparationId`, as `notCustomFeatures`. The draft actions
+  `assignRegions`, `editFeature`, `unassignCustom`, `openRegions`, `adopt` and `ignoreRegions` make
+  and change them. They refuse a group gone (`groupGone`), a feature it doesn't hold (`notAnAction`),
+  and `editFeature`'s `into` a group of another frame (`otherWay`). Two new refusals:
+  `notByRegion`, making a feature of regions on a part with no `preparationId`, and `staleFeature`,
+  editing one made on another analysis, which can only be let go. On a part with a `preparationId`,
+  `fromPlan` takes the plan's `trimmed` features and brings them in as a group's own, and
+  `trimmedAsOwn` does the same for pins of them a draft already holds. `PlanRules` takes an optional
+  `preparationId`, and an optional `directionOf`, by which `adopt` refuses a feature read from another
+  way than its group (`otherWay`).
+
+  `planSpecOf(draft, preparationId, features)` states a draft as an Engine plan spec. With the `spec`
+  it returns `sources`, the group and feature each `setups[i].features[j]` came from, `unstated`,
+  the assigned tags the part's report does not have, and `tooManyRegions`, a spec holding more region
+  indices than the Engine takes in one. `customByFrame`, `staleCustomOf`,
+  `customFeaturesOf` and `customKey` read a draft's own features.
+
+  `refusalClauses` reads a refused plan spec (`refused_plan_spec:`). A clause carries the 0-based
+  `setup` and `feature` it names, which `sources` map back to the draft.
+
 ## 1.1.0
 
 ### Minor Changes

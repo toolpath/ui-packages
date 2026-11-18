@@ -195,7 +195,12 @@ describe('confirmChecks', () => {
     expect(checks).toEqual([
       { kind: 'kernelMoved', severity: 'warning' },
       { kind: 'allMachined', severity: 'ok' },
-      { kind: 'cannotCut', severity: 'warning', count: 1, show: { kind: 'setup', idx: 0 } },
+      {
+        kind: 'cannotCut',
+        severity: 'warning',
+        count: 1,
+        show: { kind: 'setup', idx: 0, tags: ['t1'] },
+      },
       {
         kind: 'emptyGroups',
         severity: 'warning',
@@ -230,14 +235,25 @@ describe('confirmChecks', () => {
       groups: [],
       setups: [
         { idx: 0, notMachined: ['t1', 't2'], notFinished: ['t2'] },
-        { idx: 3, notMachined: ['s1'], notFinished: ['s1'] },
+        { idx: 3, notMachined: ['s1', 'T2'], notFinished: ['s1', 'T2'] },
       ],
     })
-    // Each Show opens the first of Toolpath's setups with such a feature, in the Results view.
+    // Each Show opens the first of Toolpath's setups with such a feature, in the Results view, with
+    // every feature it counts, in any setup, each once.
     expect(checks).toEqual([
       { kind: 'allMachined', severity: 'ok' },
-      { kind: 'notFinished', severity: 'warning', count: 2, show: { kind: 'setup', idx: 0 } },
-      { kind: 'cannotCut', severity: 'warning', count: 1, show: { kind: 'setup', idx: 0 } },
+      {
+        kind: 'notFinished',
+        severity: 'warning',
+        count: 3,
+        show: { kind: 'setup', idx: 0, tags: ['t2', 's1'] },
+      },
+      {
+        kind: 'cannotCut',
+        severity: 'warning',
+        count: 1,
+        show: { kind: 'setup', idx: 0, tags: ['t1'] },
+      },
     ])
   })
 

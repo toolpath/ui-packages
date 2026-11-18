@@ -55,6 +55,25 @@ export interface PlanIssue {
   kind: string
   area: number
   regionCount: number
+  /**
+   * For an `OutOfPlay` shortfall, the features holding its regions that no setup was given, and
+   * why. Absent on other kinds and on plans made before Toolpath said.
+   */
+  features?: Array<PlanIssueFeature>
+  /** How many of its regions no feature in `features` holds. Absent where `features` is. */
+  unattributedRegionCount?: number
+}
+
+/** A feature holding regions of a plan issue, and why no setup machines it. Codes may grow. */
+export interface PlanIssueFeature {
+  /** The kernel's feature tag: a report feature's, or one of the plan's trimmed features'. */
+  featureTag: string
+  /** Why no setup machines it: `ToolsRefused`, `Revoked`, `RefusesEveryTool`, `MeasurementFailed`, `FallbackNotNeeded`, `Unmeasured`. */
+  cause: string
+  /** The passes no tool of the plan meets: `Rough`, `Finish`, `Thread`. */
+  owed: Array<string>
+  /** For `ToolsRefused`, the kernel's rejection codes: why no tool was made for those passes. */
+  rejections: Array<string>
 }
 
 /**

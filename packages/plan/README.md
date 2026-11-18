@@ -159,7 +159,9 @@ Its optional `unplannable` says which features Toolpath plans no pass for whatev
 it from the part's datasheets with `@toolpath/dfm`'s `unplannableFeatureTags`. Toolpath takes an
 assignment of such a feature and plans nothing for it, so an assignment that adds one is refused and
 not offered; one assigned already can still be let go or moved. Without it, as before the datasheets
-are read, every feature can be assigned. Its optional `nameGroup` names each new group in your app's
+are read, every feature can be assigned. Its optional `directionOf` gives the direction each feature
+is read from, as one of the part's candidate directions; with it, `adopt` refuses a feature read from
+another way than its group, as an assignment from a direction does. Its optional `nameGroup` names each new group in your app's
 word, as `(taken) => nextGroupName(taken, 'Folder')` does; without it, a new group is "Group N".
 Code that makes groups outside an action takes the same rule as its last argument: give it to
 `parseDraftSetups` for a stored group with no name, and to `groupsFromPlan` and `planFromResults`.
@@ -307,6 +309,8 @@ the facts your app needs to word it. A group it names is a `GroupRef` (`id` and 
 | `otherWay`                     | Our choice   | Could instead assign that direction's reading of the same faces                  |
 | `orientationOutsideSetup`      | Our choice   | A setup's direction is fixed when it is made                                     |
 | `noTool`                       | Our choice   | Toolpath takes the assignment and plans no pass for it (`PlanRules.unplannable`) |
+| `notByRegion`                  | Engine       | The part's analysis numbers no regions (no `preparationId`) to make a feature of |
+| `staleFeature`                 | Engine       | Made on another analysis, its regions name other faces under this one            |
 
 An "our choice" refusal can become a yes in a later release. Until then, it stays as it is.
 

@@ -99,6 +99,13 @@ export interface PlanDetailsInputs {
   /** Whether `plan` is of `saved`: only then are its setups named by the groups they are from. */
   planIsOfSaved: boolean
   /**
+   * Whether the results can be read from `plan`: false while the run they are of is still being
+   * read — a new plan on its way, or its checks — so the results view says nothing of the last
+   * run's, as though no plan were read, while the constraints still read `plan` for the features it
+   * trimmed. Absent is true.
+   */
+  resultsCurrent?: boolean
+  /**
    * The regions the part's stock body leaves at their final surface, read from the plan's stock
    * envelope: at shape in the results. None for any other stock.
    */
@@ -125,6 +132,8 @@ export interface PlanDetailsConstraints {
   counts: { assigned: number; done: number; open: number }
   /** What would stop Toolpath taking the constraints, and what is worth knowing first. */
   checks: ReadonlyArray<PlanCheck>
+  /** What `checks` reads of the part: Auto folders and Auto plan state nothing it blocks. */
+  checkContext: CheckContext
 }
 
 /** Toolpath's plan, as the Results view shows it. */
@@ -220,7 +229,10 @@ const once = <T>(work: () => T): (() => T) => {
  */
 export const planDetails = (inputs: PlanDetailsInputs): PlanDetails => {
   const constraints = constraintsOf(inputs)
-  const results = resultsOf(inputs, constraints)
+  const results = resultsOf(
+    inputs.resultsCurrent === false ? { ...inputs, plan: null, planIsOfSaved: false } : inputs,
+    constraints,
+  )
   return {
     constraints,
     results,
@@ -259,15 +271,12 @@ const constraintsOf = ({
     done: coverage()?.faces.done.length ?? 0,
     open: groupFaces(coverage()?.faces.open ?? [], features()).length,
   }))
-  const checks = once(() =>
-    draft
-      ? planChecks(draft, {
-          directions: analysis?.directions ?? NO_DIRECTIONS,
-          feature: part.feature,
-          kernelVersion: plan?.kernelVersion ?? null,
-        })
-      : [],
-  )
+  const checkContext: CheckContext = {
+    directions: analysis?.directions ?? NO_DIRECTIONS,
+    feature: part.feature,
+    kernelVersion: plan?.kernelVersion ?? null,
+  }
+  const checks = once(() => (draft ? planChecks(draft, checkContext) : []))
   return {
     get setups() {
       return setups()
@@ -293,6 +302,7 @@ const constraintsOf = ({
     get checks() {
       return checks()
     },
+    checkContext,
   }
 }
 

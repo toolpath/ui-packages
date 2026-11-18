@@ -33,6 +33,10 @@ export interface GroupRef {
  * - `orientationOutsideSetup`: only a group inside a setup can be an orientation.
  * - `orientationNeedsAxes`: only a 3+1 or 3+2 setup has orientations.
  * - `holdOnlySetup`: only a setup has a hold.
+ * - `notByRegion`: the part's analysis numbers no regions (no `preparationId`), so no feature is
+ *   made of them.
+ * - `staleFeature`: the feature was made on another analysis of the part, whose regions name other
+ *   faces now: it can only be let go, and made again.
  */
 export type Refusal =
   | { kind: 'groupGone' }
@@ -53,6 +57,8 @@ export type Refusal =
   | { kind: 'orientationOutsideSetup' }
   | { kind: 'orientationNeedsAxes' }
   | { kind: 'holdOnlySetup' }
+  | { kind: 'notByRegion' }
+  | { kind: 'staleFeature' }
 
 /** An edit that can't be made, and why. */
 export interface Refused {

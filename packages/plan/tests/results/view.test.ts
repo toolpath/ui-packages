@@ -79,6 +79,29 @@ describe('resultsView', () => {
     expect(leftOut).toEqual([{ groupId: 'f2', name: 'Under' }])
   })
 
+  it('marks a setup no group faces as added, only where groups are stated', () => {
+    const constraints = { setups: [setup({ id: 'f1', name: 'Top' })] }
+    const added = (tree: ReturnType<typeof resultsView>['tree']) =>
+      tree.map((each) => [each.name, each.added ?? false])
+    expect(added(resultsView({ plan: plan(), constraints, part }).tree)).toEqual([
+      ['Top', false],
+      ['Setup 2', true],
+    ])
+    // A second setup from a stated way is that group's work split, not a folder Toolpath added.
+    const split = plan({
+      setups: [plan().setups[0]!, { ...plan().setups[1]!, direction: up }],
+    })
+    expect(added(resultsView({ plan: split, constraints, part }).tree)).toEqual([
+      ['Top', false],
+      ['Setup 2', false],
+    ])
+    // With nothing stated, every setup is Toolpath's: none is marked.
+    expect(added(resultsView({ plan: plan(), constraints: null, part }).tree)).toEqual([
+      ['Setup 1', false],
+      ['Setup 2', false],
+    ])
+  })
+
   it('names a tilt frame by its setup and the tilt', () => {
     const constraints = {
       setups: [

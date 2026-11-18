@@ -1,3 +1,4 @@
+import { REGION_PLAN_REFUSALS } from '../inputs/plan-failure'
 import { partArtifactsOf, runStatusOf } from '../model/artifact-state'
 import type { PartPipeline } from '../model/part-state'
 
@@ -127,6 +128,8 @@ export interface RunFacts {
   baseline: BaselineFacts | null
   /** The run on its way has planned its setups (`hasPlanned`). */
   planned: boolean
+  /** Why the last run failed, as the part keeps it; absent or null for none. */
+  error?: string | null
   /** A person asked: Try again, or Request plan. Else a save, or a run that ended, is asking. */
   tryAgain: boolean
   /** Counted above 0 in its assembly (`partMade`); a part not made is sent nothing. */
@@ -144,11 +147,14 @@ export interface RunFacts {
  * without a plan has an estimate of them but no plan, and gets one), or a run is in flight. A run
  * of these same inputs that failed waits for a person to ask again: a save that left them as they
  * were sends nothing. Asked again, a file that could not be made parts is tried again from its
- * bodies; a model Toolpath could not read is read again with its plan; any other failed run is
- * planned afresh, never onto the plan that failed. A file not made parts yet has no inputs Toolpath
- * could plan, so only a person asks for it again. A part counted 0 in its assembly is sent nothing,
- * unless a part made is priced from its size and it has none yet (`sizeNeeded`): then a person
- * asking has its model read, to measure it, and a save sends nothing.
+ * bodies; a model Toolpath could not read is read again with its plan, as is one whose plan Toolpath
+ * refused as stated on another analysis of it (`stale_regions:`), or not sent for an analysis that
+ * numbers no regions (`notAnalyzedByRegion`), which only reading it again numbers afresh; any other
+ * failed run is planned afresh, never onto the plan that failed. A file not made parts yet has no
+ * inputs Toolpath could plan, so only a person asks for it again. A part
+ * counted 0 in its assembly is sent nothing, unless a part made is priced from its size and it has
+ * none yet (`sizeNeeded`): then a person asking has its model read, to measure it, and a save sends
+ * nothing.
  */
 export const runDecision = (facts: RunFacts): RunDecision => {
   if (!facts.made) {
@@ -179,5 +185,9 @@ export const runDecision = (facts: RunFacts): RunDecision => {
   if (toolpathHas(facts.pipeline)) {
     return 'pending'
   }
-  return facts.pipeline === 'analysis_failed' ? 'reanalyze' : 'start'
+  const stale =
+    facts.pipeline === 'plan_failed' &&
+    (facts.error?.startsWith('stale_regions:') ||
+      facts.error === REGION_PLAN_REFUSALS.notAnalyzedByRegion)
+  return facts.pipeline === 'analysis_failed' || stale ? 'reanalyze' : 'start'
 }
