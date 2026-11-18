@@ -606,8 +606,9 @@ export const createOxlintConfig = ({
     ...(forbidStyling ? [{ files: [...STYLING_SOURCE], rules: STYLING_RULES }] : []),
     {
       // A wrong `!` or cast in a test fails the test loudly, so tests may use them to reach into
-      // fixtures; the async and `no-unsafe-*` rules stay on. Mock classes and spreads of
-      // class-instance fixtures are normal here.
+      // fixtures; the async rules and the other `no-unsafe-*` rules stay on. Mock classes and
+      // spreads of class-instance fixtures are normal here, and vitest's asymmetric matchers
+      // (`expect.any()`) return `any`.
       files: TESTS,
       rules: {
         ...errors('vitest/', VITEST),
@@ -616,6 +617,7 @@ export const createOxlintConfig = ({
         'typescript/consistent-type-assertions': 'off',
         'typescript/no-extraneous-class': 'off',
         'typescript/no-misused-spread': 'off',
+        'typescript/no-unsafe-assignment': 'off',
         'typescript/no-unsafe-type-assertion': 'off',
         'typescript/require-await': 'off',
         'typescript/unbound-method': 'off',

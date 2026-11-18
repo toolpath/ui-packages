@@ -62,8 +62,9 @@ an error. Type-aware rules run on TypeScript 7, so a tsconfig needs to be valid 
 - **Tests** (`*.test.*`, `*.spec.*`, `*.test-d.*`, `tests/` and similar): Vitest's correctness rules,
   plus no `.only`, `.skip` or `.todo`, awaited async expectations, `toThrow` with a message, and
   `vi.mock` hoisting. Tests may use `!`, type assertions, `async` callbacks without `await`, mock
-  classes and spreads of class instances, because a wrong one fails the test; the async and
-  `no-unsafe-*` rules stay on.
+  classes and spreads of class instances, because a wrong one fails the test, and may assign the
+  `any` that matchers such as `expect.any()` return; the async and other `no-unsafe-*` rules stay
+  on.
 - **`react: true`**, for every JS and TS file, since hooks live in `.ts` files too:
   - The Rules of React and React Compiler's diagnostics, except `immutability`, which flags the
     cancel flag in an effect's cleanup. `reactCompilerGuard()` covers what it would have caught.
@@ -194,9 +195,9 @@ bases set `noEmit`; the build tool (Vite, tsdown, esbuild) emits the JavaScript.
   `package.json` `"imports"` (`#/…`).
 - `skipLibCheck: false` reports broken published types instead of turning them into `any`. Fix the
   dependency's version, add its missing `@types` package, or `pnpm patch` it. React Native and Expo
-  apps set `skipLibCheck: true`, and so does the tsconfig that checks `vite.config.ts` in a
-  `@vitejs/plugin-react` 6 React Compiler setup: `@rolldown/plugin-babel`'s published types fail lib
-  checking whichever Babel types are installed, and `babel-plugin-react-compiler`'s need the DOM lib.
+  apps set `skipLibCheck: true`. With `@vitejs/plugin-react` 6, use `@rolldown/plugin-babel` 0.3.1
+  or later (earlier versions' types fail lib checking on Babel 7) and check `vite.config.ts` with
+  `browser.json`: `babel-plugin-react-compiler`'s types need the DOM lib.
 - TypeScript checks every file a project includes or imports under that project's options. Generated
   code that uses enums needs `erasableSyntaxOnly: false` in each tsconfig whose files import it, not
   only in its own.
@@ -307,8 +308,8 @@ function's `'use no memo'`. Opt such a module out with `'use no memo'` at its to
 
 ### tsdown libraries
 
-```js
-// tsdown.config.js
+```ts
+// tsdown.config.ts
 import pluginBabel from '@rolldown/plugin-babel'
 import {
   assertReactCompiled,
@@ -335,11 +336,11 @@ export default defineConfig({
 })
 ```
 
-The config is JavaScript because `@rolldown/plugin-babel`'s published types fail
-`skipLibCheck: false`. A package without React Compiler can use `tsdown.config.ts`, or flags alone:
-`tsdown src/index.ts --format esm --dts --clean --platform neutral`. `platform: 'neutral'` emits
-`.js` and `.d.ts`; the default, `node`, emits `.mjs` and `.d.mts`. Pass the Babel plugin directly
-rather than through `reactCompilerPreset`, which needs `@vitejs/plugin-react` 6 and so Vite 8.
+Include `tsdown.config.ts` in the package's tsconfig so it is type-checked. A package without React
+Compiler can use flags alone: `tsdown src/index.ts --format esm --dts --clean --platform neutral`.
+`platform: 'neutral'` emits `.js` and `.d.ts`; the default, `node`, emits `.mjs` and `.d.mts`. Pass
+the Babel plugin directly rather than through `reactCompilerPreset`, which needs
+`@vitejs/plugin-react` 6 and so Vite 8.
 
 ### tsup and esbuild libraries
 

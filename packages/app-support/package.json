@@ -43,7 +43,7 @@
     "build": "tsdown src/index.ts src/react/index.ts --format esm --dts --clean --platform neutral",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "oxlint",
     "test:ci": "pnpm run test"
   },
   "dependencies": {
@@ -60,8 +60,9 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@typescript/native": "npm:typescript@7.0.2",
-    "eslint": "9.39.5",
     "jsdom": "^31.0.0",
+    "oxlint": "1.91.0",
+    "oxlint-tsgolint": "7.0.2006",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "tsdown": "0.23.5",

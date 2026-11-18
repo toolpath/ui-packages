@@ -29,13 +29,16 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SRC = join(ROOT, 'src')
 
 /** Every `.ts` and `.tsx` file under `where`. */
-const modules = (where: string): string[] => {
-  const found: string[] = []
+const modules = (where: string): Array<string> => {
+  const found: Array<string> = []
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir).sort()) {
       const path = join(dir, entry)
-      if (statSync(path).isDirectory()) walk(path)
-      else if (entry.endsWith('.ts') || entry.endsWith('.tsx')) found.push(path)
+      if (statSync(path).isDirectory()) {
+        walk(path)
+      } else if (entry.endsWith('.ts') || entry.endsWith('.tsx')) {
+        found.push(path)
+      }
     }
   }
   walk(where)
@@ -43,7 +46,7 @@ const modules = (where: string): string[] => {
 }
 
 /** The import specifiers this file names, relative paths included. */
-const importsOf = (path: string): string[] =>
+const importsOf = (path: string): Array<string> =>
   ts.preProcessFile(readFileSync(path, 'utf8'), true, true).importedFiles.map((f) => f.fileName)
 
 const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {

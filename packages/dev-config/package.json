@@ -1,6 +1,6 @@
 {
   "name": "@toolpath/dev-config",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Shared oxlint, TypeScript and React Compiler configuration for Toolpath repositories, with the ESLint and Prettier configs that remain",
   "license": "MIT",
   "engines": {

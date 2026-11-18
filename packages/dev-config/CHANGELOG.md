@@ -1,5 +1,11 @@
 # @toolpath/dev-config
 
+## 0.3.1
+
+### Patch Changes
+
+- 3bf7793: Allow `any` from test matchers such as `expect.any()` in test files.
+
 ## 0.3.0
 
 ### Minor Changes

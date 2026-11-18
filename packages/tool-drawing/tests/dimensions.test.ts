@@ -224,9 +224,8 @@ describe('the tip angle', () => {
       }),
     )
 
-    const halfwayUpTheFlank: unknown = expect.closeTo(0.911, 2)
     expect(drill.angles).toEqual([
-      { code: 'SIG', degrees: 140, at: { r: 2.5, z: halfwayUpTheFlank } },
+      { code: 'SIG', degrees: 140, at: { r: 2.5, z: expect.closeTo(0.911, 2) } },
     ])
   })
 

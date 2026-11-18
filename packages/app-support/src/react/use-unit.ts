@@ -25,13 +25,16 @@ import { loadUnit, saveUnit } from '../unit-preference.js'
 export const useUnit = (key: string): [UnitSystem, (next: UnitSystem) => void] => {
   const [unit, setUnit] = useState<UnitSystem>('millimeters')
 
+  // The DOM lib declares `localStorage` on every global, but a renderer outside
+  // a browser, such as React Native, has none.
   useEffect(() => {
-    setUnit(loadUnit(globalThis.localStorage ?? null, key))
+    // oxlint-disable-next-line react/set-state-in-effect -- read after mount on purpose; see the doc comment
+    setUnit(loadUnit((globalThis as { localStorage?: Storage }).localStorage ?? null, key))
   }, [key])
 
   const choose = (next: UnitSystem) => {
     setUnit(next)
-    saveUnit(globalThis.localStorage ?? null, key, next)
+    saveUnit((globalThis as { localStorage?: Storage }).localStorage ?? null, key, next)
   }
 
   return [unit, choose]
