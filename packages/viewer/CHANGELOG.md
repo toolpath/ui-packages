@@ -1,5 +1,15 @@
 # @toolpath/viewer
 
+## 3.11.0
+
+### Minor Changes
+
+- 8025b92: `DIRECTION_COLORS` is now 18 Tailwind shades, so `directionColor` gives each of the first 18
+  directions its own colour instead of wrapping at nine. Each is the shade most different from those
+  before it, so a part's directions are as far apart as the list allows however many it has. None is
+  grey, a pastel, red, orange or yellow: they stay clear of the DFM rules' colours, the selection's
+  oranges and the grey of a direction an app has nothing for.
+
 ## 3.10.0
 
 ### Minor Changes

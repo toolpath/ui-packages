@@ -1305,7 +1305,7 @@ Colors in `ViewerTheme` are numeric hex values. Set lighting on `Viewer`, part
 colors on `PartMesh`/`EnginePart`, and overlay colors on their components; passing
 part colors only to `Viewer` does not theme its children automatically.
 `DEFAULT_THEME` lists the keys. Selection palettes are `HIGHLIGHT_COLORS`; direction
-colors cycle through `DIRECTION_COLORS`.
+colors are `DIRECTION_COLORS`, each the most different from those before it.
 
 Part keys include `part`, `partEmissive`, `hover`, `highlight`, `picked`, `edge`,
 `edgeOpacity`, and `sharpCorner`. Section keys include `sectionCap`, `sectionHatch`,

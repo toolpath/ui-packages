@@ -92,51 +92,41 @@ export const HIGHLIGHT_COLORS = {
 } as const
 
 /**
- * Per-direction color cycle for the machining-direction overlay.
- *
- * Nine entries, so a part with ten candidate directions wraps — real reports
- * carry exactly ten, which is what makes the wrap reachable rather than
- * theoretical.
+ * Per-direction colors for the machining-direction overlay, 18 Tailwind shades
+ * in the order directions take them: each is the shade most different (by
+ * CIEDE2000) from all those before it, so however many directions a part has,
+ * its colours are as far apart as this list allows.
  *
  * The same color identifies a direction in three places at once: on the part,
  * on its arrow, and on its row in the directions list. That triple is the point
- * of the palette — it is an identity, not a ranking, which is why the colors
- * are unordered and deliberately not a scale.
+ * of the palette — it is an identity, not a ranking.
+ *
+ * Clear of what the part is painted in otherwise: the DFM rules' red, orange and
+ * yellow, the selection's oranges, and grey, which is a direction an app has
+ * nothing for. So no orange or yellow, and the only warm shades are pinks at mid
+ * lightness and lighter; a deep pink reads as red. No pastel and no near-black
+ * either: a light blue or violet fades to lavender, and a deep purple to black.
+ * The shades come from 400 to 700 of lime round to pink.
  */
 export const DIRECTION_COLORS = [
-  /*
-   * Nine ways up, told apart at a glance.
-   *
-   * The palette is an **identity**, not a ranking — the same colour on the
-   * face, on the arrow and on the row, which is the whole point of it. Two
-   * entries that look alike make it a worse identity than eight that do not,
-   * and this list had three problems at once:
-   *
-   * - teal-500, cyan-500 and emerald-500 were neighbours in hue *and*
-   *   lightness, so three ways up were one blue-green smear;
-   * - blue-500 and indigo-500 were the closest pair of all;
-   * - indigo-500 sat 0.06 from the violet an offer is painted in — the very
-   *   clash that sent a purple out of this list once already, still here under
-   *   a different name.
-   *
-   * The warm ramp belongs to difficulty, red to sharp corners, orange to the
-   * selection over this cycle, violet to an offer. There is no room to move
-   * anything to a fresh hue, so the spread is along **lightness** as much as
-   * hue: a pale cyan and a mid teal, a light green and a deep navy.
-   *
-   * `selection-colors.test.ts` measures every pair in Oklab and holds them all
-   * above 0.1 — including against the four colours the part can wear over this
-   * wash. The binding pair now is blue against an offer's violet, at 0.12.
-   */
-  0x3b82f6, // blue
-  0x0d9488, // teal
-  0xd946ef, // fuchsia
-  0x67e8f9, // pale cyan
-  0x65a30d, // olive
-  0xec4899, // pink
-  0x94a3b8, // light slate
-  0x4ade80, // light green
-  0x1e3a8a, // deep navy
+  0x3b82f6, // blue-500
+  0xa3e635, // lime-400
+  0xdb2777, // pink-600
+  0x047857, // emerald-700
+  0x2dd4bf, // teal-400
+  0x4338ca, // indigo-700
+  0xe879f9, // fuchsia-400
+  0x0e7490, // cyan-700
+  0x16a34a, // green-600
+  0xc026d3, // fuchsia-600
+  0x4d7c0f, // lime-700
+  0x4ade80, // green-400
+  0x0ea5e9, // sky-500
+  0x0d9488, // teal-600
+  0xf472b6, // pink-400
+  0x8b5cf6, // violet-500
+  0x65a30d, // lime-600
+  0x2563eb, // blue-600
 ] as const
 
 /*
@@ -172,7 +162,7 @@ export const DEFAULT_THEME: ViewerTheme = {
   /*
    * A paler form of the selection orange it leads to.
    *
-   * It was a teal, which sat between two of the nine direction colors — on a
+   * It was a teal, which sat between two of the direction colors — on a
    * part painted by direction, "what the pointer is on" and "cut from way up
    * number two" were the same answer. The warm end of the wheel belongs to this
    * moment rather than to the plan: what is under the pointer, and what has
@@ -253,7 +243,10 @@ function labelsEqual(a: ViewerTheme['labels'], b: ViewerTheme['labels']): boolea
   )
 }
 
-/** The color for a candidate direction, wrapping at {@link DIRECTION_COLORS}. */
+/**
+ * The color for a candidate direction: its own for the first
+ * {@link DIRECTION_COLORS} directions, wrapping only past them.
+ */
 export function directionColor(index: number): number {
   const wrapped = index % DIRECTION_COLORS.length
   // `noUncheckedIndexedAccess`: the modulo guarantees a hit, but only for a

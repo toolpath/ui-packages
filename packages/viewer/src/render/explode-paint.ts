@@ -71,7 +71,7 @@ const linear = (channel: number): number =>
   channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
 
 /** OKLab: distances in it track how different two colors look. */
-const oklab = (hex: number): [number, number, number] => {
+export const oklab = (hex: number): [number, number, number] => {
   const r = linear(((hex >> 16) & 255) / 255)
   const g = linear(((hex >> 8) & 255) / 255)
   const b = linear((hex & 255) / 255)
