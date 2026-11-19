@@ -81,6 +81,18 @@ export const sliceAt = (layers: ReadonlyArray<Cone>, height: number): Array<Cone
   return slice
 }
 
+/**
+ * How far a keyseat's or a dovetail's disc of `diameter` overhangs what stands directly above it,
+ * mm, as the kernel measures `undercutReach`: against the first layer of `shaft` with any height,
+ * `shaft` running from the flutes up only as far as it stands out of the holder, since that is all
+ * the kernel stacks. Zero where no layer has height, and never less.
+ */
+export const undercutReach = (diameter: number, shaft: ReadonlyArray<Cone>): number => {
+  const first = shaft.find((layer) => layer.thickness > 0)
+  const lip = first === undefined ? diameter : Math.max(first.bottomDiameter, first.topDiameter)
+  return Math.max((diameter - lip) / 2, 0)
+}
+
 /** A tool's stated shaft, or none where it states none or an empty one. */
 const shaftLayers = (tool: CuttingTool): ReadonlyArray<Cone> => tool.shaft ?? []
 

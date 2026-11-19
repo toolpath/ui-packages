@@ -9,25 +9,10 @@
  */
 
 import { mapValues } from '../runtime.js'
-import type { PlanToolLibraryTool } from './PlanToolLibraryTool.js'
-import {
-  PlanToolLibraryToolFromJSON,
-  PlanToolLibraryToolFromJSONTyped,
-  PlanToolLibraryToolToJSON,
-  PlanToolLibraryToolToJSONTyped,
-} from './PlanToolLibraryTool.js'
-import type { PlanRefusedToolEntry } from './PlanRefusedToolEntry.js'
-import {
-  PlanRefusedToolEntryFromJSON,
-  PlanRefusedToolEntryFromJSONTyped,
-  PlanRefusedToolEntryToJSON,
-  PlanRefusedToolEntryToJSONTyped,
-} from './PlanRefusedToolEntry.js'
-
 /**
  * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
  *
- * What a plan’s job read of one Fusion tool library its crib named.
+ * A Fusion tool library the plan’s job read, as its crib named it.
  * @export
  * @interface PlanToolLibrary
  */
@@ -38,18 +23,6 @@ export interface PlanToolLibrary {
    * @memberof PlanToolLibrary
    */
   toolLibraryId: string
-  /**
-   * Each entry that became a tool, in the library’s order.
-   * @type {Array<PlanToolLibraryTool>}
-   * @memberof PlanToolLibrary
-   */
-  tools: Array<PlanToolLibraryTool>
-  /**
-   * Each entry that did not become a tool, in the library’s order.
-   * @type {Array<PlanRefusedToolEntry>}
-   * @memberof PlanToolLibrary
-   */
-  refused: Array<PlanRefusedToolEntry>
 }
 
 /**
@@ -57,8 +30,6 @@ export interface PlanToolLibrary {
  */
 export function instanceOfPlanToolLibrary(value: object): value is PlanToolLibrary {
   if (!('toolLibraryId' in value) || value['toolLibraryId'] === undefined) return false
-  if (!('tools' in value) || value['tools'] === undefined) return false
-  if (!('refused' in value) || value['refused'] === undefined) return false
   return true
 }
 
@@ -75,8 +46,6 @@ export function PlanToolLibraryFromJSONTyped(
   }
   return {
     toolLibraryId: json['toolLibraryId'],
-    tools: (json['tools'] as Array<any>).map(PlanToolLibraryToolFromJSON),
-    refused: (json['refused'] as Array<any>).map(PlanRefusedToolEntryFromJSON),
   }
 }
 
@@ -94,7 +63,5 @@ export function PlanToolLibraryToJSONTyped(
 
   return {
     toolLibraryId: value['toolLibraryId'],
-    tools: (value['tools'] as Array<any>).map(PlanToolLibraryToolToJSON),
-    refused: (value['refused'] as Array<any>).map(PlanRefusedToolEntryToJSON),
   }
 }

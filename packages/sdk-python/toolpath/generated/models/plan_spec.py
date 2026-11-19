@@ -27,9 +27,11 @@ class PlanSpec:
 
         Attributes:
             preparation_id (str): The region space every index here is in: the `preparationId` of the response the indices
-                were read from — the part (`GET /v1/parts/{id}`), or a plan’s `planSpec`. A job that prepares the part otherwise
-                — a later kernel release that numbers its regions differently, or another source file — fails, its `error`
-                beginning `stale_regions:`.
+                were read from — the part (`GET /v1/parts/{id}`), or a plan’s `planSpec`. It identifies the region space, not
+                the part: parts whose regions number alike share it, such as the same block at two sizes, so a spec read off one
+                is accepted on the other, and a caller keys on its own part id where parts must be told apart. Each kernel
+                release answers ids of its own, so a spec read under another kernel release (`kernelVersion`) is refused: the
+                job fails, its `error` beginning `stale_regions:`.
             skipped_regions (list[int] | Unset): Regions no setup machines — already at their final surface, or not to be
                 machined — as indices into the part’s `regions`. No feature planned holds one, and they are left out of the
                 plan’s `issues`, machining times and toolpaths. Omit for none.

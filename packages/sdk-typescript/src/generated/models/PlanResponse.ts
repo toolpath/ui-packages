@@ -37,6 +37,13 @@ import {
   PlanResponseStockToJSON,
   PlanResponseStockToJSONTyped,
 } from './PlanResponseStock.js'
+import type { PlanTool } from './PlanTool.js'
+import {
+  PlanToolFromJSON,
+  PlanToolFromJSONTyped,
+  PlanToolToJSON,
+  PlanToolToJSONTyped,
+} from './PlanTool.js'
 import type { PlanResponseDoneRegions } from './PlanResponseDoneRegions.js'
 import {
   PlanResponseDoneRegionsFromJSON,
@@ -123,13 +130,21 @@ export interface PlanResponse {
    */
   spoilboardHeight: number | null
   /**
-   * Per Fusion tool library the plan’s crib named, in the crib’s order, what its job read of it: which entries became which tools, and which did not. Empty for a crib of implicit libraries alone.
+   * The Fusion tool libraries the plan’s job read, in the crib’s order. Each tool the plan uses names its library and entry in `tools[key].source`. Empty for a crib of implicit libraries alone.
    *
    * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
    * @type {Array<PlanToolLibrary>}
    * @memberof PlanResponse
    */
   toolLibraries: Array<PlanToolLibrary>
+  /**
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
+   * Each tool the plan’s actions use, by its key (an action’s `toolKey`), as `@toolpath/tool-support` models it: a Fusion library tool as its library states it, in its holder, with its stickout and tool number, and a tool the plan made as the Engine made it, its shaft up to the holder’s nose, its overall length, `guid` and holder not known (see `PlanToolSourceSynthesized`). `tools` is the authoritative description of each tool a plan uses: look an action’s tool up here by `action.toolKey`. `action.tool` is the kernel’s summary of the tool and is kept for backwards compatibility. A library tool’s record can differ from that summary (see `PlanTool.assembly`). A Fusion library tool names its library entry in `source`. A tool the Engine could not model is left out. Empty for a plan with no actions; null for a plan made before Engine API 1.47.0, and for one whose tools the Engine could not record.
+   * @type {{ [key: string]: PlanTool; }}
+   * @memberof PlanResponse
+   */
+  tools: { [key: string]: PlanTool } | null
   /**
    * Fidelity of this plan: `planned` (setups and action-specs only) or `toolpathed` (toolpaths also calculated — fetch them at /plans/{planId}/toolpaths). A plan is readable at `planned` as soon as a calculation has planned the part, while `jobId` names the job cutting it. A `toolpathed` plan keeps its last result while it is recalculated. After a failed calculation the plan stays as its last successful run left it, or `planned` under the failed job.
    * @type {PlanResponseLevelEnum}
@@ -167,7 +182,7 @@ export interface PlanResponse {
    */
   doneRegions: PlanResponseDoneRegions | null
   /**
-   * The features of the part as this plan reads it — after its skipped regions and stated features trim it — that `GET /v1/parts/{id}` does not list, whether or not a setup names them. A part feature holding a region the plan skips — a done region, or one its stock body already leaves at size — a region of a feature the job’s `setupPlan` or `planSpec` states, or one its `planSpec` makes exclusive to a setup of another direction, is read as what is left of it, under a tag of its own, which the plan’s `setupPlan`, `featureTags` and `unmachined` may name; each such feature is here, with the part feature it was cut from. Empty where nothing trimmed a feature; null for a plan whose statement names no region — none skipped, none exclusive to a setup, no feature stated — and for plans made before Engine API 1.30.0.
+   * The features of the part as this plan reads it — after its skipped regions, its stated features and the planner trim it — that `GET /v1/parts/{id}` does not list, whether or not a setup names them. A part feature holding a region the plan skips — a done region, or one its stock body already leaves at size — a region of a feature the job’s `setupPlan` or `planSpec` states, or one its `planSpec` makes exclusive to a setup of another direction, is read as what is left of it, under a tag of its own, which the plan’s `setupPlan`, `featureTags` and `unmachined` may name; so is one the planner trims itself, a plan stating nothing included: where two setups would machine one region, one feature keeps it and the other is read without it. Each such feature is here, with the part feature it was cut from, and a `setupPlan` naming its tag can be sent back. Empty where nothing trimmed a feature; null for plans made before Engine API 1.47.0 whose statement named no region, and for plans made before Engine API 1.30.0. Also null where the Engine could not read them, when a tag the plan names may be listed nowhere.
    * @type {Array<TrimmedFeature>}
    * @memberof PlanResponse
    */
@@ -219,6 +234,7 @@ export function instanceOfPlanResponse(value: object): value is PlanResponse {
   if (!('workholding' in value) || value['workholding'] === undefined) return false
   if (!('spoilboardHeight' in value) || value['spoilboardHeight'] === undefined) return false
   if (!('toolLibraries' in value) || value['toolLibraries'] === undefined) return false
+  if (!('tools' in value) || value['tools'] === undefined) return false
   if (!('level' in value) || value['level'] === undefined) return false
   if (!('issues' in value) || value['issues'] === undefined) return false
   if (!('setups' in value) || value['setups'] === undefined) return false
@@ -247,6 +263,7 @@ export function PlanResponseFromJSONTyped(json: any, ignoreDiscriminator: boolea
     workholding: json['workholding'],
     spoilboardHeight: json['spoilboardHeight'],
     toolLibraries: (json['toolLibraries'] as Array<any>).map(PlanToolLibraryFromJSON),
+    tools: json['tools'] == null ? null : mapValues(json['tools'], PlanToolFromJSON),
     level: json['level'],
     issues: (json['issues'] as Array<any>).map(PlanIssueFromJSON),
     setups: (json['setups'] as Array<any>).map(PlanSetupFromJSON),
@@ -282,6 +299,7 @@ export function PlanResponseToJSONTyped(
     workholding: value['workholding'],
     spoilboardHeight: value['spoilboardHeight'],
     toolLibraries: (value['toolLibraries'] as Array<any>).map(PlanToolLibraryToJSON),
+    tools: value['tools'] == null ? null : mapValues(value['tools'], PlanToolToJSON),
     level: value['level'],
     issues: (value['issues'] as Array<any>).map(PlanIssueToJSON),
     setups: (value['setups'] as Array<any>).map(PlanSetupToJSON),

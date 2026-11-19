@@ -19,9 +19,18 @@ import {
   ProblemDetailsFromJSON,
   ProblemDetailsToJSON,
 } from '../models/ProblemDetails.js'
+import {
+  type ToolLibraryResponse,
+  ToolLibraryResponseFromJSON,
+  ToolLibraryResponseToJSON,
+} from '../models/ToolLibraryResponse.js'
 
 export interface CreateToolLibraryRequest {
   filename?: string
+}
+
+export interface GetToolLibraryRequest {
+  id: string
 }
 
 /**
@@ -62,7 +71,7 @@ export class ToolLibrariesApi extends runtime.BaseAPI {
   }
 
   /**
-   * Creates a Fusion tool library and returns a short-lived URL for uploading it: the JSON Fusion writes for a library (`ToolLibrary.toJson()`, or `tools.json` inside an exported `.tools`). Upload the file to the URL, then name the library in a job’s tool crib as `{ kind: \"fusion\", toolLibraryId, presets? }`. Nothing reads the file until a job does: each plan reads it under its crib entry’s preset map and prices its tools for the job’s material, and an entry that is not a milling tool is listed among the plan’s refused entries rather than failing the job. A library is one upload: uploading again once a job has read it is not supported, and the next job is refused with `tool_library_source_changed`. Create a new library for a new upload. A library expires 15 days after it is created, as a part does.  **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   * Creates a Fusion tool library and returns a short-lived URL for uploading it: the JSON Fusion writes for a library (`ToolLibrary.toJson()`, or `tools.json` inside an exported `.tools`). Upload the file to the URL, then name the library in a job’s tool crib as `{ kind: \"fusion\", toolLibraryId, presets? }`. Nothing reads the file until a job does: each plan reads it under its crib entry’s preset map and prices its tools for the job’s material, and an entry that is not a milling tool is left out rather than failing the job; each tool a plan uses names its library entry in `tools[key].source`. A library is one upload: uploading again once a job has read it is not supported, and the next job is refused with `tool_library_source_changed`. Create a new library for a new upload. A library expires 15 days after it was last used by a job, to within a day; `expiresAt` states the moment. Creating it counts as its first use. Only a job extends a library; reading it (GET /v1/tool-libraries/{id}) does not. A library over 64 MiB is refused by the job that names it (`tool_library_too_large`).  **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
    * Upload a tool library
    */
   async createToolLibraryRaw(
@@ -78,7 +87,7 @@ export class ToolLibrariesApi extends runtime.BaseAPI {
   }
 
   /**
-   * Creates a Fusion tool library and returns a short-lived URL for uploading it: the JSON Fusion writes for a library (`ToolLibrary.toJson()`, or `tools.json` inside an exported `.tools`). Upload the file to the URL, then name the library in a job’s tool crib as `{ kind: \"fusion\", toolLibraryId, presets? }`. Nothing reads the file until a job does: each plan reads it under its crib entry’s preset map and prices its tools for the job’s material, and an entry that is not a milling tool is listed among the plan’s refused entries rather than failing the job. A library is one upload: uploading again once a job has read it is not supported, and the next job is refused with `tool_library_source_changed`. Create a new library for a new upload. A library expires 15 days after it is created, as a part does.  **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   * Creates a Fusion tool library and returns a short-lived URL for uploading it: the JSON Fusion writes for a library (`ToolLibrary.toJson()`, or `tools.json` inside an exported `.tools`). Upload the file to the URL, then name the library in a job’s tool crib as `{ kind: \"fusion\", toolLibraryId, presets? }`. Nothing reads the file until a job does: each plan reads it under its crib entry’s preset map and prices its tools for the job’s material, and an entry that is not a milling tool is left out rather than failing the job; each tool a plan uses names its library entry in `tools[key].source`. A library is one upload: uploading again once a job has read it is not supported, and the next job is refused with `tool_library_source_changed`. Create a new library for a new upload. A library expires 15 days after it was last used by a job, to within a day; `expiresAt` states the moment. Creating it counts as its first use. Only a job extends a library; reading it (GET /v1/tool-libraries/{id}) does not. A library over 64 MiB is refused by the job that names it (`tool_library_too_large`).  **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
    * Upload a tool library
    */
   async createToolLibrary(
@@ -86,6 +95,71 @@ export class ToolLibrariesApi extends runtime.BaseAPI {
     initOverrides?: RequestInit | runtime.InitOverrideFunction,
   ): Promise<CreateToolLibraryResponse> {
     const response = await this.createToolLibraryRaw(requestParameters, initOverrides)
+    return await response.value()
+  }
+
+  /**
+   * Creates request options for getToolLibrary without sending the request
+   */
+  async getToolLibraryRequestOpts(
+    requestParameters: GetToolLibraryRequest,
+  ): Promise<runtime.RequestOpts> {
+    if (requestParameters['id'] == null) {
+      throw new runtime.RequiredError(
+        'id',
+        'Required parameter "id" was null or undefined when calling getToolLibrary().',
+      )
+    }
+
+    const queryParameters: any = {}
+
+    const headerParameters: runtime.HTTPHeaders = {}
+
+    if (this.configuration && this.configuration.accessToken) {
+      const token = this.configuration.accessToken
+      const tokenString = await token('ApiKeyAuth', [])
+
+      if (tokenString) {
+        headerParameters['Authorization'] = `Bearer ${tokenString}`
+      }
+    }
+
+    let urlPath = `/v1/tool-libraries/{id}`
+    urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])))
+
+    return {
+      path: urlPath,
+      method: 'GET',
+      headers: headerParameters,
+      query: queryParameters,
+    }
+  }
+
+  /**
+   * Returns a Fusion tool library created with **Upload a tool library**: when it expires, and a short-lived URL to download its file as it is stored now, so the entries a plan’s tools name (`tools[key].source.entry`) can be read against it. A library uploaded again after a job read it is refused by plan requests (`tool_library_source_changed`). A library expires 15 days after it was last used by a job, to within a day; `expiresAt` states the moment. Reading it does not extend it. 410 once it has expired.  **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   * Get a tool library
+   */
+  async getToolLibraryRaw(
+    requestParameters: GetToolLibraryRequest,
+    initOverrides?: RequestInit | runtime.InitOverrideFunction,
+  ): Promise<runtime.ApiResponse<ToolLibraryResponse>> {
+    const requestOptions = await this.getToolLibraryRequestOpts(requestParameters)
+    const response = await this.request(requestOptions, initOverrides)
+
+    return new runtime.JSONApiResponse(response, (jsonValue) =>
+      ToolLibraryResponseFromJSON(jsonValue),
+    )
+  }
+
+  /**
+   * Returns a Fusion tool library created with **Upload a tool library**: when it expires, and a short-lived URL to download its file as it is stored now, so the entries a plan’s tools name (`tools[key].source.entry`) can be read against it. A library uploaded again after a job read it is refused by plan requests (`tool_library_source_changed`). A library expires 15 days after it was last used by a job, to within a day; `expiresAt` states the moment. Reading it does not extend it. 410 once it has expired.  **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   * Get a tool library
+   */
+  async getToolLibrary(
+    requestParameters: GetToolLibraryRequest,
+    initOverrides?: RequestInit | runtime.InitOverrideFunction,
+  ): Promise<ToolLibraryResponse> {
+    const response = await this.getToolLibraryRaw(requestParameters, initOverrides)
     return await response.value()
   }
 }

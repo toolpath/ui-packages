@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import { readFusionEntry, readFusionLibrary } from '../src/import/fusion/index.js'
+import { sliceAt } from '../src/stack.js'
 import {
+  assemblyFromRecord,
   MM_PER_INCH,
   hasNeck,
   holderTakesTool,
@@ -630,6 +632,29 @@ describe('a Fusion entry', () => {
       const slot = read({ type: 'slot mill' }, { DC: 20, LCF: 3, LB: 3, SFDM: 8, OAL: 60 })
       expect(slot.tool.shaft).toEqual([{ thickness: 57, bottomDiameter: 8, topDiameter: 8 }])
       expect(slot.tool).toMatchObject({ kind: 'KeyseatCutter', undercutReach: 0 })
+    })
+
+    it('slot mill: reads the reach the kernel’s record of the same tool maps to', () => {
+      // The entry's shaft runs on past the holder's nose; the kernel's record stops there.
+      for (const geometry of [
+        { DC: 12, LCF: 3, 'shoulder-length': 10, 'shoulder-diameter': 6, OAL: 60 },
+        { DC: 20, LCF: 3, LB: 3, SFDM: 8, OAL: 60 },
+      ]) {
+        const fusion = read({ type: 'slot mill' }, geometry)
+        const kernel = assemblyFromRecord({
+          name: 'slot',
+          head: { kind: 'KeyseatCutter', fluteLength: 3, diameter: geometry.DC, cornerRadius: 0 },
+          shaft: sliceAt(fusion.tool.shaft ?? [], fusion.stickout - 3),
+          holder: null,
+          fluteCount: 2,
+        })
+        expect(kernel.stickout).toBe(fusion.stickout)
+        expect(fusion.tool).toHaveProperty('undercutReach')
+        expect(kernel.tool, JSON.stringify(geometry)).toHaveProperty(
+          'undercutReach',
+          (fusion.tool as { undercutReach?: number }).undercutReach,
+        )
+      }
     })
 
     it('face mill: an insert tool, DC its diameter, LCF its flute length, TA the complement of its lead', () => {

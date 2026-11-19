@@ -29,9 +29,17 @@ class PlanAction:
             reads `AdaptiveRough` instead; the value is removed in the next API major.
         tool_name (str): Name of the tool this action uses.
         feature_tags (list[str]): Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from
-            `GET /v1/parts/{id}`), or, for a feature the plan’s skipped regions trimmed, to the plan’s `trimmedFeatures`.
-            Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before
-            this was recorded list none for either.
+            `GET /v1/parts/{id}`), or, for a feature the plan trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing
+            names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded
+            list none for either.
+        tool_key (None | str): **Experimental.** Available now and still gaining functionality. It may change in
+            breaking ways in a minor API release; each such change is listed in the release notes, so check them before
+            upgrading.
+
+            The key of the tool this action uses: look it up in the plan’s `tools`. `tools` can be null, or lack this key,
+            while it is set (a plan made before Engine API 1.47.0, or a tool whose record could not be built or read), so
+            handle a missing record. Null for an action with no tool, and on a plan old enough that its tool summary carries
+            no key.
         tool (None | PlanActionToolType0): The full synthesized tool spec, or null when the kernel exposes none. Its
             `key` names the tool within this plan only: two actions with equal keys run in one tool, so a change of key
             between consecutive actions is a tool change. It is not an identity across plans or kernel versions, and is
@@ -43,7 +51,7 @@ class PlanAction:
             surface speed is `π × diameter × spindleSpeed / 1000` (m/min). A tool made past the tool crib, for a pass no
             crib tool could play (a job asked for `fallbackTools`), carries `outsideCrib: { reasons }`: the kernel’s reasons
             no crib tool fit this pass’s features — `LengthOverDiameterTooHigh`, `ToolTypeExcluded`, … — each once, possibly
-            none.
+            none. Kept for backwards compatibility; the tool’s record is `tools[toolKey]` (see `PlanResponse.tools`).
         feed_speed (FeedSpeed | None): What this action runs at — spindle speed, cutting feed and the step depths — or
             null. Null covers two cases the plan’s `kernelVersion` tells apart: the action’s tool has no feeds for the pass,
             or the plan was computed before tp-kernel 0.14.0 and carries none at all.
@@ -54,6 +62,7 @@ class PlanAction:
     intent: PlanActionIntent
     tool_name: str
     feature_tags: list[str]
+    tool_key: None | str
     tool: None | PlanActionToolType0
     feed_speed: FeedSpeed | None
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -71,6 +80,9 @@ class PlanAction:
         tool_name = self.tool_name
 
         feature_tags = self.feature_tags
+
+        tool_key: None | str
+        tool_key = self.tool_key
 
         tool: dict[str, Any] | None
         if isinstance(self.tool, PlanActionToolType0):
@@ -93,6 +105,7 @@ class PlanAction:
                 "intent": intent,
                 "toolName": tool_name,
                 "featureTags": feature_tags,
+                "toolKey": tool_key,
                 "tool": tool,
                 "feedSpeed": feed_speed,
             }
@@ -115,6 +128,13 @@ class PlanAction:
         tool_name = d.pop("toolName")
 
         feature_tags = cast(list[str], d.pop("featureTags"))
+
+        def _parse_tool_key(data: object) -> None | str:
+            if data is None:
+                return data
+            return cast(None | str, data)
+
+        tool_key = _parse_tool_key(d.pop("toolKey"))
 
         def _parse_tool(data: object) -> None | PlanActionToolType0:
             if data is None:
@@ -152,6 +172,7 @@ class PlanAction:
             intent=intent,
             tool_name=tool_name,
             feature_tags=feature_tags,
+            tool_key=tool_key,
             tool=tool,
             feed_speed=feed_speed,
         )

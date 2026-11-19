@@ -1,5 +1,24 @@
 # @toolpath/tool-support
 
+## 1.1.0
+
+### Minor Changes
+
+- df9982b: Map the kernel's tool record to a `RotatingToolAssembly`.
+
+  - `assemblyFromRecord(record)` reads a `KernelToolRecord` (tp-kernel 0.36.0's `ToolRecord`,
+    experimental) into an assembly: the tool with the record's shaft, at a stickout of its flutes
+    and that shaft, with its `shank` and `overallLength` marked `assumed`; no collet or
+    extension; a holder not known stays `null`, and a stated one becomes its outline with its gauge
+    length not known. Each head maps as its kind does (a spot-drill `DrillBit` is a `SpotDrill`, a
+    `FaceEndmill` an insert tool at its swept diameter), and a radius endmill's and a corner rounding
+    mill's diameter and a dovetail's taper are worked back from the record. A keyseat's and a
+    dovetail's `undercutReach` is read off the record's shaft as the Fusion reader reads it off an
+    entry's, the shaft as far as it stands out of the holder: how far the disc overhangs the first
+    layer above it, and 0 where nothing above it is narrower. A flute count of zero is left out.
+  - `KernelToolRecord`, `KernelToolHead` and `KernelThreadTip` mirror the kernel's types
+    structurally; a record is for mapping, not storing.
+
 ## 1.0.0
 
 ### Major Changes

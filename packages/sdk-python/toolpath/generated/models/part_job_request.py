@@ -38,8 +38,8 @@ class PartJobRequest:
             sixteen tool libraries, in priority order — each pass of the plan uses the first library with a tool for it.
             Each library has a `kind`: `implicit`, a library whose tools are synthesized from settings, or `fusion`
             (experimental), a shop’s own Fusion tool library uploaded with **Upload a tool library**, named by
-            `toolLibraryId` and read under its `presets` map; the plan reports what each of its entries became
-            (`toolLibraries`). An implicit library has an optional `name` (a label) and enables tool families (faceMill,
+            `toolLibraryId` and read under its `presets` map; each tool the plan uses from it names its entry
+            (`tools[key].source`). An implicit library has an optional `name` (a label) and enables tool families (faceMill,
             flatEndmill, bullNose, ballEndmill, drill, chamfer, keyseat, tap, cornerRounding), and each family has its own
             settings for inch-sized tools and for metric ones — a face mill diameter, diameter ranges and a maximum length-
             over-diameter, in millimetres; any setting left out takes its default. A family left out is not made, and

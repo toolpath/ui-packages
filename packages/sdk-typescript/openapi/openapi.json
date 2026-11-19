@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Toolpath Engine API",
-    "version": "1.46.1",
+    "version": "1.47.0",
     "description": "Public REST API for Toolpath engine operations.\n\n**Waiting for a job.** Every operation that queues work answers `202` with a `jobId`.\nWait for it with **Stream job updates** (`GET /v1/jobs/{id}/events`), a server-sent event\nstream that sends the job at once, sends it again on every change, and closes after\nsending `succeeded` or `failed`. Both are final. An attempt exceeding its configured\ndeadline (default 300 seconds) fails without retry. Exhausted queue deliveries are\nrecovered by the worker from its DLQ, usually within a few minutes after the last\ndelivery with healthy consumers; outages delay recovery. A job still queued after\n24 hours fails. Read the result as soon as the stream sends `succeeded`, and report the `error`\nas soon as it sends `failed`. Do not wait by calling **Get a job** or a result endpoint in\na loop: a stream is one request however long the job runs, while a loop spends one request\nof the key’s rate limit on every call. In a browser, read the stream with `fetch` and an\nSSE parser: `EventSource` cannot send the `Authorization` header.\n\n**Experimental.** Machining plans and toolpath calculation — creating, listing, and reading\nplans, calculating toolpaths, and reading toolpath results and machining time — and\nmulti-body CAD files, under the `Files` tag, are experimental: available now but still\ngaining functionality; planned additions include plan constraints and specifying material and\nstock, among others. You can build against them today, but they may change substantially in a\nminor release — reshaped, renamed, or removed — where the rest of the API keeps breaking\nchanges for a major version, apart from small ones with no material effect on clients. Every\nbreaking change is listed in the release notes, so check them before upgrading. Plan and\ntoolpath operations are grouped under the `Plans` and `Toolpaths` tags; every experimental\noperation, field, and schema is marked `x-toolpath-experimental`.\n\n**Units.** All dimensional values — in parts and in feature details — are in\nmillimetres; all angles are in degrees. Each part response also states this in its `units` field.\n\n**Browser use.** CORS is per API key: a request only receives an\n`Access-Control-Allow-Origin` header when its `Origin` is in the allowlist configured on the\nkey used (set when creating or editing the key in the portal). A key with no allowed origins\nis server-to-server only. A Bearer API key placed in client-side JavaScript is readable by\nanyone — restrict its origins, prefer a key granted read access only (writes made with it\nare rejected with 403 `read_only_key`), or proxy requests through your own server.\n\n**Access and billing.** An API key is granted read and write access separately in each area\nof the API — the core API (uploads, part display, holders, and jobs), DFM (part analysis,\nfeature datasheets, and plans), and Quoting (toolpaths and machining time) — and that access\ncan be edited on an existing key in the portal. Every operation states its area in its\n`x-toolpath-product` field (`core`, `dfm`, or `quoting`) and whether the call is billed in\n`x-toolpath-metered`. Reads are free but still belong to their product: reading a plan needs\nDFM access, and reading toolpaths needs Quoting. `GET` reads; every other method writes. A key\nwith no access to the operation’s area is refused with 403 `product_mismatch`; one with read\naccess used for a write is refused with 403 `read_only_key`."
   },
   "tags": [
@@ -872,7 +872,7 @@
               "string",
               "null"
             ],
-            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nThe region space this result’s region indices are in, in hex: a content hash of the mesh the analysis read and how it numbered the regions over it, the same for every analysis that numbers them alike. A `planSpec` naming `regions` states it as its `preparationId`. Null on part results made before Engine API 1.41.0; analyze the part again to get one.",
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nThe region space this result’s region indices are in, in hex: a digest of the regions as the analysis numbered them (each one’s kind, which were cut from one face, which border which) and of the kernel release (`kernelVersion`), not of the part’s mesh. Each kernel release answers ids of its own. It identifies the region space, not the part: parts whose regions number alike share it, such as the same block at two sizes, so key on the part’s own id where parts must be told apart. A `planSpec` naming `regions` states it as its `preparationId`. Null on part results made before Engine API 1.41.0; analyze the part again to get one.",
             "x-toolpath-experimental": true
           },
           "units": {
@@ -2912,7 +2912,7 @@
           "preparationId": {
             "type": "string",
             "pattern": "^(0|[1-9a-f][0-9a-f]{0,15})$",
-            "description": "The region space every index here is in: the `preparationId` of the response the indices were read from — the part (`GET /v1/parts/{id}`), or a plan’s `planSpec`. A job that prepares the part otherwise — a later kernel release that numbers its regions differently, or another source file — fails, its `error` beginning `stale_regions:`."
+            "description": "The region space every index here is in: the `preparationId` of the response the indices were read from — the part (`GET /v1/parts/{id}`), or a plan’s `planSpec`. It identifies the region space, not the part: parts whose regions number alike share it, such as the same block at two sizes, so a spec read off one is accepted on the other, and a caller keys on its own part id where parts must be told apart. Each kernel release answers ids of its own, so a spec read under another kernel release (`kernelVersion`) is refused: the job fails, its `error` beginning `stale_regions:`."
           },
           "skippedRegions": {
             "type": "array",
@@ -3691,7 +3691,7 @@
             },
             "minItems": 1,
             "maxItems": 16,
-            "description": "Where tools come from: a tool crib of one to sixteen tool libraries, in priority order — each pass of the plan uses the first library with a tool for it. Each library has a `kind`: `implicit`, a library whose tools are synthesized from settings, or `fusion` (experimental), a shop’s own Fusion tool library uploaded with **Upload a tool library**, named by `toolLibraryId` and read under its `presets` map; the plan reports what each of its entries became (`toolLibraries`). An implicit library has an optional `name` (a label) and enables tool families (faceMill, flatEndmill, bullNose, ballEndmill, drill, chamfer, keyseat, tap, cornerRounding), and each family has its own settings for inch-sized tools and for metric ones — a face mill diameter, diameter ranges and a maximum length-over-diameter, in millimetres; any setting left out takes its default. A family left out is not made, and planning falls back where it can: without drills, holes are milled; without a face mill, facing uses a flat endmill; without chamfer mills, bevels are followed by a bullnose, then a ball. Endmill `minDiameter` is a hard minimum. Inch drills are the fractional, number and letter series, and metric drills the metric series; a library enabling both makes the nearest stocked size of either, one drill per hole, unless its two blocks state different `maxLengthOverDiameter`, when each system's drills are made separately. A drill block that states no `maxDiameter` stocks its whole series, to 4 1/4\" and 57 mm. Corner-rounding diameters are the whole cutter. `tap` is every tool that cuts a thread — cutting and forming taps, and thread mills — each made only for a threaded hole or stud of the process its thread names, a tap at a standard thread size. A stud’s thread is milled, so with `tap` off every stud is planned without its thread. A thread with no tool for it is planned without its thread, which is reported owed. Omit for one implicit library with every family inch-sized at its defaults, corner rounders off, and drills in both systems with `maxDiameter` stated at 50.8 (2\") and 50 — a part's units are not known before it is uploaded, so a hole takes the nearest stocked drill of either.",
+            "description": "Where tools come from: a tool crib of one to sixteen tool libraries, in priority order — each pass of the plan uses the first library with a tool for it. Each library has a `kind`: `implicit`, a library whose tools are synthesized from settings, or `fusion` (experimental), a shop’s own Fusion tool library uploaded with **Upload a tool library**, named by `toolLibraryId` and read under its `presets` map; each tool the plan uses from it names its entry (`tools[key].source`). An implicit library has an optional `name` (a label) and enables tool families (faceMill, flatEndmill, bullNose, ballEndmill, drill, chamfer, keyseat, tap, cornerRounding), and each family has its own settings for inch-sized tools and for metric ones — a face mill diameter, diameter ranges and a maximum length-over-diameter, in millimetres; any setting left out takes its default. A family left out is not made, and planning falls back where it can: without drills, holes are milled; without a face mill, facing uses a flat endmill; without chamfer mills, bevels are followed by a bullnose, then a ball. Endmill `minDiameter` is a hard minimum. Inch drills are the fractional, number and letter series, and metric drills the metric series; a library enabling both makes the nearest stocked size of either, one drill per hole, unless its two blocks state different `maxLengthOverDiameter`, when each system's drills are made separately. A drill block that states no `maxDiameter` stocks its whole series, to 4 1/4\" and 57 mm. Corner-rounding diameters are the whole cutter. `tap` is every tool that cuts a thread — cutting and forming taps, and thread mills — each made only for a threaded hole or stud of the process its thread names, a tap at a standard thread size. A stud’s thread is milled, so with `tap` off every stud is planned without its thread. A thread with no tool for it is planned without its thread, which is reported owed. Omit for one implicit library with every family inch-sized at its defaults, corner rounders off, and drills in both systems with `maxDiameter` stated at 50.8 (2\") and 50 — a part's units are not known before it is uploaded, so a hole takes the nearest stocked drill of either.",
             "example": [
               {
                 "kind": "implicit",
@@ -4242,7 +4242,22 @@
             "items": {
               "$ref": "#/components/schemas/PlanToolLibrary"
             },
-            "description": "Per Fusion tool library the plan’s crib named, in the crib’s order, what its job read of it: which entries became which tools, and which did not. Empty for a crib of implicit libraries alone.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+            "description": "The Fusion tool libraries the plan’s job read, in the crib’s order. Each tool the plan uses names its library and entry in `tools[key].source`. Empty for a crib of implicit libraries alone.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+            "x-toolpath-experimental": true
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/PlanTool"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nEach tool the plan’s actions use, by its key (an action’s `toolKey`), as `@toolpath/tool-support` models it: a Fusion library tool as its library states it, in its holder, with its stickout and tool number, and a tool the plan made as the Engine made it, its shaft up to the holder’s nose, its overall length, `guid` and holder not known (see `PlanToolSourceSynthesized`). `tools` is the authoritative description of each tool a plan uses: look an action’s tool up here by `action.toolKey`. `action.tool` is the kernel’s summary of the tool and is kept for backwards compatibility. A library tool’s record can differ from that summary (see `PlanTool.assembly`). A Fusion library tool names its library entry in `source`. A tool the Engine could not model is left out. Empty for a plan with no actions; null for a plan made before Engine API 1.47.0, and for one whose tools the Engine could not record.",
             "x-toolpath-experimental": true
           },
           "level": {
@@ -4385,7 +4400,7 @@
             "items": {
               "$ref": "#/components/schemas/TrimmedFeature"
             },
-            "description": "The features of the part as this plan reads it — after its skipped regions and stated features trim it — that `GET /v1/parts/{id}` does not list, whether or not a setup names them. A part feature holding a region the plan skips — a done region, or one its stock body already leaves at size — a region of a feature the job’s `setupPlan` or `planSpec` states, or one its `planSpec` makes exclusive to a setup of another direction, is read as what is left of it, under a tag of its own, which the plan’s `setupPlan`, `featureTags` and `unmachined` may name; each such feature is here, with the part feature it was cut from. Empty where nothing trimmed a feature; null for a plan whose statement names no region — none skipped, none exclusive to a setup, no feature stated — and for plans made before Engine API 1.30.0."
+            "description": "The features of the part as this plan reads it — after its skipped regions, its stated features and the planner trim it — that `GET /v1/parts/{id}` does not list, whether or not a setup names them. A part feature holding a region the plan skips — a done region, or one its stock body already leaves at size — a region of a feature the job’s `setupPlan` or `planSpec` states, or one its `planSpec` makes exclusive to a setup of another direction, is read as what is left of it, under a tag of its own, which the plan’s `setupPlan`, `featureTags` and `unmachined` may name; so is one the planner trims itself, a plan stating nothing included: where two setups would machine one region, one feature keeps it and the other is read without it. Each such feature is here, with the part feature it was cut from, and a `setupPlan` naming its tag can be sent back. Empty where nothing trimmed a feature; null for plans made before Engine API 1.47.0 whose statement named no region, and for plans made before Engine API 1.30.0. Also null where the Engine could not read them, when a tag the plan names may be listed nowhere."
           }
         },
         "required": [
@@ -4398,6 +4413,7 @@
           "workholding",
           "spoilboardHeight",
           "toolLibraries",
+          "tools",
           "level",
           "issues",
           "setups",
@@ -4414,82 +4430,754 @@
             "type": "string",
             "format": "uuid",
             "description": "The library, as the crib named it."
-          },
-          "tools": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PlanToolLibraryTool"
-            },
-            "description": "Each entry that became a tool, in the library’s order."
-          },
-          "refused": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PlanRefusedToolEntry"
-            },
-            "description": "Each entry that did not become a tool, in the library’s order."
           }
         },
         "required": [
-          "toolLibraryId",
-          "tools",
-          "refused"
+          "toolLibraryId"
         ],
-        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nWhat a plan’s job read of one Fusion tool library its crib named.",
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA Fusion tool library the plan’s job read, as its crib named it.",
         "x-toolpath-experimental": true
       },
-      "PlanToolLibraryTool": {
+      "PlanTool": {
         "type": "object",
         "properties": {
+          "key": {
+            "type": "string",
+            "description": "The tool’s key, as the plan’s actions name it (`toolKey`): valid within this plan only."
+          },
+          "source": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlanToolSourceFusion"
+              },
+              {
+                "$ref": "#/components/schemas/PlanToolSourceSynthesized"
+              }
+            ],
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "fusion": "#/components/schemas/PlanToolSourceFusion",
+                "synthesized": "#/components/schemas/PlanToolSourceSynthesized"
+              }
+            },
+            "description": "Where the tool came from: a Fusion tool library entry, or the plan itself."
+          },
+          "assembly": {
+            "$ref": "#/components/schemas/RotatingToolAssembly",
+            "description": "The tool as it is put in the spindle, as `@toolpath/tool-support` models it: the tool, what holds it and how far it stands out, in mm and degrees: the authoritative description of the tool (see `PlanResponse.tools`). For a library tool it is the library’s own statement of the tool, and it can differ from the kernel’s summary in each action’s `tool`: an insert tool’s `body.diameter` is its nominal diameter where the summary states the diameter it sweeps, and a spot drill is a `SpotDrill` here where the summary states a `DrillBit`."
+          }
+        },
+        "required": [
+          "key",
+          "source",
+          "assembly"
+        ],
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA tool the plan’s actions use, as `@toolpath/tool-support` models it: the authoritative description of the tool, which an action names by its `toolKey` (see `PlanResponse.tools`), beside the kernel’s summary each action carries in `tool`, from which it can differ (see `assembly`).",
+        "x-toolpath-experimental": true
+      },
+      "PlanToolSourceFusion": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fusion"
+            ],
+            "description": "Read from a Fusion tool library entry."
+          },
+          "toolLibraryId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The library, as the plan’s crib named it and its `toolLibraries` report it."
+          },
           "entry": {
             "type": "integer",
             "minimum": 0,
             "description": "The entry’s index among the library’s entries (its `data` array)."
           },
-          "key": {
+          "guid": {
             "type": "string",
-            "description": "The key of the tool it became, priced for the job: what the plan’s actions and its CAM export name the tool by, so an action leads back to its library entry. Valid within this plan only: a key covers the tool’s feeds and speeds, so the same entry has another under another material, preset map or kernel version."
+            "description": "The entry’s `guid`, as the library’s file states it, which ties it back to the tool in Fusion. Absent where the entry states none."
           }
         },
         "required": [
-          "entry",
-          "key"
+          "kind",
+          "toolLibraryId",
+          "entry"
         ],
-        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nAn entry of a Fusion tool library that became a tool.",
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA tool imported from an entry of a Fusion tool library the plan’s crib named. Its assembly is the entry’s own — tool, holder, stickout and tool number, as the entry states them. Where the Engine could not read the entry, the assembly is built from the Engine’s own record of the tool it made of the entry, as a synthesized tool’s is: its head by its own dimensions, its `shaft` from the flutes up to the holder’s nose, and its `holder`’s outline where the library states one; its tool number and catalog fields are absent. Where the Engine could not read that record either, its shaft is assumed of its cutting diameter up to its stickout, and it has no holder. `guid` is the entry’s for every Fusion tool, modelled or not; `assembly.tool.guid` repeats it where the entry was modelled.",
         "x-toolpath-experimental": true
       },
-      "PlanRefusedToolEntry": {
+      "PlanToolSourceSynthesized": {
         "type": "object",
         "properties": {
-          "entry": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "synthesized"
+            ],
+            "description": "Made by the plan."
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA tool the plan made: from an implicit library of the crib, or past the crib for a job that asked for `fallbackTools`. Its assembly is the tool as the Engine made it: its head by its own dimensions, and its `shaft` the Engine’s own, from the flutes up to the holder’s nose, which its `stickout` reaches. What the holder grips is not stated, so neither its overall length nor its shank is, and it has no `guid`: a reader that needs them states its own. Its `holder` is null, the holder not known, and it has no `collet`. Where the Engine could not read the tool in full, its shaft is assumed of its cutting diameter up to its stickout.",
+        "x-toolpath-experimental": true
+      },
+      "RotatingToolAssembly": {
+        "type": "object",
+        "properties": {
+          "tool": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Tool"
+              },
+              {
+                "$ref": "#/components/schemas/InsertTool"
+              }
+            ],
+            "discriminator": {
+              "propertyName": "type",
+              "mapping": {
+                "solid": "#/components/schemas/Tool",
+                "insert": "#/components/schemas/InsertTool"
+              }
+            },
+            "description": "The cutting tool, solid or insert, told apart by `type`; either states what stands above its flutes as one cone stack, `shaft`."
+          },
+          "holder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Holder"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What holds the tool; null where it is not known."
+          },
+          "collet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Collet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The collet clamping the tool; null where there is none or it is not known."
+          },
+          "stickout": {
+            "type": "number",
+            "description": "Tool tip to the holder face, mm."
+          },
+          "extension": {
+            "$ref": "#/components/schemas/Extension",
+            "description": "The extension the head is screwed onto, where there is one; absent is none or not known."
+          },
+          "extensionProtrusion": {
+            "type": "number",
+            "description": "The extension’s head face to the holder face, mm, where an extension is present: the head stands out of the extension by `stickout − extensionProtrusion`. Greater than zero and less than `stickout`; a value outside that states no place and is not swept or drawn."
+          },
+          "number": {
             "type": "integer",
-            "minimum": 0,
-            "description": "The entry’s index among the library’s entries."
+            "description": "The shop’s tool (T) number, where it is stated."
+          }
+        },
+        "required": [
+          "tool",
+          "holder",
+          "collet",
+          "stickout"
+        ],
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA tool as it is put in the spindle: the tool, what holds it, and how far it stands out.",
+        "x-toolpath-experimental": true
+      },
+      "Tool": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "solid"
+            ],
+            "description": "A solid tool: one ground body, flutes and shank."
           },
           "kind": {
             "type": "string",
-            "description": "Why it is no tool. `UnsupportedType`: a type the import does not read — a probe, a holder, a turning tool, a reamer — though nothing need be wrong with the entry. `Invalid`: a milling tool whose entry does not make one — no geometry, a unit the import does not know, a field it needs and does not state, or numbers no tool can have. `DuplicateTool`: the same tool as an earlier entry, which became the tool. Other values may be added."
+            "description": "What the tool is. Known values: `FlatEndmill`, `RadiusEndmill`, `BallEndmill`, `FaceEndmill`, `ChamferEndmill`, `Countersink`, `CornerRoundingMill`, `DrillBit`, `SpotDrill`, `ThreadMill`, `CuttingTap`, `FormingTap`, `KeyseatCutter`, `DovetailCutter`, `TaperedEndmill`, `LollipopMill`, `CircleSegmentBarrel`, `CircleSegmentLens`, `CircleSegmentOval`, `CircleSegmentTaper`, `BoringBar`, `Counterbore`, `CenterDrill`, `Reamer`. Other values may be added."
           },
-          "toolType": {
+          "name": {
             "type": "string",
-            "description": "For `UnsupportedType`, the library’s own name for its type."
+            "description": "What the tool is called."
           },
-          "duplicateOf": {
+          "guid": {
+            "type": "string",
+            "description": "The record’s stable identifier, where the catalog keeps one; a CAM export needs it."
+          },
+          "vendor": {
+            "type": "string",
+            "description": "The manufacturer, where the source states one."
+          },
+          "productId": {
+            "type": "string",
+            "description": "The manufacturer’s part number, where the source states one."
+          },
+          "orderNumber": {
+            "type": "string",
+            "description": "The manufacturer’s order number, where it differs from its part number."
+          },
+          "productLine": {
+            "type": "string",
+            "description": "The manufacturer’s product line or series, where the source states one."
+          },
+          "productLink": {
+            "type": "string",
+            "description": "Where the manufacturer lists it."
+          },
+          "description": {
+            "type": "string",
+            "description": "The catalog’s own description, where the source states one."
+          },
+          "unitSystem": {
+            "type": "string",
+            "description": "The system the manufacturer published it in: decides how a number is rounded and shown, never the unit it is stored in, which is always mm. Known values: `millimeters`, `inches`. Other values may be added."
+          },
+          "hand": {
+            "type": "string",
+            "description": "The hand of cut, the way the flutes turn; absent is nobody having said. A tap’s thread hand is `thread.handedness`, which the kernel reads. Known values: `right`, `left`. Other values may be added."
+          },
+          "coolantThrough": {
+            "type": "boolean",
+            "description": "Whether coolant runs through the tool."
+          },
+          "substrate": {
+            "type": "string",
+            "description": "The cutting material, in the manufacturer’s own word: `carbide`, `hss`."
+          },
+          "materialGroups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The ISO 513 workpiece groups the manufacturer says it cuts. Known values: `P`, `M`, `K`, `N`, `S`, `H`. Other values may be added."
+          },
+          "diameter": {
+            "type": "number",
+            "description": "The cutting head’s largest diameter, mm. For a chamfer mill or countersink, the top of its cone, which the flutes may stop short of."
+          },
+          "fluteLength": {
+            "type": "number",
+            "description": "Axial length that cuts, from the tip, mm."
+          },
+          "drillDepth": {
+            "type": "number",
+            "description": "A drill’s deepest hole, mm, as its maker states it: short of its flutes, which need room to clear chips."
+          },
+          "fluteCount": {
             "type": "integer",
-            "minimum": 0,
-            "description": "For `DuplicateTool`, the earlier entry it repeats, by its index."
+            "description": "How many flutes it has."
           },
-          "reason": {
+          "shaft": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Cone"
+            },
+            "description": "The body above the flutes to the end of the tool, tip end first, as the kernel stacks it; absent is not stated. Its top layer is the shank a holder clamps."
+          },
+          "shankForm": {
             "type": "string",
-            "description": "Why it is no tool, as a sentence for a person: its wording may change."
+            "description": "The shank’s form (ISO 1835): plain, a Weldon flat or a Whistle Notch; absent is nobody having said. Known values: `plain`, `weldon`, `whistle-notch`. Other values may be added."
+          },
+          "shankClampMin": {
+            "type": "number",
+            "description": "The least of the shank the manufacturer wants clamped, mm (ISO 13399 `LSCN`)."
+          },
+          "cornerRadius": {
+            "type": "number",
+            "description": "The round on a bull nose’s corner, or half a ball’s diameter, mm."
+          },
+          "roundingRadius": {
+            "type": "number",
+            "description": "The round a corner rounding mill cuts, mm."
+          },
+          "tipAngleDeg": {
+            "type": "number",
+            "description": "Included point angle of a drill, countersink or chamfer mill, degrees."
+          },
+          "tipDiameter": {
+            "type": "number",
+            "description": "The small end of a chamfer mill’s, countersink’s or spot drill’s cone, mm: 0 for a sharp point."
+          },
+          "undercutReach": {
+            "type": "number",
+            "description": "How far a keyseat or dovetail cutter’s disc overhangs its neck, mm."
+          },
+          "taperAngleDeg": {
+            "type": "number",
+            "description": "Angle of a flank to the tool axis, degrees (Fusion’s `TA`): a dovetail’s lean, a tapered mill’s taper, a centre drill’s countersink half angle."
+          },
+          "tipLength": {
+            "type": "number",
+            "description": "Length of the tip below the cutting edge, mm (Fusion’s `tip-length`): a corner rounding mill’s pilot below its round, a centre drill’s pilot."
+          },
+          "thread": {
+            "type": "object",
+            "properties": {
+              "pitch": {
+                "type": "number",
+                "description": "Axial distance between threads, mm: for a single-point thread mill, the top of its range."
+              },
+              "pitchMin": {
+                "type": "number",
+                "description": "The bottom of a single-point thread mill’s pitch range, mm (Fusion’s `TPN`); absent for a mill of several teeth."
+              },
+              "teeth": {
+                "type": "integer",
+                "description": "How many teeth a thread mill has (Fusion’s `NT`): 1 for a single-point mill."
+              },
+              "tip": {
+                "type": "object",
+                "properties": {
+                  "form": {
+                    "type": "string",
+                    "description": "The tip’s form: a `flat` tip states `width`, a `round` one `radius`, and a `point` neither. Known values: `point`, `flat`, `round`. Other values may be added."
+                  },
+                  "width": {
+                    "type": "number",
+                    "description": "Its width, mm. A `flat` tip’s."
+                  },
+                  "radius": {
+                    "type": "number",
+                    "description": "Its radius, mm. A `round` tip’s."
+                  }
+                },
+                "required": [
+                  "form"
+                ],
+                "description": "A thread mill’s tooth tip (Fusion’s `thread-tip-type`), which decides the root of the thread it cuts."
+              },
+              "partialThreads": {
+                "type": "number",
+                "description": "Threads ground away at a tap’s nose, its lead: how far past the thread’s end it must run."
+              },
+              "handedness": {
+                "type": "string",
+                "description": "The hand a tap cuts, which the kernel reads; a thread mill has none. Known values: `right`, `left`. Other values may be added."
+              },
+              "profileDeg": {
+                "type": "number",
+                "description": "Included angle between the thread’s flanks, degrees."
+              },
+              "taperDeg": {
+                "type": "number",
+                "description": "Half angle of the thread’s pitch cone to the axis, degrees: 0 for a straight thread."
+              }
+            },
+            "required": [
+              "pitch"
+            ],
+            "description": "The thread a tap or thread mill cuts."
           }
         },
         "required": [
-          "entry",
+          "type",
           "kind",
-          "reason"
+          "name",
+          "diameter",
+          "fluteLength"
         ],
-        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nAn entry of a Fusion tool library that did not become a tool.",
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA solid cutting tool: one ground body, flutes and the `shaft` above them.",
+        "x-toolpath-experimental": true
+      },
+      "Cone": {
+        "type": "object",
+        "properties": {
+          "thickness": {
+            "type": "number",
+            "description": "Layer height in mm."
+          },
+          "bottomDiameter": {
+            "type": "number",
+            "description": "Diameter at the lower end in mm."
+          },
+          "topDiameter": {
+            "type": "number",
+            "description": "Diameter at the upper end in mm."
+          }
+        },
+        "required": [
+          "thickness",
+          "bottomDiameter",
+          "topDiameter"
+        ]
+      },
+      "InsertTool": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "insert"
+            ],
+            "description": "A tool that cuts with indexable inserts on a body."
+          },
+          "kind": {
+            "type": "string",
+            "description": "What the tool is. Known values: `FlatEndmill`, `RadiusEndmill`, `BallEndmill`, `FaceEndmill`, `ChamferEndmill`, `Countersink`, `CornerRoundingMill`, `DrillBit`, `SpotDrill`, `ThreadMill`, `CuttingTap`, `FormingTap`, `KeyseatCutter`, `DovetailCutter`, `TaperedEndmill`, `LollipopMill`, `CircleSegmentBarrel`, `CircleSegmentLens`, `CircleSegmentOval`, `CircleSegmentTaper`, `BoringBar`, `Counterbore`, `CenterDrill`, `Reamer`. Other values may be added."
+          },
+          "name": {
+            "type": "string",
+            "description": "What the tool is called."
+          },
+          "guid": {
+            "type": "string",
+            "description": "The record’s stable identifier, where the catalog keeps one; a CAM export needs it."
+          },
+          "vendor": {
+            "type": "string",
+            "description": "The manufacturer, where the source states one."
+          },
+          "productId": {
+            "type": "string",
+            "description": "The manufacturer’s part number, where the source states one."
+          },
+          "orderNumber": {
+            "type": "string",
+            "description": "The manufacturer’s order number, where it differs from its part number."
+          },
+          "productLine": {
+            "type": "string",
+            "description": "The manufacturer’s product line or series, where the source states one."
+          },
+          "productLink": {
+            "type": "string",
+            "description": "Where the manufacturer lists it."
+          },
+          "description": {
+            "type": "string",
+            "description": "The catalog’s own description, where the source states one."
+          },
+          "unitSystem": {
+            "type": "string",
+            "description": "The system the manufacturer published it in: decides how a number is rounded and shown, never the unit it is stored in, which is always mm. Known values: `millimeters`, `inches`. Other values may be added."
+          },
+          "hand": {
+            "type": "string",
+            "description": "The hand of cut, the way the flutes turn; absent is nobody having said. A tap’s thread hand is `thread.handedness`, which the kernel reads. Known values: `right`, `left`. Other values may be added."
+          },
+          "coolantThrough": {
+            "type": "boolean",
+            "description": "Whether coolant runs through the tool."
+          },
+          "substrate": {
+            "type": "string",
+            "description": "The cutting material, in the manufacturer’s own word: `carbide`, `hss`."
+          },
+          "materialGroups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The ISO 513 workpiece groups the manufacturer says it cuts. Known values: `P`, `M`, `K`, `N`, `S`, `H`. Other values may be added."
+          },
+          "body": {
+            "type": "object",
+            "properties": {
+              "diameter": {
+                "type": "number",
+                "description": "Nominal diameter, mm (Fusion’s `DC`): where the inserts seat, before any growth over the lead angle. The diameter it cuts at is `cuttingDiameter` (`DCX`); a tool the kernel made states the diameter it sweeps here and no lead angle, so `cuttingDiameter` is that figure."
+              },
+              "fluteLength": {
+                "type": "number",
+                "description": "Axial length that cuts, from the tip, mm."
+              },
+              "pockets": {
+                "type": "integer",
+                "description": "How many insert pockets it has."
+              }
+            },
+            "required": [
+              "diameter",
+              "fluteLength"
+            ],
+            "description": "The body the inserts sit on."
+          },
+          "shaft": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Cone"
+            },
+            "description": "The body above the flutes to the end of the tool, tip end first, as the kernel stacks it; absent is not stated. Its top layer is the shank a holder clamps."
+          },
+          "insert": {
+            "type": "object",
+            "properties": {
+              "cornerRadius": {
+                "type": "number",
+                "description": "The insert’s corner radius, mm."
+              },
+              "leadAngleDeg": {
+                "type": "number",
+                "description": "Angle of the cutting edge to the feed direction, degrees: 90 for a square shoulder."
+              },
+              "upperRadius": {
+                "type": "number",
+                "description": "The round at the top of the insert’s cutting edge, mm (Fusion’s `upper-radius`)."
+              },
+              "designation": {
+                "type": "string",
+                "description": "The insert’s ISO designation, as the catalog states it."
+              },
+              "canSideMill": {
+                "type": "boolean",
+                "description": "Whether the inserts reach down the periphery to cut a wall; absent is nobody having said."
+              }
+            },
+            "description": "The inserts, as far as the source states them."
+          }
+        },
+        "required": [
+          "type",
+          "kind",
+          "name",
+          "body",
+          "insert"
+        ],
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA tool that cuts with indexable inserts on a body, its arbor the `shaft` above it.",
+        "x-toolpath-experimental": true
+      },
+      "Holder": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "What the holder is called."
+          },
+          "guid": {
+            "type": "string",
+            "description": "The record’s stable identifier, where the catalog keeps one; a CAM export needs it."
+          },
+          "vendor": {
+            "type": "string",
+            "description": "The manufacturer, where the source states one."
+          },
+          "productId": {
+            "type": "string",
+            "description": "The manufacturer’s part number, where the source states one."
+          },
+          "orderNumber": {
+            "type": "string",
+            "description": "The manufacturer’s order number, where it differs from its part number."
+          },
+          "productLine": {
+            "type": "string",
+            "description": "The manufacturer’s product line or series, where the source states one."
+          },
+          "productLink": {
+            "type": "string",
+            "description": "Where the manufacturer lists it."
+          },
+          "description": {
+            "type": "string",
+            "description": "The catalog’s own description, where the source states one."
+          },
+          "unitSystem": {
+            "type": "string",
+            "description": "The system the manufacturer published it in: decides how a number is rounded and shown, never the unit it is stored in, which is always mm. Known values: `millimeters`, `inches`. Other values may be added."
+          },
+          "layers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Cone"
+            },
+            "description": "The holder’s outline, nose (tool side) layer first."
+          },
+          "gaugeLength": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Spindle gauge line to the holder nose, mm; null where it is not known."
+          },
+          "clamping": {
+            "type": "string",
+            "description": "How it grips the tool; absent is nobody having said, and takes no tool. Known values: `bore`, `collet`, `shrink-fit`, `hydraulic`, `side-lock`, `milling-chuck`. Other values may be added."
+          },
+          "colletSeries": {
+            "type": "string",
+            "description": "For a collet holder, the collet series it takes, such as `ER16`."
+          },
+          "boreDiameter": {
+            "type": "number",
+            "description": "For a holder that grips in its own bore, the one shank diameter it takes, mm: not an upper bound. A sleeve this wide takes the shanks its clamp range covers."
+          },
+          "boreDepth": {
+            "type": "number",
+            "description": "How deep a shank can go into the bore, mm: a tool sits no deeper."
+          },
+          "clampLength": {
+            "type": "number",
+            "description": "Axial length of shank the holder itself grips, mm (the vendor’s `L9`); a collet holder’s grip is its collet’s."
+          },
+          "taper": {
+            "type": "string",
+            "description": "The spindle interface, such as `BT30`: a holder fits only the machine that takes it."
+          },
+          "colletProtrusion": {
+            "type": "number",
+            "description": "How far the seated collet stands proud of the nose face, mm."
+          },
+          "faceContact": {
+            "type": "boolean",
+            "description": "Whether it seats on the spindle face as well as the taper."
+          },
+          "coolantThrough": {
+            "type": "boolean",
+            "description": "Whether coolant runs through it to the tool."
+          }
+        },
+        "required": [
+          "layers",
+          "gaugeLength"
+        ],
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA tool holder as a revolved outline.",
+        "x-toolpath-experimental": true
+      },
+      "Collet": {
+        "type": "object",
+        "properties": {
+          "series": {
+            "type": "string",
+            "description": "The collet series, such as `ER32`; a sleeve’s own series name."
+          },
+          "guid": {
+            "type": "string",
+            "description": "The record’s stable identifier, where the catalog keeps one; a CAM export needs it."
+          },
+          "vendor": {
+            "type": "string",
+            "description": "The manufacturer, where the source states one."
+          },
+          "productId": {
+            "type": "string",
+            "description": "The manufacturer’s part number, where the source states one."
+          },
+          "orderNumber": {
+            "type": "string",
+            "description": "The manufacturer’s order number, where it differs from its part number."
+          },
+          "productLine": {
+            "type": "string",
+            "description": "The manufacturer’s product line or series, where the source states one."
+          },
+          "productLink": {
+            "type": "string",
+            "description": "Where the manufacturer lists it."
+          },
+          "description": {
+            "type": "string",
+            "description": "The catalog’s own description, where the source states one."
+          },
+          "unitSystem": {
+            "type": "string",
+            "description": "The system the manufacturer published it in: decides how a number is rounded and shown, never the unit it is stored in, which is always mm. Known values: `millimeters`, `inches`. Other values may be added."
+          },
+          "kind": {
+            "type": "string",
+            "description": "What the collet is; absent is nobody having said. Known values: `standard`, `coolant-through`, `tap`, `sleeve`. Other values may be added."
+          },
+          "clampMin": {
+            "type": "number",
+            "description": "Smallest shank it clamps, mm."
+          },
+          "clampMax": {
+            "type": "number",
+            "description": "Largest shank it clamps, mm."
+          },
+          "clampLength": {
+            "type": "number",
+            "description": "Axial length of shank it grips, mm; absent where unpublished, which leaves no honest maximum stickout."
+          },
+          "squareSize": {
+            "type": "number",
+            "description": "The square drive a tap collet grips, across flats, mm: such a collet takes only a tap."
+          },
+          "outerDiameter": {
+            "type": "number",
+            "description": "The bore it sits in, mm; a sleeve states one, and fits a holder bored to it."
+          }
+        },
+        "required": [
+          "series",
+          "clampMin",
+          "clampMax"
+        ],
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA collet: what clamps a shank in a collet chuck, or a sleeve in a bore.",
+        "x-toolpath-experimental": true
+      },
+      "Extension": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "What the extension is called."
+          },
+          "guid": {
+            "type": "string",
+            "description": "The record’s stable identifier, where the catalog keeps one; a CAM export needs it."
+          },
+          "vendor": {
+            "type": "string",
+            "description": "The manufacturer, where the source states one."
+          },
+          "productId": {
+            "type": "string",
+            "description": "The manufacturer’s part number, where the source states one."
+          },
+          "orderNumber": {
+            "type": "string",
+            "description": "The manufacturer’s order number, where it differs from its part number."
+          },
+          "productLine": {
+            "type": "string",
+            "description": "The manufacturer’s product line or series, where the source states one."
+          },
+          "productLink": {
+            "type": "string",
+            "description": "Where the manufacturer lists it."
+          },
+          "description": {
+            "type": "string",
+            "description": "The catalog’s own description, where the source states one."
+          },
+          "unitSystem": {
+            "type": "string",
+            "description": "The system the manufacturer published it in: decides how a number is rounded and shown, never the unit it is stored in, which is always mm. Known values: `millimeters`, `inches`. Other values may be added."
+          },
+          "systemSize": {
+            "type": "string",
+            "description": "The modular coupling a cutting head screws in by, such as `DL10`."
+          },
+          "shankForm": {
+            "type": "string",
+            "description": "The shank’s form (ISO 1835): plain, a Weldon flat or a Whistle Notch; absent is nobody having said. Known values: `plain`, `weldon`, `whistle-notch`. Other values may be added."
+          },
+          "layers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Cone"
+            },
+            "description": "Its outline over its whole length, head end (tool side) first: a vendor’s reduced neck (L2/D2) is the first layer, the shank the rest, the top layer’s top diameter the shank a collet or bore clamps. Empty states no shape."
+          }
+        },
+        "required": [
+          "systemSize",
+          "layers"
+        ],
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA modular extension a cutting head screws onto; what the holder clamps.",
         "x-toolpath-experimental": true
       },
       "PlanIssue": {
@@ -4648,7 +5336,15 @@
             "items": {
               "type": "string"
             },
-            "description": "Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /v1/parts/{id}`), or, for a feature the plan’s skipped regions trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either."
+            "description": "Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /v1/parts/{id}`), or, for a feature the plan trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either."
+          },
+          "toolKey": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nThe key of the tool this action uses: look it up in the plan’s `tools`. `tools` can be null, or lack this key, while it is set (a plan made before Engine API 1.47.0, or a tool whose record could not be built or read), so handle a missing record. Null for an action with no tool, and on a plan old enough that its tool summary carries no key.",
+            "x-toolpath-experimental": true
           },
           "tool": {
             "type": [
@@ -4656,7 +5352,7 @@
               "null"
             ],
             "additionalProperties": {},
-            "description": "The full synthesized tool spec, or null when the kernel exposes none. Its `key` names the tool within this plan only: two actions with equal keys run in one tool, so a change of key between consecutive actions is a tool change. It is not an identity across plans or kernel versions, and is absent on plans computed before tp-kernel 0.10.0. It gained `fluteCount` and `stickout` (the tool’s reach below its holder, mm) in tp-kernel 0.14.0, both absent on plans made before it. A tap or thread mill carries the thread it cuts: `threadPitch` (mm), a tap its `threadHandedness`, and its form `threadProfileDeg` (the included flank angle) and taper `threadTaperDeg` (the half angle of the pitch cone, 0 for a straight thread), these two absent on plans made before Engine API 1.23.0. Chip load is `cuttingFeedRate / (spindleSpeed × fluteCount)`; surface speed is `π × diameter × spindleSpeed / 1000` (m/min). A tool made past the tool crib, for a pass no crib tool could play (a job asked for `fallbackTools`), carries `outsideCrib: { reasons }`: the kernel’s reasons no crib tool fit this pass’s features — `LengthOverDiameterTooHigh`, `ToolTypeExcluded`, … — each once, possibly none."
+            "description": "The full synthesized tool spec, or null when the kernel exposes none. Its `key` names the tool within this plan only: two actions with equal keys run in one tool, so a change of key between consecutive actions is a tool change. It is not an identity across plans or kernel versions, and is absent on plans computed before tp-kernel 0.10.0. It gained `fluteCount` and `stickout` (the tool’s reach below its holder, mm) in tp-kernel 0.14.0, both absent on plans made before it. A tap or thread mill carries the thread it cuts: `threadPitch` (mm), a tap its `threadHandedness`, and its form `threadProfileDeg` (the included flank angle) and taper `threadTaperDeg` (the half angle of the pitch cone, 0 for a straight thread), these two absent on plans made before Engine API 1.23.0. Chip load is `cuttingFeedRate / (spindleSpeed × fluteCount)`; surface speed is `π × diameter × spindleSpeed / 1000` (m/min). A tool made past the tool crib, for a pass no crib tool could play (a job asked for `fallbackTools`), carries `outsideCrib: { reasons }`: the kernel’s reasons no crib tool fit this pass’s features — `LengthOverDiameterTooHigh`, `ToolTypeExcluded`, … — each once, possibly none. Kept for backwards compatibility; the tool’s record is `tools[toolKey]` (see `PlanResponse.tools`)."
           },
           "feedSpeed": {
             "anyOf": [
@@ -4676,6 +5372,7 @@
           "intent",
           "toolName",
           "featureTags",
+          "toolKey",
           "tool",
           "feedSpeed"
         ]
@@ -4743,7 +5440,7 @@
           "regionIdxs",
           "fromFeatureTag"
         ],
-        "description": "A feature of the part as a plan reads it that the part report does not list, whether or not a setup names it: what the plan’s skipped regions (done, or left at size by its stock body), the features its `setupPlan` or `planSpec` states, or the regions its `planSpec` makes exclusive to a setup of another direction, left of a part feature, which the kernel reads again on the rest of its regions under a tag of its own."
+        "description": "A feature of the part as a plan reads it that the part report does not list, whether or not a setup names it: what the plan’s skipped regions (done, or left at size by its stock body), the features its `setupPlan` or `planSpec` states, the regions its `planSpec` makes exclusive to a setup of another direction, or the planner itself — a region two setups would machine stays with one feature, and the other loses it — left of a part feature, which the kernel reads again on the rest of its regions under a tag of its own."
       },
       "ToolpathsResponse": {
         "type": "object",
@@ -4789,7 +5486,7 @@
             ],
             "format": "uri",
             "x-toolpath-experimental": true,
-            "description": "15-minute URL for the CAM export: a zip another CAM system rebuilds this job from in its own operations. `job.json` states the tools, the features, the setups in machining order and each action as its intent, tool, heights, feeds and the strategy the plan decided, a refused action with its reason; beside it are the part and the faces each action machines as STEP, and each calculated action’s toolpath as binary columns. Its format may change in any release. Null for a plan calculated before 1.37.0, and where the export is unavailable — one of its toolpaths tilts the tool, which it cannot state. **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading."
+            "description": "15-minute URL for the CAM export: a zip another CAM system rebuilds this job from in its own operations. `job.json` states the tools, the features, the setups in machining order and each action as its intent, tool, heights, feeds and the strategy the plan decided, a refused action with its reason; beside it are the part and the faces each action machines as STEP (AP214, mm), each that STEP can be written for, and each calculated action’s toolpath as binary columns; `job.json` names the model files written. Its format may change in any release. Null for a plan calculated before 1.37.0, and where the export is unavailable — one of its toolpaths tilts the tool, which it cannot state. **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading."
           }
         },
         "required": [
@@ -4864,7 +5561,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /v1/parts/{id}`), or, for a feature the plan’s skipped regions trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either."
+            "description": "Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /v1/parts/{id}`), or, for a feature the plan trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either."
           },
           "machiningTime": {
             "type": [
@@ -5173,7 +5870,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /v1/parts/{id}`), or, for a feature the plan’s skipped regions trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either."
+            "description": "Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /v1/parts/{id}`), or, for a feature the plan trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either."
           },
           "machiningTime": {
             "type": [
@@ -5274,15 +5971,65 @@
           "sourceS3Key": {
             "type": "string",
             "description": "Object-storage key assigned to the library."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the library expires unless a plan or toolpath request naming it extends it first: 15 days from now. A library expires 15 days after it was last used by a job, to within a day; **Get a tool library** states the moment."
           }
         },
         "required": [
           "toolLibraryId",
           "uploadUrl",
           "sourceBucket",
-          "sourceS3Key"
+          "sourceS3Key",
+          "expiresAt"
         ],
         "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA new tool library, and where to upload it.",
+        "x-toolpath-experimental": true
+      },
+      "ToolLibraryResponse": {
+        "type": "object",
+        "properties": {
+          "toolLibraryId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier of this tool library: what a tool crib names it by."
+          },
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name given for its file when it was created, or null for none."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the library was created."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the library stops being served unless a plan or toolpath request naming it in its crib extends it first: 15 days after its creation or such a request, to within a day. Such a request extends it once it was admitted and its job created, at most once a day, and an idempotent replay does not. Reading the library does not."
+          },
+          "downloadUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "description": "15-minute URL for the library’s file as it is stored now, or null while nothing has been uploaded to it. A library uploaded again after a job read it is refused by plan requests (`tool_library_source_changed`)."
+          }
+        },
+        "required": [
+          "toolLibraryId",
+          "filename",
+          "createdAt",
+          "expiresAt",
+          "downloadUrl"
+        ],
+        "description": "**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.\n\nA Fusion tool library.",
         "x-toolpath-experimental": true
       },
       "UpdateHolderResponse": {
@@ -5520,28 +6267,6 @@
         "required": [
           "length",
           "angle"
-        ]
-      },
-      "Cone": {
-        "type": "object",
-        "properties": {
-          "thickness": {
-            "type": "number",
-            "description": "Layer height in mm."
-          },
-          "bottomDiameter": {
-            "type": "number",
-            "description": "Diameter at the lower end in mm."
-          },
-          "topDiameter": {
-            "type": "number",
-            "description": "Diameter at the upper end in mm."
-          }
-        },
-        "required": [
-          "thickness",
-          "bottomDiameter",
-          "topDiameter"
         ]
       },
       "HolderVec3": {
@@ -6059,7 +6784,7 @@
           "z",
           "flat"
         ],
-        "description": "What a bevel's surroundings allow a chamfer tool riding it: how deep its tip may sit below\nthe bevel's lower edge, how wide its flat bottom may be at that depth, and how far its rim\nmay reach to either side. Every cone a tool matcher accepts for the bevel is read off this.\n\nThe picture is the bevel cut straight across, square to its edge: `u` runs across the cut\nand `z` up the tool axis, both in mm, with the bevel's lower edge at `u = 0, z = 0`. The\nbevel rises to the left, to its upper edge at `z = height`. The face above the upper edge\nis the *near side*, on the left; whatever lies past the lower edge is the *far side*, on\nthe right. Each figure is the nearest obstacle anywhere along the bevel's edge, so this one\ncut stands for the whole bevel. `slope` is the bevel's rise over run, a ratio: 1 for a 45°\nchamfer.\n\nA chamfer tool is a cone ground to the bevel's angle, described by three numbers: its tip\noffset `t`, how far its tip sits below the lower edge; its flat `b`, the diameter of the\nflat bottom at its tip, zero for a pointed tool; and its cone height `H`, from the tip up\nto the rim, where the cone is widest. Riding the bevel, the cone's near flank lies along\nthe bevel's own line, so its rim sits at height `H − t`, with its near corner at\n`u = −(H − t) / slope` and its far corner at `u = (t + H) / slope + b`. Above the rim the\nshaft is no wider than the rim.\n\nThe curve admits a tool when three things hold:\n\n- It spans the bevel: its rim sits at or above the upper edge, `H − t >= height`.\n- Its flat fits: `b` is at most the widest flat at its tip height `z = −t`. `z` and `flat`\n  are parallel, `z` ascending from the deepest tip the curve places to at or below the\n  lower edge. For the last `z[i]` at or below the tip height, the widest flat is\n  `flat[i] + 2 (z − z[i]) / slope`, widening as the tip rises; no tip sits below `z[0]`.\n- Its rim fits: both rim corners lie between `minU` and `maxU`, the near corner at or\n  right of `minU` and the far corner at or left of `maxU`.\n\nEvery key is always present; a bound nothing sets is `null`."
+        "description": "What a bevel's surroundings allow a chamfer tool riding it: how deep its tip may sit below\nthe bevel's lower edge, how wide its flat bottom may be at that depth, and how far its rim\nmay reach to either side. Every cone a tool matcher accepts for the bevel is read off this.\n\nThe picture is the bevel cut straight across, square to its edge: `u` runs across the cut\nand `z` up the tool axis, both in mm, with the bevel's lower edge at `u = 0, z = 0`. The\nbevel rises to the left, to its upper edge at `z = height`. The face above the upper edge\nis the *near side*, on the left; whatever lies past the lower edge is the *far side*, on\nthe right. Each figure is the nearest obstacle anywhere along the bevel's edge, so this one\ncut stands for the whole bevel. `slope` is the bevel's rise over run, a ratio: 1 for a 45°\nchamfer.\n\nA chamfer tool is a cone ground to the bevel's angle, described by three numbers: its tip\noffset `t`, how far its tip sits below the lower edge; its flat `b`, the diameter of the\nflat bottom at its tip, zero for a pointed tool; and its cone height `H`, from the tip up\nto the rim, where the cone is widest. Riding the bevel, the cone's near flank lies along\nthe bevel's own line, so its rim sits at height `H − t`, with its near corner at\n`u = −(H − t) / slope` and its far corner at `u = (t + H) / slope + b`. Above the rim the\nshaft is no wider than the rim.\n\nThe curve admits a tool when three things hold:\n\n- It spans the bevel: its rim sits at or above the upper edge, `H − t >= height`.\n- Its flat fits: `b` is at most the widest flat at its tip height `z = −t`. `z` and `flat`\n  are parallel, `z` ascending from the deepest tip the curve places to at or below the\n  lower edge. For the last `z[i]` at or below the tip height, the widest flat is\n  `flat[i] + 2 (z − z[i]) / slope`, widening as the tip rises; no tip sits below `z[0]`.\n- Its rim fits: both rim corners lie between `minU` and `maxU`, the near corner at or\n  right of `minU` and the far corner at or left of `maxU`.\n\nWhere every cone would meet something, as on a bevel running down to a vacuum table or one\na fixture stands in the way of, the curve is one pair, `z = [0]` and `flat = [0]`. By the\nrules above that admits only a pointed tool with its tip exactly on the lower edge, which\nthe kernel's minimum tip offset refuses, so the bevel gets no chamfer tool.\n\nEvery key is always present; a bound nothing sets is `null`."
       },
       "ChamferFacts": {
         "type": "object",
@@ -9299,7 +10024,17 @@
             }
           },
           "410": {
-            "description": "A Fusion tool library in the crib is past retention (`tool_library_expired`): upload it again and name the new one.",
+            "description": "A Fusion tool library in the crib went unused by any job for 15 days (`tool_library_expired`): upload it again and name the new one.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "A Fusion tool library in the crib is over 64 MiB (`tool_library_too_large`).",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9576,7 +10311,17 @@
             }
           },
           "410": {
-            "description": "A Fusion tool library in the crib is past retention (`tool_library_expired`): upload it again and name the new one.",
+            "description": "A Fusion tool library in the crib went unused by any job for 15 days (`tool_library_expired`): upload it again and name the new one.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "A Fusion tool library in the crib is over 64 MiB (`tool_library_too_large`).",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9724,7 +10469,17 @@
             }
           },
           "410": {
-            "description": "A Fusion tool library in the crib is past retention (`tool_library_expired`): upload it again and name the new one.",
+            "description": "A Fusion tool library in the crib went unused by any job for 15 days (`tool_library_expired`): upload it again and name the new one.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "A Fusion tool library in the crib is over 64 MiB (`tool_library_too_large`).",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -10194,7 +10949,7 @@
         "x-toolpath-metered": false,
         "x-toolpath-experimental": true,
         "summary": "Upload a tool library",
-        "description": "Creates a Fusion tool library and returns a short-lived URL for uploading it: the JSON Fusion writes for a library (`ToolLibrary.toJson()`, or `tools.json` inside an exported `.tools`). Upload the file to the URL, then name the library in a job’s tool crib as `{ kind: \"fusion\", toolLibraryId, presets? }`. Nothing reads the file until a job does: each plan reads it under its crib entry’s preset map and prices its tools for the job’s material, and an entry that is not a milling tool is listed among the plan’s refused entries rather than failing the job. A library is one upload: uploading again once a job has read it is not supported, and the next job is refused with `tool_library_source_changed`. Create a new library for a new upload. A library expires 15 days after it is created, as a part does.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "description": "Creates a Fusion tool library and returns a short-lived URL for uploading it: the JSON Fusion writes for a library (`ToolLibrary.toJson()`, or `tools.json` inside an exported `.tools`). Upload the file to the URL, then name the library in a job’s tool crib as `{ kind: \"fusion\", toolLibraryId, presets? }`. Nothing reads the file until a job does: each plan reads it under its crib entry’s preset map and prices its tools for the job’s material, and an entry that is not a milling tool is left out rather than failing the job; each tool a plan uses names its library entry in `tools[key].source`. A library is one upload: uploading again once a job has read it is not supported, and the next job is refused with `tool_library_source_changed`. Create a new library for a new upload. A library expires 15 days after it was last used by a job, to within a day; `expiresAt` states the moment. Creating it counts as its first use. Only a job extends a library; reading it (GET /v1/tool-libraries/{id}) does not. A library over 64 MiB is refused by the job that names it (`tool_library_too_large`).\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
         "parameters": [
           {
             "schema": {
@@ -10253,6 +11008,113 @@
           },
           "500": {
             "description": "The tool library could not be created.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tool-libraries/{id}": {
+      "get": {
+        "operationId": "getToolLibrary",
+        "tags": [
+          "Tool libraries"
+        ],
+        "x-toolpath-product": "core",
+        "x-toolpath-metered": false,
+        "x-toolpath-experimental": true,
+        "summary": "Get a tool library",
+        "description": "Returns a Fusion tool library created with **Upload a tool library**: when it expires, and a short-lived URL to download its file as it is stored now, so the entries a plan’s tools name (`tools[key].source.entry`) can be read against it. A library uploaded again after a job read it is refused by plan requests (`tool_library_source_changed`). A library expires 15 days after it was last used by a job, to within a day; `expiresAt` states the moment. Reading it does not extend it. 410 once it has expired.\n\n**Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "0195f02c-4b4a-7b5d-9b6e-8f139d5e2820"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The tool library.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToolLibraryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key may not perform this operation: it has no access to this part of the API, it may only read it, or its creator has not met the organization’s two-factor requirement.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The tool library does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "No job has used the tool library for 15 days, and it is no longer available.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The tool library could not be retrieved.",
             "content": {
               "application/problem+json": {
                 "schema": {

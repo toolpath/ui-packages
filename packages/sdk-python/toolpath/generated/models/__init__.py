@@ -16,6 +16,7 @@ from .cd_data import CdData
 from .chamfer_curve import ChamferCurve
 from .chamfer_facts import ChamferFacts
 from .circular_wall_facts import CircularWallFacts
+from .collet import Collet
 from .cone import Cone
 from .contour_arc import ContourArc
 from .contour_segment import ContourSegment
@@ -33,6 +34,7 @@ from .dovetail_facts import DovetailFacts
 from .download_holder_fusion_format import DownloadHolderFusionFormat
 from .download_holder_fusion_trim import DownloadHolderFusionTrim
 from .export_fusion_holder_library_trim import ExportFusionHolderLibraryTrim
+from .extension import Extension
 from .face_facts import FaceFacts
 from .feature_datasheet import FeatureDatasheet
 from .feature_type import FeatureType
@@ -58,6 +60,7 @@ from .fusion_tool_library_kind import FusionToolLibraryKind
 from .health_response import HealthResponse
 from .health_response_db import HealthResponseDb
 from .health_response_status import HealthResponseStatus
+from .holder import Holder
 from .holder_response import HolderResponse
 from .holder_response_options import HolderResponseOptions
 from .holder_response_taper_family_type_1 import HolderResponseTaperFamilyType1
@@ -101,6 +104,10 @@ from .implicit_tool_library_kind import ImplicitToolLibraryKind
 from .implicit_tool_library_tap import ImplicitToolLibraryTap
 from .implicit_tool_library_tap_inch import ImplicitToolLibraryTapInch
 from .implicit_tool_library_tap_metric import ImplicitToolLibraryTapMetric
+from .insert_tool import InsertTool
+from .insert_tool_body import InsertToolBody
+from .insert_tool_insert import InsertToolInsert
+from .insert_tool_type import InsertToolType
 from .job_detail import JobDetail
 from .job_detail_bodies_item import JobDetailBodiesItem
 from .job_detail_bodies_item_bounding_box import JobDetailBodiesItemBoundingBox
@@ -171,7 +178,6 @@ from .plan_issue_kind import PlanIssueKind
 from .plan_issue_summary import PlanIssueSummary
 from .plan_issue_summary_kind import PlanIssueSummaryKind
 from .plan_list_response import PlanListResponse
-from .plan_refused_tool_entry import PlanRefusedToolEntry
 from .plan_response import PlanResponse
 from .plan_response_done_regions_type_0 import PlanResponseDoneRegionsType0
 from .plan_response_level import PlanResponseLevel
@@ -185,6 +191,7 @@ from .plan_response_setup_plan_type_0_setups_item_orientations_item_direction im
     PlanResponseSetupPlanType0SetupsItemOrientationsItemDirection,
 )
 from .plan_response_stock import PlanResponseStock
+from .plan_response_tools_type_0 import PlanResponseToolsType0
 from .plan_response_workholding import PlanResponseWorkholding
 from .plan_setup import PlanSetup
 from .plan_spec import PlanSpec
@@ -196,8 +203,12 @@ from .plan_spec_setups_item_features_item_feature_type import PlanSpecSetupsItem
 from .plan_summary import PlanSummary
 from .plan_summary_level import PlanSummaryLevel
 from .plan_summary_material import PlanSummaryMaterial
+from .plan_tool import PlanTool
 from .plan_tool_library import PlanToolLibrary
-from .plan_tool_library_tool import PlanToolLibraryTool
+from .plan_tool_source_fusion import PlanToolSourceFusion
+from .plan_tool_source_fusion_kind import PlanToolSourceFusionKind
+from .plan_tool_source_synthesized import PlanToolSourceSynthesized
+from .plan_tool_source_synthesized_kind import PlanToolSourceSynthesizedKind
 from .pocket_facts import PocketFacts
 from .preset_map import PresetMap
 from .problem_details import ProblemDetails
@@ -222,6 +233,7 @@ from .region import Region
 from .report_units import ReportUnits
 from .report_units_angle import ReportUnitsAngle
 from .report_units_length import ReportUnitsLength
+from .rotating_tool_assembly import RotatingToolAssembly
 from .sink_facts import SinkFacts
 from .slope_span import SlopeSpan
 from .stock_body import StockBody
@@ -239,7 +251,12 @@ from .thread_side import ThreadSide
 from .thread_spec import ThreadSpec
 from .threading import Threading
 from .tolerance_band import ToleranceBand
+from .tool import Tool
 from .tool_fit_result import ToolFitResult
+from .tool_library_response import ToolLibraryResponse
+from .tool_thread import ToolThread
+from .tool_thread_tip import ToolThreadTip
+from .tool_type import ToolType
 from .toolpath_action import ToolpathAction
 from .toolpath_action_intent import ToolpathActionIntent
 from .toolpath_setup import ToolpathSetup
@@ -303,6 +320,7 @@ __all__ = (
     "ChamferCurve",
     "ChamferFacts",
     "CircularWallFacts",
+    "Collet",
     "Cone",
     "ContourArc",
     "ContourSegment",
@@ -320,6 +338,7 @@ __all__ = (
     "DownloadHolderFusionFormat",
     "DownloadHolderFusionTrim",
     "ExportFusionHolderLibraryTrim",
+    "Extension",
     "FaceFacts",
     "FeatureDatasheet",
     "FeatureType",
@@ -345,6 +364,7 @@ __all__ = (
     "HealthResponse",
     "HealthResponseDb",
     "HealthResponseStatus",
+    "Holder",
     "HolderResponse",
     "HolderResponseOptions",
     "HolderResponseTaperFamilyType1",
@@ -388,6 +408,10 @@ __all__ = (
     "ImplicitToolLibraryTap",
     "ImplicitToolLibraryTapInch",
     "ImplicitToolLibraryTapMetric",
+    "InsertTool",
+    "InsertToolBody",
+    "InsertToolInsert",
+    "InsertToolType",
     "JobDetail",
     "JobDetailBodiesItem",
     "JobDetailBodiesItemBoundingBox",
@@ -454,7 +478,6 @@ __all__ = (
     "PlanIssueSummary",
     "PlanIssueSummaryKind",
     "PlanListResponse",
-    "PlanRefusedToolEntry",
     "PlanResponse",
     "PlanResponseDoneRegionsType0",
     "PlanResponseLevel",
@@ -464,6 +487,7 @@ __all__ = (
     "PlanResponseSetupPlanType0SetupsItemOrientationsItem",
     "PlanResponseSetupPlanType0SetupsItemOrientationsItemDirection",
     "PlanResponseStock",
+    "PlanResponseToolsType0",
     "PlanResponseWorkholding",
     "PlanSetup",
     "PlanSpec",
@@ -475,8 +499,12 @@ __all__ = (
     "PlanSummary",
     "PlanSummaryLevel",
     "PlanSummaryMaterial",
+    "PlanTool",
     "PlanToolLibrary",
-    "PlanToolLibraryTool",
+    "PlanToolSourceFusion",
+    "PlanToolSourceFusionKind",
+    "PlanToolSourceSynthesized",
+    "PlanToolSourceSynthesizedKind",
     "PocketFacts",
     "PresetMap",
     "ProblemDetails",
@@ -497,6 +525,7 @@ __all__ = (
     "ReportUnits",
     "ReportUnitsAngle",
     "ReportUnitsLength",
+    "RotatingToolAssembly",
     "SinkFacts",
     "SlopeSpan",
     "StockBody",
@@ -514,11 +543,16 @@ __all__ = (
     "ThreadSide",
     "ThreadSpec",
     "ToleranceBand",
+    "Tool",
     "ToolFitResult",
+    "ToolLibraryResponse",
     "ToolpathAction",
     "ToolpathActionIntent",
     "ToolpathSetup",
     "ToolpathsResponse",
+    "ToolThread",
+    "ToolThreadTip",
+    "ToolType",
     "TrimmedFeature",
     "TslotFacts",
     "TurnedAxialHoleFacts",

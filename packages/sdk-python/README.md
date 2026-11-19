@@ -111,6 +111,39 @@ job = await wait_for_job(
 )
 ```
 
+## Reading a plan's tools
+
+A plan's `tools` (experimental) states each tool its actions use, by key, as a `PlanTool`: where it
+came from and its `RotatingToolAssembly`, the tool, its holder and how far it stands out, in mm and
+degrees. `tools` is the authoritative description of each tool a plan uses: look an action's tool
+up here by `action.tool_key`. `action.tool` is the kernel's summary of the tool and is kept for
+backwards compatibility. A library tool's `source` names its library, entry and Fusion `guid`. For
+a library tool the assembly is the library's own statement of the tool and can
+differ from that summary: an insert tool's nominal against its swept diameter, or a spot drill the
+summary states as a drill.
+
+The record's lists, such as a tool's `kind`, a holder's `clamping`, a collet's `kind` or a
+`unit_system`, are typed as strings: each field's documentation lists the values this version knows,
+and a later Engine API may serve another, so handle a value you do not know rather than assume the
+list is complete.
+
+```python
+from toolpath.generated.api.plans import get_plan
+
+plan = await get_plan.asyncio(plan_id, client=client)
+for setup in plan.setups:
+    for action in setup.actions:
+        # `tools` can be None, or lack the key, for a tool the Engine could not record.
+        tools = plan.tools.additional_properties if plan.tools else {}
+        tool = tools.get(action.tool_key) if action.tool_key else None
+        if tool:
+            print(action.idx, tool.assembly.tool.kind, tool.assembly.number, tool.source.kind)
+```
+
+`tools` is `None` for a plan made before Engine API 1.47.0, and for one whose tools the Engine could
+not record; it is empty for a plan with no actions. This version of the SDK reads plans from Engine
+API 1.47.0 or later: an earlier API sends no `tools`, and `PlanResponse.from_dict` raises `KeyError`.
+
 ## Releases
 
 The wheel carries `@toolpath/api`'s version. Versions are set in the private monorepo the

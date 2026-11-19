@@ -1,5 +1,115 @@
 # @toolpath/api
 
+## 0.24.0
+
+### Minor Changes
+
+- da57f05: Regenerate the TypeScript SDK for Engine API 1.47.0.
+
+  ### Engine API 1.47.0
+
+  A Fusion tool library now expires when it goes unused rather than 15 days after it was created, can
+  be read back by id, and its entries can be tied back to their tools in Fusion. A plan now states
+  each tool it uses as `@toolpath/tool-support` models it: a library tool in its holder, with its
+  stickout and tool number. All of it is experimental surface.
+
+  **Tool libraries** (experimental):
+
+  - A library expires 15 days after its expiry was last extended, to within a day; `expiresAt` states
+    the moment. Creating it sets the first expiry. A plan or toolpath request naming it in its crib
+    extends it once the request has been admitted and its job created: at most once a day, and on a
+    best-effort basis, so a request is never refused for it. Only a job extends a library: an
+    idempotent replay does not, nor does reading it. It used to expire 15 days after it was created.
+  - New: `GET /v1/tool-libraries/{id}` answers a library's `toolLibraryId`, `filename`, `createdAt`,
+    `expiresAt`, and a 15-minute `downloadUrl` for its file as it is stored now, null while nothing
+    has been uploaded to it. Unmetered. Another organization's library, or none, is
+    `tool_library_not_found` (404); an expired one `tool_library_expired` (410), whose detail says to
+    create a new library.
+  - `POST /v1/tool-libraries` answers `expiresAt` too.
+
+  **Plans** (`POST /v1/parts/{id}/plans`, `POST /v1/parts/{id}/toolpaths`,
+  `POST /v1/plans/{id}/toolpaths`):
+
+  - Experimental: a crib naming a Fusion tool library over 64 MiB is refused with
+    `tool_library_too_large` (413), before anything is pinned or metered.
+  - `tool_library_expired` (410) now means the library's expiry was not extended for 15 days.
+  - **Breaking change to experimental surface** (`GET /v1/plans/{id}`): a plan's `toolLibraries`
+    lists each Fusion library its job read by its `toolLibraryId` alone. `toolLibraries[].tools` and
+    `toolLibraries[].refused` are removed, and with them the `PlanToolLibraryTool` and
+    `PlanRefusedToolEntry` components. Each tool a plan uses now names its library entry in
+    `tools[key].source` (`toolLibraryId`, `entry` and `guid`), and only the tools the plan uses are
+    served. A plan no longer reports which library entries did not become tools.
+  - Experimental: each action of a plan states `toolKey`, the key of the tool it uses, to look it up
+    in the plan's `tools`; null for an action with no tool. `tools` can be null, or lack the key,
+    while `toolKey` is set (a plan made before this release, or a tool whose record could not be
+    built or read), so a client must handle a missing record.
+  - Experimental: a plan states `tools`, each tool its actions use by its key (an action's
+    `toolKey`), as a `PlanTool`: the `key`, its `source` and its `assembly`. `source` is
+    `{ kind: 'fusion', toolLibraryId, entry, guid }` for a tool imported from a Fusion library entry,
+    `guid` being the entry's own `guid` as the library's file states it, absent where it states
+    none, or `{ kind: 'synthesized' }` for one the plan made (an implicit library's, or a fallback tool's).
+    `assembly` is a `RotatingToolAssembly`, the record `@toolpath/tool-support` defines, in mm and
+    degrees: the `tool` (a solid `Tool` or an `InsertTool`, by `type`), its `holder` and `collet`
+    (null where not known), `stickout`, any `extension`, and the shop's tool `number`. A library
+    tool's assembly is its entry's own: its holder, stickout, tool number, vendor and product as the
+    library states them. `tools` is the authoritative description of each tool a plan uses: look an
+    action's tool up here by `action.toolKey`. `action.tool` is the kernel's summary of the tool and
+    is kept for backwards compatibility. A library tool's assembly is the library's own statement of
+    the tool and can differ from that summary: an insert tool's `body.diameter` is its nominal
+    diameter where the summary states the diameter it sweeps, and a spot drill is a `SpotDrill` here
+    where the summary states a `DrillBit`. A Fusion tool's source carries its entry's `guid` whether
+    or not the entry was modelled; `assembly.tool.guid` repeats it where it was. A synthesized tool's
+    assembly is the tool as the Engine made it: its head by its own dimensions (a chamfer mill's tip
+    diameter, a thread mill's teeth and tip, a spot drill as a `SpotDrill`), and its `shaft` the Engine's own up
+    to the holder's nose, which its `stickout` reaches; its overall length, shank and `guid` are not
+    stated, and its `holder` is null, not known. Where the Engine could not read it in full, its shaft
+    is assumed of its cutting diameter. Where the Engine could not read a library entry, its
+    assembly is built as a synthesized tool's is, from the Engine's own record of the tool it made of
+    the entry: its head, its `shaft` up to the holder's nose, and its `holder`'s outline where the
+    library states one; its tool number and catalog fields are absent, and its `source` is still the
+    entry. Each of the record's lists is published as a string, its known values listed in its
+    description: a tool's `kind`, `hand`, `materialGroups`, `shankForm` and `unitSystem`, a thread's `handedness` and its tip's `form`, a holder's `clamping`, a collet's
+    `kind`, and the `unitSystem` and `shankForm` of the rest. A thread tip is one object, `form`
+    with `width` for a `flat` tip and `radius` for a `round` one. A later release may serve a
+    value not listed, and a tool holding one is served as it is stored, so a client should expect
+    one. Only `tool.type`, which tells a solid tool from an insert tool, is closed. A tool whose record
+    is malformed is left out, and only the tools the plan's actions use are served. Empty for a plan
+    with no actions; null for a plan made before this release and for one whose tools the Engine
+    could not record. New components: `PlanTool`, `PlanToolSourceFusion`,
+    `PlanToolSourceSynthesized`, `RotatingToolAssembly`, `Tool`, `InsertTool`, `Holder`, `Collet`
+    and `Extension`; a layer is the existing `Cone`. The Python SDK of this release reads plans
+    from Engine API 1.47.0 or later only.
+  - A plan's `trimmedFeatures` now lists the features the plan trims itself. Under tp-kernel 0.36.0
+    a plan can trim a feature though its request states nothing: where two setups would machine one
+    region, one feature keeps it and the other is planned without it, under a tag of its own that
+    the part report does not list. `trimmedFeatures` is therefore a list on every plan, empty where
+    nothing trimmed a feature; it used to be null for a plan whose statement named no region, and
+    stays null on plans made before this release, and on one whose trimmed features the Engine could
+    not read, where a tag the plan names may be listed nowhere. A `setupPlan` read off a plan that
+    stated nothing, naming such a tag, can be sent back.
+
+  **Kernel:** this release moves the Engine API from tp-kernel 0.35.0 to 0.36.0.
+
+  - A part's `preparationId` is now a digest of its region space (each region's kind, which were
+    cut from one face, which border which) and of the kernel release, no longer of its mesh. Each
+    release answers its own: a `planSpec` read before this release, including one a plan stored and
+    a recalculation carries, fails its job with `stale_regions`, and the failed job is not charged.
+    Analyze the part again and state the spec afresh. Parts whose regions number alike now share an
+    id, such as the same block at two sizes, so a spec read off one is accepted on the other: key on
+    your own part id where parts must be told apart.
+  - Plans can differ from earlier releases': like passes fold into fewer actions, a setup lists its
+    features by where they lie on the part, stock sizes are read off the part's exact faces, and a
+    chamfer running down to a vacuum table is given no chamfer mill.
+  - Part reports can differ too: walls that meet smoothly, their bottoms running on into one
+    another, are one `Wall` feature, so feature tags and counts change; a surface's `cd` and
+    `bullnoseCurve` read its bends to the reach tolerance its fit allows, and its largest ball is
+    held off the part's facets; `boundingBox` and the part's z bounds are read off its faces' exact
+    extremes, not its facets'.
+  - CAM export (experimental): its STEP files are AP214 in mm; a model a format cannot be written in,
+    the part's included, goes out without that file, and `job.json` names the files written; the
+    finish of a wall whose bottom is not level is a `Trace` tactic, its laps the tool's own path.
+  - `ChamferCurve`'s description now says what a curve that admits no tool looks like.
+
 ## 0.23.1
 
 ### Patch Changes

@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from ..models.plan_response_done_regions_type_0 import PlanResponseDoneRegionsType0
     from ..models.plan_response_setup_plan_type_0 import PlanResponseSetupPlanType0
     from ..models.plan_response_stock import PlanResponseStock
+    from ..models.plan_response_tools_type_0 import PlanResponseToolsType0
     from ..models.plan_setup import PlanSetup
     from ..models.plan_spec import PlanSpec
     from ..models.plan_tool_library import PlanToolLibrary
@@ -46,12 +47,25 @@ class PlanResponse:
 
             The height of the spoilboard the plan’s vacuum table carried, in mm, 0 for none, which a recalculation held on a
             vacuum table that names none keeps. Null under any other workholding.
-        tool_libraries (list[PlanToolLibrary]): Per Fusion tool library the plan’s crib named, in the crib’s order, what
-            its job read of it: which entries became which tools, and which did not. Empty for a crib of implicit libraries
+        tool_libraries (list[PlanToolLibrary]): The Fusion tool libraries the plan’s job read, in the crib’s order. Each
+            tool the plan uses names its library and entry in `tools[key].source`. Empty for a crib of implicit libraries
             alone.
 
             **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API
             release; each such change is listed in the release notes, so check them before upgrading.
+        tools (None | PlanResponseToolsType0): **Experimental.** Available now and still gaining functionality. It may
+            change in breaking ways in a minor API release; each such change is listed in the release notes, so check them
+            before upgrading.
+
+            Each tool the plan’s actions use, by its key (an action’s `toolKey`), as `@toolpath/tool-support` models it: a
+            Fusion library tool as its library states it, in its holder, with its stickout and tool number, and a tool the
+            plan made as the Engine made it, its shaft up to the holder’s nose, its overall length, `guid` and holder not
+            known (see `PlanToolSourceSynthesized`). `tools` is the authoritative description of each tool a plan uses: look
+            an action’s tool up here by `action.toolKey`. `action.tool` is the kernel’s summary of the tool and is kept for
+            backwards compatibility. A library tool’s record can differ from that summary (see `PlanTool.assembly`). A
+            Fusion library tool names its library entry in `source`. A tool the Engine could not model is left out. Empty
+            for a plan with no actions; null for a plan made before Engine API 1.47.0, and for one whose tools the Engine
+            could not record.
         level (PlanResponseLevel): Fidelity of this plan: `planned` (setups and action-specs only) or `toolpathed`
             (toolpaths also calculated — fetch them at /plans/{planId}/toolpaths). A plan is readable at `planned` as soon
             as a calculation has planned the part, while `jobId` names the job cutting it. A `toolpathed` plan keeps its
@@ -78,13 +92,16 @@ class PlanResponse:
             machining times and of toolpaths: a plan whose `issues` are empty machines everything it owes *except* these,
             which the caller vouched for.
         trimmed_features (list[TrimmedFeature] | None): The features of the part as this plan reads it — after its
-            skipped regions and stated features trim it — that `GET /v1/parts/{id}` does not list, whether or not a setup
-            names them. A part feature holding a region the plan skips — a done region, or one its stock body already leaves
-            at size — a region of a feature the job’s `setupPlan` or `planSpec` states, or one its `planSpec` makes
-            exclusive to a setup of another direction, is read as what is left of it, under a tag of its own, which the
-            plan’s `setupPlan`, `featureTags` and `unmachined` may name; each such feature is here, with the part feature it
-            was cut from. Empty where nothing trimmed a feature; null for a plan whose statement names no region — none
-            skipped, none exclusive to a setup, no feature stated — and for plans made before Engine API 1.30.0.
+            skipped regions, its stated features and the planner trim it — that `GET /v1/parts/{id}` does not list, whether
+            or not a setup names them. A part feature holding a region the plan skips — a done region, or one its stock body
+            already leaves at size — a region of a feature the job’s `setupPlan` or `planSpec` states, or one its `planSpec`
+            makes exclusive to a setup of another direction, is read as what is left of it, under a tag of its own, which
+            the plan’s `setupPlan`, `featureTags` and `unmachined` may name; so is one the planner trims itself, a plan
+            stating nothing included: where two setups would machine one region, one feature keeps it and the other is read
+            without it. Each such feature is here, with the part feature it was cut from, and a `setupPlan` naming its tag
+            can be sent back. Empty where nothing trimmed a feature; null for plans made before Engine API 1.47.0 whose
+            statement named no region, and for plans made before Engine API 1.30.0. Also null where the Engine could not
+            read them, when a tag the plan names may be listed nowhere.
     """
 
     part_id: UUID
@@ -96,6 +113,7 @@ class PlanResponse:
     workholding: PlanResponseWorkholding
     spoilboard_height: float | None
     tool_libraries: list[PlanToolLibrary]
+    tools: None | PlanResponseToolsType0
     level: PlanResponseLevel
     issues: list[PlanIssue]
     setups: list[PlanSetup]
@@ -108,6 +126,7 @@ class PlanResponse:
     def to_dict(self) -> dict[str, Any]:
         from ..models.plan_response_done_regions_type_0 import PlanResponseDoneRegionsType0
         from ..models.plan_response_setup_plan_type_0 import PlanResponseSetupPlanType0
+        from ..models.plan_response_tools_type_0 import PlanResponseToolsType0
         from ..models.plan_spec import PlanSpec
 
         part_id = str(self.part_id)
@@ -131,6 +150,12 @@ class PlanResponse:
         for tool_libraries_item_data in self.tool_libraries:
             tool_libraries_item = tool_libraries_item_data.to_dict()
             tool_libraries.append(tool_libraries_item)
+
+        tools: dict[str, Any] | None
+        if isinstance(self.tools, PlanResponseToolsType0):
+            tools = self.tools.to_dict()
+        else:
+            tools = self.tools
 
         level = self.level.value
 
@@ -185,6 +210,7 @@ class PlanResponse:
                 "workholding": workholding,
                 "spoilboardHeight": spoilboard_height,
                 "toolLibraries": tool_libraries,
+                "tools": tools,
                 "level": level,
                 "issues": issues,
                 "setups": setups,
@@ -203,6 +229,7 @@ class PlanResponse:
         from ..models.plan_response_done_regions_type_0 import PlanResponseDoneRegionsType0
         from ..models.plan_response_setup_plan_type_0 import PlanResponseSetupPlanType0
         from ..models.plan_response_stock import PlanResponseStock
+        from ..models.plan_response_tools_type_0 import PlanResponseToolsType0
         from ..models.plan_setup import PlanSetup
         from ..models.plan_spec import PlanSpec
         from ..models.plan_tool_library import PlanToolLibrary
@@ -236,6 +263,21 @@ class PlanResponse:
             tool_libraries_item = PlanToolLibrary.from_dict(tool_libraries_item_data)
 
             tool_libraries.append(tool_libraries_item)
+
+        def _parse_tools(data: object) -> None | PlanResponseToolsType0:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                tools_type_0 = PlanResponseToolsType0.from_dict(data)
+
+                return tools_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | PlanResponseToolsType0, data)
+
+        tools = _parse_tools(d.pop("tools"))
 
         level = PlanResponseLevel(d.pop("level"))
 
@@ -328,6 +370,7 @@ class PlanResponse:
             workholding=workholding,
             spoilboard_height=spoilboard_height,
             tool_libraries=tool_libraries,
+            tools=tools,
             level=level,
             issues=issues,
             setups=setups,

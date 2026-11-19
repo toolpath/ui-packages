@@ -111,7 +111,7 @@ export interface PartResponse {
   /**
    * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
    *
-   * The region space this result’s region indices are in, in hex: a content hash of the mesh the analysis read and how it numbered the regions over it, the same for every analysis that numbers them alike. A `planSpec` naming `regions` states it as its `preparationId`. Null on part results made before Engine API 1.41.0; analyze the part again to get one.
+   * The region space this result’s region indices are in, in hex: a digest of the regions as the analysis numbered them (each one’s kind, which were cut from one face, which border which) and of the kernel release (`kernelVersion`), not of the part’s mesh. Each kernel release answers ids of its own. It identifies the region space, not the part: parts whose regions number alike share it, such as the same block at two sizes, so key on the part’s own id where parts must be told apart. A `planSpec` naming `regions` states it as its `preparationId`. Null on part results made before Engine API 1.41.0; analyze the part again to get one.
    * @type {string}
    * @memberof PartResponse
    */

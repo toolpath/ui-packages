@@ -92,10 +92,13 @@ def sync_detailed(
     to the URL, then name the library in a job’s tool crib as `{ kind: \"fusion\", toolLibraryId,
     presets? }`. Nothing reads the file until a job does: each plan reads it under its crib entry’s
     preset map and prices its tools for the job’s material, and an entry that is not a milling tool is
-    listed among the plan’s refused entries rather than failing the job. A library is one upload:
-    uploading again once a job has read it is not supported, and the next job is refused with
-    `tool_library_source_changed`. Create a new library for a new upload. A library expires 15 days
-    after it is created, as a part does.
+    left out rather than failing the job; each tool a plan uses names its library entry in
+    `tools[key].source`. A library is one upload: uploading again once a job has read it is not
+    supported, and the next job is refused with `tool_library_source_changed`. Create a new library for
+    a new upload. A library expires 15 days after it was last used by a job, to within a day;
+    `expiresAt` states the moment. Creating it counts as its first use. Only a job extends a library;
+    reading it (GET /v1/tool-libraries/{id}) does not. A library over 64 MiB is refused by the job that
+    names it (`tool_library_too_large`).
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -135,10 +138,13 @@ def sync(
     to the URL, then name the library in a job’s tool crib as `{ kind: \"fusion\", toolLibraryId,
     presets? }`. Nothing reads the file until a job does: each plan reads it under its crib entry’s
     preset map and prices its tools for the job’s material, and an entry that is not a milling tool is
-    listed among the plan’s refused entries rather than failing the job. A library is one upload:
-    uploading again once a job has read it is not supported, and the next job is refused with
-    `tool_library_source_changed`. Create a new library for a new upload. A library expires 15 days
-    after it is created, as a part does.
+    left out rather than failing the job; each tool a plan uses names its library entry in
+    `tools[key].source`. A library is one upload: uploading again once a job has read it is not
+    supported, and the next job is refused with `tool_library_source_changed`. Create a new library for
+    a new upload. A library expires 15 days after it was last used by a job, to within a day;
+    `expiresAt` states the moment. Creating it counts as its first use. Only a job extends a library;
+    reading it (GET /v1/tool-libraries/{id}) does not. A library over 64 MiB is refused by the job that
+    names it (`tool_library_too_large`).
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -173,10 +179,13 @@ async def asyncio_detailed(
     to the URL, then name the library in a job’s tool crib as `{ kind: \"fusion\", toolLibraryId,
     presets? }`. Nothing reads the file until a job does: each plan reads it under its crib entry’s
     preset map and prices its tools for the job’s material, and an entry that is not a milling tool is
-    listed among the plan’s refused entries rather than failing the job. A library is one upload:
-    uploading again once a job has read it is not supported, and the next job is refused with
-    `tool_library_source_changed`. Create a new library for a new upload. A library expires 15 days
-    after it is created, as a part does.
+    left out rather than failing the job; each tool a plan uses names its library entry in
+    `tools[key].source`. A library is one upload: uploading again once a job has read it is not
+    supported, and the next job is refused with `tool_library_source_changed`. Create a new library for
+    a new upload. A library expires 15 days after it was last used by a job, to within a day;
+    `expiresAt` states the moment. Creating it counts as its first use. Only a job extends a library;
+    reading it (GET /v1/tool-libraries/{id}) does not. A library over 64 MiB is refused by the job that
+    names it (`tool_library_too_large`).
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.
@@ -214,10 +223,13 @@ async def asyncio(
     to the URL, then name the library in a job’s tool crib as `{ kind: \"fusion\", toolLibraryId,
     presets? }`. Nothing reads the file until a job does: each plan reads it under its crib entry’s
     preset map and prices its tools for the job’s material, and an entry that is not a milling tool is
-    listed among the plan’s refused entries rather than failing the job. A library is one upload:
-    uploading again once a job has read it is not supported, and the next job is refused with
-    `tool_library_source_changed`. Create a new library for a new upload. A library expires 15 days
-    after it is created, as a part does.
+    left out rather than failing the job; each tool a plan uses names its library entry in
+    `tools[key].source`. A library is one upload: uploading again once a job has read it is not
+    supported, and the next job is refused with `tool_library_source_changed`. Create a new library for
+    a new upload. A library expires 15 days after it was last used by a job, to within a day;
+    `expiresAt` states the moment. Creating it counts as its first use. Only a job extends a library;
+    reading it (GET /v1/tool-libraries/{id}) does not. A library over 64 MiB is refused by the job that
+    names it (`tool_library_too_large`).
 
     **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a
     minor API release; each such change is listed in the release notes, so check them before upgrading.

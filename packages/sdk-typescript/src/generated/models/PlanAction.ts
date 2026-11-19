@@ -48,13 +48,21 @@ export interface PlanAction {
    */
   toolName: string
   /**
-   * Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /v1/parts/{id}`), or, for a feature the plan’s skipped regions trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either.
+   * Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /v1/parts/{id}`), or, for a feature the plan trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either.
    * @type {Array<string>}
    * @memberof PlanAction
    */
   featureTags: Array<string>
   /**
-   * The full synthesized tool spec, or null when the kernel exposes none. Its `key` names the tool within this plan only: two actions with equal keys run in one tool, so a change of key between consecutive actions is a tool change. It is not an identity across plans or kernel versions, and is absent on plans computed before tp-kernel 0.10.0. It gained `fluteCount` and `stickout` (the tool’s reach below its holder, mm) in tp-kernel 0.14.0, both absent on plans made before it. A tap or thread mill carries the thread it cuts: `threadPitch` (mm), a tap its `threadHandedness`, and its form `threadProfileDeg` (the included flank angle) and taper `threadTaperDeg` (the half angle of the pitch cone, 0 for a straight thread), these two absent on plans made before Engine API 1.23.0. Chip load is `cuttingFeedRate / (spindleSpeed × fluteCount)`; surface speed is `π × diameter × spindleSpeed / 1000` (m/min). A tool made past the tool crib, for a pass no crib tool could play (a job asked for `fallbackTools`), carries `outsideCrib: { reasons }`: the kernel’s reasons no crib tool fit this pass’s features — `LengthOverDiameterTooHigh`, `ToolTypeExcluded`, … — each once, possibly none.
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
+   * The key of the tool this action uses: look it up in the plan’s `tools`. `tools` can be null, or lack this key, while it is set (a plan made before Engine API 1.47.0, or a tool whose record could not be built or read), so handle a missing record. Null for an action with no tool, and on a plan old enough that its tool summary carries no key.
+   * @type {string}
+   * @memberof PlanAction
+   */
+  toolKey: string | null
+  /**
+   * The full synthesized tool spec, or null when the kernel exposes none. Its `key` names the tool within this plan only: two actions with equal keys run in one tool, so a change of key between consecutive actions is a tool change. It is not an identity across plans or kernel versions, and is absent on plans computed before tp-kernel 0.10.0. It gained `fluteCount` and `stickout` (the tool’s reach below its holder, mm) in tp-kernel 0.14.0, both absent on plans made before it. A tap or thread mill carries the thread it cuts: `threadPitch` (mm), a tap its `threadHandedness`, and its form `threadProfileDeg` (the included flank angle) and taper `threadTaperDeg` (the half angle of the pitch cone, 0 for a straight thread), these two absent on plans made before Engine API 1.23.0. Chip load is `cuttingFeedRate / (spindleSpeed × fluteCount)`; surface speed is `π × diameter × spindleSpeed / 1000` (m/min). A tool made past the tool crib, for a pass no crib tool could play (a job asked for `fallbackTools`), carries `outsideCrib: { reasons }`: the kernel’s reasons no crib tool fit this pass’s features — `LengthOverDiameterTooHigh`, `ToolTypeExcluded`, … — each once, possibly none. Kept for backwards compatibility; the tool’s record is `tools[toolKey]` (see `PlanResponse.tools`).
    * @type {{ [key: string]: any | null; }}
    * @memberof PlanAction
    */
@@ -96,6 +104,7 @@ export function instanceOfPlanAction(value: object): value is PlanAction {
   if (!('intent' in value) || value['intent'] === undefined) return false
   if (!('toolName' in value) || value['toolName'] === undefined) return false
   if (!('featureTags' in value) || value['featureTags'] === undefined) return false
+  if (!('toolKey' in value) || value['toolKey'] === undefined) return false
   if (!('tool' in value) || value['tool'] === undefined) return false
   if (!('feedSpeed' in value) || value['feedSpeed'] === undefined) return false
   return true
@@ -115,6 +124,7 @@ export function PlanActionFromJSONTyped(json: any, ignoreDiscriminator: boolean)
     intent: json['intent'],
     toolName: json['toolName'],
     featureTags: json['featureTags'],
+    toolKey: json['toolKey'],
     tool: json['tool'],
     feedSpeed: FeedSpeedFromJSON(json['feedSpeed']),
   }
@@ -138,6 +148,7 @@ export function PlanActionToJSONTyped(
     intent: value['intent'],
     toolName: value['toolName'],
     featureTags: value['featureTags'],
+    toolKey: value['toolKey'],
     tool: value['tool'],
     feedSpeed: FeedSpeedToJSON(value['feedSpeed']),
   }

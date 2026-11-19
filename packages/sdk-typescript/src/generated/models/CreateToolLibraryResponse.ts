@@ -41,6 +41,12 @@ export interface CreateToolLibraryResponse {
    * @memberof CreateToolLibraryResponse
    */
   sourceS3Key: string
+  /**
+   * When the library expires unless a plan or toolpath request naming it extends it first: 15 days from now. A library expires 15 days after it was last used by a job, to within a day; **Get a tool library** states the moment.
+   * @type {Date}
+   * @memberof CreateToolLibraryResponse
+   */
+  expiresAt: Date
 }
 
 /**
@@ -53,6 +59,7 @@ export function instanceOfCreateToolLibraryResponse(
   if (!('uploadUrl' in value) || value['uploadUrl'] === undefined) return false
   if (!('sourceBucket' in value) || value['sourceBucket'] === undefined) return false
   if (!('sourceS3Key' in value) || value['sourceS3Key'] === undefined) return false
+  if (!('expiresAt' in value) || value['expiresAt'] === undefined) return false
   return true
 }
 
@@ -72,6 +79,7 @@ export function CreateToolLibraryResponseFromJSONTyped(
     uploadUrl: json['uploadUrl'],
     sourceBucket: json['sourceBucket'],
     sourceS3Key: json['sourceS3Key'],
+    expiresAt: new Date(json['expiresAt']),
   }
 }
 
@@ -92,5 +100,6 @@ export function CreateToolLibraryResponseToJSONTyped(
     uploadUrl: value['uploadUrl'],
     sourceBucket: value['sourceBucket'],
     sourceS3Key: value['sourceS3Key'],
+    expiresAt: value['expiresAt'].toISOString(),
   }
 }

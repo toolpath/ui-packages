@@ -13,7 +13,7 @@ import type { Vec3 } from './Vec3.js'
 import { Vec3FromJSON, Vec3FromJSONTyped, Vec3ToJSON, Vec3ToJSONTyped } from './Vec3.js'
 
 /**
- * A feature of the part as a plan reads it that the part report does not list, whether or not a setup names it: what the plan’s skipped regions (done, or left at size by its stock body), the features its `setupPlan` or `planSpec` states, or the regions its `planSpec` makes exclusive to a setup of another direction, left of a part feature, which the kernel reads again on the rest of its regions under a tag of its own.
+ * A feature of the part as a plan reads it that the part report does not list, whether or not a setup names it: what the plan’s skipped regions (done, or left at size by its stock body), the features its `setupPlan` or `planSpec` states, the regions its `planSpec` makes exclusive to a setup of another direction, or the planner itself — a region two setups would machine stays with one feature, and the other loses it — left of a part feature, which the kernel reads again on the rest of its regions under a tag of its own.
  * @export
  * @interface TrimmedFeature
  */

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
 from typing import Any, TypeVar
 from uuid import UUID
@@ -22,12 +23,16 @@ class CreateToolLibraryResponse:
             upload_url (str): Short-lived URL that accepts a direct upload of the library.
             source_bucket (str): Object-storage bucket receiving the library.
             source_s3_key (str): Object-storage key assigned to the library.
+            expires_at (datetime.datetime): When the library expires unless a plan or toolpath request naming it extends it
+                first: 15 days from now. A library expires 15 days after it was last used by a job, to within a day; **Get a
+                tool library** states the moment.
     """
 
     tool_library_id: UUID
     upload_url: str
     source_bucket: str
     source_s3_key: str
+    expires_at: datetime.datetime
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -39,6 +44,8 @@ class CreateToolLibraryResponse:
 
         source_s3_key = self.source_s3_key
 
+        expires_at = self.expires_at.isoformat()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -47,6 +54,7 @@ class CreateToolLibraryResponse:
                 "uploadUrl": upload_url,
                 "sourceBucket": source_bucket,
                 "sourceS3Key": source_s3_key,
+                "expiresAt": expires_at,
             }
         )
 
@@ -63,11 +71,14 @@ class CreateToolLibraryResponse:
 
         source_s3_key = d.pop("sourceS3Key")
 
+        expires_at = datetime.datetime.fromisoformat(d.pop("expiresAt"))
+
         create_tool_library_response = cls(
             tool_library_id=tool_library_id,
             upload_url=upload_url,
             source_bucket=source_bucket,
             source_s3_key=source_s3_key,
+            expires_at=expires_at,
         )
 
         create_tool_library_response.additional_properties = d

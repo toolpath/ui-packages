@@ -28,9 +28,9 @@ class ToolpathAction:
             reads `AdaptiveRough` instead; the value is removed in the next API major.
         tool_name (str): Name of the tool this action uses.
         feature_tags (list[str]): Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from
-            `GET /v1/parts/{id}`), or, for a feature the plan’s skipped regions trimmed, to the plan’s `trimmedFeatures`.
-            Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before
-            this was recorded list none for either.
+            `GET /v1/parts/{id}`), or, for a feature the plan trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing
+            names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded
+            list none for either.
         machining_time (float | None): Machining time for this action from the cut toolpath’s programmed feeds (links
             and rapids included, tool change excluded), in seconds, or null when the action was refused.
         cutting_length (float | None): Cutting-motion length of the toolpath in mm, or null when the action was refused.

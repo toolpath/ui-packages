@@ -158,7 +158,15 @@ export {
 
 export { conesToProfile, profileToCones } from './cones.js'
 
-export { assemblyFromSummary, toolFromSummary, type KernelToolSummary } from './kernel.js'
+export {
+  assemblyFromRecord,
+  assemblyFromSummary,
+  toolFromSummary,
+  type KernelThreadTip,
+  type KernelToolHead,
+  type KernelToolRecord,
+  type KernelToolSummary,
+} from './kernel.js'
 
 export { cuttingDiameter } from './diameter.js'
 

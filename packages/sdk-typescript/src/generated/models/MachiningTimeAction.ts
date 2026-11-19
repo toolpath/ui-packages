@@ -48,7 +48,7 @@ export interface MachiningTimeAction {
    */
   toolName: string
   /**
-   * Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /v1/parts/{id}`), or, for a feature the plan’s skipped regions trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either.
+   * Feature tags (hex) this action is for — join to a part feature’s `featureTag` (from `GET /v1/parts/{id}`), or, for a feature the plan trimmed, to the plan’s `trimmedFeatures`. Whole-part roughing names the features its sweep folds in and facing the faces it takes; plans computed before this was recorded list none for either.
    * @type {Array<string>}
    * @memberof MachiningTimeAction
    */

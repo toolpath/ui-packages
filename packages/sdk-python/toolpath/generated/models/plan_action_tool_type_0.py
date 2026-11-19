@@ -21,7 +21,8 @@ class PlanActionToolType0:
     `cuttingFeedRate / (spindleSpeed × fluteCount)`; surface speed is `π × diameter × spindleSpeed / 1000` (m/min). A
     tool made past the tool crib, for a pass no crib tool could play (a job asked for `fallbackTools`), carries
     `outsideCrib: { reasons }`: the kernel’s reasons no crib tool fit this pass’s features —
-    `LengthOverDiameterTooHigh`, `ToolTypeExcluded`, … — each once, possibly none.
+    `LengthOverDiameterTooHigh`, `ToolTypeExcluded`, … — each once, possibly none. Kept for backwards compatibility; the
+    tool’s record is `tools[toolKey]` (see `PlanResponse.tools`).
 
     """
 

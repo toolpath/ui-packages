@@ -112,6 +112,33 @@ const job = await waitForJob(() => clientFor(currentApiKey()), jobId, {
 The generated `client.jobs.streamJobEvents()` is not a substitute: it resolves only once the stream
 has closed, with the raw event text.
 
+## Reading a plan's tools
+
+A plan's `tools` (experimental) states each tool its actions use, by key, as a `PlanTool`: where it
+came from and its `RotatingToolAssembly`, the tool, its holder and how far it stands out, in mm and
+degrees. `tools` is the authoritative description of each tool a plan uses: look an action's tool
+up here by `action.toolKey`. `action.tool` is the kernel's summary of the tool and is kept for
+backwards compatibility. A library tool's `source` names its library, entry and Fusion `guid`. For
+a library tool the assembly is the library's own statement of the tool and can
+differ from that summary: an insert tool's nominal against its swept diameter, or a spot drill the
+summary states as a drill.
+
+The record's lists, such as a tool's `kind`, a holder's `clamping`, a collet's `kind` or a
+`unitSystem`, are typed as strings: each field's documentation lists the values this version knows,
+and a later Engine API may serve another, so handle a value you do not know rather than assume the
+list is complete.
+
+```ts
+const plan = await client.plans.getPlan({ planId })
+for (const action of plan.setups.flatMap((setup) => setup.actions)) {
+  const tool = action.toolKey ? plan.tools?.[action.toolKey] : undefined
+  console.log(action.idx, tool?.assembly.tool.kind, tool?.assembly.number, tool?.source.kind)
+}
+```
+
+`tools` is null for a plan made before Engine API 1.47.0, and for one whose tools the Engine could
+not record; it is empty for a plan with no actions.
+
 The SDK exports generated request, response, and API types from the Toolpath OpenAPI contract. See the
 [API documentation](https://developers.toolpath.com) for a complete analysis flow.
 

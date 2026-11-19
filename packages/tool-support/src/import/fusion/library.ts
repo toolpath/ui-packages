@@ -34,7 +34,7 @@ import { clampedShank } from '../../holding.js'
 import type { ToolKind } from '../../kinds.js'
 import type { Catalog, Cone, Holder, InsertTool, RotatingToolAssembly, Tool } from '../../model.js'
 import { optional } from '../../optional.js'
-import { sliceAt, stackHeight } from '../../stack.js'
+import { sliceAt, stackHeight, undercutReach } from '../../stack.js'
 import { MM_PER_INCH, type UnitSystem } from '../../units.js'
 
 type Json = Readonly<Record<string, unknown>>
@@ -546,17 +546,6 @@ const shaftOf = (head: Head, segments: ReadonlyArray<Cone>, g: Geometry, dc: num
     layers.push(cylinder(shank, rest))
   }
   return { layers, stickout }
-}
-
-/**
- * How far a disc overhangs what stands directly above it, as the kernel
- * measures it: against the stack below the holder, the `shaft` cut at the
- * stickout, since that is all the kernel stacks.
- */
-const undercutReach = (diameter: number, shaft: ReadonlyArray<Cone>): number => {
-  const first = shaft.find((layer) => layer.thickness > 0)
-  const lip = first === undefined ? diameter : Math.max(first.bottomDiameter, first.topDiameter)
-  return Math.max((diameter - lip) / 2, 0)
 }
 
 /**

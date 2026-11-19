@@ -40,6 +40,11 @@ class ChamferCurve:
     - Its rim fits: both rim corners lie between `minU` and `maxU`, the near corner at or
       right of `minU` and the far corner at or left of `maxU`.
 
+    Where every cone would meet something, as on a bevel running down to a vacuum table or one
+    a fixture stands in the way of, the curve is one pair, `z = [0]` and `flat = [0]`. By the
+    rules above that admits only a pointed tool with its tip exactly on the lower edge, which
+    the kernel's minimum tip offset refuses, so the bevel gets no chamfer tool.
+
     Every key is always present; a bound nothing sets is `null`.
 
         Attributes:
