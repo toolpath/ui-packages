@@ -44,7 +44,7 @@ export interface FusionToolLibrary {
    */
   toolLibraryId: string
   /**
-   * Per purpose, the presets its tools are read under; a purpose left out is priced for the job. Omit to read the names the vendors’ Fusion libraries give the job’s material; `{}` reads none.
+   * Per purpose, the presets its tools are read under; a purpose left out is priced for the job. Omit, or send `{}`, to read no preset: every purpose is priced from the job’s material.
    * @type {PresetMap}
    * @memberof FusionToolLibrary
    */

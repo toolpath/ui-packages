@@ -1,5 +1,22 @@
 # @toolpath/api
 
+## 0.25.0
+
+### Minor Changes
+
+- 66efb4d: Regenerate the TypeScript SDK for Engine API 1.48.0.
+
+  ### Engine API 1.48.0
+
+  An omitted `presets` on a Fusion tool library now reads no preset. No field or shape changes: the
+  description of `presets` changes to say so.
+
+  **Tool libraries** (experimental):
+
+  - A Fusion tool library in a crib with no `presets` now reads no preset, the same as `presets: {}`:
+    every purpose is priced from the job's material. Earlier documentation said an omitted `presets`
+    read the names the vendors' Fusion libraries give the material, which was not accurate.
+
 ## 0.24.0
 
 ### Minor Changes
