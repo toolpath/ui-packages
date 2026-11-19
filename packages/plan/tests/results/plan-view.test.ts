@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { featureRow, trimmedByTag, trimmedOrigin, type PlanPart } from '../../src/index'
+import {
+  customLabel,
+  featureRow,
+  trimmedByTag,
+  trimmedFeatureLabel,
+  trimmedOrigin,
+  type PlanPart,
+} from '../../src/index'
 import { trimmedFeature } from '../trimmed-feature'
 
 // The part's report: `a` a pocket, `h` a blind hole with its bore read.
@@ -74,21 +81,21 @@ describe('featureRow', () => {
   it('reads a trimmed tag by its origin, with its bore where its type is the origin’s', () => {
     expect(featureRow(part, trimmed, "H'")).toEqual({
       tag: "H'",
-      label: 'Feature h (trimmed)',
+      label: 'Feature h (custom)',
       type: 'blind_hole',
       trimmed: true,
       bore,
     })
     expect(featureRow(part, trimmed, 'h2')).toEqual({
       tag: 'h2',
-      label: 'Feature h (trimmed)',
+      label: 'Feature h (custom)',
       type: 'pocket',
       trimmed: true,
     })
   })
 
   it('reads a trimmed tag by its own type where the part has no type for its origin', () => {
-    expect(featureRow(part, trimmed, 'g1')).toMatchObject({ label: 'Face (trimmed)', type: 'face' })
+    expect(featureRow(part, trimmed, 'g1')).toMatchObject({ label: 'Face (custom)', type: 'face' })
   })
 
   it('reads its origin’s label where the part reads no types at all', () => {
@@ -97,6 +104,22 @@ describe('featureRow', () => {
       { trimmedFeatures: [trimmedFeature({ fromFeatureTag: 'a' })] },
       untyped,
     )
-    expect(featureRow(untyped, all, 't').label).toBe('Feature a (trimmed)')
+    expect(featureRow(untyped, all, 't').label).toBe('Feature a (custom)')
+  })
+})
+
+describe('customLabel', () => {
+  it('names a feature after one the part reads, marked custom', () => {
+    expect(customLabel('Pocket')).toBe('Pocket (custom)')
+  })
+
+  it('is how a trimmed feature is named: from its origin, else its own type', () => {
+    const labelOf = (tag: string) => `Pocket ${tag}`
+    expect(trimmedFeatureLabel({ featureType: 'open_pocket', fromFeatureTag: 'b' }, labelOf)).toBe(
+      customLabel('Pocket b'),
+    )
+    expect(trimmedFeatureLabel({ featureType: 'open_pocket', fromFeatureTag: null }, labelOf)).toBe(
+      customLabel('Open pocket'),
+    )
   })
 })

@@ -326,7 +326,7 @@ describe('planDetails: trimmed features', () => {
   it('lists an assigned trimmed feature as the plan names it', () => {
     expect(details().constraints.setups[0]?.orientations[0]?.features).toEqual([
       { tag: 'a', label: 'Pocket a', type: undefined },
-      { tag: 't', label: 'Pocket b (trimmed)', type: 'pocket', trimmed: true },
+      { tag: 't', label: 'Pocket b (custom)', type: 'pocket', trimmed: true },
     ])
   })
 

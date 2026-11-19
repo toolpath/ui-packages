@@ -393,9 +393,9 @@ describe('resultsView, with trimmed features', () => {
     expect(
       only!.rows.map(({ tag, label, type, trimmed }) => ({ tag, label, type, trimmed })),
     ).toEqual([
-      { tag: "A'", label: 'Feature a (trimmed)', type: 'pocket', trimmed: true },
+      { tag: "A'", label: 'Feature a (custom)', type: 'pocket', trimmed: true },
       { tag: 'b', label: 'Feature b', type: 'pocket', trimmed: undefined },
-      { tag: 'T', label: 'Open pocket (trimmed)', type: 'open_pocket', trimmed: true },
+      { tag: 'T', label: 'Open pocket (custom)', type: 'open_pocket', trimmed: true },
     ])
   })
 
@@ -451,12 +451,12 @@ describe('resultsView, with trimmed features', () => {
     })
     const [only] = resultsView({ plan: left, constraints: null, part: reportPart }).setups
     expect(only!.notMachined).toEqual([
-      { tag: "X'", label: 'Feature a (trimmed)', type: 'boss', trimmed: true },
+      { tag: "X'", label: 'Feature a (custom)', type: 'boss', trimmed: true },
     ])
     expect(only!.rows).toEqual([
       {
         tag: "X'",
-        label: 'Feature a (trimmed)',
+        label: 'Feature a (custom)',
         type: 'boss',
         trimmed: true,
         tool: null,

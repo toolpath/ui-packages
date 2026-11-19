@@ -9,6 +9,12 @@ export const featureTypeLabel = (type: string): string => {
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
+/**
+ * A feature not among those the part's analysis reads, named from one it does: `Pocket (custom)`.
+ * Trimmed features are named so (`trimmedFeatureLabel`), and an app can name its own the same way.
+ */
+export const customLabel = (base: string): string => `${base} (custom)`
+
 /** A direction token, exactly as Toolpath served it: the kernel compares directions bit-exactly. */
 export interface PlanDirection {
   x: number
@@ -93,15 +99,15 @@ export interface TrimmedFeature {
 }
 
 /**
- * A trimmed feature as a person says it: its origin's label (`labelOf`), else its type's, with
- * ` (trimmed)` after it — `Pocket (trimmed)`.
+ * A trimmed feature as a person says it: its origin's label (`labelOf`), else its type's, as a
+ * `customLabel` — `Pocket (custom)`.
  */
 export const trimmedFeatureLabel = (
   feature: Pick<TrimmedFeature, 'featureType' | 'fromFeatureTag'>,
   labelOf: (tag: string) => string,
 ): string => {
   const origin = feature.fromFeatureTag
-  return `${origin ? labelOf(origin) : featureTypeLabel(feature.featureType)} (trimmed)`
+  return customLabel(origin ? labelOf(origin) : featureTypeLabel(feature.featureType))
 }
 
 export interface EnginePlan {

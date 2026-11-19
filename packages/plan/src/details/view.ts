@@ -405,7 +405,7 @@ const uniqueDirections = (directions: ReadonlyArray<FaceDirection>): Array<FaceD
  * The draft as the page lays it out: its groups, in its order and with its names, each listing
  * what is assigned in it in the order it was assigned (MP-5). Nothing of Toolpath's: the
  * constraints, and only those. An assigned tag the latest plan (`plan`) trimmed reads as `planView`
- * reads it, `Pocket (trimmed)`; with no plan, as the part labels it.
+ * reads it, `Pocket (custom)`; with no plan, as the part labels it.
  */
 export const draftView = (
   draft: Pick<Constraints, 'setups'>,

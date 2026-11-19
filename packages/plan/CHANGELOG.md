@@ -1,5 +1,11 @@
 # @toolpath/plan
 
+## 1.4.0
+
+### Minor Changes
+
+- 4f6d182: Exports `customLabel(base)`, which returns `` `${base} (custom)` ``. `trimmedFeatureLabel` now names a trimmed feature with it: `Pocket (custom)` in place of `Pocket (trimmed)`, and `planView`, `resultsView` and `draftView` label trimmed rows so. The label text changes, so a caller that matches `(trimmed)` reads `(custom)` now.
+
 ## 1.3.0
 
 ### Minor Changes

@@ -94,8 +94,9 @@ assignments too: a trimmed feature is in it only where it is assigned. Its faces
 done face, so assigning one unmarks nothing.
 
 `planView` and `resultsView` mark a trimmed tag's row `trimmed` and label it from what it was
-trimmed from, `Pocket (trimmed)`, or from its own type where Toolpath does not say or the part has
-no type for that feature (`trimmedFeatureLabel`). The row takes its origin's bore (`featureBore`)
+trimmed from, `Pocket (custom)`, or from its own type where Toolpath does not say or the part has
+no type for that feature (`trimmedFeatureLabel`). `customLabel(base)` adds the ` (custom)`, for an
+app to name a feature of its own the same way. The row takes its origin's bore (`featureBore`)
 where the trimmed type is the origin's, so a trimmed hole groups with the holes of its bore; where
 the type changed, it has none. `trimmedOrigin(feature, typeOf)` is that rule: the feature a trimmed
 one borrows its datasheet, bore, rules and type from, or null. `trimmedByTag(plan, part)` and

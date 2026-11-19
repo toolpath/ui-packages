@@ -188,7 +188,7 @@ export const unique = (tags: Iterable<string>): Array<string> => [...new Set(tag
  * features are read off its passes instead: every tag an action cuts, in machining order.
  *
  * A tag the plan's statements trimmed (`trimmedFeatures`) is a row of its own, marked `trimmed`:
- * `Pocket (trimmed)`, from the label of the feature it was trimmed from.
+ * `Pocket (custom)`, from the label of the feature it was trimmed from.
  */
 export const planView = (
   plan: Pick<EnginePlan, 'setups' | 'setupPlan' | 'trimmedFeatures'>,

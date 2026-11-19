@@ -343,7 +343,7 @@ describe('draftView', () => {
     const rows = (plan: Parameters<typeof draftView>[2]) =>
       draftView(draft, part, plan).flatMap(rowsOf)
     expect(rows({ trimmedFeatures })).toEqual([
-      { tag: "Y'", label: 'Pocket y (trimmed)', type: 'pocket', trimmed: true },
+      { tag: "Y'", label: 'Pocket y (custom)', type: 'pocket', trimmed: true },
       { tag: 'x', label: 'Pocket x', type: undefined },
     ])
     expect(rows(null)).toEqual(draftView(draft, part).flatMap(rowsOf))
