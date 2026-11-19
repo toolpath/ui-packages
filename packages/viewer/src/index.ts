@@ -195,6 +195,7 @@ export {
   screenLength,
   startPosition,
   targetBoundary,
+  threeQuarterDirection,
 } from './render/camera.js'
 export { ExtendedCameraControls } from './render/controls.js'
 export { CONTROL_SCHEME_OPTIONS } from './render/control-schemes.js'
@@ -252,7 +253,7 @@ export {
   orbitTargetOpacity,
 } from './render/target.js'
 export type { BuildPickInput, PartPick, PickModifiers, PointerLocation } from './render/picking.js'
-export type { ViewerControls, ViewerHandle, ViewerView } from './types.js'
+export type { FrameBoxOptions, ViewerControls, ViewerHandle, ViewerView } from './types.js'
 export type {
   Axis2,
   FeatureTag,

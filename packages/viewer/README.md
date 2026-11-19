@@ -353,8 +353,11 @@ selection's, so faces you paint yourself can be isolated without the selection c
 | `ref`                   | —                 | `ViewerHandle` for controls outside the canvas.                                       |
 
 `ViewerHandle` exposes `fit()`, `reset()`, `setView(name)`,
-`setViewDirection({ x, y, z })`, `frameBox(box)`, and `setSection(options | null)`.
+`setViewDirection({ x, y, z })`, `frameBox(box, options?)`, and `setSection(options | null)`.
 `fit` and `frameBox` preserve view direction; `reset` returns to the opening view.
+`frameBox(box, { direction, minShare })` zooms to a feature instead: it turns to look from
+`direction`, frames at least `minShare` of the scene across, and eases there in one move.
+`threeQuarterDirection(direction)` tips a direction so a feature's walls face the camera.
 Named views are `top`, `bottom`, `front`, `back`, `left`, `right`, and `isometric`.
 Direction vectors point from the part toward the camera.
 

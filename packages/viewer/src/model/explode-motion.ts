@@ -48,9 +48,9 @@ const DURATION_MS = 1800
 /** React readouts receive at most ten updates a second while moving. */
 const READOUT_MS = 100
 // Zero velocity and acceleration at each end, without overshooting the part's geometry.
-const ease = (t: number): number => t * t * t * (t * (t * 6 - 15) + 10)
+export const ease = (t: number): number => t * t * t * (t * (t * 6 - 15) + 10)
 
-const prefersReducedMotion = (): boolean =>
+export const prefersReducedMotion = (): boolean =>
   globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 
 /**

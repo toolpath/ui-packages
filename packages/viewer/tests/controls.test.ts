@@ -1,7 +1,17 @@
 import CameraControls from 'camera-controls'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { OrthographicCamera, PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from 'three'
-import { ExtendedCameraControls } from '../src/render/controls.js'
+import {
+  OrthographicCamera,
+  PerspectiveCamera,
+  Plane,
+  Quaternion,
+  Raycaster,
+  Vector2,
+  Vector3,
+} from 'three'
+import { cameraPose, poseBetween, threeQuarterDirection } from '../src/render/camera.js'
+import { ExtendedCameraControls, placeCamera } from '../src/render/controls.js'
+import { squaredUp } from '../src/render/view-cube.js'
 
 class TestRect {
   x: number
@@ -438,4 +448,83 @@ describe('ExtendedCameraControls.panBy', () => {
       controls.dispose()
     },
   )
+})
+
+describe('placeCamera', () => {
+  const freeOrbiting = (kind: keyof typeof cameras) => {
+    const camera = cameras[kind]()
+    camera.up.set(0, 0, 1)
+    const controls = new ExtendedCameraControls(camera)
+    controls.updateCameraUp()
+    controls.attach()
+    controls.update(0)
+    return { camera, controls }
+  }
+
+  it.each(['orthographic', 'perspective'] as const)(
+    'puts a %s camera at a pose, roll and all',
+    (kind) => {
+      const { camera, controls } = freeOrbiting(kind)
+
+      // From the front and rolled a quarter turn: an up free orbit would never
+      // arrive at by itself from Z.
+      const target = new Vector3(20, 5, 10)
+      const position = new Vector3(20, -95, 10)
+      const up = new Vector3(1, 0, 0)
+      const pose = cameraPose(position, target, up, 8)
+      placeCamera(controls, pose)
+
+      expect(camera.position.distanceTo(position)).toBeCloseTo(0, 9)
+      expect(controls.getTarget(new Vector3()).distanceTo(target)).toBeCloseTo(0, 9)
+      expect(camera.up.distanceTo(up)).toBeCloseTo(0, 9)
+      expect(camera.quaternion.angleTo(pose.orientation)).toBeCloseTo(0, 6)
+      // A perspective camera closes in by distance and keeps its own zoom.
+      expect(camera.zoom).toBe(kind === 'orthographic' ? 8 : 1)
+      controls.dispose()
+    },
+  )
+
+  /*
+   * What lets the viewer tell its own steps from a gesture: a pose placed is
+   * still the pose after the controls next update. Free orbit re-derives the up
+   * on every update; if that moved a placed pose, every eased `frameBox` would
+   * read as taken over on its second frame and stop.
+   */
+  it('holds every step of an eased move through the updates between frames', () => {
+    const { camera, controls } = freeOrbiting('orthographic')
+    const from = cameraPose(
+      controls.getPosition(new Vector3()),
+      controls.getTarget(new Vector3()),
+      camera.up.clone(),
+      camera.zoom,
+    )
+    const centre = new Vector3(20, 5, 10)
+    const facing = threeQuarterDirection({ x: 0, y: 0, z: 1 })
+    const squared = squaredUp(facing, camera.up)
+    const to = cameraPose(
+      facing.clone().multiplyScalar(30).add(centre),
+      centre,
+      new Vector3(squared.x, squared.y, squared.z),
+      12,
+    )
+    const step = { target: new Vector3(), orientation: new Quaternion(), distance: 1, zoom: 1 }
+
+    for (let t = 0; t <= 1; t += 0.125) {
+      placeCamera(controls, poseBetween(from, to, t, step))
+      const position = controls.getPosition(new Vector3())
+      const target = controls.getTarget(new Vector3())
+      const up = camera.up.clone()
+
+      // The next frame's update, after something marked the controls for one —
+      // here the band the viewer applies on a resize and as a move lands.
+      controls.applyLimits({ minZoom: 0.01, maxZoom: 1000, minDistance: 0, maxDistance: 1e6 })
+      controls.update(1 / 60)
+
+      expect(controls.getPosition(new Vector3()).distanceTo(position)).toBeLessThan(1e-9)
+      expect(controls.getTarget(new Vector3()).distanceTo(target)).toBeLessThan(1e-9)
+      expect(camera.up.distanceTo(up)).toBeLessThan(1e-9)
+      expect(camera.zoom).toBeCloseTo(step.zoom, 9)
+    }
+    controls.dispose()
+  })
 })

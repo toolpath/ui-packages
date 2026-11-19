@@ -1,4 +1,13 @@
-import { type Box3, type Object3D, OrthographicCamera, PerspectiveCamera, Vector3 } from 'three'
+import {
+  type Box3,
+  Matrix4,
+  type Object3D,
+  OrthographicCamera,
+  PerspectiveCamera,
+  Quaternion,
+  Vector3,
+} from 'three'
+import type { VectorLike } from '../types.js'
 
 export type Projection = 'orthographic' | 'perspective'
 
@@ -468,4 +477,110 @@ export function currentViewDirection(
   into.subVectors(camera.position, target)
   if (into.lengthSq() <= Number.EPSILON) return into.copy(cadViewDirections.isometric)
   return into.normalize()
+}
+
+/**
+ * `bounds` grown about its own centre to at least `share` of the scene across.
+ *
+ * What `frameBox`'s `minShare` frames: a feature framed on its own fills the
+ * view and nothing says where on the part it is, so it is shown among enough
+ * of the part to tell. A `share` that is not above zero asks for nothing.
+ */
+export function boundsAtLeast(bounds: SceneBounds, scene: SceneBounds, share: number): SceneBounds {
+  const least = share > 0 ? scene.radius * share : 0
+  return bounds.radius >= least ? bounds : { center: bounds.center, radius: least }
+}
+
+/**
+ * How far {@link threeQuarterDirection} tips a view across its direction, one
+ * way and seven tenths of that the other: about 21° in all. Enough to see a
+ * hole's walls, little enough that the rest of the part seldom stands in front
+ * of it.
+ */
+const THREE_QUARTER_TIP = 0.32
+
+/**
+ * `direction` tipped a little over one way and a little another, so walls and
+ * floor both face the camera — for `frameBox` from a feature's machining
+ * direction, since straight down a hole's axis shows its walls edge-on.
+ *
+ * Which way it tips depends on `direction` alone, so the same feature is always
+ * seen from the same place. A zero vector comes back zero, which `frameBox`
+ * reads as no direction.
+ */
+export function threeQuarterDirection(direction: VectorLike): Vector3 {
+  const down = new Vector3(direction.x, direction.y, direction.z).normalize()
+  // Any axis not along the direction, to build the two across it from.
+  const helper = Math.abs(down.z) < 0.9 ? new Vector3(0, 0, 1) : new Vector3(1, 0, 0)
+  const across = new Vector3().crossVectors(down, helper).normalize()
+  const other = new Vector3().crossVectors(down, across)
+  return down
+    .addScaledVector(across, THREE_QUARTER_TIP)
+    .addScaledVector(other, THREE_QUARTER_TIP * 0.7)
+    .normalize()
+}
+
+/** Where the camera is and which way it faces, as {@link poseBetween} carries it from one framing to the next. */
+export interface CameraPose {
+  readonly target: Vector3
+  /** The camera's turn: it looks down its own −Z, with its +Y up the screen. */
+  readonly orientation: Quaternion
+  /** From the target out to the camera. */
+  distance: number
+  /** `camera.zoom`. A perspective camera keeps its own and closes in by distance instead. */
+  zoom: number
+}
+
+const scratchLookAt = new Matrix4()
+
+/** The pose of a camera at `position` looking at `target`, with `up` up the screen. */
+export function cameraPose(
+  position: Vector3,
+  target: Vector3,
+  up: Vector3,
+  zoom: number,
+): CameraPose {
+  return {
+    target: target.clone(),
+    orientation: new Quaternion().setFromRotationMatrix(scratchLookAt.lookAt(position, target, up)),
+    distance: position.distanceTo(target),
+    zoom,
+  }
+}
+
+/** Partway from one length or zoom to another by ratio, so each step scales the view alike. */
+const byRatio = (from: number, to: number, t: number): number =>
+  from > 0 && to > 0 ? from * (to / from) ** t : from + (to - from) * t
+
+/**
+ * The pose `t` of the way from `from` to `to`, written into `into`; `t` is
+ * already eased.
+ *
+ * The orientation is slerped whole — view and roll together, one rotation — so
+ * a turn that ends square comes round to its roll on the way rather than
+ * snapping to it at either end. The target slides straight across. Distance
+ * and zoom go by ratio: closing in twentyfold grows the view by the same factor
+ * each frame, rather than leaving nearly all of it to the last few.
+ */
+export function poseBetween(
+  from: CameraPose,
+  to: CameraPose,
+  t: number,
+  into: CameraPose,
+): CameraPose {
+  into.target.lerpVectors(from.target, to.target, t)
+  into.orientation.slerpQuaternions(from.orientation, to.orientation, t)
+  into.distance = byRatio(from.distance, to.distance, t)
+  into.zoom = byRatio(from.zoom, to.zoom, t)
+  return into
+}
+
+/** Where `pose` puts the camera, and which way is up the screen, written into `position` and `up`. */
+export function posePlacement(pose: CameraPose, position: Vector3, up: Vector3): void {
+  position
+    .set(0, 0, 1)
+    .applyQuaternion(pose.orientation)
+    .multiplyScalar(pose.distance)
+    .add(pose.target)
+  up.set(0, 1, 0).applyQuaternion(pose.orientation)
 }

@@ -1,5 +1,19 @@
 # @toolpath/viewer
 
+## 3.13.0
+
+### Minor Changes
+
+- dfa9ba2: `frameBox(box, options)` can turn to a feature and close in on it in one move. `direction` looks
+  from that side and ends on the square roll `setViewDirection` would choose; `minShare` frames at
+  least that share of the scene across, so a small face is shown among enough of the part to say
+  where it is. With either option the camera eases its turn, roll, position and zoom together over
+  0.6 s, lands at once for `prefers-reduced-motion`, and stops where it is when a gesture or another
+  framing takes over. `frameBox(box)` without options frames as before.
+
+  `threeQuarterDirection(direction)` tips a direction about 21°, so a hole's walls and floor both face
+  the camera. `FrameBoxOptions` is exported.
+
 ## 3.12.0
 
 ### Minor Changes

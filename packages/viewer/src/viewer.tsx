@@ -10,8 +10,9 @@ import {
   useRef,
 } from 'react'
 import type { PropsWithChildren, ReactNode } from 'react'
-import { Box3, Group, Vector3 } from 'three'
+import { Box3, Group, Quaternion, Vector3 } from 'three'
 import { CadCameraControls } from './camera.js'
+import { ease, prefersReducedMotion } from './model/explode-motion.js'
 import { readPointer } from './render/pointer.js'
 import { retargetPose } from './render/retarget.js'
 import { type SectionStore, createSectionStore } from './render/section-store.js'
@@ -19,29 +20,39 @@ import { trackDoubleTaps } from './render/tap.js'
 import { ViewerTapProvider, useTapGuard } from './tap.js'
 import {
   CAD_CAMERA_UP,
+  type CameraPose,
   DEFAULT_FIT_MARGIN,
   PERSPECTIVE_FOV,
   type Projection,
   type SceneBounds,
   type ViewerCamera,
   applyProjection,
+  boundsAtLeast,
   boundsFromBox,
   cadViewDirections,
   cameraLimits,
+  cameraPose,
   contentBounds,
   currentViewDirection,
   defaultBounds,
   fitDistance,
+  poseBetween,
   startPosition,
   targetBoundary,
 } from './render/camera.js'
-import type { ControlScheme, ExtendedCameraControls } from './render/controls.js'
+import { type ControlScheme, type ExtendedCameraControls, placeCamera } from './render/controls.js'
 import { type ViewerTheme, resolveTheme } from './render/theme.js'
 import { TargetMarker } from './target-marker.js'
 import type { CanvasSettings } from './frame-settings.js'
 import { ViewerFrame, type ViewerFrameProps } from './viewer-frame.js'
 import { squaredUp } from './render/view-cube.js'
-import type { VectorLike, ViewerControls, ViewerHandle, ViewerView } from './types.js'
+import type {
+  FrameBoxOptions,
+  VectorLike,
+  ViewerControls,
+  ViewerHandle,
+  ViewerView,
+} from './types.js'
 
 const ViewerControlsContext = createContext<ViewerControls | null>(null)
 
@@ -83,6 +94,31 @@ const ViewerRetargetContext = createContext<Retarget>(null)
  * rather than making the part detect a gesture nobody will act on.
  */
 export const useRetarget = (): Retarget => useContext(ViewerRetargetContext)
+
+/** How long an eased `frameBox` takes to turn and close in, in seconds. */
+const FRAME_MOVE_SECONDS = 0.6
+
+/**
+ * How far the controls may drift from where a step of an eased `frameBox` left
+ * them before the move counts them as taken, relative to the scene for
+ * distances and to the zoom for the zoom. Free orbit re-expresses the pose on
+ * every update, which moves it by rounding and nothing more.
+ */
+const MOVE_TOLERANCE = 1e-6
+
+/** An eased `frameBox` under way. */
+interface FrameMove {
+  readonly from: CameraPose
+  readonly to: CameraPose
+  /** What it frames, for the wheel's band once it lands; see `framedRef`. */
+  readonly framed: SceneBounds
+  /** Seconds in. */
+  elapsed: number
+  /** Whether a frame has stepped it yet. */
+  started: boolean
+  /** Where the last step left the controls, to tell when something else has moved them. */
+  readonly left: { readonly position: Vector3; readonly target: Vector3; zoom: number }
+}
 
 interface SceneProps extends PropsWithChildren {
   setControls: (controls: ViewerControls) => void
@@ -131,6 +167,12 @@ const ViewerScene = ({
    * toggle — not something the consumer connects to the view jumping.
    */
   const framedRef = useRef<SceneBounds | null>(null)
+  /** An eased `frameBox` under way; see {@link frameEased}. */
+  const moveRef = useRef<FrameMove | null>(null)
+  const scratchPose = useMemo<CameraPose>(
+    () => ({ target: new Vector3(), orientation: new Quaternion(), distance: 1, zoom: 1 }),
+    [],
+  )
   const scratchBox = useMemo(() => new Box3(), [])
   const scratchBoundary = useMemo(() => new Box3(), [])
   const scratchDirection = useMemo(() => new Vector3(), [])
@@ -196,6 +238,8 @@ const ViewerScene = ({
       const controls = controlsRef.current
       if (!controls) return false
 
+      // Another framing ends an eased one where it is.
+      moveRef.current = null
       const bounds = measure()
       applyProjection(camera, size, bounds, DEFAULT_FIT_MARGIN)
 
@@ -259,6 +303,7 @@ const ViewerScene = ({
       const controls = controlsRef.current
       if (!controls) return false
 
+      moveRef.current = null
       const target = controls.getTarget(new Vector3())
       const direction = currentViewDirection(camera, target, new Vector3())
       const distance = fitDistance(projection, size, bounds, DEFAULT_FIT_MARGIN)
@@ -292,6 +337,132 @@ const ViewerScene = ({
     },
     [applyLimits, camera, invalidate, projection, size],
   )
+
+  /** Ends an eased `frameBox`, settling the wheel's band on what it framed. */
+  const land = useCallback(
+    (move: FrameMove) => {
+      moveRef.current = null
+      applyLimits(boundsRef.current, move.framed)
+      invalidate()
+    },
+    [applyLimits, invalidate],
+  )
+
+  /**
+   * `frameBox` with options: frames `box` from `direction`, if one is given,
+   * easing there in one move rather than turning first and framing after.
+   *
+   * It lands where {@link frameBounds} would frame from that direction — the
+   * same distance and zoom, the frustum still the scene's — with the roll
+   * `setViewDirection` squares to. A direction it is not given is the one being
+   * looked from, and the roll is left as it is, as Fit leaves it.
+   *
+   * The move is stepped here, a pose a frame through `placeCamera`, rather than
+   * left to a `camera-controls` transition. At these controls' damping a
+   * transition arrives inside one frame, under free orbit the next update
+   * collapses it to its end, and it turns the view without the roll, which
+   * would then have to snap.
+   */
+  const frameEased = useCallback(
+    (box: Box3, { direction, minShare = 0 }: FrameBoxOptions): boolean => {
+      const controls = controlsRef.current
+      if (!controls) return false
+
+      const scene = boundsRef.current
+      const framed = boundsAtLeast(boundsFromBox(box), scene, minShare)
+
+      // The controls' end values: where the camera is going, if anything moves it.
+      const target = controls.getTarget(new Vector3())
+      const from = cameraPose(controls.getPosition(new Vector3()), target, camera.up, camera.zoom)
+
+      const turned = direction ? new Vector3(direction.x, direction.y, direction.z) : null
+      const turns = turned !== null && turned.lengthSq() > 0
+      const facing = turns
+        ? turned.normalize()
+        : currentViewDirection(camera, target, new Vector3())
+      const up = turns ? squaredUp(facing, camera.up) : camera.up
+
+      const distance = fitDistance(projection, size, framed, DEFAULT_FIT_MARGIN)
+      const to = cameraPose(
+        facing.clone().multiplyScalar(distance).add(framed.center),
+        framed.center,
+        new Vector3(up.x, up.y, up.z),
+        projection === 'orthographic' ? scene.radius / framed.radius : camera.zoom,
+      )
+
+      // The band `frameBounds` gives this framing, kept for a resize, and
+      // stretched to the zoom it leaves from until it lands: `zoomTo` clamps,
+      // and a view already closer in than this band would jump to its edge on
+      // the first step.
+      framedRef.current = framed
+      applyLimits(scene, framed)
+      controls.minZoom = Math.min(controls.minZoom, from.zoom)
+      controls.maxZoom = Math.max(controls.maxZoom, from.zoom)
+
+      const move: FrameMove = {
+        from,
+        to,
+        framed,
+        elapsed: 0,
+        started: false,
+        left: {
+          position: controls.getPosition(new Vector3()),
+          target: controls.getTarget(new Vector3()),
+          zoom: camera.zoom,
+        },
+      }
+      if (prefersReducedMotion()) {
+        placeCamera(controls, to)
+        land(move)
+        return true
+      }
+      moveRef.current = move
+      invalidate()
+      return true
+    },
+    [applyLimits, camera, invalidate, land, projection, size],
+  )
+
+  /**
+   * Steps an eased `frameBox`, a pose a frame, until it lands.
+   *
+   * Each step leaves the controls exactly where it put them, so finding them
+   * anywhere else means something else has the camera — a drag, the wheel, a
+   * touch, a double click — and the move lets it go where it is rather than
+   * pulling it back.
+   */
+  useFrame((_, delta) => {
+    const move = moveRef.current
+    const controls = controlsRef.current
+    if (!move || !controls) return
+
+    const tolerance = boundsRef.current.radius * MOVE_TOLERANCE
+    if (
+      controls.getPosition(scratchPosition).distanceTo(move.left.position) > tolerance ||
+      controls.getTarget(scratchTarget).distanceTo(move.left.target) > tolerance ||
+      Math.abs(camera.zoom - move.left.zoom) > move.left.zoom * MOVE_TOLERANCE
+    ) {
+      land(move)
+      return
+    }
+
+    // Demand rendering reports the whole idle period before it in the first
+    // frame's delta, so that frame counts none.
+    move.elapsed += move.started ? delta : 0
+    move.started = true
+    const progress = Math.min(1, move.elapsed / FRAME_MOVE_SECONDS)
+    if (progress === 1) {
+      placeCamera(controls, move.to)
+      land(move)
+      return
+    }
+
+    placeCamera(controls, poseBetween(move.from, move.to, ease(progress), scratchPose))
+    controls.getPosition(move.left.position)
+    controls.getTarget(move.left.target)
+    move.left.zoom = camera.zoom
+    invalidate()
+  })
 
   const fitContent = useCallback(() => {
     const controls = controlsRef.current
@@ -344,6 +515,7 @@ const ViewerScene = ({
       const controls = controlsRef.current
       if (!controls) return
 
+      moveRef.current = null
       /*
        * `getPosition`, not `camera.position`. Both accessors return the
        * controls' *end* value, so the pair describes one pose; `camera.position`
@@ -444,11 +616,15 @@ const ViewerScene = ({
           squaredUp(direction, camera.up),
         )
       },
-      frameBox: (box) => {
-        frameBounds(boundsFromBox(box))
+      frameBox: (box, options) => {
+        if (options?.direction !== undefined || options?.minShare !== undefined) {
+          frameEased(box, options)
+        } else {
+          frameBounds(boundsFromBox(box))
+        }
       },
     })
-  }, [camera, fitContent, frame, frameBounds, resetContent, scratchView, setControls])
+  }, [camera, fitContent, frame, frameBounds, frameEased, resetContent, scratchView, setControls])
 
   /*
    * Reframe when the projection changes: a perspective distance and an
@@ -644,7 +820,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
       reset: () => actionsRef.current?.reset(),
       setView: (view: ViewerView) => actionsRef.current?.setView(view),
       setViewDirection: (direction) => actionsRef.current?.setViewDirection(direction),
-      frameBox: (box) => actionsRef.current?.frameBox(box),
+      frameBox: (box, options) => actionsRef.current?.frameBox(box, options),
       // Straight to the store rather than through the scene: the store lives
       // here, so this works before the scene has mounted and after it is gone.
       setSection: (options) => sectionStore.set(options),

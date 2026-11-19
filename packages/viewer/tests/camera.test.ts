@@ -6,6 +6,7 @@ import {
   OrthographicCamera,
   PerspectiveCamera,
   PlaneGeometry,
+  Quaternion,
   Vector3,
 } from 'three'
 import { describe, expect, it } from 'vitest'
@@ -19,18 +20,24 @@ import {
   adaptedUp,
   applyProjection,
   aspectRatio,
+  boundsAtLeast,
   boundsFromBox,
   cameraLimits,
+  cameraPose,
   contentBounds,
   currentViewDirection,
   defaultBounds,
   fitDistance,
   orthographicHalfHeight,
   perspectiveFitDistance,
+  poseBetween,
+  posePlacement,
   screenLength,
   startPosition,
   targetBoundary,
+  threeQuarterDirection,
 } from '../src/render/camera.js'
+import { squaredUp } from '../src/render/view-cube.js'
 
 const LANDSCAPE = { width: 1600, height: 900 }
 const PORTRAIT = { width: 900, height: 1600 }
@@ -467,5 +474,178 @@ describe('screenLength', () => {
     // 20 world units over 400 pixels, so 40 pixels is 2 units — wherever the
     // camera happens to be.
     expect(length).toBeCloseTo(2, 9)
+  })
+})
+
+describe('boundsAtLeast', () => {
+  const scene = { center: new Vector3(0, 0, 0), radius: 50 }
+
+  it('grows a small feature to the share of the scene asked for, about its own middle', () => {
+    const hole = { center: new Vector3(20, 5, 10), radius: 1.5 }
+    const framed = boundsAtLeast(hole, scene, 0.4)
+
+    expect(framed.radius).toBeCloseTo(20, 9)
+    expect(framed.center).toEqual(hole.center)
+  })
+
+  it('leaves a feature that is already as large alone', () => {
+    const pocket = { center: new Vector3(0, 0, 10), radius: 30 }
+
+    expect(boundsAtLeast(pocket, scene, 0.4)).toBe(pocket)
+  })
+
+  it('asks for nothing when the share is not above zero', () => {
+    const hole = { center: new Vector3(20, 5, 10), radius: 1.5 }
+
+    expect(boundsAtLeast(hole, scene, 0)).toBe(hole)
+    expect(boundsAtLeast(hole, scene, -1)).toBe(hole)
+    expect(boundsAtLeast(hole, scene, Number.NaN)).toBe(hole)
+  })
+})
+
+describe('threeQuarterDirection', () => {
+  const degreesBetween = (a: Vector3, b: Vector3) =>
+    (Math.acos(Math.min(1, a.dot(b) / (a.length() * b.length()))) * 180) / Math.PI
+
+  it('tips a direction about 21°, staying on its side', () => {
+    for (const direction of [
+      new Vector3(0, 0, 1),
+      new Vector3(0, 0, -1),
+      new Vector3(1, 0, 0),
+      new Vector3(0, -1, 0),
+      new Vector3(1, 2, -3).normalize(),
+    ]) {
+      const tipped = threeQuarterDirection(direction)
+
+      expect(tipped.length()).toBeCloseTo(1, 12)
+      expect(degreesBetween(tipped, direction)).toBeCloseTo(21.336, 3)
+    }
+  })
+
+  it('tips the top and the bottom views the way the CAD viewer always has', () => {
+    const top = threeQuarterDirection({ x: 0, y: 0, z: 1 })
+    expect(top.x).toBeCloseTo(-0.2086475, 6)
+    expect(top.y).toBeCloseTo(0.2980679, 6)
+    expect(top.z).toBeCloseTo(0.9314622, 6)
+
+    const bottom = threeQuarterDirection({ x: 0, y: 0, z: -1 })
+    expect(bottom.x).toBeCloseTo(-0.2086475, 6)
+    expect(bottom.y).toBeCloseTo(-0.2980679, 6)
+    expect(bottom.z).toBeCloseTo(-0.9314622, 6)
+  })
+
+  it('takes any length of direction, and gives a zero one back zero', () => {
+    const unit = threeQuarterDirection({ x: 0, y: 0, z: 1 })
+    const long = threeQuarterDirection({ x: 0, y: 0, z: 25 })
+    expect(long.distanceTo(unit)).toBeCloseTo(0, 12)
+
+    expect(threeQuarterDirection({ x: 0, y: 0, z: 0 }).lengthSq()).toBe(0)
+  })
+})
+
+describe('poseBetween', () => {
+  /*
+   * A move `frameBox` makes: from the orthographic opening view, rolled the way
+   * free orbit leaves it, to a hole on top seen in three-quarter view and closed
+   * in on twentyfold, square.
+   */
+  const scene = { center: new Vector3(0, 0, 0), radius: 50 }
+  const openingDirection = new Vector3(1.2, -2.5, 3).normalize()
+  const openingUp = adaptedUp(
+    openingDirection.clone().negate(),
+    CAD_CAMERA_UP.clone(),
+    new Vector3(),
+  )
+  const from = cameraPose(
+    openingDirection.clone().multiplyScalar(240).add(scene.center),
+    scene.center,
+    openingUp,
+    1,
+  )
+  const holeCentre = new Vector3(20, 5, 10)
+  const facing = threeQuarterDirection({ x: 0, y: 0, z: 1 })
+  const squared = squaredUp(facing, openingUp)
+  const to = cameraPose(
+    facing.clone().multiplyScalar(12).add(holeCentre),
+    holeCentre,
+    new Vector3(squared.x, squared.y, squared.z),
+    20,
+  )
+  const blank = (): ReturnType<typeof cameraPose> => ({
+    target: new Vector3(),
+    orientation: new Quaternion(),
+    distance: 1,
+    zoom: 1,
+  })
+  const placed = (t: number) => {
+    const position = new Vector3()
+    const up = new Vector3()
+    const pose = poseBetween(from, to, t, blank())
+    posePlacement(pose, position, up)
+    return { pose, position, up }
+  }
+
+  it('starts on the pose it leaves and lands on the one it was sent to', () => {
+    const start = placed(0)
+    expect(start.position.distanceTo(openingDirection.clone().multiplyScalar(240))).toBeCloseTo(
+      0,
+      9,
+    )
+    expect(start.up.distanceTo(openingUp)).toBeCloseTo(0, 9)
+    expect(start.pose.zoom).toBe(1)
+
+    const end = placed(1)
+    expect(end.pose.target.distanceTo(holeCentre)).toBeCloseTo(0, 9)
+    expect(end.position.distanceTo(facing.clone().multiplyScalar(12).add(holeCentre))).toBeCloseTo(
+      0,
+      9,
+    )
+    expect(end.pose.zoom).toBeCloseTo(20, 9)
+  })
+
+  it('lands square, on the roll setViewDirection would choose', () => {
+    const { up } = placed(1)
+
+    expect(up.x).toBeCloseTo(squared.x, 9)
+    expect(up.y).toBeCloseTo(squared.y, 9)
+    expect(up.z).toBeCloseTo(squared.z, 9)
+  })
+
+  /*
+   * One rotation, not a turn and then a roll: in even steps of `t` the camera
+   * turns by the same angle every step, roll included, so nothing is left to
+   * snap at either end.
+   */
+  it('turns view and roll together, by an even angle each step', () => {
+    const steps = 20
+    const total = from.orientation.angleTo(to.orientation)
+    for (let step = 1; step <= steps; step += 1) {
+      const before = placed((step - 1) / steps).pose.orientation
+      const after = placed(step / steps).pose.orientation
+      expect(before.angleTo(after)).toBeCloseTo(total / steps, 9)
+    }
+
+    // And the up is always square to the view, so the controls draw it as given.
+    for (let step = 0; step <= steps; step += 1) {
+      const { pose, position, up } = placed(step / steps)
+      const view = position.clone().sub(pose.target).normalize()
+      expect(up.dot(view)).toBeCloseTo(0, 12)
+    }
+  })
+
+  it('closes in by ratio, so each step grows the view by the same factor', () => {
+    expect(placed(0.5).pose.zoom).toBeCloseTo(Math.sqrt(20), 9)
+    expect(placed(0.5).pose.distance).toBeCloseTo(Math.sqrt(240 * 12), 9)
+    expect(placed(0.25).pose.zoom / placed(0).pose.zoom).toBeCloseTo(
+      placed(1).pose.zoom / placed(0.75).pose.zoom,
+      9,
+    )
+  })
+
+  it('falls back to a straight line where a length has no ratio', () => {
+    const still = { ...from, distance: 0 }
+    const moved = poseBetween(still, to, 0.5, blank())
+
+    expect(moved.distance).toBeCloseTo(6, 9)
   })
 })

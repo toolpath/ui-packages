@@ -13,8 +13,8 @@ import {
   Vector4,
 } from 'three'
 
-import { adaptedUp } from './camera.js'
-import type { CameraLimits, ViewerCamera, ViewportSize } from './camera.js'
+import { adaptedUp, posePlacement } from './camera.js'
+import type { CameraLimits, CameraPose, ViewerCamera, ViewportSize } from './camera.js'
 import { resolveControlScheme } from './control-schemes.js'
 import type { ControlScheme, ControlSchemeMapping } from './control-schemes.js'
 
@@ -609,4 +609,41 @@ export class ExtendedCameraControls extends CameraControls {
     this.#ctrlPressed = ctrl
     this.applyScheme(this.#scheme)
   }
+}
+
+const scratchPlacement = new Vector3()
+const scratchUp = new Vector3()
+
+/**
+ * Puts the camera at `pose` now: where it is, which way it faces, its roll and
+ * its zoom. One step of the viewer's eased `frameBox`.
+ *
+ * The up goes in before the look-at, because `camera-controls` measures its
+ * orbit from the camera's up and caches that frame; the look-at is then taken in
+ * the frame it will be read back in. Free orbit's update finds that up already
+ * square to the view and leaves it alone, so the pose's roll is the one drawn.
+ *
+ * No transition: the eased move is the caller's, a pose a frame. A transition
+ * here would arrive within a frame anyway at these controls' damping, and under
+ * free orbit the next update collapses it to its end.
+ */
+export function placeCamera(controls: ExtendedCameraControls, pose: CameraPose): void {
+  const position = scratchPlacement
+  posePlacement(pose, position, scratchUp)
+
+  controls.camera.up.copy(scratchUp)
+  controls.updateCameraUp()
+  void controls.setLookAt(
+    position.x,
+    position.y,
+    position.z,
+    pose.target.x,
+    pose.target.y,
+    pose.target.z,
+    false,
+  )
+  if (controls.camera instanceof OrthographicCamera) {
+    void controls.zoomTo(pose.zoom, false)
+  }
+  controls.update(0)
 }
