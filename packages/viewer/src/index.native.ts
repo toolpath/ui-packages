@@ -4,7 +4,7 @@
 // report.
 export { EnginePart, normalizePartReport, smoothRegionNormals } from './engine/index.js'
 export type { NormalizePartReportOptions } from './engine/index.js'
-export { regionAdjacency } from './render/adjacency.js'
+export { keyFor, regionAdjacency } from './render/adjacency.js'
 export { featureTriangles } from './render/feature-triangles.js'
 export { PartMesh } from './part-mesh.js'
 export { createExplodeAmount } from './model/explode-amount.js'

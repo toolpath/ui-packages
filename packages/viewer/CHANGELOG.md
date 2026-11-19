@@ -1,5 +1,11 @@
 # @toolpath/viewer
 
+## 3.12.0
+
+### Minor Changes
+
+- f9ed1ed: Export `keyFor`, the quantised vertex key the viewer's own mesh walks (`regionAdjacency`, sharp corners) use, so a consumer walking the same mesh agrees with them on which corners are one vertex.
+
 ## 3.11.0
 
 ### Minor Changes

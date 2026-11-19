@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parsePartGeometry } from '../src/engine/geometry.js'
-import { regionAdjacency } from '../src/render/adjacency.js'
+import { keyFor, regionAdjacency } from '../src/render/adjacency.js'
+import * as viewer from '../src/index.js'
 import { cubeModel, loadMeshFixture } from './fixtures.js'
 
 /**
@@ -48,5 +49,16 @@ describe('which faces touch which', () => {
     for (const [idx, neighbours] of adjacency) {
       for (const other of neighbours) expect(adjacency.get(other)?.has(idx)).toBe(true)
     }
+  })
+})
+
+describe('keyFor', () => {
+  it('is exported, so a consumer walking the mesh keys vertices as the viewer does', () => {
+    expect(viewer.keyFor).toBe(keyFor)
+  })
+
+  it('gives corners within a micron one key, and corners further apart two', () => {
+    expect(keyFor(1, 2, 3)).toBe(keyFor(1.00000001, 2, 3))
+    expect(keyFor(1, 2, 3)).not.toBe(keyFor(1.001, 2, 3))
   })
 })

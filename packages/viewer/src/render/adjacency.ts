@@ -32,9 +32,9 @@ const GRID = 1e-4
 
 /**
  * A position's key: two corners within {@link GRID} of each other share one.
- * Every walk over the mesh's edges keys its vertices this way — this one and
- * the sharp-corner walk in `sharp-corners.ts` — so they agree on what counts
- * as a shared vertex.
+ * Every walk over the mesh's edges keys its vertices this way — this one, the
+ * sharp-corner walk in `sharp-corners.ts`, and a consumer's own walk over the
+ * same mesh — so they agree on what counts as a shared vertex.
  */
 export const keyFor = (x: number, y: number, z: number): string =>
   `${Math.round(x / GRID)},${Math.round(y / GRID)},${Math.round(z / GRID)}`
