@@ -2,13 +2,20 @@ import { describe, expect, it } from 'vitest'
 import {
   addLibrary,
   cribUntouched,
+  explicitLibraryIds,
+  fillsDefaultFamilies,
   implicitLibraryIds,
+  keptEntries,
+  MAX_CRIB_LIBRARIES,
+  normalizeCrib,
   offeredLibraries,
+  plansDefaultLast,
   removeLibrary,
   startingLibrary,
   suitsMaterial,
   swapLibraries,
   type ToolCrib,
+  type ToolCribEntry,
 } from '../../src/inputs/tool-crib'
 
 describe('suitsMaterial', () => {
@@ -147,5 +154,131 @@ describe('crib edits', () => {
 
   it('swaps two libraries and leaves the rest in place', () => {
     expect(implicitLibraryIds(swapLibraries(crib, 'c', 'b'))).toEqual(['a', 'c', 'b'])
+  })
+})
+
+describe('explicit libraries in a crib', () => {
+  const implicit = (id: string) => ({ kind: 'implicit' as const, id })
+  const explicit = (id: string) => ({ kind: 'explicit' as const, id })
+
+  it('puts every explicit library first, each group in the order given', () => {
+    expect(normalizeCrib([implicit('a'), explicit('x'), implicit('b'), explicit('y')])).toEqual([
+      explicit('x'),
+      explicit('y'),
+      implicit('a'),
+      implicit('b'),
+    ])
+  })
+
+  it('never cuts a crib longer than sixteen, a legacy one kept as long, explicit ones first', () => {
+    const many = Array.from({ length: 20 }, (_, index) => implicit(`i${index}`))
+    const crib = normalizeCrib([...many, explicit('x')])
+    expect(crib).toHaveLength(21)
+    expect(crib[0]).toEqual(explicit('x'))
+    expect(crib.at(-1)).toEqual(implicit('i19'))
+  })
+
+  it('keeps nothing but the kind and id', () => {
+    expect(normalizeCrib([{ ...explicit('x'), name: 'n' } as ToolCribEntry])).toEqual([
+      explicit('x'),
+    ])
+  })
+
+  it('names each kind’s ids', () => {
+    const crib = [explicit('x'), implicit('a')]
+    expect(explicitLibraryIds(crib)).toEqual(['x'])
+    expect(implicitLibraryIds(crib)).toEqual(['a'])
+  })
+
+  it('adds a library last of its kind: an explicit one ahead of every implicit one', () => {
+    const crib = [explicit('x'), implicit('a')]
+    expect(addLibrary(crib, 'y', 'explicit')).toEqual([explicit('x'), explicit('y'), implicit('a')])
+    expect(addLibrary(crib, 'b')).toEqual([explicit('x'), implicit('a'), implicit('b')])
+    expect(addLibrary(crib, 'x', 'explicit')).toBe(crib)
+  })
+
+  it('adds nothing to a full crib', () => {
+    const full = Array.from({ length: MAX_CRIB_LIBRARIES }, (_, index) => implicit(`i${index}`))
+    expect(addLibrary(full, 'x', 'explicit')).toBe(full)
+    expect(addLibrary(full, 'more')).toBe(full)
+  })
+
+  it('swaps within a kind, never across', () => {
+    const crib = [explicit('x'), explicit('y'), implicit('a'), implicit('b')]
+    expect(swapLibraries(crib, 'x', 'y')).toEqual([
+      explicit('y'),
+      explicit('x'),
+      implicit('a'),
+      implicit('b'),
+    ])
+    expect(swapLibraries(crib, 'b', 'a')).toEqual([
+      explicit('x'),
+      explicit('y'),
+      implicit('b'),
+      implicit('a'),
+    ])
+    expect(swapLibraries(crib, 'y', 'a')).toBe(crib)
+  })
+})
+
+describe('how a crib is planned and kept', () => {
+  const implicit = (id: string) => ({ kind: 'implicit' as const, id })
+  const explicit = (id: string) => ({ kind: 'explicit' as const, id })
+
+  it('fills default families only in a crib of implicit libraries alone', () => {
+    expect(fillsDefaultFamilies([implicit('a'), implicit('b')])).toBe(true)
+    expect(fillsDefaultFamilies([])).toBe(true)
+    expect(fillsDefaultFamilies([explicit('x'), implicit('a')])).toBe(false)
+  })
+
+  it('plans the default library last only behind explicit libraries', () => {
+    expect(plansDefaultLast([explicit('x')], 'default')).toBe(true)
+    expect(plansDefaultLast([explicit('x'), implicit('a')], 'default')).toBe(true)
+    expect(plansDefaultLast([implicit('a')], 'default')).toBe(false)
+    expect(plansDefaultLast([], 'default')).toBe(false)
+  })
+
+  it('does not plan the default library last where the crib names it, or there is none', () => {
+    expect(plansDefaultLast([explicit('x'), implicit('default')], 'default')).toBe(false)
+    expect(plansDefaultLast([explicit('x')], null)).toBe(false)
+    expect(plansDefaultLast([explicit('x')], undefined)).toBe(false)
+    // An explicit entry of the same id is another library.
+    expect(plansDefaultLast([explicit('default')], 'default')).toBe(true)
+  })
+
+  it('plans the default library last only within the sixteen', () => {
+    const almost = [
+      explicit('x'),
+      ...Array.from({ length: MAX_CRIB_LIBRARIES - 2 }, (_, index) => implicit(`i${index}`)),
+    ]
+    expect(almost).toHaveLength(MAX_CRIB_LIBRARIES - 1)
+    expect(plansDefaultLast(almost, 'default')).toBe(true)
+    expect(plansDefaultLast([...almost, implicit('last')], 'default')).toBe(false)
+  })
+
+  it('keeps a changed crib’s live entries in order, dropping a saved one no longer live', () => {
+    const live = new Set(['x', 'a'])
+    const crib = [explicit('x'), explicit('gone'), implicit('a'), implicit('also-gone')]
+    expect(keptEntries(crib, ({ id }) => live.has(id), crib)).toEqual({
+      kept: [explicit('x'), implicit('a')],
+      refused: false,
+    })
+  })
+
+  it('refuses a changed crib naming a library neither live nor saved', () => {
+    const live = new Set(['x'])
+    const saved = [explicit('x'), explicit('gone')]
+    expect(
+      keptEntries(
+        [explicit('x'), explicit('gone'), implicit('new')],
+        ({ id }) => live.has(id),
+        saved,
+      ),
+    ).toEqual({ kept: [explicit('x')], refused: true })
+  })
+
+  it('reads a saved entry by its kind and id together', () => {
+    // The saved crib names an implicit library of that id, not an explicit one.
+    expect(keptEntries([explicit('a')], () => false, [implicit('a')]).refused).toBe(true)
   })
 })

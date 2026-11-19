@@ -120,7 +120,10 @@ const canonical = (value: unknown): unknown => {
 /**
  * The text a fingerprint hashes: the inputs as one JSON string, every key in order. The features
  * pinned in a setup are in any order, as are the faces done; names are never part of it; the tool
- * crib is its library ids, in order. Two inputs that plan the same part give the same text.
+ * crib is its library ids, in order, an explicit entry marked as one. An explicit entry names a
+ * version of a library, which never changes, so uploading a new version changes no part's text
+ * until its crib names that version. Two inputs that plan the same part give the same text, and a
+ * crib of implicit libraries alone reads as it did before explicit ones existed.
  */
 export const fingerprintText = (inputs: PlanInputs): string =>
   JSON.stringify(
@@ -144,7 +147,9 @@ export const fingerprintText = (inputs: PlanInputs): string =>
       stock: inputs.stock,
       materialId: inputs.materialId,
       machineProfileId: inputs.machineProfileId,
-      toolCrib: inputs.toolCrib.map((library) => library.id),
+      toolCrib: inputs.toolCrib.map((library) =>
+        library.kind === 'explicit' ? { explicit: library.id } : library.id,
+      ),
     }),
   )
 

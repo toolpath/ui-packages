@@ -214,7 +214,14 @@ A part is planned from its constraints and from these inputs:
   (`preparationId`, Engine API 1.41). Any other stock has none.
 - **Tool crib.** `ToolCrib` is the tool libraries a part draws its tools from. `startingLibrary`
   is the library a crib starts on for a material, and `offeredLibraries` is what it offers to add.
-  `addLibrary`, `removeLibrary` and `swapLibraries` edit the list.
+  `addLibrary`, `removeLibrary` and `swapLibraries` edit the list. An entry is `implicit` (tools
+  synthesized from settings) or `explicit` (one version of a shop's uploaded library, which the
+  fingerprint reads by its id alone); `normalizeCrib` puts every explicit one first, cutting nothing;
+  `addLibrary` adds nothing to a crib already `MAX_CRIB_LIBRARIES` long. A crib with explicit
+  libraries gets no kernel-default families (`fillsDefaultFamilies`) and is planned with the org's
+  default implicit library last, where it lacks it and has room (`plansDefaultLast`). A changed crib
+  keeps its entries whose libraries are live, drops one deleted since it was saved, and is refused
+  for any other (`keptEntries`).
 
 ## How units show: `@toolpath/quoting/units`
 

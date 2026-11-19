@@ -9,6 +9,7 @@ import {
   type DraftRow,
   type FingerprintPart,
 } from '../../src/pipeline'
+import { normalizeCrib } from '../../src/inputs/tool-crib'
 
 /** The app's fingerprint: SHA-256 of the text, as `server/lib/plan-hash.ts` hashes it. */
 const fingerprintOf = (part: FingerprintPart, draft: DraftRow | null) =>
@@ -269,6 +270,46 @@ describe('the fingerprint text', () => {
     expect(fingerprintOf(crib!.part, crib!.draft)).not.toBe(
       fingerprintOf(every!.part, every!.draft),
     )
+  })
+
+  it('reads a crib of implicit libraries alone as before explicit ones', () => {
+    const every = SAMPLES[1]!
+    expect(fingerprintText(planInputsOf(every.part, every.draft))).toBe(
+      '{"done":{"kernelVersion":"k2","regions":[3,7,12]},"machineProfileId":"haas-vf2",' +
+        '"materialId":"al-6061","statement":[[{"direction":{"x":0,"y":0,"z":1},' +
+        '"features":["bore","pocket"]}],[{"direction":{"x":0,"y":0,"z":-1},' +
+        '"features":["chamfer"]}]],"stock":{"mode":"automaticFlatBar","oversizeX":2,"snapZ":0.5},' +
+        '"toolCrib":["lib-b","lib-a"]}',
+    )
+  })
+
+  it('reads a crib saved longer than sixteen, kept as every crib is, as it was', () => {
+    const toolCrib = Array.from({ length: 17 }, (_, index) => ({
+      kind: 'implicit' as const,
+      id: `lib-${index}`,
+    }))
+    expect(fingerprintText(planInputsOf({ toolCrib: normalizeCrib(toolCrib) }, null))).toBe(
+      fingerprintText(planInputsOf({ toolCrib }, null)),
+    )
+  })
+
+  it('reads an explicit entry by the version it names alone', () => {
+    const text = (version: string) =>
+      fingerprintText(
+        planInputsOf(
+          {
+            toolCrib: [
+              { kind: 'explicit', id: version },
+              { kind: 'implicit', id: 'lib-a' },
+            ],
+          },
+          null,
+        ),
+      )
+    expect(text('v1')).toContain('"toolCrib":[{"explicit":"v1"},"lib-a"]')
+    // Another version named is a change to the part; the same version is none.
+    expect(text('v2')).not.toBe(text('v1'))
+    expect(text('v1')).toBe(text('v1'))
   })
 })
 

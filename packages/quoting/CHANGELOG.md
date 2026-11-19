@@ -1,5 +1,29 @@
 # @toolpath/quoting
 
+## 2.2.0
+
+### Minor Changes
+
+- 973535c: Tool cribs (`@toolpath/quoting/inputs`) take explicit tool libraries — a shop's uploaded tools —
+  beside implicit ones.
+
+  - `ToolCribEntry.kind` is `'implicit' | 'explicit'` (`ToolLibraryKind`, `isToolLibraryKind`).
+  - `normalizeCrib` puts every explicit library first, then every implicit one, each group in the
+    order given, and cuts nothing: a crib saved longer than `MAX_CRIB_LIBRARIES` (16) stays as long.
+  - `explicitLibraryIds` names a crib's explicit libraries. `addLibrary` takes the kind to add (still
+    `'implicit'` by default), keeps the crib normalized and adds nothing to a full crib;
+    `swapLibraries` no longer swaps libraries of different kinds.
+  - How a crib with explicit libraries is planned and kept, for browser and server alike:
+    `fillsDefaultFamilies` (a family no library supplies is filled in at the kernel's defaults only in
+    a crib of implicit libraries alone), `plansDefaultLast` (the org's default implicit library is
+    planned last behind explicit libraries, where the crib lacks it and has room within
+    `MAX_CRIB_LIBRARIES`) and `keptEntries` (a changed crib drops an entry whose library was deleted
+    since it was saved, and is refused for one never saved).
+  - The plan fingerprint (`@toolpath/quoting/pipeline`) reads an explicit entry by its id alone, as
+    `{ explicit: id }`. The id names one immutable version of an uploaded library, so a new version
+    changes no part's fingerprint until its crib is changed to name it. A crib of implicit libraries
+    alone fingerprints exactly as before.
+
 ## 2.1.0
 
 ### Minor Changes
