@@ -1,5 +1,15 @@
 # @toolpath/plan
 
+## 1.3.0
+
+### Minor Changes
+
+- 2fd5a0d: `applyDraftAction` starts a draft's first setup with Toolpath adding none: an action that takes a
+  draft from no setups to some sets `additionalDirections` to `[]`, where the rules carry a
+  `preparationId` (only a plan spec can say it). Without one, and on a draft that states setups
+  already, `additionalDirections` is left as it is. An action that leaves no setup still clears it to
+  null.
+
 ## 1.2.0
 
 ### Minor Changes

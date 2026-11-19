@@ -343,17 +343,30 @@ export const applyDraftAction = <T extends Constraints>(
     action.kind === 'chooseDoneReading' ? [] : doneNoLonger(draft, result.draft, rules)
   // Every edit, the region ones and main's alike, leaves the draft to the region rules.
   const kept = keptToRegionRules(draft, result.draft, rules.regionsOf) as T
-  return { draft: withoutStaleLimit(kept), facts: { ...NO_FACTS, ...result.facts, unmarked } }
+  return {
+    draft: withAddedLimit(draft, kept, rules),
+    facts: { ...NO_FACTS, ...result.facts, unmarked },
+  }
 }
 
 /**
- * The draft with no limit on the directions Toolpath may add setups in once it states no setup:
- * with none, Toolpath must add them, and a limit kept would come back with the next setup added.
+ * The draft `after` an edit, with its limit on the directions Toolpath may add setups in. Once it
+ * states no setup there is none: with none, Toolpath must add them. Its first setup starts with
+ * Toolpath adding none, on a part whose analysis numbers its regions, since only a plan spec can
+ * say so; a draft that states setups already keeps what it says.
  */
-const withoutStaleLimit = <T extends Constraints>(draft: T): T =>
-  draft.setups.length === 0 && draft.additionalDirections
-    ? { ...draft, additionalDirections: null }
-    : draft
+const withAddedLimit = <T extends Constraints>(
+  before: Constraints,
+  after: T,
+  rules: Pick<PlanRules, 'preparationId'>,
+): T => {
+  if (after.setups.length === 0) {
+    return after.additionalDirections ? { ...after, additionalDirections: null } : after
+  }
+  return before.setups.length === 0 && !after.additionalDirections && rules.preparationId
+    ? { ...after, additionalDirections: [] }
+    : after
+}
 
 /** The regions `before` marks done and `after` does not, ascending. */
 const doneNoLonger = (

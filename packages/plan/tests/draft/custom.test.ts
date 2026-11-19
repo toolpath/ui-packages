@@ -793,10 +793,46 @@ describe('additional directions', () => {
     expect(planSpecOf(set, 'p1', []).spec.additionalDirections).toEqual([side])
   })
 
-  it('lets Toolpath add any once the last setup goes, so a setup added later starts that way', () => {
+  it('lets Toolpath add any once the last setup goes', () => {
     const gone = made(applyDraftAction(none, { kind: 'remove', groups: ['top', 'side'] }, rules))
     expect(gone.setups).toEqual([])
     expect(gone.additionalDirections).toBeNull()
+  })
+
+  const first: DraftAction = { kind: 'addSetup', direction: up, id: 'n' }
+  const empty: Constraints = { setups: [], done: [], doneKernel: null }
+
+  it('starts the first setup with Toolpath adding none', () => {
+    const started = made(applyDraftAction(empty, first, rules))
+    expect(started.setups).toHaveLength(1)
+    expect(started.additionalDirections).toEqual([])
+    expect(planSpecOf(started, 'p1', []).spec.additionalDirections).toEqual([])
+    // Each time: the last setup gone and one added again starts again with none added.
+    const any = made(
+      applyDraftAction(started, { kind: 'setAdditionalDirections', directions: null }, rules),
+    )
+    const gone = made(applyDraftAction(any, { kind: 'remove', groups: ['n'] }, rules))
+    expect(made(applyDraftAction(gone, first, rules)).additionalDirections).toEqual([])
+  })
+
+  it('leaves Toolpath adding any without an analysis to number the regions', () => {
+    for (const preparationId of [undefined, null]) {
+      const started = made(applyDraftAction(empty, first, { ...rules, preparationId }))
+      expect(started.setups).toHaveLength(1)
+      expect(started.additionalDirections ?? null).toBeNull()
+    }
+  })
+
+  it('keeps Toolpath adding any on a draft that states setups already', () => {
+    const more = made(
+      applyDraftAction(
+        draft,
+        { kind: 'addSetup', direction: { x: -1, y: 0, z: 0 }, id: 'n' },
+        rules,
+      ),
+    )
+    expect(more.setups).toHaveLength(3)
+    expect(more.additionalDirections ?? null).toBeNull()
   })
 
   it('refuses what is not a list of directions', () => {
