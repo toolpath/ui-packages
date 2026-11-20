@@ -1,5 +1,6 @@
 import {
-  type Box3,
+  Box3,
+  type BufferGeometry,
   Matrix4,
   type Object3D,
   OrthographicCamera,
@@ -117,9 +118,42 @@ export function contentBounds(root: Object3D, into: Box3): SceneBounds {
   return measureBounds(root, into, false)
 }
 
-/** Bounds used by part-relative overlays, independent of stock visibility. */
-export function partBounds(root: Object3D, into: Box3): SceneBounds {
-  return measureBounds(root, into, true)
+/**
+ * Bounds used by part-relative overlays, independent of stock visibility.
+ *
+ * In the scene's coordinates, or in `frame`'s own when given: an overlay drawn
+ * inside the group that turns the part needs the part where it sits in that
+ * group, which no turn changes — not where the turn has carried it on screen.
+ */
+export function partBounds(root: Object3D, into: Box3, frame?: Object3D | null): SceneBounds {
+  if (!frame) return measureBounds(root, into, true)
+
+  into.makeEmpty()
+  root.updateWorldMatrix(true, true)
+  const toFrame = new Matrix4().copy(frame.matrixWorld).invert()
+  const relative = new Matrix4()
+  const piece = new Box3()
+  root.traverse((object) => {
+    if (excludedFromPart(object, root)) return
+    if (!('isMesh' in object || 'isLine' in object || 'isPoints' in object)) return
+    const geometry = (object as Object3D & { geometry?: BufferGeometry }).geometry
+    if (!geometry) return
+    if (geometry.boundingBox === null) geometry.computeBoundingBox()
+    piece.copy(geometry.boundingBox!)
+    into.union(piece.applyMatrix4(relative.multiplyMatrices(toFrame, object.matrixWorld)))
+  })
+
+  return boundsFromBox(into)
+}
+
+/** How far, in millimetres, a measured box has to move before an overlay is re-sized to it. */
+const BOX_MOVED_MM = 1e-3
+
+/** Whether `next` is somewhere other than `was`: an empty box is somewhere only once filled. */
+export function boxMoved(was: Box3, next: Box3): boolean {
+  if (next.isEmpty()) return false
+  if (was.isEmpty()) return true
+  return was.min.distanceTo(next.min) > BOX_MOVED_MM || was.max.distanceTo(next.max) > BOX_MOVED_MM
 }
 
 function measureBounds(root: Object3D, into: Box3, partOnly: boolean): SceneBounds {

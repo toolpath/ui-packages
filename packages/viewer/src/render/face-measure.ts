@@ -319,6 +319,24 @@ const sweepOf = (angles: number[]): number => {
 const faceSurface = (model: PartModel, geometry: BufferGeometry, region: number): FaceSurface =>
   surfaceOf(readFace(model, geometry, region))
 
+/**
+ * A face's area-weighted normal, read from its triangles, without asking whether every facet agrees
+ * as `faceSurface` does: for a face the report already says is a plane, whose facets a mesh can leave
+ * far enough apart for `faceSurface` to read a cylinder thousands of millimetres across. Null for a
+ * face with no area.
+ */
+export const faceNormal = (
+  model: PartModel,
+  geometry: BufferGeometry,
+  region: number,
+): Vector3 | null => {
+  const normal = new Vector3()
+  for (const facet of readFace(model, geometry, region).facets) {
+    normal.addScaledVector(facet.normal, facet.area)
+  }
+  return normal.lengthSq() === 0 ? null : normal.normalize()
+}
+
 /** Reads a face's surface, by the region it is named by. */
 export type SurfaceFor = (region: number) => FaceSurface
 

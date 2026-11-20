@@ -1,5 +1,15 @@
 # @toolpath/viewer
 
+## 3.14.0
+
+### Minor Changes
+
+- 7b27db7: A click's `PartPick` carries `faceAxis`: the clicked face's own axis in the part's coordinates — a flat face's outward normal, a round face's (cylinder or cone) axis from the end facing the camera, null for any other face — read by the face's kind in the report rather than by fitting its mesh, so a flat face whose facets sit slightly apart is still read as flat. The `FaceAxis` type is exported. Hovers carry no `faceAxis`.
+
+  `useContentBox` takes options: `frame`, to measure in an object's own coordinates, and `live`, to measure again once the part has moved and held still. `DirectionArrows` measures the part in its own group, or in a `frame` it is given, so arrows drawn inside a group that turns the part stay round the part. `Grid` follows the part as it turns.
+
+  `EnginePart` keeps drawing the part from the report it has while a newer report's mesh loads, rather than suspending to its fallback, so re-reading a part's report no longer blanks it.
+
 ## 3.13.0
 
 ### Minor Changes

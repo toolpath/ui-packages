@@ -16,6 +16,14 @@ describe('directionAnalysis', () => {
     expect(directionAnalysis(side, { ...known, discovered: null })).toBe('undetected')
   })
 
+  it('reads a direction asked for as analyzing, detected or not, until it settles', () => {
+    expect(directionAnalysis(back, { ...known, pending: true, asked: [back] })).toBe('analyzing')
+    // Another direction being analyzed says nothing of one never detected nor asked for.
+    expect(directionAnalysis(back, { ...known, pending: true, asked: [side] })).toBe('undetected')
+    // Nor of one detected and not asked for: it is still to be asked for.
+    expect(directionAnalysis(side, { ...known, pending: true, asked: [back] })).toBe('unanalyzed')
+  })
+
   it('says nothing before the report is read', () => {
     expect(directionAnalysis(side, { analyzed: null, discovered: null, pending: false })).toBe(
       'analyzed',

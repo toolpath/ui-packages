@@ -40,7 +40,8 @@ export interface GridProps {
  */
 export const Grid = ({ step, extent, color, opacity = 0.35 }: GridProps) => {
   const theme = resolveTheme()
-  const box = useContentBox()
+  // Live: the part may turn under it, and the grid stays on its base plane.
+  const box = useContentBox({ live: true })
 
   // `null` until the scene has been measured: `useContentBox` hands back an
   // empty box on the first frame, and a grid sized from one is built at

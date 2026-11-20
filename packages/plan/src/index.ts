@@ -103,6 +103,7 @@ export {
   removeGroups,
   renameGroup,
   restoreFeature,
+  matchDirection,
   sameDirection,
   setSetupProcess,
   setOrientation,

@@ -115,6 +115,33 @@ const alreadyCut = (frame: { id: string; name: string }): Refused => ({
 export const sameDirection = (a: PlanDirection, b: PlanDirection): boolean =>
   a.x === b.x && a.y === b.y && a.z === b.z
 
+/**
+ * Within this, degrees, a direction read off the part's geometry is one the part already has:
+ * Toolpath's own 0.1° (engine-api `isNear`, the kernel's `withDirections`), so a pick the page keeps
+ * as new is one Toolpath adds as new too, and one it snaps is one Toolpath would pass over.
+ */
+const MATCH_DEGREES = 0.1
+
+/**
+ * The part's direction a picked one means — a direction read off a face or a hole's axis. The first
+ * of `directions` within 0.1° of it, exactly as served, since Toolpath compares directions
+ * bit for bit; `directions` is in the order to prefer (analyzed, then detected). With none, the
+ * pick itself made unit length, at index -1: a direction the part does not have yet.
+ */
+export const matchDirection = (
+  directions: ReadonlyArray<PlanDirection>,
+  picked: PlanDirection,
+): { direction: PlanDirection; index: number } => {
+  const length = Math.hypot(picked.x, picked.y, picked.z)
+  const unit = { x: picked.x / length, y: picked.y / length, z: picked.z / length }
+  const within = Math.cos((MATCH_DEGREES * Math.PI) / 180)
+  const index = directions.findIndex((each) => {
+    const size = Math.hypot(each.x, each.y, each.z)
+    return (each.x * unit.x + each.y * unit.y + each.z * unit.z) / size >= within
+  })
+  return index >= 0 ? { direction: directions[index]!, index } : { direction: unit, index: -1 }
+}
+
 export const isIndexed = (setup: Pick<DraftSetup, 'process'>): boolean =>
   setup.process === '3+1' || setup.process === '3+2'
 

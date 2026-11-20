@@ -36,12 +36,52 @@ import {
   withDone,
   withoutDone,
   withGroups,
+  matchDirection,
 } from '../../src/draft/constraints'
 import { statementOf } from '../../src/draft/statement'
 
 const up = { x: 0, y: 0, z: 1 }
 const down = { x: 0, y: 0, z: -1 }
 const side = { x: 1, y: 0, z: 0 }
+
+describe('matchDirection', () => {
+  /** A unit direction this many degrees from +Z, toward +X. */
+  const fromZ = (degrees: number) => {
+    const angle = (degrees * Math.PI) / 180
+    return { x: Math.sin(angle), y: 0, z: Math.cos(angle) }
+  }
+  // Toolpath's own tokens: never exactly what a face measures.
+  const served = { x: 1e-17, y: 0, z: 1 }
+  const detected = { x: 0, y: 1, z: 0 }
+
+  it('takes the part’s direction exactly as served when a pick is within 0.1°', () => {
+    expect(matchDirection([detected, served], fromZ(0.08))).toEqual({ direction: served, index: 1 })
+  })
+
+  it('keeps a pick past 0.1° as a direction the part does not have, unit length', () => {
+    const { direction, index } = matchDirection([served], { x: 0, y: 2, z: 2 })
+    expect(index).toBe(-1)
+    expect(direction.x).toBe(0)
+    expect(direction.y).toBeCloseTo(Math.SQRT1_2, 12)
+    expect(direction.z).toBeCloseTo(Math.SQRT1_2, 12)
+    expect(matchDirection([served], fromZ(0.12)).index).toBe(-1)
+  })
+
+  it('never takes the opposite direction: a flipped pick matches the other way', () => {
+    const down = { x: 0, y: 0, z: -1 }
+    expect(matchDirection([served, down], { x: 0, y: 0, z: -1 })).toEqual({
+      direction: down,
+      index: 1,
+    })
+    expect(matchDirection([served], { x: 0, y: 0, z: -1 }).index).toBe(-1)
+  })
+
+  it('prefers the first of two within reach: analyzed before detected', () => {
+    const near = fromZ(0.06)
+    expect(matchDirection([served, near], fromZ(0.03)).index).toBe(0)
+    expect(matchDirection([near, served], fromZ(0.03)).index).toBe(0)
+  })
+})
 
 describe('the statement', () => {
   const setups: Array<DraftSetup> = [

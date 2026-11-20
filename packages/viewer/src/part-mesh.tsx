@@ -32,6 +32,7 @@ import { createPart, type PartDisplay } from './render/part.js'
 import { type SharpCornerOptions, sharpCornerKey } from './render/sharp-corners.js'
 import { type ThreadOptions, threadKey } from './render/threads.js'
 import { regionAdjacency } from './render/adjacency.js'
+import { faceAxesOf } from './render/face-axis.js'
 import { type PartPick, buildPick, turnDirection, viewDirection } from './render/picking.js'
 import { readTarget } from './render/orbit-target.js'
 import { readPointer } from './render/pointer.js'
@@ -428,9 +429,12 @@ export const PartMesh = ({
     repaint()
   }, [layerKey, repaint])
 
+  // Each face's axis, read on a click: fitted once per face, for as long as the mesh stays.
+  const faceAxisAt = useMemo(() => faceAxesOf(model, geometry), [model, geometry])
   const pickFor = (
     event: ThreeEvent<PointerEvent | MouseEvent>,
     doubled = false,
+    withAxis = false,
   ): PartPick | null => {
     const triangleIndex = event.faceIndex
     if (triangleIndex == null) return null
@@ -445,6 +449,7 @@ export const PartMesh = ({
     const turned = part.object.matrixWorld
     const normal = turnDirection(event.face?.normal ?? UP, turned)
     const source = readPointer(event.nativeEvent)
+    const toward = turnDirection(viewDirection(camera, target), turned, true)
 
     const pick = buildPick({
       model,
@@ -455,7 +460,7 @@ export const PartMesh = ({
       pointer: { clientX: source.clientX, clientY: source.clientY },
       activeDirection,
       doubled,
-      viewDirection: turnDirection(viewDirection(camera, target), turned, true),
+      viewDirection: toward,
       modifiers: {
         alt: source.altKey,
         ctrl: source.ctrlKey,
@@ -465,7 +470,8 @@ export const PartMesh = ({
       },
     })
     const corner = part.sharpCornerAt({ point: event.point, region }, camera as ViewerCamera, size)
-    return corner ? { ...pick, sharpCorner: corner } : pick
+    const read = withAxis ? { ...pick, faceAxis: faceAxisAt(region, toward) } : pick
+    return corner ? { ...read, sharpCorner: corner } : read
   }
 
   // Hover is region-level, so moving between triangles of one face is not a new
@@ -549,7 +555,7 @@ export const PartMesh = ({
     engaged,
     hover,
     claim: false,
-    pick: pickFor,
+    pick: (event, doubled) => pickFor(event, doubled, true),
     onPick: (pick) => onPick?.(pick),
     onMove: (event) => emitHover(pickFor(event)),
     onLeave: () => emitHover(null),

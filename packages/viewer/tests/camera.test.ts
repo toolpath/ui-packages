@@ -1,5 +1,6 @@
 import {
   Box3,
+  BoxGeometry,
   Group,
   Mesh,
   MeshBasicMaterial,
@@ -22,6 +23,7 @@ import {
   aspectRatio,
   boundsAtLeast,
   boundsFromBox,
+  boxMoved,
   cameraLimits,
   cameraPose,
   contentBounds,
@@ -29,6 +31,7 @@ import {
   defaultBounds,
   fitDistance,
   orthographicHalfHeight,
+  partBounds,
   perspectiveFitDistance,
   poseBetween,
   posePlacement,
@@ -169,6 +172,81 @@ describe('contentBounds', () => {
 
   it('falls back to default bounds when nothing is framable', () => {
     expect(contentBounds(new Group(), new Box3()).radius).toBe(defaultBounds().radius)
+  })
+})
+
+describe('partBounds in a frame', () => {
+  /**
+   * The part as Plan Part holds it: drawn well away from its CAD origin, inside
+   * a group turned to a folder's direction, with the arrows drawn beside it in
+   * that same group. Measured on screen, the box is where the turn has carried
+   * the part; the arrows need it where it sits in their group.
+   */
+  const turnedPart = () => {
+    const root = new Group()
+    const turn = new Group()
+    turn.rotation.z = Math.PI / 2
+    const part = new Mesh(new BoxGeometry(40, 20, 10), new MeshBasicMaterial())
+    part.position.set(100, 0, 0)
+    const arrows = new Group()
+    arrows.userData[EXCLUDE_FROM_FRAME] = true
+    arrows.add(new Mesh(new BoxGeometry(500, 500, 500), new MeshBasicMaterial()))
+    turn.add(part, arrows)
+    root.add(turn)
+    return { root, turn, arrows }
+  }
+
+  it('measures the part where it sits in the frame, however the frame is turned', () => {
+    const { root, arrows } = turnedPart()
+    const measured = new Box3()
+
+    partBounds(root, measured, arrows)
+
+    expect(measured.min.x).toBeCloseTo(80, 6)
+    expect(measured.max.x).toBeCloseTo(120, 6)
+    expect(measured.min.y).toBeCloseTo(-10, 6)
+    expect(measured.max.y).toBeCloseTo(10, 6)
+    expect(measured.min.z).toBeCloseTo(-5, 6)
+    expect(measured.max.z).toBeCloseTo(5, 6)
+  })
+
+  it('measures on screen without one: round where the turn carried the part', () => {
+    const { root } = turnedPart()
+
+    const centre = partBounds(root, new Box3()).center
+
+    expect(centre.x).toBeCloseTo(0, 6)
+    expect(centre.y).toBeCloseTo(100, 6)
+  })
+
+  it('gives the same box as the frame turns back', () => {
+    const { root, turn, arrows } = turnedPart()
+    const turned = partBounds(root, new Box3(), arrows)
+    const centre = turned.center.clone()
+
+    turn.rotation.z = 0
+
+    expect(partBounds(root, new Box3(), arrows).center.distanceTo(centre)).toBeCloseTo(0, 6)
+  })
+})
+
+describe('boxMoved', () => {
+  const at = (x: number) => new Box3(new Vector3(x, 0, 0), new Vector3(x + 10, 10, 10))
+
+  it('takes the first box measured', () => {
+    expect(boxMoved(new Box3(), at(0))).toBe(true)
+  })
+
+  it('keeps the last box over an empty one: a part hidden for a moment has not gone', () => {
+    expect(boxMoved(at(0), new Box3())).toBe(false)
+  })
+
+  it('ignores a box measured again where it was', () => {
+    expect(boxMoved(at(0), at(0.0001))).toBe(false)
+  })
+
+  it('follows a part that has moved', () => {
+    expect(boxMoved(at(0), at(1))).toBe(true)
   })
 })
 

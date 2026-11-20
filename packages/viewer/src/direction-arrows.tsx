@@ -1,6 +1,13 @@
 import { type ThreeEvent, useThree } from '@react-three/fiber'
-import { useEffect, useMemo } from 'react'
-import { type Box3, type BufferGeometry, Quaternion, Vector3 } from 'three'
+import { type RefObject, useEffect, useMemo, useRef } from 'react'
+import {
+  type Box3,
+  type BufferGeometry,
+  type Group,
+  type Object3D,
+  Quaternion,
+  Vector3,
+} from 'three'
 import type { Vec3 } from './model/types.js'
 import { ArrowMesh } from './arrow-mesh.js'
 import { useContentBox } from './content-box.js'
@@ -56,6 +63,12 @@ export interface DirectionArrowsProps {
    */
   namedDirections?: readonly NamedDirection[]
   onPickDirection?: (index: number) => void
+  /**
+   * What the arrows are placed in — the part measured in its coordinates. Their
+   * own group when omitted; a caller that moves that group, as a bouncing arrow
+   * does, passes one that stays still, or the part is measured mid-bounce.
+   */
+  frame?: RefObject<Object3D | null>
   theme?: Partial<ViewerTheme>
   visible?: boolean
 }
@@ -74,10 +87,14 @@ export const DirectionArrows = ({
   previewDirection = null,
   namedDirections = [],
   onPickDirection,
+  frame,
   theme,
   visible = true,
 }: DirectionArrowsProps) => {
-  const box = useContentBox()
+  // Measured where the arrows are drawn: the part may be turned on screen, and
+  // an arrow placed from the turned box points at where it was.
+  const own = useRef<Group>(null)
+  const box = useContentBox({ frame: frame ?? own })
   const resolved = useMemo(() => resolveTheme(theme), [theme])
   // One arrow, one long, shared by every arrow drawn: each is placed, aimed and
   // scaled, and none is ever rebuilt.
@@ -97,7 +114,7 @@ export const DirectionArrows = ({
     // Excluded from framing: the arrows are deliberately placed outside the
     // part, so a Fit that measured them would frame the arrows and leave the
     // part small in the middle of them.
-    <group userData={FURNITURE}>
+    <group ref={own} userData={FURNITURE}>
       {directions.map((direction, index) => {
         if (!drawn(index)) return null
         return (

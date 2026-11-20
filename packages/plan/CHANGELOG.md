@@ -1,5 +1,11 @@
 # @toolpath/plan
 
+## 1.5.0
+
+### Minor Changes
+
+- 7b27db7: `matchDirection(directions, picked)` takes the first of a part's directions within 0.1° (Toolpath's own tolerance) of one read off its geometry, exactly as served, or the pick made unit length at index -1. `DirectionsKnown` takes `asked`, the directions asked for and not settled yet: `directionAnalysis` reads one of them as `analyzing`, whether Toolpath detected it or not; given `asked`, a detected direction not in it stays `unanalyzed` while others are analyzed.
+
 ## 1.4.0
 
 ### Minor Changes

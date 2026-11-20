@@ -1,3 +1,4 @@
+import type { FaceAxis } from './face-axis.js'
 import { Matrix3, Vector3, type Camera, type Matrix4 } from 'three'
 import type { FeatureTag, PartModel, Vec3 } from '../model/types.js'
 import { bestOwner, rankOwners } from './selection.js'
@@ -54,6 +55,12 @@ export interface PartPick {
   readonly point: readonly [number, number, number]
   /** The surface's outward normal in world space — the plane under the cursor. */
   readonly normal: readonly [number, number, number]
+  /**
+   * The clicked face's own axis, in the part's coordinates (`faceAxisOf`): a flat face's outward
+   * normal, a round face's axis from the end facing the camera, null for any other face. Read on a
+   * click from `<PartMesh>`, never on a hover.
+   */
+  readonly faceAxis?: FaceAxis | null
   /** Browser coordinates when the pick came from `<PartMesh>`. */
   readonly pointer?: PointerLocation
   readonly modifiers: PickModifiers

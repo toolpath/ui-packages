@@ -240,6 +240,7 @@ export {
   orbitTargetOpacity,
 } from './render/target.js'
 export type { BuildPickInput, PartPick, PickModifiers, PointerLocation } from './render/picking.js'
+export type { FaceAxis } from './render/face-axis.js'
 export type { FrameBoxOptions, ViewerControls, ViewerHandle, ViewerView } from './types.js'
 export type {
   Axis2,

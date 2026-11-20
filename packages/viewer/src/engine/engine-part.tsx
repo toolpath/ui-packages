@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useDeferredValue, useEffect } from 'react'
 import type { FeatureTag, PartModel } from '../model/types.js'
 import { withoutFeatures } from '../model/without-features.js'
 import { PartMesh, type PartMeshProps } from '../part-mesh.js'
@@ -64,7 +64,12 @@ export interface EnginePartProps extends Omit<PartMeshProps, 'model' | 'geometry
  * through props.
  */
 export const EnginePart = ({ report, withoutFeatures: leftOut, ...props }: EnginePartProps) => {
-  const reported = modelForReport(report)
+  // A newer report — the part analyzed again, from a direction added — names its mesh afresh, as
+  // each analysis writes its own copy. Deferred, the part stays drawn from the report it has while
+  // the new mesh loads, and both change together once it is in: never the Suspense fallback, which
+  // blanks the part. A part's first report is not deferred.
+  const shown = useDeferredValue(report)
+  const reported = modelForReport(shown)
   const model = modelWithout(reported, leftOut)
   const resource = useGeometryResource(reported)
 
