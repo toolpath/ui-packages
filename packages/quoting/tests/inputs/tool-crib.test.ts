@@ -45,10 +45,10 @@ describe('implicitLibraryIds', () => {
 })
 
 describe('startingLibrary', () => {
-  const library = (id: string, materialFamilies: Array<string>, isDefault = false) => ({
+  const library = (id: string, materialFamilies: Array<string>, isFallback = false) => ({
     id,
     materialFamilies,
-    isDefault,
+    isFallback,
   })
   const DEFAULT = library('default', [], true)
   const STEEL = library('steel', ['P', 'M'])
@@ -58,21 +58,21 @@ describe('startingLibrary', () => {
     expect(startingLibrary([DEFAULT, ALUMINIUM, STEEL], 'M')?.id).toBe('steel')
   })
 
-  it('falls back to the default when none names the family', () => {
+  it('falls back to the fallback library when none names the family', () => {
     expect(startingLibrary([ALUMINIUM, DEFAULT, STEEL], 'K')?.id).toBe('default')
   })
 
-  it('takes the first that suits when the default does not', () => {
+  it('takes the first that suits when the fallback does not', () => {
     const steelDefault = library('default', ['P'], true)
     expect(startingLibrary([steelDefault, library('any', [])], 'N')?.id).toBe('any')
   })
 
-  it('still picks the default when nothing suits, since a part needs tools', () => {
+  it('still picks the fallback when nothing suits, since a part needs tools', () => {
     const steelDefault = library('default', ['P'], true)
     expect(startingLibrary([steelDefault, ALUMINIUM], 'M')?.id).toBe('default')
   })
 
-  it('starts a part with no material on the default', () => {
+  it('starts a part with no material on the fallback', () => {
     expect(startingLibrary([STEEL, DEFAULT], null)?.id).toBe('default')
   })
 })
@@ -80,7 +80,7 @@ describe('startingLibrary', () => {
 describe('offeredLibraries', () => {
   const library = (id: string, materialFamilies: Array<string>) => ({
     id,
-    isDefault: false,
+    isFallback: false,
     materialFamilies,
   })
   const steel = library('steel', ['P'])
@@ -111,8 +111,8 @@ describe('offeredLibraries', () => {
 
 describe('cribUntouched', () => {
   const libraries = [
-    { id: 'default', isDefault: true, materialFamilies: [] },
-    { id: 'steel', isDefault: false, materialFamilies: ['P'] },
+    { id: 'default', isFallback: true, materialFamilies: [] },
+    { id: 'steel', isFallback: false, materialFamilies: ['P'] },
   ]
 
   it('takes an empty crib, or just the library the material starts on, as nobody’s choice', () => {
@@ -231,14 +231,14 @@ describe('how a crib is planned and kept', () => {
     expect(fillsDefaultFamilies([explicit('x'), implicit('a')])).toBe(false)
   })
 
-  it('plans the default library last only behind explicit libraries', () => {
+  it('plans the fallback library last only behind explicit libraries', () => {
     expect(plansDefaultLast([explicit('x')], 'default')).toBe(true)
     expect(plansDefaultLast([explicit('x'), implicit('a')], 'default')).toBe(true)
     expect(plansDefaultLast([implicit('a')], 'default')).toBe(false)
     expect(plansDefaultLast([], 'default')).toBe(false)
   })
 
-  it('does not plan the default library last where the crib names it, or there is none', () => {
+  it('does not plan the fallback library last where the crib names it, or there is none', () => {
     expect(plansDefaultLast([explicit('x'), implicit('default')], 'default')).toBe(false)
     expect(plansDefaultLast([explicit('x')], null)).toBe(false)
     expect(plansDefaultLast([explicit('x')], undefined)).toBe(false)
@@ -246,7 +246,7 @@ describe('how a crib is planned and kept', () => {
     expect(plansDefaultLast([explicit('default')], 'default')).toBe(true)
   })
 
-  it('plans the default library last only within the sixteen', () => {
+  it('plans the fallback library last only within the sixteen', () => {
     const almost = [
       explicit('x'),
       ...Array.from({ length: MAX_CRIB_LIBRARIES - 2 }, (_, index) => implicit(`i${index}`)),
@@ -280,5 +280,46 @@ describe('how a crib is planned and kept', () => {
   it('reads a saved entry by its kind and id together', () => {
     // The saved crib names an implicit library of that id, not an explicit one.
     expect(keptEntries([explicit('a')], () => false, [implicit('a')]).refused).toBe(true)
+  })
+})
+
+describe('the fallback library, by either name', () => {
+  // Meant for steel alone: a part in aluminium starts on the fallback, whichever it is.
+  const steel = { id: 'steel', materialFamilies: ['P'] }
+  const any = { id: 'any', materialFamilies: [] as Array<string> }
+
+  it('reads the deprecated isDefault as before', () => {
+    const libraries = [
+      { ...any, isDefault: false },
+      { ...steel, isDefault: false },
+      { id: 'old', materialFamilies: [], isDefault: true },
+    ]
+    expect(startingLibrary(libraries, 'N')?.id).toBe('old')
+    expect(cribUntouched([{ kind: 'implicit', id: 'old' }], libraries, 'N')).toBe(true)
+  })
+
+  it('reads isFallback', () => {
+    const libraries = [
+      { ...any, isFallback: false },
+      { ...steel, isFallback: false },
+      { id: 'new', materialFamilies: [], isFallback: true },
+    ]
+    expect(startingLibrary(libraries, 'N')?.id).toBe('new')
+    expect(cribUntouched([{ kind: 'implicit', id: 'new' }], libraries, 'N')).toBe(true)
+  })
+
+  it('takes isFallback over isDefault where a library has both', () => {
+    const libraries = [
+      { ...any, isFallback: false, isDefault: true },
+      { id: 'new', materialFamilies: [], isFallback: true, isDefault: false },
+    ]
+    expect(startingLibrary(libraries, 'N')?.id).toBe('new')
+  })
+
+  it('reads a library with neither, as a caller without types may send, as no fallback', () => {
+    type Library = Parameters<typeof startingLibrary>[0][number]
+    const libraries = [any, { id: 'other', materialFamilies: [] }] as unknown as Array<Library>
+    // No fallback: the first that suits.
+    expect(startingLibrary(libraries, 'N')?.id).toBe('any')
   })
 })

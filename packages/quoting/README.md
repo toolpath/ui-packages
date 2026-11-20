@@ -175,7 +175,7 @@ whole date. `defaultExpiry` is a week from today.
 time) → `not_ready` (does not price) → `unavailable` (no payments, or already ordered: takes a
 purchase order) → `payable`.
 
-## A part's stock and tool crib: `@toolpath/quoting/inputs`
+## A part's stock, tool crib and process: `@toolpath/quoting/inputs`
 
 ```ts
 import { parseStock, stockPlacement, stockRequest, startingLibrary } from '@toolpath/quoting/inputs'
@@ -214,14 +214,26 @@ A part is planned from its constraints and from these inputs:
   (`preparationId`, Engine API 1.41). Any other stock has none.
 - **Tool crib.** `ToolCrib` is the tool libraries a part draws its tools from. `startingLibrary`
   is the library a crib starts on for a material, and `offeredLibraries` is what it offers to add.
+  Each library a crib picks from names the org's fallback library with `isFallback`; `isDefault`
+  is its deprecated alias, still read where `isFallback` is absent, and `isFallback` wins where a
+  library has both. A library with neither is not the fallback.
   `addLibrary`, `removeLibrary` and `swapLibraries` edit the list. An entry is `implicit` (tools
   synthesized from settings) or `explicit` (one version of a shop's uploaded library, which the
   fingerprint reads by its id alone); `normalizeCrib` puts every explicit one first, cutting nothing;
   `addLibrary` adds nothing to a crib already `MAX_CRIB_LIBRARIES` long. A crib with explicit
   libraries gets no kernel-default families (`fillsDefaultFamilies`) and is planned with the org's
-  default implicit library last, where it lacks it and has room (`plansDefaultLast`). A changed crib
-  keeps its entries whose libraries are live, drops one deleted since it was saved, and is refused
-  for any other (`keptEntries`).
+  fallback implicit library last, where it lacks it and has room (`plansDefaultLast`). A changed
+  crib keeps its entries whose libraries are live, drops one deleted since it was saved, and is
+  refused for any other (`keptEntries`).
+- **Process.** `ProcessSettings` is a named bundle of the settings a part starts with: its
+  `materialId`, `machineProfileId`, `toolCrib`, `stockProfileId` and `dfmRuleSetIds`.
+  `applyProcess(target, settings, keys)` returns the target with those settings applied and leaves
+  the target unchanged. A null id, or an empty crib, is a setting the process does not supply: the
+  target keeps its own value. A crib it supplies is kept as every crib is (`normalizeCrib`), and
+  its DFM rule sets are always copied, none meaning every set. `keys` names the settings to apply,
+  `PROCESS_KEYS` (every one) by default; leave a key out to leave that setting alone, as a folder
+  leaves out `materialId`. The target may hold any or all of the settings, and the result is typed
+  with every one it may have added.
 
 ## How units show: `@toolpath/quoting/units`
 

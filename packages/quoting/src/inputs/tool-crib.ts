@@ -56,17 +56,37 @@ export const suitsMaterial = (
   family: string | null,
 ): boolean => family === null || materialFamilies.length === 0 || materialFamilies.includes(family)
 
-/** What a crib picks a library by. */
-interface CribLibrary {
+/**
+ * Whether a library is the org's fallback, by either name: `isFallback`, or the deprecated
+ * `isDefault`. Where both are given, `isFallback` wins.
+ */
+type FallbackFlag =
+  | {
+      /** The org's fallback library: planned last behind uploaded ones, started on where none suits. */
+      isFallback: boolean
+      /** @deprecated Use `isFallback`. */
+      isDefault?: boolean
+    }
+  | {
+      isFallback?: boolean
+      /** @deprecated Use `isFallback`. */
+      isDefault: boolean
+    }
+
+/** What a crib picks a library by: its id, the families it is meant for, and whether it is the fallback. */
+type CribLibrary = {
   id: string
-  isDefault: boolean
   materialFamilies: ReadonlyArray<string>
-}
+} & FallbackFlag
+
+/** Whether a library is the org's fallback: `isFallback`, else the deprecated `isDefault`. */
+const isFallbackLibrary = (library: FallbackFlag): boolean =>
+  library.isFallback ?? library.isDefault ?? false
 
 /**
  * The library a crib starts on for a part cut from `family`: the first meant for that family in
- * particular, else the org's default if it suits, else the first that suits — and, when none does,
- * the default anyway, since a part has to be planned with something.
+ * particular, else the org's fallback if it suits, else the first that suits — and, when none does,
+ * the fallback anyway, since a part has to be planned with something.
  */
 export const startingLibrary = <Library extends CribLibrary>(
   libraries: ReadonlyArray<Library>,
@@ -77,9 +97,9 @@ export const startingLibrary = <Library extends CribLibrary>(
     (family === null
       ? undefined
       : suiting.find((library) => library.materialFamilies.includes(family))) ??
-    suiting.find((library) => library.isDefault) ??
+    suiting.find(isFallbackLibrary) ??
     suiting[0] ??
-    libraries.find((library) => library.isDefault) ??
+    libraries.find(isFallbackLibrary) ??
     libraries[0]
   )
 }
@@ -154,15 +174,15 @@ const hasExplicit = (crib: ReadonlyArray<ToolCribEntry>): boolean =>
 /**
  * Whether a family no library in the crib supplies is filled in at the kernel's defaults, in its
  * first library: only in a crib of implicit libraries alone. A crib with explicit libraries falls
- * back on the org's default library instead (`plansDefaultLast`) and gets no default families.
+ * back on the org's fallback library instead (`plansDefaultLast`) and gets no default families.
  */
 export const fillsDefaultFamilies = (crib: ReadonlyArray<ToolCribEntry>): boolean =>
   !hasExplicit(crib)
 
 /**
- * Whether the org's default implicit library (`defaultId`) is planned last behind a crib's
+ * Whether the org's fallback implicit library (`defaultId`) is planned last behind a crib's
  * libraries, for what the shop's own tools cannot do: only behind a crib with explicit libraries
- * that does not name the default already and has room for it within {@link MAX_CRIB_LIBRARIES}.
+ * that does not name the fallback already and has room for it within {@link MAX_CRIB_LIBRARIES}.
  * `crib` is the crib as it is planned: the entries whose libraries were found, in their order.
  */
 export const plansDefaultLast = (

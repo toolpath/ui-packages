@@ -3,8 +3,10 @@
  * it is cut from (`stock`) and the tool libraries it draws its tools from (`tool-crib`). How the
  * stock is sent to Toolpath (`stockRequest`) and how it sits on the model (`stockPlacement`) are
  * here too, so the estimate, profile and plan pages read one set of rules, and why Toolpath could
- * not plan a part from a body of its file, in words (`plan-failure`).
+ * not plan a part from a body of its file, in words (`plan-failure`). A named bundle of the inputs a
+ * part starts with, and how a part takes it, is `process`.
  */
 export * from './plan-failure'
+export * from './process'
 export * from './stock'
 export * from './tool-crib'

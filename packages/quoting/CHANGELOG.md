@@ -1,5 +1,21 @@
 # @toolpath/quoting
 
+## 2.3.0
+
+### Minor Changes
+
+- be85b65: `@toolpath/quoting/inputs` describes a process: a named bundle of the settings a part starts with
+  (`ProcessSettings`: material, machine, tool crib, stock profile and DFM rule sets).
+  `applyProcess(target, settings, keys)` copies the settings a process supplies onto a part's inputs
+  (any object holding some or all of those settings) and returns them, leaving the target unchanged.
+  A null id or an empty crib keeps the target's own value, the crib is normalized as every crib is,
+  and the DFM rule sets are always copied. `keys` (default `PROCESS_KEYS`) leaves settings out. The
+  result is typed `Target & Partial<ProcessSettings>`. `ProcessKey` and `PROCESS_KEYS` are exported.
+
+  The libraries a crib picks from (`startingLibrary`, `offeredLibraries`, `cribOf`, `cribUntouched`)
+  name the org's fallback library with `isFallback`. `isDefault` is deprecated but still accepted, and
+  reads as before; where a library has both, `isFallback` wins.
+
 ## 2.2.0
 
 ### Minor Changes

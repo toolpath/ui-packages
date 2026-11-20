@@ -314,6 +314,18 @@ describe('the fingerprint text', () => {
 })
 
 describe('a part’s inputs', () => {
+  it('leave out the process its row was started from: provenance, not an input', () => {
+    const part = {
+      materialId: 'aluminium',
+      machineProfileId: 'haas',
+      toolCrib: [{ kind: 'implicit' as const, id: 'tools' }],
+    }
+    const started = { ...part, processId: 'three-axis' }
+    const other = { ...part, processId: 'other' }
+    expect(fingerprintOf(started, null)).toBe(fingerprintOf(part, null))
+    expect(fingerprintOf(started, null)).toBe(fingerprintOf(other, null))
+  })
+
   it('are none but its row’s, never edited', () => {
     expect(planInputsOf({}, null)).toEqual({
       statement: null,
