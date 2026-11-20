@@ -1,5 +1,11 @@
 # @toolpath/plan
 
+## 1.6.0
+
+### Minor Changes
+
+- f0c8fac: What's left of a feature that loses some regions can now be cut into features the planner can read. `PlanRules` takes two optional inputs: `readingsFrom(direction)`, the regions of each feature the part's analysis read from a direction, and `touching(region)`, the regions sharing an edge with a region. Given them, an edit that takes regions out of a feature (assigning or adopting over it, editing another feature, leaving regions open, ignoring them) leaves the rest as one custom feature per reading that lies wholly in it, largest first, then one per run of the remaining regions that touch, in place of one custom feature the planner may refuse as reading as no feature. A feature a person makes of regions is kept as made. Left out, edits behave as before. `piecesOf(regions, readings, touching)` gives that cut on its own. `PlanPart.trimmedLabel(tag)`, also optional, lets an app name a trimmed feature itself; `featureRow` reads it first. `whyOf` takes an optional fourth argument, the faces left and the plan's trimmed features: a setup whose left trimmed features hold every one of those faces now reads as having planned them, where before they read as left out of every setup.
+
 ## 1.5.0
 
 ### Minor Changes

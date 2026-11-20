@@ -94,6 +94,12 @@ describe('featureRow', () => {
     })
   })
 
+  it('reads a trimmed tag as the app names it where it does, and as before where it does not', () => {
+    const named = { ...part, trimmedLabel: (tag: string) => (tag === 'h2' ? 'Mine' : undefined) }
+    expect(featureRow(named, trimmed, 'h2')).toMatchObject({ label: 'Mine', trimmed: true })
+    expect(featureRow(named, trimmed, "H'")).toMatchObject({ label: 'Feature h (custom)' })
+  })
+
   it('reads a trimmed tag by its own type where the part has no type for its origin', () => {
     expect(featureRow(part, trimmed, 'g1')).toMatchObject({ label: 'Face (custom)', type: 'face' })
   })

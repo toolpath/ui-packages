@@ -54,6 +54,7 @@ import {
   ignoreRegionsEdit,
   type FeatureRef,
 } from './custom'
+import { leftoverCut } from './pieces'
 import { groupRef, GONE, MAX_DEPTH, type Refusal, type Refused, TOO_DEEP } from './refusals'
 
 /*
@@ -342,7 +343,12 @@ export const applyDraftAction = <T extends Constraints>(
   const unmarked =
     action.kind === 'chooseDoneReading' ? [] : doneNoLonger(draft, result.draft, rules)
   // Every edit, the region ones and main's alike, leaves the draft to the region rules.
-  const kept = keptToRegionRules(draft, result.draft, rules.regionsOf) as T
+  const kept = keptToRegionRules(
+    draft,
+    result.draft,
+    rules.regionsOf,
+    leftoverCut(result.draft.setups, rules),
+  ) as T
   return {
     draft: withAddedLimit(draft, kept, rules),
     facts: { ...NO_FACTS, ...result.facts, unmarked },
@@ -802,6 +808,7 @@ const CARRY_OUT: { readonly [K in DraftActionKind]: CarryOut<K> } = {
             action.share,
             rules.regionsOf,
             rules.preparationId ?? null,
+            leftoverCut(draft.setups, rules),
           ),
         )
       : { refused: NOT_AN_ACTION },
@@ -816,6 +823,7 @@ const CARRY_OUT: { readonly [K in DraftActionKind]: CarryOut<K> } = {
             action.regions,
             rules.regionsOf,
             rules.preparationId ?? null,
+            leftoverCut(draft.setups, rules),
             action.into,
           ),
         )
@@ -831,6 +839,7 @@ const CARRY_OUT: { readonly [K in DraftActionKind]: CarryOut<K> } = {
             action.regions,
             rules.regionsOf,
             rules.preparationId ?? null,
+            leftoverCut(draft.setups, rules),
             action.groupId,
           ),
         )
@@ -852,6 +861,7 @@ const CARRY_OUT: { readonly [K in DraftActionKind]: CarryOut<K> } = {
             rules.regionsOf,
             rules.preparationId ?? null,
             rules.directionOf,
+            leftoverCut(draft.setups, rules),
           ),
         )
       : { refused: NOT_AN_ACTION },
@@ -868,6 +878,7 @@ const CARRY_OUT: { readonly [K in DraftActionKind]: CarryOut<K> } = {
             rules.regionsOf,
             rules.kernel,
             rules.preparationId ?? null,
+            leftoverCut(draft.setups, rules),
           ),
         )
       : { refused: NOT_AN_ACTION },

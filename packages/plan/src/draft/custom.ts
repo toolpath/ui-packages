@@ -13,6 +13,7 @@ import {
   type DraftGroup,
   type DraftSetup,
 } from './constraints'
+import type { Cut } from './pieces'
 import { GONE, type Refused } from './refusals'
 
 /*
@@ -22,8 +23,11 @@ import { GONE, type Refused } from './refusals'
   states a plan region by region.
 
   A region is in at most one feature of a frame. Taking regions out of an assigned feature leaves
-  what's left of it as a feature of the group's own; taking them out of one of the group's own
-  features shrinks it, and one with no regions left goes.
+  what's left of it as features of the group's own; taking them out of one of the group's own
+  features shrinks it, and one with no regions left goes. What's left is cut into the features
+  Toolpath can read it as, where the edit is given the way to (`Cut`, see `pieces.ts`). A feature
+  a person makes of regions is kept as made, until another edit takes some of its regions: then
+  what's left of it is cut like any other's.
 */
 
 /** Where a feature is found: assigned by its tag, or one of the group's own by its place. */
@@ -71,10 +75,17 @@ const everyGroup = (
   return setups.map((setup) => visit(setup) as DraftSetup)
 }
 
+/** What's left of a feature in a group, cut by `cut`, or kept as one where there's none. */
+const piecesLeft = (
+  cut: Cut | undefined,
+  groupId: string,
+  regions: Array<number>,
+): Array<Array<number>> => (cut ? cut(groupId, regions) : [regions])
+
 /**
  * A group with these regions taken out of its features. An assigned feature they touch goes, and
- * what's left of it stays as one of the group's own, numbered by `preparationId`; its own features
- * shrink, keeping their stamp, and empty ones go. With no `preparationId` nothing can be stated by
+ * what's left of it stays as the group's own, numbered by `preparationId`, cut by `cut`; its own
+ * features shrink (`shrunk`), and empty ones go. With no `preparationId` nothing can be stated by
  * region, so an assigned feature is never trimmed: it goes only where every region of it is taken.
  */
 const withoutRegions = (
@@ -82,6 +93,7 @@ const withoutRegions = (
   regions: ReadonlySet<number>,
   regionsOf: (tag: string) => ReadonlyArray<number>,
   preparationId: string | null,
+  cut: Cut | undefined,
 ): DraftGroup => {
   const kept: Array<string> = []
   const left: Array<CustomFeature> = []
@@ -99,18 +111,24 @@ const withoutRegions = (
       kept.push(tag)
       continue
     }
-    left.push(ownFeature(rest, preparationId))
+    left.push(...piecesLeft(cut, group.id, rest).map((piece) => ownFeature(piece, preparationId)))
   }
-  return withCustom({ ...group, features: kept }, [...shrunk(customOf(group), regions), ...left])
+  return withCustom({ ...group, features: kept }, [
+    ...shrunk(customOf(group), regions, cut, group.id),
+    ...left,
+  ])
 }
 
 /**
- * A group's own features with these regions out of them, each keeping its stamp; empty ones go,
- * and one that lost any loses its type, which was read off the regions it had.
+ * A group's own features with these regions out of them, what's left of each cut by `cut` in its
+ * place, each piece keeping its stamp; empty ones go, and one that lost any loses its type, which
+ * was read off the regions it had.
  */
 const shrunk = (
   custom: ReadonlyArray<CustomFeature>,
   regions: ReadonlySet<number>,
+  cut: Cut | undefined,
+  groupId: string,
 ): Array<CustomFeature> =>
   custom.flatMap((feature) => {
     const left = feature.regions.filter((region) => !regions.has(region))
@@ -118,7 +136,9 @@ const shrunk = (
       return [feature]
     }
     const { featureType: _read, ...rest } = feature
-    return left.length > 0 ? [{ ...rest, regions: left }] : []
+    return left.length > 0
+      ? piecesLeft(cut, groupId, left).map((piece) => ({ ...rest, regions: piece }))
+      : []
   })
 
 /** The groups that cut from the same frame as `groupId`: it and the groups that follow its frame. */
@@ -150,6 +170,7 @@ export const assignRegionsEdit = (
   share: boolean,
   regionsOf: (tag: string) => ReadonlyArray<number>,
   preparationId: string | null,
+  cut: Cut | undefined,
 ): Constraints | Refused => {
   if (preparationId === null) {
     return NOT_BY_REGION
@@ -161,7 +182,9 @@ export const assignRegionsEdit = (
   const frame = frameGroupIds(draft.setups, groupId)
   const setups = everyGroup(draft.setups, (group) => {
     const cleared =
-      share && !frame.has(group.id) ? group : withoutRegions(group, taken, regionsOf, preparationId)
+      share && !frame.has(group.id)
+        ? group
+        : withoutRegions(group, taken, regionsOf, preparationId, cut)
     return group.id === groupId
       ? withCustom(cleared, [...customOf(cleared), ownFeature(regions, preparationId)])
       : cleared
@@ -195,6 +218,7 @@ export const editFeatureEdit = (
   regions: ReadonlyArray<number>,
   regionsOf: (tag: string) => ReadonlyArray<number>,
   preparationId: string | null,
+  cut: Cut | undefined,
   into?: string,
 ): Constraints | Refused => {
   if (preparationId === null) {
@@ -232,11 +256,11 @@ export const editFeatureEdit = (
   const target = into ?? groupId
   const setups = everyGroup(draft.setups, (each) => {
     if (each.id === target && target !== groupId) {
-      const cleared = withoutRegions(each, all, regionsOf, preparationId)
+      const cleared = withoutRegions(each, all, regionsOf, preparationId, cut)
       return next.length === 0 ? cleared : withCustom(cleared, [...customOf(cleared), edited])
     }
     if (each.id !== groupId) {
-      return withoutRegions(each, frame.has(each.id) ? all : gained, regionsOf, preparationId)
+      return withoutRegions(each, frame.has(each.id) ? all : gained, regionsOf, preparationId, cut)
     }
     const others = isTag
       ? { ...each, features: each.features.filter((tag) => tagKey(tag) !== tagKey(feature.tag)) }
@@ -244,7 +268,7 @@ export const editFeatureEdit = (
           each,
           customOf(each).filter((_, i) => i !== feature.custom),
         )
-    const cleared = withoutRegions(others, all, regionsOf, preparationId)
+    const cleared = withoutRegions(others, all, regionsOf, preparationId, cut)
     if (next.length === 0 || target !== groupId) {
       return cleared
     }
@@ -301,6 +325,7 @@ export const openRegionsEdit = (
   regions: ReadonlyArray<number>,
   regionsOf: (tag: string) => ReadonlyArray<number>,
   preparationId: string | null,
+  cut: Cut | undefined,
   groupId?: string,
 ): Constraints => {
   const released = new Set(regions)
@@ -308,14 +333,16 @@ export const openRegionsEdit = (
     return {
       ...draft,
       setups: everyGroup(draft.setups, (group) =>
-        group.id === groupId ? withoutRegions(group, released, regionsOf, preparationId) : group,
+        group.id === groupId
+          ? withoutRegions(group, released, regionsOf, preparationId, cut)
+          : group,
       ),
     }
   }
   return {
     ...draft,
     setups: everyGroup(draft.setups, (group) =>
-      withoutRegions(group, released, regionsOf, preparationId),
+      withoutRegions(group, released, regionsOf, preparationId, cut),
     ),
     ...withDone(
       draft,
@@ -324,8 +351,8 @@ export const openRegionsEdit = (
   }
 }
 
-/** Regions done also leave every group's own features: done outranks any assignment. */
-const withoutDoneRegions = (draft: Constraints): Constraints => {
+/** Regions done also leave every group's own features, what's left cut by `cut`: done outranks any assignment. */
+const withoutDoneRegions = (draft: Constraints, cut: Cut | undefined): Constraints => {
   const done = new Set(draft.done)
   if (done.size === 0) {
     return draft
@@ -333,7 +360,7 @@ const withoutDoneRegions = (draft: Constraints): Constraints => {
   return {
     ...draft,
     setups: everyGroup(draft.setups, (group) =>
-      group.custom ? withCustom(group, shrunk(group.custom, done)) : group,
+      group.custom ? withCustom(group, shrunk(group.custom, done, cut, group.id)) : group,
     ),
   }
 }
@@ -573,6 +600,7 @@ export const adoptEdit = (
   regionsOf: (tag: string) => ReadonlyArray<number>,
   preparationId: string | null,
   directionOf: ((tag: string) => PlanDirection | undefined) | undefined,
+  cut: Cut | undefined,
 ): Constraints | Refused => {
   const placed = findPlaced(draft.setups, groupId)
   if (!placed) {
@@ -598,7 +626,7 @@ export const adoptEdit = (
     if (group.id !== groupId) {
       return share && !frame.has(group.id)
         ? group
-        : withoutRegions(group, taken, regionsOf, preparationId)
+        : withoutRegions(group, taken, regionsOf, preparationId, cut)
     }
     const kept = withCustom(
       {
@@ -609,7 +637,7 @@ export const adoptEdit = (
       },
       customOf(group).filter((_, i) => !outOwn.has(i)),
     )
-    const cleared = withoutRegions(kept, taken, regionsOf, preparationId)
+    const cleared = withoutRegions(kept, taken, regionsOf, preparationId, cut)
     return { ...cleared, features: [...cleared.features, ...pinned] }
   })
   return {
@@ -633,6 +661,7 @@ export const ignoreRegionsEdit = (
   regionsOf: (tag: string) => ReadonlyArray<number>,
   kernel: string | null,
   preparationId: string | null,
+  cut: Cut | undefined,
 ): Constraints => {
   const added = new Set(ignore)
   const dropped = new Set(unignore)
@@ -645,7 +674,7 @@ export const ignoreRegionsEdit = (
     setups:
       added.size > 0
         ? everyGroup(draft.setups, (group) =>
-            withoutRegions(group, added, regionsOf, preparationId),
+            withoutRegions(group, added, regionsOf, preparationId, cut),
           )
         : draft.setups,
     done,
@@ -657,12 +686,13 @@ export const ignoreRegionsEdit = (
  * A draft kept to the region rules after any edit, however it was made: the regions of a feature
  * newly assigned to a group leave the other features of its frame (one feature per region per
  * frame); regions ignored leave every group's own features; and with nothing ignored, no kernel is
- * named.
+ * named. What's left of a group's own feature is cut by `cut`.
  */
 export const keptToRegionRules = (
   before: Constraints,
   after: Constraints,
   regionsOf: (tag: string) => ReadonlyArray<number>,
+  cut: Cut | undefined,
 ): Constraints => {
   const had = new Map(
     placedGroups(before.setups).map(({ group }) => [group.id, new Set(group.features.map(tagKey))]),
@@ -687,7 +717,7 @@ export const keptToRegionRules = (
       ...draft,
       setups: everyGroup(draft.setups, (group) => {
         const regions = gained.get(frameOf.get(group.id)!)
-        return regions ? withCustom(group, shrunk(customOf(group), regions)) : group
+        return regions ? withCustom(group, shrunk(customOf(group), regions, cut, group.id)) : group
       }),
     }
   }
@@ -696,7 +726,7 @@ export const keptToRegionRules = (
     customOf(group).some((feature) => feature.regions.some((region) => done.has(region))),
   )
   if (doneStated) {
-    draft = withoutDoneRegions(draft)
+    draft = withoutDoneRegions(draft, cut)
   }
   return draft.done.length === 0 && draft.doneKernel !== null
     ? { ...draft, doneKernel: null }

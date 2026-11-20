@@ -126,6 +126,7 @@ export {
   type SpecSource,
   staleCustomOf,
 } from './draft/custom'
+export { piecesOf } from './draft/pieces'
 export { type GroupRef, type Refusal, type Refused } from './draft/refusals'
 export { type Statement, statementOf } from './draft/statement'
 export * from './details/details'

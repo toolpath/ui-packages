@@ -24,6 +24,26 @@ describe('whyOf', () => {
   it('says a face no feature includes is just that', () => {
     expect(whyOf(null, setups, null)).toEqual({ kind: 'noFeature' })
   })
+
+  it('names the setup that left trimmed features holding every one of its faces, as planned', () => {
+    const trimmed = [
+      { featureTag: 'abc', regionIdxs: [4, 5] },
+      { featureTag: 'ghi', regionIdxs: [6] },
+    ]
+    expect(whyOf('profile', setups, up, { regions: [4, 5], trimmed })).toEqual({
+      kind: 'planned',
+      setup: 1,
+    })
+    // A face no trimmed feature that setup left holds: not planned there, for any of them.
+    expect(whyOf('profile', setups, up, { regions: [5, 6], trimmed })).toEqual({
+      kind: 'leftOut',
+      setup: 0,
+    })
+    expect(whyOf('profile', setups, up, { regions: [6], trimmed })).toEqual({
+      kind: 'leftOut',
+      setup: 0,
+    })
+  })
 })
 
 describe('not finished', () => {

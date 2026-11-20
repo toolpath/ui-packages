@@ -107,6 +107,11 @@ export interface PlanPart {
   featureType?: (tag: string) => string | undefined
   /** A hole's bore, once its sheet is in. */
   featureBore?: (tag: string) => FeatureBore | undefined
+  /**
+   * A trimmed feature's label where the app names it itself, by tag: telling apart two that would
+   * read the same, say. Left out, or undefined for a tag, it reads as `trimmedFeatureLabel` names it.
+   */
+  trimmedLabel?: (tag: string) => string | undefined
 }
 
 /** A plan's trimmed features, by tag (lower case). */
@@ -147,7 +152,7 @@ export const trimmedOrigin = (
  * (`featureType`); and with that feature's bore where it borrows from it (`trimmedOrigin`).
  */
 export const featureRow = (
-  part: Pick<PlanPart, 'featureLabel' | 'featureType' | 'featureBore'>,
+  part: Pick<PlanPart, 'featureLabel' | 'featureType' | 'featureBore' | 'trimmedLabel'>,
   trimmedFeatures: TrimmedByTag,
   tag: string,
 ): PlanFeatureRow => {
@@ -160,9 +165,11 @@ export const featureRow = (
     const unknown = (from: string) => part.featureType !== undefined && typeOf(from) === undefined
     return {
       tag,
-      label: trimmedFeatureLabel(trimmedFeature, (from) =>
-        unknown(from) ? featureTypeLabel(trimmedFeature.featureType) : part.featureLabel(from),
-      ),
+      label:
+        part.trimmedLabel?.(tag) ??
+        trimmedFeatureLabel(trimmedFeature, (from) =>
+          unknown(from) ? featureTypeLabel(trimmedFeature.featureType) : part.featureLabel(from),
+        ),
       type: trimmedFeature.featureType,
       trimmed: true,
       ...(bore ? { bore } : {}),

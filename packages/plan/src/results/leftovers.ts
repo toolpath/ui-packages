@@ -1,4 +1,4 @@
-import type { PlanDirection } from './plan'
+import type { PlanDirection, TrimmedFeature } from './plan'
 
 /*
   What is not machined, and why, read the one way every page reads it: a feature is not machined when
@@ -51,19 +51,36 @@ const alike = (a: PlanDirection, b: PlanDirection): boolean =>
 export const isFromBelow = (direction: PlanDirection | null | undefined): boolean =>
   (direction?.z ?? 0) < -0.5
 
-/** Why a feature nothing machines is left. */
+/**
+ * Why a feature nothing machines is left. A setup that took on a feature the plan trimmed from it
+ * and left that names the trimmed feature, not this one: with `left`, the faces left and the plan's
+ * trimmed features, a setup planned them where the trimmed features it left hold every one of them.
+ */
 export const whyOf = (
   tag: string | null,
   setups: ReadonlyArray<PlannedSetup>,
   direction: PlanDirection | null,
+  left?: {
+    regions: ReadonlyArray<number>
+    trimmed: ReadonlyArray<Pick<TrimmedFeature, 'featureTag' | 'regionIdxs'>>
+  },
 ): NotMachinedWhy => {
   if (tag === null) {
     return { kind: 'noFeature' }
   }
-  const key = tag.toLowerCase()
-  const planned = setups.findIndex((setup) =>
-    (setup.unmachined ?? []).some((each) => each.toLowerCase() === key),
-  )
+  const faces = left?.regions ?? []
+  const planned = setups.findIndex((setup) => {
+    const leftHere = new Set((setup.unmachined ?? []).map((each) => each.toLowerCase()))
+    if (leftHere.has(tag.toLowerCase())) {
+      return true
+    }
+    const held = new Set(
+      (left?.trimmed ?? [])
+        .filter((feature) => leftHere.has(feature.featureTag.toLowerCase()))
+        .flatMap((feature) => feature.regionIdxs),
+    )
+    return faces.length > 0 && faces.every((region) => held.has(region))
+  })
   if (planned >= 0) {
     return { kind: 'planned', setup: indexOf(setups, planned) }
   }

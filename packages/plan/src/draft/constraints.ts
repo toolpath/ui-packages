@@ -1433,6 +1433,17 @@ export interface PlanRules {
    * is. Left out, or undefined for a tag, the adoption is not checked.
    */
   directionOf?: (tag: string) => PlanDirection | undefined
+  /**
+   * The regions of each feature the part's analysis read from a direction: what's left of a feature
+   * that loses some regions is cut along any of these that lie wholly in it (`piecesOf`). Left out,
+   * nothing is cut along them.
+   */
+  readingsFrom?: (direction: PlanDirection) => ReadonlyArray<ReadonlyArray<number>>
+  /**
+   * The regions sharing an edge with a region: what's left of a feature is cut into runs of regions
+   * that touch (`piecesOf`). Left out, it is not cut by touching.
+   */
+  touching?: (region: number) => Iterable<number>
   /** How a new group is named, in the app's word: "Group N" by default (`nextGroupName`). */
   nameGroup?: NameGroup
 }
