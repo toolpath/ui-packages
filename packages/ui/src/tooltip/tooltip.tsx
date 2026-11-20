@@ -41,7 +41,10 @@ export const Tooltip = memo(
     ...positionerProps
   }: TooltipProps) => {
     const [internalOpen, setInternalOpen] = useState(defaultOpen ?? false)
-    const open = controlledOpen ?? internalOpen
+    // Without a tip it keeps the same trigger, closed and disabled, so a child that gains or
+    // loses its tip is not mounted again and keeps focus.
+    const hasTip = Boolean(tip)
+    const open = hasTip && (controlledOpen ?? internalOpen)
 
     const providerProps = useMemo<TooltipProviderProps>(
       () => ({ delay, closeDelay, timeout }),
@@ -58,9 +61,9 @@ export const Tooltip = memo(
         defaultOpen,
         trackCursorAxis,
         onOpenChangeComplete,
-        disabled,
+        disabled: disabled || !hasTip,
       }),
-      [defaultOpen, trackCursorAxis, onOpenChangeComplete, disabled],
+      [defaultOpen, trackCursorAxis, onOpenChangeComplete, disabled, hasTip],
     )
 
     const handleOpenChange = useCallback(
@@ -79,10 +82,6 @@ export const Tooltip = memo(
       [hoverable, className],
     )
 
-    if (!tip) {
-      return <span>{children}</span>
-    }
-
     return (
       <BaseTooltip.Provider {...providerProps}>
         <BaseTooltip.Root open={open} onOpenChange={handleOpenChange} {...rootProps}>
@@ -94,27 +93,29 @@ export const Tooltip = memo(
           >
             {children}
           </BaseTooltip.Trigger>
-          <BaseTooltip.Portal>
-            <BaseTooltip.Positioner
-              className={positionerClassName}
-              sideOffset={sideOffset}
-              {...(positionerProps as TooltipPositionerProps)}
-            >
-              <BaseTooltip.Popup
-                className={cn(
-                  'bg-gray-800/90 text-white dark:bg-black/50 dark:backdrop-blur-sm dark:text-zinc-100 text-xs rounded-md break-words font-body font-medium',
-                  'dark:border dark:border-zinc-900',
-                  'px-3 py-1 transition duration-300 ease-in-out max-w-72',
-                  'data-[side=top]:origin-bottom data-[side=top]:-mb-1',
-                  'data-[side=bottom]:origin-top data-[side=bottom]:-mt-1',
-                  'data-[side=left]:origin-right',
-                  'data-[side=right]:origin-left',
-                )}
+          {hasTip ? (
+            <BaseTooltip.Portal>
+              <BaseTooltip.Positioner
+                className={positionerClassName}
+                sideOffset={sideOffset}
+                {...(positionerProps as TooltipPositionerProps)}
               >
-                {tip}
-              </BaseTooltip.Popup>
-            </BaseTooltip.Positioner>
-          </BaseTooltip.Portal>
+                <BaseTooltip.Popup
+                  className={cn(
+                    'bg-gray-800/90 text-white dark:bg-black/50 dark:backdrop-blur-sm dark:text-zinc-100 text-xs rounded-md break-words font-body font-medium',
+                    'dark:border dark:border-zinc-900',
+                    'px-3 py-1 transition duration-300 ease-in-out max-w-72',
+                    'data-[side=top]:origin-bottom data-[side=top]:-mb-1',
+                    'data-[side=bottom]:origin-top data-[side=bottom]:-mt-1',
+                    'data-[side=left]:origin-right',
+                    'data-[side=right]:origin-left',
+                  )}
+                >
+                  {tip}
+                </BaseTooltip.Popup>
+              </BaseTooltip.Positioner>
+            </BaseTooltip.Portal>
+          ) : null}
         </BaseTooltip.Root>
       </BaseTooltip.Provider>
     )

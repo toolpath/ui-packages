@@ -191,7 +191,7 @@ installed version.
 | `Slider`                                 | Numeric control with `value` and `onValueChange`; the callback receives a number.                                                                                                 |
 | `Combobox`                               | Selection/search with required `items`; `Button`, `Trigger`, `Value`, `Input`, `Popover`, `List`, `Item`, `ItemIndicator`, `Empty`, `Group`, `GroupLabel`, `Icon`, `useCombobox`. |
 | `Menu`                                   | Dropdown or context menu (`context`); `Trigger`, `Popover`, `Item`, `Divider`, `Submenu`, `SubmenuTrigger`, `useMenu`.                                                            |
-| `Tooltip`                                | Wrap one element and supply `tip`; supports placement and delay props. Creates its own provider.                                                                                  |
+| `Tooltip`                                | Wrap one element and supply `tip`; supports placement and delay props. Creates its own provider. Without a `tip` it stays closed, its child unmoved.                              |
 | `Dialog`                                 | Promise-based confirmations; `Provider`, `useDialog`, `Title`, `Message`, `Actions`, `Confirm`, `Dismiss`.                                                                        |
 | `Toast`                                  | Bottom-right feedback stack; `Provider`, `List`, `useToastManager`.                                                                                                               |
 | `Notification`                           | Top-center feedback stack; `Provider`, `List`, `useNotificationManager`.                                                                                                          |
@@ -206,7 +206,11 @@ installed version.
 | `Pagination`                             | One-based `page`, `onClick(page)`, and `pagination: { totalPages, perPage }`. The application fetches or slices the data.                                                         |
 | `Breadcrumbs`                            | Responsive trail with `Breadcrumbs.Item`; each item uses `to`, with optional `current` or `previous`.                                                                             |
 | `Link`, `LinkProvider`, `useLinkContext` | Styled anchors, with an optional application router adapter.                                                                                                                      |
-| `Callout`, `useDismissedCallouts`        | Anchored guidance with `Trigger` and `Content`; dismissal is remembered by `id` unless `rememberDismissed={false}`.                                                               |
+| `Callout`, `useDismissedCallouts`        | Anchored guidance with `Trigger` and `Content` (`closeLabel`); dismissal is remembered by `id` unless `rememberDismissed={false}`.                                                |
+| `HelpPopover`                            | A `?` button that opens a short explanation on hover, click, Enter or Space; `label`, `title`, `openOnHover`, `size`, `side`, `align`, `popupProps`. See below.                   |
+| `Tour`                                   | Controlled walk through on-screen controls, one anchored step at a time; `open`, `steps`, `step`, `onStepChange`, `onClose(reason)`, `labels`, `finalFocus`. See below.           |
+| `Alert`                                  | A message inside the page: `variant` (`info`, `warning`, `danger`, `success`), `title`, `icon`, `action`, `onDismiss`. See below.                                                 |
+| `EmptyState`                             | What an empty list or panel shows: `title`, `description`, `icon`, `action`, `headingLevel`, `size` (`page` or `compact`). See below.                                             |
 | `Badge`                                  | Compact label with `size` and `variant`.                                                                                                                                          |
 | `ProgressBar`                            | Numeric `progress` in the range 0–100, not 0–1.                                                                                                                                   |
 | `Card`                                   | Bordered content container.                                                                                                                                                       |
@@ -528,6 +532,40 @@ content through `data.content`. `timeout: 0` disables automatic dismissal;
 `data.persistent: true` disables swipe dismissal. The standard toast still has
 a close button.
 
+### Alerts and empty states
+
+`Alert` is a message that belongs to a place on the page, such as the head of a
+panel, rather than a toast that comes and goes. The tone is in its border and icon;
+its text stays neutral so it reads on every tint. Danger and warning alerts have
+`role="alert"` and are announced at once; info and success have `role="status"`.
+Pass `role` to override that. A `status` alert mounted with its text may not be
+announced at all, since screen readers hear changes to a live region: keep it on the
+page and change its text, or announce the message another way. `onDismiss` removes
+the alert with its focused button, so the application decides where focus goes next.
+
+```tsx
+import { Alert, Button, EmptyState } from '@toolpath/ui'
+
+export const SaveFailed = ({ retry }: { retry: () => void }) => (
+  <Alert variant="danger" action={<Button onClick={retry}>Try again</Button>}>
+    The plan was not saved: the revision is locked.
+  </Alert>
+)
+
+export const NoQuotes = ({ create }: { create: () => void }) => (
+  <EmptyState
+    title="No quotes"
+    description="Create your first quote to start estimating."
+    action={<Button onClick={create}>New quote</Button>}
+  />
+)
+```
+
+`EmptyState` has no text of its own: give it a `title`, and a `description` unless
+the page already explains the emptiness. Leave `action` out rather than disabling
+it when there is nothing to do. `size="compact"` fits a panel; `headingLevel` sets
+the title's heading level (2 by default) to fit the page's outline.
+
 ### Tables
 
 Pass a header element and a function that renders each row. Start with
@@ -652,7 +690,87 @@ Callouts have a stable `id`, `Callout.Trigger`, and `Callout.Content`. By defaul
 dismissal persists in localStorage, shared across apps
 on the same origin. Use unique IDs, or set `rememberDismissed={false}` for local
 component state. `useDismissedCallouts().reset(id)` clears a remembered dismissal;
-`reset()` clears all remembered callouts for that origin.
+`reset()` clears all remembered callouts for that origin. Its close button shows only
+an ×; `Callout.Content`'s `closeLabel` names it ("Close" by default).
+
+### Help popovers and tours
+
+`HelpPopover` is a `?` button beside a control or label. It opens as the pointer
+rests on it, and on click, Enter or Space (`openOnHover={false}` for click only);
+Escape or a press elsewhere closes it and focus returns to the button. It is `lg`
+by default, a mark big enough to find beside a label. Use it where a tooltip would be too long, or
+where help must be reachable by keyboard and touch. `popupProps` spreads onto the
+popup, for an application's own attributes.
+
+```tsx
+import { HelpPopover } from '@toolpath/ui'
+
+export const RevisionHelp = () => (
+  <HelpPopover label="About revisions">
+    Each send makes a new revision. Older revisions are read-only.
+  </HelpPopover>
+)
+```
+
+`Tour` walks through controls already on screen, one step at a time, each step
+anchored to the element its `anchor` function returns. It is controlled and
+remembers nothing: the application opens it, holds `step`, and is told why it
+closed: `done`, `skip` (Skip or Escape) or `anchor-lost`.
+
+```tsx
+import { Tour, type TourStep } from '@toolpath/ui'
+import { useState } from 'react'
+
+const steps: ReadonlyArray<TourStep> = [
+  {
+    id: 'add',
+    anchor: () => document.getElementById('add-folder'),
+    title: 'Add a folder',
+    body: 'Folders group the faces machined from one direction.',
+  },
+  {
+    id: 'apply',
+    anchor: () => document.getElementById('apply'),
+    title: 'Apply',
+    body: 'Edits wait here until you apply them.',
+    side: 'left',
+  },
+]
+
+export const PlanTour = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
+  const [step, setStep] = useState(0)
+  return (
+    <Tour
+      open={open}
+      steps={steps}
+      step={step}
+      onStepChange={setStep}
+      onClose={() => {
+        setStep(0)
+        onClose()
+      }}
+    />
+  )
+}
+```
+
+- Steps whose anchors are missing or not laid out (`display: none`) when it opens
+  are left out of the count; a step whose anchor has gone since, before or while
+  it shows, is skipped in the direction of travel, and with none left it closes as
+  `anchor-lost`. The last step still on screen offers Done, which closes as `done`.
+- Each step scrolls its anchor into view and moves focus to Next or Done; its title
+  and text are a polite live region, said as the step changes. On close, focus goes
+  to `finalFocus` if given, else back where it was.
+- The popup is a non-modal dialog: a press elsewhere or focus moving away does not
+  close it. Escape skips wherever focus is. With focus in the tour it is marked
+  handled (`preventDefault`) and stopped, so the page's own Escape does not also
+  act; with focus on the page, handlers on the page's elements (React's included)
+  see it first.
+- `labels` replaces its words: `back`, `next`, `done`, `skip`, `progress(n, m)`.
+  One left out or undefined keeps the English word.
+
+Help popover and tour popups carry a `data-tip` attribute, so a page's keyboard
+handling can tell them apart from its own dialogs.
 
 ## DFM views
 

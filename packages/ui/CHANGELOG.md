@@ -1,5 +1,15 @@
 # @toolpath/ui
 
+## 1.8.0
+
+### Minor Changes
+
+- ed80f8c: `Alert` is a message inside the page, `EmptyState` what an empty list or panel shows,
+  `HelpPopover` a `?` button that opens a short explanation, and `Tour` a controlled walk through
+  on-screen controls, one anchored step at a time. `Callout.Content` takes `closeLabel`, the
+  accessible name of its close button ("Close" by default). `Tooltip` keeps the same trigger
+  with or without a `tip`, so a child whose tip comes or goes is not mounted again and keeps focus.
+
 ## 1.7.0
 
 ### Minor Changes
