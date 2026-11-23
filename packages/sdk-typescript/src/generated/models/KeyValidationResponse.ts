@@ -27,6 +27,30 @@ export interface KeyValidationResponse {
    * @memberof KeyValidationResponse
    */
   status: KeyValidationResponseStatusEnum
+  /**
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
+   * The Toolpath organization that owns this key. Stable across key rotation and regeneration. Present only when the key is active.
+   * @type {string}
+   * @memberof KeyValidationResponse
+   */
+  orgId?: string
+  /**
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
+   * The stable id of this key, unchanged when its secret is regenerated. Present only when the key is active.
+   * @type {string}
+   * @memberof KeyValidationResponse
+   */
+  keyId?: string
+  /**
+   * **Experimental.** Available now and still gaining functionality. It may change in breaking ways in a minor API release; each such change is listed in the release notes, so check them before upgrading.
+   *
+   * The non-secret leading characters of the key, as Portal lists it. They change when its secret is regenerated: identify a key by `keyId`. Present only when the key is active.
+   * @type {string}
+   * @memberof KeyValidationResponse
+   */
+  keyPrefix?: string
 }
 
 /**
@@ -64,6 +88,9 @@ export function KeyValidationResponseFromJSONTyped(
   return {
     valid: json['valid'],
     status: json['status'],
+    orgId: json['orgId'] == null ? undefined : json['orgId'],
+    keyId: json['keyId'] == null ? undefined : json['keyId'],
+    keyPrefix: json['keyPrefix'] == null ? undefined : json['keyPrefix'],
   }
 }
 
@@ -82,5 +109,8 @@ export function KeyValidationResponseToJSONTyped(
   return {
     valid: value['valid'],
     status: value['status'],
+    orgId: value['orgId'],
+    keyId: value['keyId'],
+    keyPrefix: value['keyPrefix'],
   }
 }

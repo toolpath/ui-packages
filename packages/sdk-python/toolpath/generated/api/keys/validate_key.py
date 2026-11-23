@@ -62,8 +62,9 @@ def sync_detailed(
     """Validate an API key
 
      Reports the status of the API key supplied in the Authorization header. A usable key returns 200; a
-    missing, revoked, expired, or unknown key returns 401 — both with the same status body (never
-    problem+json) — so bring-your-own-key integrations can confirm a key and show why it failed.
+    missing, revoked, expired, or unknown key returns 401 — both with a status body (never problem+json)
+    — so bring-your-own-key integrations can confirm a key and show why it failed. A 200 additionally
+    carries the key's `orgId`, `keyId` and `keyPrefix` when available; a 401 never does.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -89,8 +90,9 @@ def sync(
     """Validate an API key
 
      Reports the status of the API key supplied in the Authorization header. A usable key returns 200; a
-    missing, revoked, expired, or unknown key returns 401 — both with the same status body (never
-    problem+json) — so bring-your-own-key integrations can confirm a key and show why it failed.
+    missing, revoked, expired, or unknown key returns 401 — both with a status body (never problem+json)
+    — so bring-your-own-key integrations can confirm a key and show why it failed. A 200 additionally
+    carries the key's `orgId`, `keyId` and `keyPrefix` when available; a 401 never does.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -112,8 +114,9 @@ async def asyncio_detailed(
     """Validate an API key
 
      Reports the status of the API key supplied in the Authorization header. A usable key returns 200; a
-    missing, revoked, expired, or unknown key returns 401 — both with the same status body (never
-    problem+json) — so bring-your-own-key integrations can confirm a key and show why it failed.
+    missing, revoked, expired, or unknown key returns 401 — both with a status body (never problem+json)
+    — so bring-your-own-key integrations can confirm a key and show why it failed. A 200 additionally
+    carries the key's `orgId`, `keyId` and `keyPrefix` when available; a 401 never does.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -137,8 +140,9 @@ async def asyncio(
     """Validate an API key
 
      Reports the status of the API key supplied in the Authorization header. A usable key returns 200; a
-    missing, revoked, expired, or unknown key returns 401 — both with the same status body (never
-    problem+json) — so bring-your-own-key integrations can confirm a key and show why it failed.
+    missing, revoked, expired, or unknown key returns 401 — both with a status body (never problem+json)
+    — so bring-your-own-key integrations can confirm a key and show why it failed. A 200 additionally
+    carries the key's `orgId`, `keyId` and `keyPrefix` when available; a 401 never does.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

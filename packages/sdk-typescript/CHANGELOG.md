@@ -1,5 +1,27 @@
 # @toolpath/api
 
+## 0.26.0
+
+### Minor Changes
+
+- debe4d6: Regenerate the TypeScript SDK for Engine API 1.49.0.
+
+  ### Engine API 1.49.0
+
+  Validating an active API key now also says which organization and key it is. The new fields are
+  optional and experimental; `valid` and `status` are unchanged.
+
+  **Keys** (`POST /v1/keys/validate`):
+
+  - Experimental: a 200 response may state `orgId`, the Toolpath organization that owns the key,
+    stable across key rotation and regeneration; `keyId`, the key's stable id, unchanged when its
+    secret is regenerated; and `keyPrefix`, the key's non-secret leading characters, which change
+    when it is regenerated. The fields are optional, so a client should handle their absence. A 401
+    for a revoked, expired or invalid key never carries them.
+  - An enabled, unexpired key whose organization was deleted now reports `invalid` (401), as every
+    other route already refuses it. It used to report `active`. A key disabled when its team was
+    deleted still reports `revoked`.
+
 ## 0.25.0
 
 ### Minor Changes
