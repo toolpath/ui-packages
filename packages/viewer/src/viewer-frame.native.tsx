@@ -12,7 +12,8 @@ import {
 import { SceneLabelStoreContext } from './label-context.js'
 import { LabelOverlay } from './label-overlay.js'
 import { type LabelStore, createLabelStore } from './render/label-store.js'
-import { createPresenter, createSceneRelease, createUnmountRelease } from './render/native-gl.js'
+import { createPresenter, createSceneRelease } from './render/native-gl.js'
+import { createUnmountRelease } from './render/unmount-release.js'
 import type { ViewportSize } from './render/camera.js'
 import { useAppInactive, useRepaintOnResume } from './render/pause-inactive.js'
 import {

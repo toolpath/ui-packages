@@ -36,6 +36,7 @@ import { faceAxesOf } from './render/face-axis.js'
 import { type PartPick, buildPick, turnDirection, viewDirection } from './render/picking.js'
 import { readTarget } from './render/orbit-target.js'
 import { readPointer } from './render/pointer.js'
+import { createUnmountRelease } from './render/unmount-release.js'
 import { useSectionStore, useViewerControls } from './viewer.js'
 import { SectionView, resolveSectionPlane } from './section-view.js'
 import { useContentBox } from './content-box.js'
@@ -317,7 +318,14 @@ export const PartMesh = ({
     onHoverRef.current?.(null)
   }, [part, repaint])
 
-  useEffect(() => () => part.dispose(), [part])
+  // The part is memoized, and when a Suspense boundary shows it StrictMode runs this cleanup and
+  // then the effect again on the same part: disposed there, it would be drawn empty. So the
+  // dispose waits a task, and the effect running again calls it off.
+  const lifetime = useMemo(() => createUnmountRelease({ gone: () => part.dispose() }), [part])
+  useEffect(() => {
+    lifetime.mounted()
+    return lifetime.unmounted
+  }, [lifetime])
 
   useAdjacencyReport(model, geometry, onAdjacency)
 

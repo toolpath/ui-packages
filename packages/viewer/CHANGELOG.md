@@ -1,5 +1,11 @@
 # @toolpath/viewer
 
+## 3.14.1
+
+### Patch Changes
+
+- 0630425: `PartMesh` and `EnginePart` are drawn under React's StrictMode. In development StrictMode runs a part's cleanup and setup again when a Suspense boundary shows it, and the part was disposed in between, leaving the canvas empty; the dispose now waits a task and is called off when the part mounts again.
+
 ## 3.14.0
 
 ### Minor Changes

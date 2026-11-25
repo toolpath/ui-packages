@@ -106,24 +106,3 @@ export const createSceneRelease = (scene: Object3D) => {
     },
   }
 }
-
-/**
- * When a canvas that has gone frees its scene: on the next task.
- *
- * React's StrictMode, which fiber carries into the canvas, runs every effect's
- * cleanup and then its setup again on a canvas that stays. Freed in the
- * cleanup itself, the live scene's geometry and materials would all upload
- * again; `mounted` cancels what `unmounted` set off.
- */
-export const createUnmountRelease = (release: { gone(): void }) => {
-  let pending: ReturnType<typeof setTimeout> | undefined
-  return {
-    mounted: (): void => {
-      clearTimeout(pending)
-      pending = undefined
-    },
-    unmounted: (): void => {
-      pending = setTimeout(() => release.gone(), 0)
-    },
-  }
-}
